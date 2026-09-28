@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { MINUS, adaptiveDigits, fmtChange, fmtClock, fmtCompact, fmtCompactChange, fmtIndicator, fmtMonths, fmtNum, fmtResidual, fmtSigned, fmtValue, relChangePct, unitKind } from '../../src/ui/model/format.ts';
+import { MINUS, adaptiveDigits, fmtChange, fmtClock, fmtCompact, fmtCompactChange, fmtIndicator, fmtMonths, fmtNum, fmtResidual, fmtSigned, fmtValue, relChangePct, unitCaption, unitKind } from '../../src/ui/model/format.ts';
 
 describe('numbers', () => {
   test('adaptive digits keep about three significant figures', () => {
@@ -56,6 +56,19 @@ describe('units', () => {
     expect(fmtCompactChange(0.001, 'fraction')).toBe('+0.10pp');
     expect(fmtCompactChange(0.02, 'index', 1)).toBe('+2.0%');
     expect(fmtCompactChange(-0.5, '% of GDP/yr')).toBe(`${MINUS}0.50`);
+  });
+
+  test('a rate held in percent: its value keeps the unit, its changes are in pp, like a fraction’s', () => {
+    for (const u of ['%', '%/yr', '% a year', '% per year']) expect(unitKind(u)).toBe('percentRate');
+    for (const u of ['% of GDP/yr', '% of GDP', '% vs baseline', '% of PF assets']) expect(unitKind(u)).toBe('percent');
+    expect(fmtValue(4.6, '%/yr')).toBe('4.60%/yr');
+    // keyRateSuggestion (%/yr) and ruleRate (fraction/yr) moving by the same 1.6 points read alike.
+    expect(fmtChange(1.6, '%/yr')).toBe('+1.60 pp');
+    expect(fmtChange(0.016, 'fraction/yr')).toBe('+1.60 pp');
+    expect(fmtCompactChange(1.6, '%/yr')).toBe('+1.60pp');
+    expect(fmtCompactChange(0.016, 'fraction/yr')).toBe('+1.60pp');
+    expect(unitCaption('%/yr')).toBe('%/yr, changes in pp');
+    expect(fmtChange(-0.25, '%')).toBe(`${MINUS}0.25 pp`);
   });
 
   test('indicators in display units', () => {
