@@ -26,7 +26,9 @@ export class Ledger {
   readonly open: Float64Array;
   /** Change of each position this step, by event kind: [(ins * NP + player) * 4 + kind]. */
   readonly byKind: Float64Array;
-  /** Income minus spending on current and capital account this step (saving), per player. */
+  /** Saving this step, per player: income minus current spending (transfer and accrue postings,
+   *  and the seller's side of a purchase). Buying a real asset is not deducted: it swaps money
+   *  for the asset and does not change net worth, so this is saving, not net lending. */
   readonly income: Float64Array;
   /** Revaluations and write-offs this step (other changes in net worth), per player. */
   readonly other: Float64Array;
