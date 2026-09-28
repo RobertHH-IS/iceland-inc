@@ -1,17 +1,17 @@
 /**
- * `bun run harness [--update-golden] [--model <id>] [--runs <n>] [--seed <n>] [--plausibility warn|fail] [--signs warn|fail]`
+ * `bun run harness [--update-golden] [--model <id>] [--runs <n>] [--seed <n>]`
  *
  * Runs the six test layers for every model in src/models/index.ts, writes
  * reports/harness-<modelId>.md, prints a summary and exits with code 1 on any failure.
- * --plausibility and --signs say whether implausible values and wrong-signed positions in the
- * property and lever-extremes runs fail the harness (default: warn, reported only).
+ * Implausible values and wrong-signed positions in the property runs, the lever-extremes sweep
+ * and the golden scenarios are failures (decision 0005); only a model's declared exemptions
+ * (InstrumentDef.mayGoNegative) are left out.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { models } from '../models/index.ts';
 import { runHarness, type HarnessOptions } from './layers.ts';
 import { renderReport } from './report.ts';
-import type { Severity } from './plausibility.ts';
 
 const root = resolve(import.meta.dir, '..', '..');
 const args = process.argv.slice(2);
@@ -21,15 +21,6 @@ const option = (name: string) => {
   return j >= 0 ? args[j + 1] : undefined;
 };
 
-function severity(name: string): Severity {
-  const v = option(name) ?? 'warn';
-  if (v !== 'warn' && v !== 'fail') {
-    console.error(`${name} must be 'warn' or 'fail', not '${v}'`);
-    process.exit(1);
-  }
-  return v;
-}
-
 const opts: HarnessOptions = {
   updateGolden: flag('--update-golden'),
   goldenDir: join(root, 'tests', 'golden'),
@@ -37,9 +28,12 @@ const opts: HarnessOptions = {
   propertyMonths: 120,
   seed: Number(option('--seed') ?? 20260928),
   extremeMonths: 240,
-  plausibility: severity('--plausibility'),
-  signs: severity('--signs'),
 };
+for (const gone of ['--plausibility', '--signs'])
+  if (flag(gone)) {
+    console.error(`${gone} is gone: implausible values and wrong-signed positions always fail (decision 0005)`);
+    process.exit(1);
+  }
 const only = option('--model');
 const selected = only ? models.filter((m) => m.id === only) : models;
 if (only && !selected.length) {

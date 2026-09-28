@@ -16,7 +16,7 @@ import { runScenario } from '../core/scenario.ts';
 import { CHECKS, DEFAULT_TOLERANCE } from '../core/checks.ts';
 import { baselineReport, type BaselineReport } from '../core/steady.ts';
 import { compareGolden, nonFiniteValues, readGolden, writeGolden, GOLDEN_ABS, GOLDEN_REL, type GoldenFile } from './golden.ts';
-import { firstNonFinite, plausibilityBounds, plausibilityBreaches, SIGN_TOL, type Breach, type Severity } from './plausibility.ts';
+import { firstNonFinite, plausibilityBounds, plausibilityBreaches, type Breach } from './plausibility.ts';
 import { allLeversScenarios, leverExtremeRuns, timingShock, type HarnessScenario } from './scenarios.ts';
 import { rng } from './rng.ts';
 
@@ -28,11 +28,6 @@ export interface HarnessOptions {
   seed: number;
   /** Months of each lever-extremes run. */
   extremeMonths: number;
-  /** Whether implausible values (unemployment outside [0, 50%], a price index at or below zero…)
-   *  in the property and lever-extremes runs fail the robustness layer or are only reported. */
-  plausibility: Severity;
-  /** The same for positions with the wrong sign for their role (a holder's overdraft). */
-  signs: Severity;
 }
 
 export interface LayerResult {
@@ -279,8 +274,8 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   let pass6 = true;
   const sum6: string[] = [];
   const levers = m.levers;
-  // What every property and lever-extremes run must satisfy (a failure) and should (a breach,
-  // which fails only when its severity option says so).
+  // What every property, lever-extremes and golden run must satisfy: finite values, passing
+  // accounting checks, plausible values and positions with the right sign (decision 0005).
   const bounds = plausibilityBounds(m);
   let worstRes = 0;
   const inspect = (name: string, events: ScenarioEvent[], months: number): { why: string; breaches: Breach[] } => {
@@ -294,14 +289,14 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       return { why: `threw: ${(err as Error).message}`, breaches: [] };
     }
   };
-  const gated = (b: Breach) => (b.kind === 'sign' ? opts.signs : opts.plausibility) === 'fail';
-  const failNote = (b: Breach[]) => `${b.length} breach(es) that fail, first ${b[0].what} ${b[0].rule} at month ${b[0].first}`;
-  const gateNote = `Implausible values ${opts.plausibility === 'fail' ? 'fail' : 'are warnings'}; wrong-signed positions ${opts.signs === 'fail' ? 'fail' : 'are warnings'}`;
+  const failNote = (b: Breach[]) => `${b.length} implausible value(s) or wrong-signed position(s), first ${b[0].what} (${b[0].rule}) at month ${b[0].first}, furthest ${f(b[0].worst, 4)}`;
+  const signTol = engine.checks().signTolerance ?? 0;
+  const exempt = m.instruments.flatMap((ins) => (ins.mayGoNegative ? [`\`${ins.id}\`${ins.mayGoNegative.players ? ` (${ins.mayGoNegative.players.join(', ')})` : ''}`] : []));
+  const plausibleNote = `Plausibility: ${bounds.length} bounds on variables (${[...new Set(bounds.map((b) => b.rule))].map((r) => `${bounds.filter((b) => b.rule === r).map((b) => `\`${b.id}\``).join(', ')} ${r}`).join('; ')}), and the kernel's position-sign diagnostic: a holder's asset and an issuer's liability at least −${e2(signTol)} (exempt, decision 0005: ${exempt.join(', ') || 'none'}). Any breach fails the run`;
   // 6a. property tests
   {
     const rand = rng(opts.seed);
     let ok = 0;
-    let warned = 0;
     const bad: string[] = [];
     for (let k = 0; k < opts.propertyRuns; k++) {
       const nEv = 1 + Math.floor(rand() * 4);
@@ -315,9 +310,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       }
       events.sort((a, b) => a.t - b.t);
       const { why, breaches } = inspect(`property run ${k + 1}`, events, opts.propertyMonths);
-      const failing = breaches.filter(gated);
-      if (breaches.length) warned++;
-      if (why || failing.length) bad.push(`- run ${k + 1}: ${why || failNote(failing)}; events ${JSON.stringify(events)}`);
+      if (why || breaches.length) bad.push(`- run ${k + 1}: ${why || failNote(breaches)}; events ${JSON.stringify(events)}`);
       else ok++;
     }
     const pass = ok === opts.propertyRuns;
@@ -326,7 +319,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Property tests',
       '',
-      `${opts.propertyRuns} runs of ${opts.propertyMonths} months, each with 1 to 4 random lever events (values uniform within each lever's range, months 0 to 24; seed ${opts.seed}). Every variable and stock must stay finite and every accounting check must pass. ${gateNote} (see Lever extremes for the checks); ${warned} run(s) had some. Largest residual: ${e2(worstRes)}. ${ok}/${opts.propertyRuns} pass: ${verdict(pass)}.`,
+      `${opts.propertyRuns} runs of ${opts.propertyMonths} months, each with 1 to 4 random lever events (values uniform within each lever's range, months 0 to 24; seed ${opts.seed}). Every variable and stock must stay finite and every accounting check must pass. ${plausibleNote}. Largest residual: ${e2(worstRes)}. ${ok}/${opts.propertyRuns} pass: ${verdict(pass)}.`,
       '',
       ...bad.slice(0, 10),
       '',
@@ -344,13 +337,12 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     for (const x of runs) {
       const setting = `${x.lever} = ${x.value}${x.mode ? `, ${x.mode}` : ''}`;
       const { why, breaches } = inspect(`lever extreme ${setting}`, x.events, opts.extremeMonths);
-      const failing = breaches.filter(gated);
-      if (why || failing.length) bad.push(`- ${setting}: ${why || failNote(failing)}`);
+      if (why || breaches.length) bad.push(`- ${setting}: ${why || failNote(breaches)}`);
       else ok++;
       nBreach += breaches.length;
       for (const b of breaches) {
         affected.add(`${b.kind}:${b.what}`);
-        rows.push(`| ${x.lever} | ${x.value} | ${x.mode || '–'} | ${b.what} ${b.rule} | ${b.first} | ${f(b.worst, 4)} | ${gated(b) ? 'FAIL' : 'warn'} |`);
+        rows.push(`| ${x.lever} | ${x.value} | ${x.mode || '–'} | ${b.what} (${b.rule}) | ${b.first} | ${f(b.worst, 4)} |`);
       }
     }
     const seconds = (performance.now() - t0) / 1000;
@@ -361,13 +353,13 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Lever extremes',
       '',
-      `Every lever alone at its min and at its max (a choice: each option other than its default), from month 0 for ${opts.extremeMonths} months${modes}: ${runs.length} runs in ${f(seconds, 1)} s. Every variable and stock must stay finite and every accounting check must pass. Plausibility: ${bounds.length} bounds on variables (${[...new Set(bounds.map((b) => b.rule))].map((r) => `${bounds.filter((b) => b.rule === r).map((b) => `\`${b.id}\``).join(', ')} ${r}`).join('; ')}) and the sign of every position (a holder's asset at least −${SIGN_TOL.toExponential()}, an issuer’s liability at most +${SIGN_TOL.toExponential()}). ${gateNote}. ${ok}/${runs.length} pass: ${verdict(pass)}.`,
+      `Every lever alone at its min and at its max (a choice: each option other than its default), from month 0 for ${opts.extremeMonths} months${modes}: ${runs.length} runs in ${f(seconds, 1)} s. Every variable and stock must stay finite and every accounting check must pass. ${plausibleNote}. ${ok}/${runs.length} pass: ${verdict(pass)}.`,
       '',
       ...bad.slice(0, 10),
       '',
-      rows.length ? `${rows.length} breach(es) of ${affected.size} bound(s) or position(s):` : 'No implausible values.',
+      rows.length ? `${rows.length} breach(es) of ${affected.size} bound(s) or position(s):` : 'No implausible values and no wrong-signed positions.',
       '',
-      ...(rows.length ? ['| Lever | Value | Mode | Breach | First month | Furthest value | Severity |', '|---|---|---|---|---|---|---|', ...rows] : []),
+      ...(rows.length ? ['| Lever | Value | Mode | Breach | First month | Furthest value |', '|---|---|---|---|---|---|', ...rows] : []),
       '',
     );
   }
@@ -496,6 +488,12 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
         continue;
       }
       const r = run(`golden ${s.name}`, s.events, s.months);
+      // A golden path must be one a real economy could take: plausible values, right-signed positions.
+      const breaches = plausibilityBreaches(m, r.engine, bounds);
+      if (breaches.length) {
+        rows.push(`| ${s.name} | ${opts.updateGolden ? 'not written' : 'not compared'} | ${failNote(breaches)} | FAIL |`);
+        continue;
+      }
       const g: GoldenFile = { format: 'iceland-inc/golden@1', modelId: m.def.id, scenario: s.name, months: s.months, events: s.events, indicators: {} };
       for (const ind of m.indicators) g.indicators[ind.id] = r.series(ind.id);
       if (opts.updateGolden) {
@@ -524,7 +522,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Golden scenarios',
       '',
-      `Stored indicator paths in \`tests/golden/${m.def.id}/\`, compared point by point with tolerance ${GOLDEN_ABS} + ${GOLDEN_REL} × |stored value|; a stored or new value that is not a finite number fails. The table shows the point furthest outside, or nearest to, its tolerance. The all-levers scenarios move every lever in turn, one every 3 months, and run 36 months past the last${def.stabiliserMode ? ', once in each stabiliser mode' : ''}. ${opts.updateGolden ? 'Updated in this run.' : ''}`,
+      `Stored indicator paths in \`tests/golden/${m.def.id}/\`, compared point by point with tolerance ${GOLDEN_ABS} + ${GOLDEN_REL} × |stored value|; a stored or new value that is not a finite number fails, and so does a run with an implausible value or a wrong-signed position (the checks of the lever extremes). The table shows the point furthest outside, or nearest to, its tolerance. The all-levers scenarios move every lever in turn, one every 3 months, and run 36 months past the last${def.stabiliserMode ? ', once in each stabiliser mode' : ''}. ${opts.updateGolden ? 'Updated in this run.' : ''}`,
       '',
       '| Scenario | Difference at the worst point | Where | Verdict |',
       '|---|---|---|---|',

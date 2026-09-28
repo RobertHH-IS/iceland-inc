@@ -2,11 +2,16 @@
  * Every registered model: its module tests and calibration checks, run under `bun test`.
  */
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createEngine } from '../../src/core/engine.ts';
 import { runScenario } from '../../src/core/scenario.ts';
 import { compile } from '../../src/core/compile.ts';
 import type { ModelDef } from '../../src/core/types.ts';
 import { conceptLibrary, models } from '../../src/models/index.ts';
+
+/** Decision 0005 lists every position a model lets take either sign, one row per exemption. */
+const DECISION_0005 = readFileSync(join(import.meta.dir, '..', '..', 'docs', 'decisions', '0005-position-signs.md'), 'utf8');
 
 const AGREED = new Set([
   'double-entry', 'stock-flow-consistency', 'net-worth', 'sectoral-balances', 'accrual-vs-cash',
@@ -57,6 +62,15 @@ for (const def of models) {
       const m = compile(def);
       const undefinedIds = m.warnings.filter((w) => w.startsWith('concept '));
       if (conceptLibrary.length) expect(undefinedIds).toEqual([]);
+    });
+
+    test('every position-sign exemption is listed, with its players, in decision 0005', () => {
+      for (const mod of def.modules)
+        for (const ins of mod.instruments ?? [])
+          if (ins.mayGoNegative) {
+            const players = ins.mayGoNegative.players ?? [...(ins.holders ?? []), ...(ins.issuers ?? [])];
+            expect(DECISION_0005).toContain(`| ${def.id} | \`${ins.id}\` | ${players.map((p) => `\`${p}\``).join(', ')} |`);
+          }
     });
 
     if (def.id === 'reference')

@@ -124,7 +124,7 @@ Because this is implemented once, *money creation is never computed by a formula
 
 A failed check is recorded in `checks().failures`, or thrown with `onCheckFailure: 'throw'`. A throw comes after the month is recorded and its lever events applied, so the engine is where a replay would be.
 
-**Position signs (a diagnostic, tolerance 1e-6).** The four checks prove that nothing leaks, but they pass just as well when a household's deposits go below zero, a pension fund sells bonds it does not have, or a firm's capital stock turns negative. So every step, the engine also checks each position's sign against its role: a holder's asset must be at least −1e-6, an issuer's liability at least −1e-6 (in the `Ctx.stock` convention, where both are positive), and a real asset, which has holders only, at least −1e-6. The first month each position breaks this is recorded in `checks().signViolations` (instrument, player, role, month, value). It is not an accounting failure: it never throws and never appears in `failures`, and it has its own tolerance (`EngineOptions.signTolerance`), because a position a millionth of a unit below zero is a rounding matter, not an accounting one. A model that deliberately lets a position take either sign (a net position, such as an overdraft facility) declares it with `InstrumentDef.mayGoNegative`, which needs a reason. Decision record [0005](decisions/0005-position-signs.md) has the details.
+**Position signs (a diagnostic, tolerance 1e-6).** The four checks prove that nothing leaks, but they pass just as well when a household's deposits go below zero, a pension fund sells bonds it does not have, or a firm's capital stock turns negative. So every step, the engine also checks each position's sign against its role: a holder's asset must be at least −1e-6, an issuer's liability at least −1e-6 (in the `Ctx.stock` convention, where both are positive), and a real asset, which has holders only, at least −1e-6. The first month each position breaks this is recorded in `checks().signViolations` (instrument, player, role, month, value). It is not an accounting failure: it never throws and never appears in `failures`, and it has its own tolerance (`EngineOptions.signTolerance`), because a position a millionth of a unit below zero is a rounding matter, not an accounting one. A model that deliberately lets a position take either sign (a net position, such as an overdraft facility) declares it with `InstrumentDef.mayGoNegative`, which needs a reason and a row in decision record [0005](decisions/0005-position-signs.md), which has the details. The engine only records violations; the harness fails on them (§6).
 
 ### 4.5 Baseline
 
@@ -163,15 +163,15 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 
 1. **Compilation:** unique ids, one rule per variable, every reference resolved, schedule built, and warnings listed.
 2. **Contract unit tests:** each module's `tests` (amortisation, indexation, debt-service test arithmetic, payment-system cases).
-3. **Accounting:** all four checks across every scenario, with the maximum residual reported. The position-sign diagnostic (§4.4) runs on the same engines; its violations are available from `checks().signViolations` but do not yet fail the harness (decision 0005).
+3. **Accounting:** all four checks across every scenario, with the maximum residual reported. The position-sign diagnostic (§4.4) runs on the same engines; the robustness layer fails on its violations (below).
 4. **Baseline:** 240 months with no shock; the maximum drift of every variable and stock must be below 1e-9.
 5. **Calibration:** the model's `CalibrationCheck`s, each a scenario, a measure and a plausible range with a source. The result is a PASS/FAIL table.
 6. **Robustness:**
-   - **property tests:** random lever combinations within range produce no NaNs and no failed checks;
-   - **lever extremes:** every lever alone at its min and at its max for 240 months, in each stabiliser mode, with the same requirements; implausible values (an unemployment rate outside [0, 50%], a price index at or below zero, a negative key rate) and positions with the wrong sign for their role are reported as warnings, or failures with `--plausibility fail` and `--signs fail`;
+   - **property tests:** random lever combinations within range produce no NaNs, no failed checks, no implausible values (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate) and no position with the wrong sign for its role (`checks().signViolations`, which leaves out the positions a model declares with `mayGoNegative`, each listed in decision 0005). Any of these fails the run;
+   - **lever extremes:** every lever alone at its min and at its max for 240 months, in each stabiliser mode, with the same requirements;
    - **numerics:** half-step and tolerance sensitivity (a timing measure may move by one quarter, any other by 10%);
    - **determinism:** the same scenario gives identical results;
-   - **golden scenarios:** stored outputs, so any change in results is visible in review.
+   - **golden scenarios:** stored outputs, so any change in results is visible in review. A golden run must also meet the plausibility and sign requirements, so no stored path is one a real economy could not take.
 
 `bun test` runs the kernel's own unit tests and every module's tests. GitHub Actions runs both on each push.
 

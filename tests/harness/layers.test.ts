@@ -1,13 +1,16 @@
 /**
  * The harness layers on the reference model: half-step tolerances (audit L27, L28), runs on
- * forks reaching the accounting layer (L29), the golden guard for late events (M19) and the
- * severity switch of the lever-extremes sweep (M22).
+ * forks reaching the accounting layer (L29), the golden guard for late events (M19), and the
+ * plausibility gate of the property, lever-extremes and golden runs (M22, H1, decision 0005).
  */
 import { describe, expect, test } from 'bun:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createEngine } from '../../src/core/engine.ts';
 import { runScenario } from '../../src/core/scenario.ts';
-import type { CalibrationCheck, ModelDef, RunResult } from '../../src/core/types.ts';
+import type { CalibrationCheck, InstrumentDef, ModelDef, ModuleDef, RunResult } from '../../src/core/types.ts';
+import { param, rule, tinyModel, variable } from '../core/fixtures.ts';
 import { models } from '../../src/models/index.ts';
 import { HALF_STEP_BAND, HALF_STEP_TOL, halfStepShare, runHarness, type HarnessOptions } from '../../src/harness/layers.ts';
 
@@ -20,8 +23,6 @@ const opts: HarnessOptions = {
   propertyMonths: 36,
   seed: 1,
   extremeMonths: 60,
-  plausibility: 'warn',
-  signs: 'warn',
 };
 const layer = (r: ReturnType<typeof runHarness>, n: number) => r.layers.find((l) => l.n === n)!;
 
@@ -117,16 +118,55 @@ describe('runHarness on the reference model', () => {
     expect(l6.body.find((x) => x.startsWith('| calibration-late |'))).toContain('1 event(s) at or after month 60 would never apply');
   });
 
-  test('M22: breaches are warnings by default and failures when the severity says so', () => {
-    const extremes = (o: HarnessOptions) => {
-      const s = /extremes (\d+)\/(\d+) \((\d+) breach/.exec(layer(runHarness(reference, o), 6).summary)!;
-      return { ok: Number(s[1]), runs: Number(s[2]), warnings: Number(s[3]) };
+  test('M22: a lever setting that pushes a variable out of its plausible bounds fails the sweep', () => {
+    // A key rate held at −1% on Manual breaks the bound 'keyRate ≥ 0'.
+    const wild: ModelDef = {
+      ...reference,
+      modules: reference.modules.map((mod) => (mod.levers?.some((l) => l.id === 'keyRateFixed') ? { ...mod, levers: mod.levers.map((l) => (l.id === 'keyRateFixed' ? { ...l, min: -1 } : l)) } : mod)),
     };
-    const warn = extremes(opts);
-    expect(warn.ok).toBe(warn.runs);
-    const fail = extremes({ ...opts, plausibility: 'fail', signs: 'fail' });
-    expect(fail.warnings).toBe(warn.warnings);
-    if (warn.warnings) expect(fail.ok).toBeLessThan(fail.runs);
-    else expect(fail.ok).toBe(fail.runs);
+    const l6 = layer(runHarness(wild, opts), 6);
+    expect(l6.pass).toBe(false);
+    expect(l6.body.find((x) => x.startsWith('- keyRateFixed = -1, Manual'))).toContain('keyRate (≥ 0) at month 1');
+    expect(layer(runHarness(reference, opts), 6).body.some((x) => x.startsWith('- keyRateFixed'))).toBe(false);
+  });
+});
+
+/** Households pay a fine to the government, set by a lever up to 200 a year: at the top it
+ *  overdraws their 50 of deposits within months. The bank has reserves enough to pay it. */
+function fineModel(mayGoNegative?: InstrumentDef['mayGoNegative']): ModelDef {
+  const fine: ModuleDef = {
+    id: 'fine',
+    label: 'Fine',
+    description: 'A fine households pay to the government.',
+    vars: [variable('fine', 0)],
+    params: [param('fineLevel', 0)],
+    rules: [rule({ id: 'fine', target: 'fine', category: 'POLICY', params: ['fineLevel'], compute: (c) => c.p('fineLevel') })],
+    flows: [{ id: 'fine', label: 'Fine', kind: 'cash', account: 'current', posting: { type: 'transfer' }, legs: [{ from: 'HH', to: 'G', amount: 'fine' }], explain: { what: 'a fine' } }],
+    levers: [{ id: 'fine', label: 'Fine', group: 'Policy', kind: 'setting', unit: '% of GDP', default: 0, min: 0, max: 200, binds: { param: 'fineLevel', mode: 'replace' }, description: 'fine', definition: 'Level, persistent while set.' }],
+  };
+  const def = tinyModel([fine]);
+  if (mayGoNegative) def.modules[0].instruments = def.modules[0].instruments!.map((i) => (i.id === 'deposits' ? { ...i, mayGoNegative } : i));
+  def.steadyState.initialStocks = def.steadyState.initialStocks.map(([i, p, v]) => [i, p, i === 'reserves' ? 2000 : v]);
+  return def;
+}
+
+describe('H1: the harness fails on wrong-signed positions that are not exempt', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'harness-signs-'));
+  const run = (def: ModelDef) => layer(runHarness(def, { ...opts, goldenDir: dir, updateGolden: true }), 6);
+
+  test('an overdraft fails the lever-extremes sweep and is not written as a golden', () => {
+    const l6 = run(fineModel());
+    expect(l6.pass).toBe(false);
+    expect(l6.summary).toContain('extremes 0/1');
+    expect(l6.body.find((x) => x.startsWith('- fine = 200'))).toContain('deposits / HH (holder’s asset ≥ 0)');
+    expect(l6.body.find((x) => x.startsWith('| all-levers |'))).toContain('not written');
+  });
+
+  test('a declared exemption is honoured', () => {
+    const l6 = run(fineModel({ reason: 'households may run an overdraft at the bank' }));
+    expect(l6.summary).toContain('extremes 1/1 (0 breach(es))');
+    expect(l6.body.find((x) => x.startsWith('| all-levers |'))).toContain('written');
+    expect(l6.body.join('\n')).toContain('exempt, decision 0005: `deposits`');
+    rmSync(dir, { recursive: true, force: true });
   });
 });

@@ -1,24 +1,21 @@
 /**
- * What the robustness layer asks of a run beyond the accounting: every value finite (a failure),
- * and plausible values (warnings for now; `Severity` switches them to failures).
+ * What the robustness layer asks of a run beyond the accounting: every value finite, every
+ * variable inside its plausible bounds and every position with the sign its role gives it. Each
+ * is a failure (decision 0005): the property runs, the lever-extremes sweep and the golden
+ * scenarios fail on any breach.
  *
  * Plausibility has two parts:
  *   bounds   economic invariants on variables, found by id, kind and unit, in the model's own units
- *   signs    every position has the sign its role gives it: a holder's asset is not negative, an
- *            issuer's liability is not positive (real assets have holders only)
- *
- * The sign test here is the harness's own reading of architecture §4.4 and audit H1. When the
- * kernel reports sign breaches itself, read them from the engine instead.
+ *   signs    the kernel's position-sign diagnostic (CheckReport.signViolations): a holder's asset
+ *            is not negative and an issuer's liability is not turned into a claim (real assets have
+ *            holders only). Positions a model declares free to take either sign
+ *            (InstrumentDef.mayGoNegative, listed in decision 0005) are left out by the kernel.
  */
-import { ROLE_HOLDER, ROLE_ISSUER, type KModel } from '../core/compile.ts';
+import { ROLE_HOLDER, type KModel } from '../core/compile.ts';
 import type { KernelEngine } from '../core/engine.ts';
-
-export type Severity = 'warn' | 'fail';
 
 /** Float noise allowed at a bound of zero. */
 export const BOUND_TOL = 1e-9;
-/** Allowed wrong-signed position, in % of baseline GDP: far above float noise, far below anything visible. */
-export const SIGN_TOL = 1e-6;
 /** Highest plausible unemployment rate, as a fraction. */
 export const MAX_UNEMPLOYMENT = 0.5;
 
@@ -57,7 +54,8 @@ export interface Breach {
   /** The variable, or `instrument / player`. */
   what: string;
   rule: string;
-  /** First month it breaks the rule, and its furthest value from the rule. */
+  /** First month it breaks the rule, and its furthest value from the rule (a position in the
+   *  Ctx.stock convention, where holders' assets and issuers' liabilities are both positive). */
   first: number;
   worst: number;
 }
@@ -71,27 +69,33 @@ export function firstNonFinite(m: KModel, e: KernelEngine): string {
   return '';
 }
 
-/** Every bound or sign a run breaks, once each, with the first month and the furthest value. */
+/**
+ * Every bound or sign a run breaks, once each, with the first month and the furthest value,
+ * ordered by first month (bounds before signs within a month). Signs come from the kernel's
+ * diagnostic, so they honour its tolerance and the model's declared exemptions.
+ */
 export function plausibilityBreaches(m: KModel, e: KernelEngine, bounds: Bound[] = plausibilityBounds(m)): Breach[] {
-  const found = new Map<string, Breach>();
-  const note = (kind: Breach['kind'], what: string, rule: string, t: number, x: number, further: (a: number, b: number) => boolean) => {
-    const b = found.get(what);
-    if (!b) found.set(what, { kind, what, rule, first: t, worst: x });
-    else if (further(x, b.worst)) b.worst = x;
-  };
-  for (let t = 0; t <= e.t; t++) {
+  const out: Breach[] = [];
+  const seen = new Map<string, Breach>();
+  for (let t = 0; t <= e.t; t++)
     for (const b of bounds) {
       const x = e.valueAt(b.id, t);
-      if (!b.ok(x)) note('bound', b.id, b.rule, t, x, (a, w) => Math.abs(a) > Math.abs(w));
+      if (b.ok(x)) continue;
+      const found = seen.get(b.id);
+      if (!found) {
+        const nb: Breach = { kind: 'bound', what: b.id, rule: b.rule, first: t, worst: x };
+        seen.set(b.id, nb);
+        out.push(nb);
+      } else if (Math.abs(x) > Math.abs(found.worst)) found.worst = x;
     }
-    const pos = e.positionsAt(t);
-    for (let i = 0; i < m.NI; i++)
-      for (let p = 0; p < m.NP; p++) {
-        const j = i * m.NP + p;
-        const what = () => `${m.instruments[i].id} / ${m.players[p].id}`;
-        if (m.role[j] === ROLE_HOLDER && pos[j] < -SIGN_TOL) note('sign', what(), 'holder ≥ 0', t, pos[j], (a, w) => a < w);
-        else if (m.role[j] === ROLE_ISSUER && pos[j] > SIGN_TOL) note('sign', what(), 'issuer ≤ 0', t, pos[j], (a, w) => a > w);
-      }
+  for (const v of e.checks().signViolations ?? []) {
+    const i = m.instruments.findIndex((x) => x.id === v.instrument);
+    const p = m.players.findIndex((x) => x.id === v.player);
+    const j = i * m.NP + p;
+    const sign = m.role[j] === ROLE_HOLDER ? 1 : -1;
+    let worst = v.value;
+    for (let t = v.t; t <= e.t; t++) worst = Math.min(worst, sign * e.positionsAt(t)[j]);
+    out.push({ kind: 'sign', what: `${v.instrument} / ${v.player}`, rule: v.role === 'holder' ? 'holder’s asset ≥ 0' : 'issuer’s liability ≥ 0', first: v.t, worst });
   }
-  return [...found.values()];
+  return out.sort((a, b) => a.first - b.first || (a.kind === b.kind ? 0 : a.kind === 'bound' ? -1 : 1));
 }

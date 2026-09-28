@@ -1,6 +1,6 @@
 # 0005. Position signs: a diagnostic beside the accounting checks
 
-Status: accepted (September 2026). The kernel part is in place; the harness gate and the model floors follow (see "What comes next").
+Status: accepted (September 2026). The kernel diagnostic, the model floors and the harness gate are in place; the interface warning follows (see "What comes next").
 
 ## The problem
 
@@ -13,7 +13,7 @@ The audit of 29 September 2026 (finding H1) found exactly that in the Iceland mo
 - business loans of fishing and other exporters (repayments beyond what they owe);
 - the smelters' capital (aluminium −40: gross investment turns negative, see H2 below).
 
-The reference economy has none, at rest or after its shocks.
+The reference economy had none at rest or after its calibration shocks, but the lever-extremes sweep found one: a key rate held at 0% on Manual bought back more bonds than the bank held (and seven lever settings drove unemployment below zero, audit M22).
 
 ## The decision
 
@@ -37,17 +37,34 @@ mayGoNegative?: { reason: string; players?: Id[] };
 
 `reason` is required and must say why the sign is free. `players` limits the exemption to those holders or issuers; leaving it out exempts every position of the instrument. The compiler rejects an empty reason, an empty `players` list, unknown players, and players that neither hold nor issue the instrument. Exempt positions are skipped by the diagnostic (`KModel.signExempt`).
 
-Every exemption must be listed in this record with its reason, so that exemptions stay rare and reviewed. **Today there are none.** A candidate is non-residents' króna deposits (`deposits/W`), if the Iceland model chooses to treat them as a documented overdraft rather than give non-residents another buffer.
+Every exemption must be listed in this record with its reason, so that exemptions stay rare and reviewed; a model test (`tests/models/models.test.ts`) fails when a declared exemption has no row below.
+
+### Exemptions
+
+| Model | Instrument | Positions | Reason |
+|---|---|---|---|
+| iceland | `reserves` | `B`, `CB` | The reserve account is the banks' net position at the central bank. Below zero, the banks are borrowing reserves from the central bank's lending facility against collateral, and pay the key rate on them (reserve interest is key rate × reserves; the real facility charges a little more). It happens only when a surplus held on Manual has bought back every bond it can (income tax +10 after about 13 years, public investment −3 after about 18): the treasury account keeps the rest of the surplus, and taxes paid into it drain reserves one for one. The alternative, a separate central-bank loan instrument, would show the same numbers on two lines. |
+
+Considered and **not** exempted: non-residents' króna deposits (`deposits/W`). The Iceland model gives non-residents a buffer instead (they sell government bonds when their deposits run low), so no single lever at its limit overdraws them. Two combinations of extreme levers still do (decision 0002 §6), and stay pinned as known gaps in `tests/models/iceland-balance-sheets.test.ts` rather than hidden by an exemption.
 
 ## Negative purchases (audit H2)
 
 A negative `purchase` amount is not made an error. Postings are linear in their amount (decision 0001, change 3), so a negative purchase is an exact reversal: the buyer's real asset shrinks, and the seller pays the buyer and books negative income. It *un-produces* the asset; it is not a resale, which is a `trade`. The `LegDef` doc comment now says this, and that model authors should floor gross investment at zero with a `combine` and a named `regime`, so that capital shrinks only through depreciation. The sign diagnostic is what catches the harm a negative purchase can do: capital below zero.
 
+## The model floors
+
+Each floor is a `combine` with a named `regime` on the existing rule, never a second equation (AGENTS.md rules 2 and 4), and none binds at the baseline.
+
+- **Iceland** (decision 0002 §6 lists them): gross investment at least zero, firms' repayments at most what they owe, bond sales at most holdings, purchases paid from deposits capped by those deposits, buybacks capped by what holders can sell, a liquidity limit on households' spending, and a floor on the unemployed pool.
+- **Reference economy:** firms never aim for more jobs than there are workers, all but the 2% between jobs (`employment`, regime "No one left to hire"); the central bank's open-market purchases take at most the bonds the bank holds and its sales at most its own ("Limited by the bank's bonds", "Limited by the central bank's bonds"); a surplus buys back at most the bonds the bank still holds after those sales, and the rest stays in the treasury account ("Buyback limited by the bank's bonds"). None changes a calibration result or a golden path.
+
+## The harness gate
+
+The property runs, the lever-extremes sweep (every lever alone at its minimum and at its maximum for 240 months, in each stabiliser mode) and the golden scenarios fail on any sign violation the kernel reports, and on any implausible value (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate). The harness reads the violations from `checks().signViolations`, so a declared exemption is honoured there as everywhere else. There is no switch to turn the gate into a warning: a position that may take either sign is declared on the instrument and listed above. A golden path with a breach is neither compared nor written.
+
 ## What comes next
 
-1. **Model floors.** Each floor is a `combine` with a named `regime` on the existing rule, never a second equation (AGENTS.md rules 2 and 4): gross investment at least zero, firms' repayments at most what they owe, bond sales at most holdings, purchases paid from deposits capped by those deposits, buybacks capped by what holders can sell, and a liquidity limit on households' spending. Audit H1, step 3, lists them.
-2. **The harness gate.** Once the floors land, the property and robustness layers fail on any violation of a position that is not exempt, and a sweep runs every lever at its minimum and maximum. Until then the diagnostic only reports.
-3. **The interface** shows a violation as a warning, not as an accounting failure.
+- **The interface** shows a violation as a warning, not as an accounting failure.
 
 ## Contract changes (`src/core/types.ts`)
 
