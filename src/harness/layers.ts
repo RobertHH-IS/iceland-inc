@@ -9,7 +9,7 @@
  *   6. robustness       property tests, half-step and tolerance sensitivity, determinism,
  *                       golden scenarios
  */
-import type { ModelDef, RunResult, ScenarioEvent } from '../core/types.ts';
+import type { CalibrationCheck, ModelDef, RunResult, ScenarioEvent } from '../core/types.ts';
 import { compile, CompileError, type KModel } from '../core/compile.ts';
 import { createEngine, type KernelEngine } from '../core/engine.ts';
 import { runScenario } from '../core/scenario.ts';
@@ -48,15 +48,43 @@ export interface HarnessResult {
 }
 
 export const DRIFT_TOL = 1e-9;
-export const HALF_STEP_TOL = 0.2; // relative change of each calibration measure
+export const HALF_STEP_TOL = 0.1; // relative change of each continuous calibration measure
 /** For a measure near zero a relative change means little, so the change may also be as large as
  *  HALF_STEP_TOL × HALF_STEP_BAND of the width of the check's range (when both ends are finite). */
 export const HALF_STEP_BAND = 0.5;
+/** A timing measure (CalibrationCheck.kind 'timing', in whole quarters) may move by one quarter. */
+export const HALF_STEP_TIMING_TOL = 1;
 export const SOLVER_TOL_TOL = 1e-6; // indicator change when the solver tolerance is loosened
 
 const e2 = (x: number) => (Number.isFinite(x) ? x.toExponential(2) : String(x));
 const f = (x: number, d = 3) => (Number.isFinite(x) ? x.toFixed(d) : String(x));
 const verdict = (ok: boolean) => (ok ? 'PASS' : 'FAIL');
+
+/**
+ * How far a calibration measure moved when the time step was halved, as a share of what is
+ * allowed (at most 1 passes; NaN fails). A timing measure may move by HALF_STEP_TIMING_TOL
+ * quarters; any other by HALF_STEP_TOL of its value, or of HALF_STEP_BAND × the width of its
+ * range when that is larger (a measure near zero).
+ */
+export function halfStepShare(c: CalibrationCheck, v: number, vh: number): number {
+  if (c.kind === 'timing') return Math.abs(vh - v) / HALF_STEP_TIMING_TOL;
+  const width = Number.isFinite(c.range[0]) && Number.isFinite(c.range[1]) ? c.range[1] - c.range[0] : 0;
+  return Math.abs(vh - v) / Math.max(Math.abs(v), HALF_STEP_BAND * width, 1e-9) / HALF_STEP_TOL;
+}
+
+/**
+ * Make every fork of `e`, and every fork of those, land in `kids`, so the accounting layer can
+ * check runs a module test makes on forks. Track them after the test: it keeps stepping them.
+ */
+function collectForks(e: KernelEngine, kids: KernelEngine[]): KernelEngine {
+  const fork = e.fork.bind(e);
+  e.fork = (o) => {
+    const c = fork(o);
+    kids.push(c);
+    return collectForks(c, kids);
+  };
+  return e;
+}
 
 interface Tracked {
   name: string;
@@ -130,7 +158,8 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
         n++;
         let pass = false,
           detail = '';
-        const fresh = createEngine(m, { baseline: engine.baselineData });
+        const kids: KernelEngine[] = [];
+        const fresh = collectForks(createEngine(m, { baseline: engine.baselineData }), kids);
         try {
           const r = t.run(fresh);
           pass = r.pass;
@@ -140,6 +169,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
         }
         if (pass) ok++;
         track(`module test ${mod.id}/${t.id}`, fresh);
+        kids.forEach((c, i) => track(`module test ${mod.id}/${t.id}, fork ${i + 1}`, c));
         rows.push(`| ${mod.id} | ${t.label} | ${verdict(pass)} | ${detail.replace(/\|/g, '/')} |`);
       }
     layers.push({
@@ -206,12 +236,15 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   {
     const rows: string[] = [];
     let ok = 0;
+    // A measure may run a comparison scenario on its run's engine (runScenario keeps the engine's
+    // options); the harness cannot track that run, so a failed check in it throws instead.
+    const calEngine = createEngine(m, { baseline: engine.baselineData, onCheckFailure: 'throw' });
     for (const c of calib) {
       let v = NaN,
         pass = false,
         note = '';
       try {
-        const r = run(`calibration ${c.id}`, c.scenario, c.months);
+        const r = run(`calibration ${c.id}`, c.scenario, c.months, calEngine);
         v = c.measure(r);
         pass = v >= c.range[0] && v <= c.range[1];
       } catch (e) {
@@ -288,37 +321,55 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   // 6b. half-step sensitivity
   {
     const rows: string[] = [];
-    let worst = 0;
+    let worstRel = 0,
+      worstQuarters = 0;
     let ok = true;
+    let half: KernelEngine | null = null;
     try {
-      const half = createEngine({ ...def, dt: def.dt / 2 });
-      calib.forEach((c, j) => {
-        const events = c.scenario.map((e) => ({ ...e, t: e.t * 2 }));
-        const r = run(`half-step ${c.id}`, events, c.months * 2, half);
-        const sub: RunResult = {
-          months: c.months,
-          series: (id) => r.series(id).filter((_, t) => t % 2 === 0),
-          value: (id, month) => r.value(id, month * 2),
-        };
-        const vh = c.measure(sub),
-          v = measures[j];
-        const width = Number.isFinite(c.range[0]) && Number.isFinite(c.range[1]) ? c.range[1] - c.range[0] : 0;
-        const rel = Math.abs(vh - v) / Math.max(Math.abs(v), HALF_STEP_BAND * width, 1e-9);
-        worst = Math.max(worst, rel);
-        const pass = rel <= HALF_STEP_TOL;
-        ok &&= pass;
-        rows.push(`| ${c.id} | ${f(v)} | ${f(vh)} | ${f(100 * rel, 1)}% | ${verdict(pass)} |`);
-      });
+      half = createEngine({ ...def, dt: def.dt / 2 }, { onCheckFailure: 'throw' });
     } catch (err) {
       ok = false;
       rows.push(`| (half-step model) | | | threw: ${(err as Error).message} | FAIL |`);
     }
+    if (half)
+      calib.forEach((c, j) => {
+        let vh = NaN,
+          note = '';
+        try {
+          const events = c.scenario.map((e) => ({ ...e, t: e.t * 2 }));
+          const r = run(`half-step ${c.id}`, events, c.months * 2, half);
+          // The engine lets a measure's own comparison run (calibration.ts fundsFinancedRun) use the same step.
+          const sub: RunResult & { engine: KernelEngine } = {
+            months: c.months,
+            series: (id) => r.series(id).filter((_, t) => t % 2 === 0),
+            value: (id, month) => r.value(id, month * 2),
+            engine: r.engine,
+          };
+          vh = c.measure(sub);
+        } catch (err) {
+          note = ` (threw: ${(err as Error).message})`;
+        }
+        const v = measures[j];
+        const share = halfStepShare(c, v, vh);
+        const pass = share <= 1;
+        ok &&= pass;
+        let change: string;
+        if (c.kind === 'timing') {
+          worstQuarters = Math.max(worstQuarters, Math.abs(vh - v));
+          change = `${f(vh - v, 0)} quarter(s)`;
+        } else {
+          const rel = share * HALF_STEP_TOL;
+          worstRel = Math.max(worstRel, Number.isNaN(rel) ? Infinity : rel);
+          change = `${f(100 * rel, 1)}%`;
+        }
+        rows.push(`| ${c.id} | ${f(v)} | ${f(vh)}${note} | ${change} | ${verdict(pass)} |`);
+      });
     pass6 &&= ok;
-    sum6.push(`half-step ${f(100 * worst, 1)}%`);
+    sum6.push(`half-step ${f(100 * worstRel, 1)}%${calib.some((c) => c.kind === 'timing') ? ` and ${f(worstQuarters, 0)} quarter(s)` : ''}`);
     body6.push(
       '### Half-step sensitivity',
       '',
-      `Each calibration scenario rerun with half the time step (dt = ${def.dt / 2}); the measure may change by at most ${100 * HALF_STEP_TOL}% of its value, or ${100 * HALF_STEP_TOL * HALF_STEP_BAND}% of the width of its target range when that is larger (a measure near zero). ${verdict(ok)}.`,
+      `Each calibration scenario rerun with half the time step (dt = ${def.dt / 2}). A timing measure (the quarter of a peak or trough) may move by ${HALF_STEP_TIMING_TOL} quarter; any other measure by at most ${100 * HALF_STEP_TOL}% of its value, or ${100 * HALF_STEP_TOL * HALF_STEP_BAND}% of the width of its target range when that is larger (a measure near zero). ${verdict(ok)}.`,
       '',
       '| Check | dt | dt / 2 | Change | Verdict |',
       '|---|---|---|---|---|',
@@ -449,7 +500,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       pass: ok,
       summary: `max residual ${e2(max)} over ${tracked.length} runs (${steps} months)`,
       body: [
-        `All four checks after every step of every run in this report: ${tracked.length} runs, ${steps} months in total. Tolerance ${DEFAULT_TOLERANCE}. Failed steps: ${failures}. ${verdict(ok)}.`,
+        `All four checks after every step of every run the harness makes, including the forks module tests make: ${tracked.length} runs, ${steps} months in total. Tolerance ${DEFAULT_TOLERANCE}. Failed steps: ${failures}. ${verdict(ok)}. A comparison run that a calibration measure makes itself is not counted here; a failed check in it throws, which fails that check.`,
         '',
         '| Check | Largest residual |',
         '|---|---|',

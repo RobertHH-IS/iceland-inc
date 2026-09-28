@@ -427,6 +427,10 @@ export interface CalibrationCheck {
   measure: (run: RunResult) => number;
   range: [number, number];
   source?: string; // where the target range comes from
+  /** 'timing': the measure is a time in whole quarters (the quarter of a peak or trough), so the
+   *  harness's half-step test allows it to move by one quarter, not by a share of its value.
+   *  Default 'level': a continuous measure. */
+  kind?: 'level' | 'timing';
 }
 
 export interface SteadyStateSpec {

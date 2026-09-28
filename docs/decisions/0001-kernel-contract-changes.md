@@ -20,6 +20,7 @@ Implementing `src/core/` against `src/core/types.ts` showed a few gaps. Each cha
 | 10 | `RunResult.series` doc | Returns `months + 1` values; index 0 is the baseline. | Calibration measures index months directly. |
 | 11 | `Engine.series` doc | Also accepts a variable id, returning raw values. | Tests and charts often want a raw variable path. |
 | 12 | `Engine.fork` doc | The fork replays this engine's events from the baseline under its own options. `disableTerms` (`ruleId.termId` or `varId.termId`) holds those terms at their baseline values; `params` override parameters without re-solving the baseline. | "Independent copy" left open what disabling a term means and whether the baseline is re-solved. Holding a term at its baseline keeps the unshocked run of the variant at the steady state, so shocked − unshocked isolates the shock, as §3 requires. |
+| 13 | `CalibrationCheck` | Added optional `kind`: `'timing'` for a measure that is a time in whole quarters (the quarter of a peak or trough), default `'level'`. | The harness's half-step test compares a measure at dt and dt/2. A one-quarter shift is a 17–25% change of a timing value of 4 to 6, while continuous measures move by under 8%, so one relative tolerance was either too loose for continuous measures or failed a one-quarter shift at the low end of a timing range (audit L27). Timing measures may move by one quarter; the rest by 10%. |
 
 ## Interpretations where the contract was silent
 

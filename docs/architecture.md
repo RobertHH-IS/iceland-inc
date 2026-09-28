@@ -160,7 +160,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 5. **Calibration:** the model's `CalibrationCheck`s, each a scenario, a measure and a plausible range with a source. The result is a PASS/FAIL table.
 6. **Robustness:**
    - **property tests:** random lever combinations within range produce no NaNs and no failed checks;
-   - **numerics:** half-step and tolerance sensitivity;
+   - **numerics:** half-step and tolerance sensitivity (a timing measure may move by one quarter, any other by 10%);
    - **determinism:** the same scenario gives identical results;
    - **golden scenarios:** stored outputs, so any change in results is visible in review.
 
