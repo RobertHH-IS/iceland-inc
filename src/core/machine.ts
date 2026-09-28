@@ -237,7 +237,8 @@ export class Machine {
     if (!cr.hasAdjust) return d;
     const prev = this.ring[this.head * this.NV + cr.target];
     const speed = cr.adjustParam >= 0 ? this.pEff[cr.adjustParam] : cr.adjustNum;
-    return prev + speed * this.dt * (d - prev);
+    const k = cr.adjustExp ? 1 - Math.exp(-speed * this.dt) : speed * this.dt;
+    return prev + k * (d - prev);
   }
 
   /** Evaluate the whole schedule for this step. */

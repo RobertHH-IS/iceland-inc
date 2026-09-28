@@ -81,6 +81,8 @@ export interface CRule {
   adjustParam: number;
   adjustNum: number;
   hasAdjust: boolean;
+  /** True for adjust form 'exponential': k = 1 − exp(−speed·dt) instead of speed·dt. */
+  adjustExp: boolean;
   /** Maps used by the per-rule context: declared id → global index. */
   inputMap: Map<Id, number>;
   lagMap: Map<Id, number>;
@@ -504,12 +506,15 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     let adjustParam = -1,
       adjustNum = 0;
     const hasAdjust = !!r.adjust;
+    const adjustExp = r.adjust?.form === 'exponential';
     if (r.adjust) {
       const sp = r.adjust.speed;
+      const form = r.adjust.form;
+      if (form !== undefined && form !== 'linear' && form !== 'exponential') err(`${where} has unknown adjustment form '${form}' (use 'linear' or 'exponential')`);
       if (typeof sp === 'number') {
         adjustNum = sp;
         if (!(sp > 0)) err(`${where} has a non-positive adjustment speed`);
-        else if (sp * def.dt > 1) warn(`${where}: adjustment speed ${sp}/yr × dt ${def.dt} > 1 overshoots each step`);
+        else if (!adjustExp && sp * def.dt > 1) warn(`${where}: adjustment speed ${sp}/yr × dt ${def.dt} > 1 overshoots each step`);
       } else {
         const k = paramIndex.get(sp);
         if (k === undefined) err(`${where} adjusts at unknown parameter speed '${sp}'`);
@@ -517,7 +522,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
           adjustParam = k;
           usedParams.add(sp);
           const v = params[k].def.value;
-          if (v * def.dt > 1) warn(`${where}: adjustment speed ${sp} = ${v}/yr × dt ${def.dt} > 1 overshoots each step`);
+          if (!adjustExp && v * def.dt > 1) warn(`${where}: adjustment speed ${sp} = ${v}/yr × dt ${def.dt} > 1 overshoots each step`);
         }
       }
       const ti = varIndex.get(r.target);
@@ -547,6 +552,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
       adjustParam,
       adjustNum,
       hasAdjust,
+      adjustExp,
       inputMap,
       lagMap,
       paramMap,
@@ -645,10 +651,12 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
             break;
           case 'revalue':
           case 'writeoff':
-            if (insDef.kind === 'real') {
-              need(from === to && rf === H, `a real asset is revalued or written off one-sided: set from = to = the holder`);
+            if (pt === 'revalue' && from !== to && rf === H && rt === H) {
+              // a reclassification between two holders: value moves, no cash, no income
+            } else if (insDef.kind === 'real') {
+              need(from === to && rf === H, `a real asset is revalued or written off one-sided (from = to = the holder), or revalued between two holders`);
               oneSided = true;
-            } else if (pt === 'revalue') need((rf === H && rt === I) || (rf === I && rt === H), `one side must hold and the other issue '${insDef.id}'`);
+            } else if (pt === 'revalue') need((rf === H && rt === I) || (rf === I && rt === H), `one side must hold and the other issue '${insDef.id}', or both must hold it (a reclassification)`);
             else need(rf === H && rt === I, `a write-off moves value from the holder (from) to the issuer (to) of '${insDef.id}'`);
             break;
         }
@@ -918,6 +926,22 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   feed.forEach(({ def: f }) => refConcept(f.concept, `feed rule '${f.id}'`));
   conceptList.forEach((c) => (c.related ?? []).forEach((r) => refConcept(r, `concept '${c.id}'`)));
 
+  // parameters the closed-form steady state reads count as used: dry-run it on a recording record
+  if (ss?.solve) {
+    const rec: Record<Id, number> = {};
+    params.forEach(({ def: p }) => (rec[p.id] = p.value));
+    const probe = new Proxy(rec, {
+      get(t, k) {
+        if (typeof k === 'string') usedParams.add(k);
+        return Reflect.get(t, k);
+      },
+    });
+    try {
+      ss.solve(probe);
+    } catch (e) {
+      warn(`steadyState.solve threw during the compile-time dry run: ${(e as Error).message}`);
+    }
+  }
   params.forEach(({ def: p }) => {
     if (!usedParams.has(p.id)) warn(`parameter '${p.id}' is not used by any rule, lever or the steady-state solver`);
   });

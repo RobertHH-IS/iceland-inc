@@ -132,7 +132,8 @@ export interface TermDef {
 /**
  * The ONE rule that determines a variable. Exactly one of `terms` or `compute`.
  *   value* = combine(terms)  (default: sum of terms)  or  compute(ctx)
- *   if `adjust` is set: value = lag(value) + speed·dt·(value* − lag(value))  (gradual adjustment)
+ *   if `adjust` is set: value = lag(value) + k·(value* − lag(value))  (gradual adjustment), with
+ *     k = speed·dt (form 'linear', the default) or k = 1 − exp(−speed·dt) (form 'exponential')
  */
 export interface RuleDef {
   id: Id;
@@ -149,7 +150,11 @@ export interface RuleDef {
   combine?: (terms: Record<Id, number>, c: Ctx) => number;
   compute?: (c: Ctx) => number;
   /** Partial adjustment toward the rule's value (Keen-style time constants). */
-  adjust?: { speed: Id | number }; // per year; a param id or a number
+  /** Speed per year (a param id or a number). Form 'linear' (default) closes speed·dt of the gap
+   *  each step. Form 'exponential' closes 1 − exp(−speed·dt): the exact solution of a first-order
+   *  lag over one step with the target held fixed. It never overshoots, however fast the speed,
+   *  and changes less when the step is halved. */
+  adjust?: { speed: Id | number; form?: 'linear' | 'exponential' };
   /** Name the active branch, e.g. "Debt-service cap binds". Null when nothing special. */
   regime?: (c: Ctx, value: number, terms: Record<Id, number>) => string | null;
   concepts?: Id[];
@@ -196,6 +201,9 @@ export type Posting =
  *   revalue / writeoff: from = the side that loses value, to = the side that gains.
  *   A REAL asset has no issuer, so its revalue / writeoff is one-sided: set from = to = the
  *   holder. The holder's asset changes by +amount (revalue) or −amount (writeoff).
+ *   A revalue between two different HOLDERS of the same instrument is a reclassification: value
+ *   moves from one holder to the other with no cash and no income (retirement moving pension
+ *   rights, households taking their homes with them as they age).
  * A negative amount reverses the posting (a negative issue is a repayment).
  * Pipes on the flow map are drawn from `from` to `to`; particles move with the cash.
  */

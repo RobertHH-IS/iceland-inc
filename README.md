@@ -18,18 +18,30 @@ The model follows the flow paradigm of Wynne Godley and Steve Keen:
 
 ## Status
 
-This is the foundation release. The platform's design is in [docs/architecture.md](docs/architecture.md), and the model language and engine contract are in [src/core/types.ts](src/core/types.ts). The previous engine (v1, plain JavaScript, 10 players, 20 calibration checks passing) is kept in [legacy/v1-engine](legacy/v1-engine) as a reference while it is ported into the platform.
+The foundation is in place and tested:
 
 | Part | Where | State |
 |---|---|---|
 | Model language and engine contract | `src/core/types.ts` | Done |
-| Kernel: compiler, payment system, ledger, solver, influences, scenarios | `src/core/` | In progress |
-| Test harness: accounting, drift, calibration, robustness | `src/harness/` | In progress |
-| Reference model (small, for learning and kernel tests) | `src/models/reference/` | In progress |
-| Iceland model, as modules | `src/models/iceland/` | In progress |
-| Concept library | `src/concepts/` | In progress |
-| Interface: flow map, inspector, levers, charts, ledger | `src/ui/` | In progress |
+| Kernel: compiler, payment system, ledger, solver, influences, scenarios | `src/core/` | Done, no runtime dependencies |
+| Test harness: accounting, drift, calibration, robustness | `src/harness/` | Done |
+| Reference model: a small teaching economy | `src/models/reference/` | Done, 3/3 calibration checks |
+| Iceland model, as 14 modules | `src/models/iceland/` | Done: 10 players, 266 variables, 20/20 calibration checks |
+| Concept library: 59 economic ideas | `src/concepts/` | Done |
+| Interface: flow map, inspector, ideas at play, levers, charts, ledger | `src/ui/` | Done (React) |
 | Calibration data with sources | `data/iceland/` | Done |
+
+Current results are in `reports/harness-*.md`: accounting residuals around 1e-12, no drift over 240 months, and the Iceland model within 4.3% of the legacy engine on 50 compared outcomes.
+
+Next steps:
+1. A balanced-growth baseline with 2.5% inflation, which fixes the overstated pension payouts.
+2. Replacing the remaining placeholder parameters.
+3. A "real terms" view that removes the effect of inflation from flows.
+4. Showing a pipe's own drivers before upstream ones in "ideas at play".
+5. Hiding badges for inactive caps.
+6. "With and without this channel" comparisons.
+7. A Web Worker for the engine.
+8. A public demo site on GitHub Pages.
 
 ## Quick start
 
@@ -41,6 +53,15 @@ bun test
 bun run harness
 bun run dev
 ```
+
+## Run the interface
+
+```bash
+bun run dev     # http://localhost:3000, with hot reload
+bun run build   # a static site in dist/ that works from any sub-path (GitHub Pages)
+```
+
+The interface opens the Iceland model when it is registered in `src/models/index.ts`, otherwise the reference economy; the model switcher in the header lists every registered model. Pull a lever on the left and the clock starts: watch the pipes glow and the charts move, click any pipe, player, chart or idea to see what drives it, and use "Share scenario" for a link that replays exactly. See [docs/interface.md](docs/interface.md) for how it is built and how to extend it.
 
 ## Repository map
 

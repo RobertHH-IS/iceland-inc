@@ -14,8 +14,8 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "harness": "bun run src/harness/cli.ts",
-    "dev": "bun src/ui/index.html",
-    "build": "bun build src/ui/index.html --outdir dist --minify"
+    "dev": "bun scripts/dev.ts",
+    "build": "bun build src/ui/index.html --outdir dist --production"
   },
   "type": "module",
   "dependencies": {

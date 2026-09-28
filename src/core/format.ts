@@ -85,7 +85,7 @@ export function describePosting(p: Posting): string {
     case 'accrue':
       return `Interest or indexation added to ${p.instrument}: the debtor owes more and the creditor holds more. No money moves.`;
     case 'revalue':
-      return `A change in the value of ${p.instrument}: no money moves and it is not income; it goes to the revaluation account.`;
+      return `A change in the value of ${p.instrument}, or a reclassification of it between two holders: no money moves and it is not income; it goes to the revaluation account.`;
     case 'writeoff':
       return `A write-off of ${p.instrument}: value is lost without any payment.`;
   }

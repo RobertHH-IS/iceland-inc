@@ -1,0 +1,36 @@
+/**
+ * Feed: engine.feed(), newest first. Narration only: threshold crossings of indicators.
+ * Clicking an item opens its indicator.
+ */
+import { memo } from 'react';
+import type { FeedItem } from '../engine-client.ts';
+import type { ModelInfo } from '../model/info.ts';
+import { ConceptChip, type OnSelect } from './common.tsx';
+
+export const Feed = memo(function Feed({ info, feed, onSelect }: { info: ModelInfo; feed: readonly FeedItem[]; onSelect: OnSelect }) {
+  return (
+    <section className="feed panel" aria-labelledby="feed-title">
+      <div className="panel-head">
+        <h2 id="feed-title">What is happening</h2>
+        <span className="muted small">{feed.length ? `${feed.length}` : ''}</span>
+      </div>
+      <div className="panel-body scroll">
+        {feed.length === 0 ? (
+          <p className="muted small">Quiet: the economy is at rest. Messages appear here as indicators cross their thresholds.</p>
+        ) : (
+          <ol className="feed-list" aria-live="polite">
+            {feed.map((f, i) => (
+              <li key={`${f.t}-${f.indicator}-${i}`} className="feed-item">
+                <span className="mono feed-t">M{f.t}</span>
+                <button type="button" className="feed-msg" onClick={() => onSelect({ kind: 'indicator', id: f.indicator })} aria-label={`Month ${f.t}: ${f.message}. Open the chart`}>
+                  {f.message}
+                </button>
+                {f.concept && <ConceptChip info={info} id={f.concept} onSelect={onSelect} />}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </section>
+  );
+});

@@ -1,0 +1,518 @@
+/**
+ * Iceland Inc.: the rest of the world (v1 equations E7–E9, E12, E14, E22, E39 and E44).
+ *
+ * The króna moves toward a level set by relative prices (purchasing-power parity in the long
+ * run), the interest-rate gap with abroad (carry), how many krónur non-residents already hold
+ * (portfolio balance) and sentiment. Exports of fish and aluminium are priced in foreign
+ * currency, tourism and other exports in krónur; volumes react to the real exchange rate.
+ * Imports are split by what they are for. Foreign assets are revalued when the króna moves, and
+ * non-resident carry traders buy or sell government bonds as the rate gap changes.
+ */
+import type { Ctx, ModuleDef, RuleDef, TermDef, VarDef } from '../../../core/types.ts';
+import { ALL_PARAMS, base } from '../steady.ts';
+import { gapRate, pickParams, terms, lastMonth } from '../util.ts';
+
+const EXPORTS = [
+  ['Fish', 'xFish', 'eFish', 'marine products', 'foreign'],
+  ['Aluminium', 'xAlu', 'eAlu', 'aluminium', 'foreign'],
+  ['Tourism', 'xTour', 'eTour', 'tourism', 'krona'],
+  ['Other', 'xOther', 'eOther', 'other goods and services', 'krona'],
+] as const;
+
+const exportRules: RuleDef[] = EXPORTS.flatMap(([k, base0, elas, what, priced]): RuleDef[] => [
+  {
+    id: `exportVolume${k}`,
+    target: `exportVolume${k}`,
+    category: 'BEHAVIOUR',
+    inputs: ['realExchangeRate'],
+    params: [base0, elas, 'foreignDemandShift', ...(k === 'Tourism' ? ['tourismShift'] : [])],
+    terms: terms(
+      ['normal', 'Baseline volume', undefined, (c) => c.p(base0)],
+      ['demand', 'Foreign demand', 'export-sectors', (c) => (1 + c.p('foreignDemandShift')) * (k === 'Tourism' ? 1 + c.p('tourismShift') : 1)],
+      ['competitiveness', 'Real exchange rate', 'real-exchange-rate', (c) => Math.pow(Math.max(1e-6, c.v('realExchangeRate')), c.p(elas))],
+    ),
+    combine: (t) => t.normal * Math.max(0, t.demand) * t.competitiveness,
+    concepts: ['export-sectors', 'real-exchange-rate'],
+    explain: {
+      what: `Volume of ${what} exports, at baseline prices.`,
+      rule: `Volume = baseline {${base0}} × foreign demand${k === 'Tourism' ? ' × the tourism lever' : ''} × (real exchange rate)^{${elas}}. A weaker real króna makes Icelandic ${what} cheaper abroad.`,
+    },
+  },
+  {
+    id: `exports${k}`,
+    target: `exports${k}`,
+    category: 'IDENTITY',
+    inputs: [`exportVolume${k}`, ...(priced === 'foreign' ? ['exchangeRate', 'worldPrice'] : ['domesticPrice'])],
+    compute: (c) => c.v(`exportVolume${k}`) * (priced === 'foreign' ? c.v('exchangeRate') * c.v('worldPrice') : c.v('domesticPrice')),
+    concepts: priced === 'foreign' ? ['exchange-rate-pass-through'] : [],
+    explain: {
+      what: `What foreigners pay exporters for ${what}, in krónur.`,
+      rule: priced === 'foreign' ? 'Value = volume × world price × exchange rate: priced in foreign currency, so a weaker króna raises the króna value at once.' : 'Value = volume × domestic prices: priced in krónur.',
+    },
+  },
+]);
+
+const IMPORTS = [
+  ['Consumer', 'consumer goods', 'FD'],
+  ['Inputs', 'inputs to domestic production', 'FD'],
+  ['Equipment', 'machinery and equipment', 'FD'],
+  ['Public', 'goods bought for public services', 'FD'],
+  ['Exporters', 'exporters’ inputs (alumina, fuel)', 'FX'],
+] as const;
+
+/** Relative price factor for home-market import volumes: (real exchange rate)^−epsM. */
+const rq = (c: { v(id: string): number; p(id: string): number }) => Math.pow(Math.max(1e-6, c.v('realExchangeRate')), -c.p('epsM'));
+
+const vars: VarDef[] = [
+  { id: 'worldPrice', label: 'World prices', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Foreign-currency prices of imports, fish and aluminium (1 at baseline).' },
+  { id: 'foreignRate', label: 'Foreign interest rate', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('foreignRate') },
+  { id: 'kronaSentiment', label: 'Króna sentiment', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'A shift in what investors think the króna is worth; positive means a weaker króna.' },
+  { id: 'sentimentShock', label: 'Króna sentiment shock this month', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'A one-off change in sentiment; zero in every month without one.' },
+  { id: 'logExchangeRate', label: 'Exchange rate (log)', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0 },
+  { id: 'exchangeRate', label: 'Exchange rate', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Krónur per unit of foreign currency (1 at baseline); up means a weaker króna.' },
+  { id: 'realExchangeRate', label: 'Real exchange rate (as trade sees it)', unit: 'index', kind: 'price', scale: 'none', initial: 1, description: 'Foreign prices in krónur ÷ domestic prices, smoothed; up means Iceland is cheaper.' },
+  ...EXPORTS.flatMap(([k, , , what]): VarDef[] => [
+    { id: `exportVolume${k}`, label: `Exports of ${what} (real)`, unit: '% of GDP/yr', kind: 'quantity', scale: 'real' },
+    { id: `exports${k}`, label: `Exports of ${what}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  ]),
+  { id: 'exportVolume', label: 'Exports (real)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base('exportVolume') },
+  { id: 'exportValue', label: 'Exports', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('exportValue') },
+  { id: 'exporterInputs', label: 'Exporters’ domestic inputs', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  { id: 'valueAddedFX', label: 'Value added, exporters (real)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base('valueAddedFX') },
+  ...IMPORTS.map(([k, what]): VarDef => ({ id: `imports${k}`, label: `Imports of ${what}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`imports${k}`) })),
+  { id: 'importVolume', label: 'Imports (real)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base('importVolume') },
+  { id: 'revaluationFXReserves', label: 'Revaluation of FX reserves', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  { id: 'revaluationForeignAssets', label: 'Revaluation of pension funds’ foreign assets', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  { id: 'bondPurchasesW', label: 'Non-residents’ bond purchases', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  { id: 'currentAccount', label: 'Current account', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0 },
+];
+
+export const external: ModuleDef = {
+  id: 'external',
+  label: 'Rest of the world',
+  description: 'The króna (PPP anchor, carry, portfolio balance, sentiment), exports by type, imports by component, foreign revaluations, carry-trade bond flows and the current account.',
+  requires: ['structure', 'prices', 'central-bank', 'firms', 'government', 'households', 'pensions'],
+  params: pickParams(ALL_PARAMS, [
+    'xFish', 'xAlu', 'xTour', 'xOther', 'eFish', 'eAlu', 'eTour', 'eOther', 'lamRer', 'muX', 'muXD', 'muC', 'muD', 'muI', 'muG', 'epsM',
+    'betaI', 'betaH', 'lamFX', 'lamSent', 'psiB', 'lamBW', 'iF0', 'krona0', 'bW0',
+    'foreignDemandShift', 'tourismShift', 'foreignRateShift', 'worldPriceShift', 'vaFXtarget', 'bondW', 'depW', 'eqW',
+  ]),
+  vars,
+  rules: [
+    {
+      id: 'worldPrice',
+      target: 'worldPrice',
+      category: 'BEHAVIOUR',
+      params: ['worldPriceShift'],
+      terms: terms(['normal', 'Baseline', undefined, () => 1], ['shift', 'World-prices lever', 'exchange-rate-pass-through', (c) => c.p('worldPriceShift')]),
+      explain: { what: 'Foreign-currency prices of what Iceland imports and of fish and aluminium.', rule: 'World prices = 1 + the world-prices lever.' },
+    },
+    {
+      id: 'foreignRate',
+      target: 'foreignRate',
+      category: 'POLICY',
+      params: ['iF0', 'foreignRateShift'],
+      terms: terms(['normal', 'Baseline foreign rate', undefined, (c) => c.p('iF0')], ['shift', 'Foreign-rate lever', 'carry-trade', (c) => c.p('foreignRateShift')]),
+      explain: { what: 'Interest rates abroad, set by foreign central banks. It is also the cash yield on pension funds’ foreign assets.', rule: 'Foreign rate = {iF0%} + the foreign-rate lever.' },
+    },
+    {
+      id: 'kronaSentiment',
+      target: 'kronaSentiment',
+      category: 'BEHAVIOUR',
+      lagInputs: ['kronaSentiment', 'sentimentShock'],
+      params: ['lamSent'],
+      terms: terms(
+        ['fading', 'Earlier sentiment, fading', 'floating-exchange-rate', (c) => c.lag('kronaSentiment') * Math.exp(-c.p('lamSent') * c.dt)],
+        ['shock', 'New shock', 'floating-exchange-rate', (c) => c.lag('sentimentShock')],
+      ),
+      concepts: ['floating-exchange-rate'],
+      explain: {
+        what: 'A shift in what investors think the króna is worth, with no change in fundamentals. Positive means they want fewer krónur.',
+        rule: 'Sentiment = last month’s sentiment × e^(−{lamSent} × one month) + any new shock: a shock fades at about 10% of its size a year.',
+      },
+    },
+    {
+      id: 'sentimentShock',
+      target: 'sentimentShock',
+      category: 'IDENTITY',
+      compute: () => 0,
+      explain: { what: 'A one-off change in króna sentiment, in log points.', rule: 'Zero in every month without a shock; the króna-shock lever sets it for the month it is fired.' },
+    },
+    {
+      id: 'logExchangeRate',
+      target: 'logExchangeRate',
+      category: 'BEHAVIOUR',
+      label: 'The króna',
+      inputs: ['kronaSentiment', 'keyRate', 'foreignRate', 'worldPrice'],
+      lagInputs: ['domesticPrice'],
+      params: ['betaI', 'betaH', 'i0', 'iF0', 'krona0'],
+      stocks: [
+        ['deposits', 'W'],
+        ['govBonds', 'W'],
+      ],
+      adjust: { speed: 'lamFX', form: 'exponential' },
+      terms: terms(
+        ['ppp', 'Relative prices (purchasing-power parity)', 'purchasing-power-parity', (c) => Math.log(lastMonth(c, 'domesticPrice') / c.v('worldPrice'))],
+        ['sentiment', 'Sentiment', 'floating-exchange-rate', (c) => c.v('kronaSentiment')],
+        ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => -c.p('betaI') * (c.v('keyRate') - c.p('i0') - (c.v('foreignRate') - c.p('iF0')))],
+        [
+          'portfolio',
+          'Non-residents’ króna holdings',
+          'floating-exchange-rate',
+          (c) => c.p('betaH') * Math.log(Math.max(0.05, (c.stock('deposits', 'W') + c.stock('govBonds', 'W')) / (Math.max(1e-6, lastMonth(c, 'domesticPrice')) * c.p('krona0')))),
+        ],
+      ),
+      concepts: ['floating-exchange-rate', 'purchasing-power-parity'],
+      explain: {
+        what: 'The exchange rate in logs: krónur per unit of foreign currency. Up means a weaker króna.',
+        rule: 'Moves toward a target at speed {lamFX} a year. Target = log(domestic ÷ world prices) (in the long run the króna keeps Icelandic goods as dear as before) + sentiment − {betaI} × (key rate − foreign rate, relative to normal) (carry traders buy krónur for higher rates) + {betaH} × log of non-residents’ real króna holdings relative to normal (they want paying to hold more).',
+      },
+    },
+    {
+      id: 'exchangeRate',
+      target: 'exchangeRate',
+      category: 'IDENTITY',
+      inputs: ['logExchangeRate'],
+      compute: (c) => Math.exp(c.v('logExchangeRate')),
+      concepts: ['floating-exchange-rate'],
+      explain: { what: 'Krónur per unit of foreign currency (1 at baseline). Up means a weaker króna.', rule: 'Exchange rate = e^(log exchange rate).' },
+    },
+    {
+      id: 'realExchangeRate',
+      target: 'realExchangeRate',
+      category: 'BEHAVIOUR',
+      inputs: ['exchangeRate', 'worldPrice', 'domesticPrice'],
+      adjust: { speed: 'lamRer', form: 'exponential' },
+      terms: terms(['relativePrice', 'Foreign prices in krónur ÷ domestic prices', 'real-exchange-rate', (c) => (c.v('exchangeRate') * c.v('worldPrice')) / c.v('domesticPrice')]),
+      concepts: ['real-exchange-rate'],
+      explain: {
+        what: 'How cheap Iceland is for foreigners, as trade responds to it. Up means Icelandic goods are cheaper.',
+        rule: 'Moves toward exchange rate × world prices ÷ domestic prices at speed {lamRer} a year: buyers take time to switch.',
+      },
+    },
+    ...exportRules,
+    {
+      id: 'exportVolume',
+      target: 'exportVolume',
+      category: 'IDENTITY',
+      inputs: EXPORTS.map(([k]) => `exportVolume${k}`),
+      terms: EXPORTS.map(([k, , , what]): TermDef => ({ id: k.toLowerCase(), label: what, concept: 'export-sectors', compute: (c: Ctx) => c.v(`exportVolume${k}`) })),
+      explain: { what: 'All exports at baseline prices.', rule: 'Sum of marine, aluminium, tourism and other export volumes.' },
+    },
+    {
+      id: 'exportValue',
+      target: 'exportValue',
+      category: 'IDENTITY',
+      inputs: EXPORTS.map(([k]) => `exports${k}`),
+      terms: EXPORTS.map(([k, , , what]): TermDef => ({ id: k.toLowerCase(), label: what, concept: 'export-sectors', compute: (c: Ctx) => c.v(`exports${k}`) })),
+      explain: { what: 'What exporters earn from abroad, in krónur.', rule: 'Sum of the four kinds of exports.' },
+    },
+    {
+      id: 'exporterInputs',
+      target: 'exporterInputs',
+      category: 'BEHAVIOUR',
+      inputs: ['exportVolume', 'domesticPrice'],
+      params: ['muXD'],
+      compute: (c) => c.p('muXD') * c.v('exportVolume') * c.v('domesticPrice'),
+      explain: { what: 'Food, transport, energy and services exporters buy from domestic firms.', rule: 'Inputs = {muXD} per unit of exports × domestic prices.' },
+    },
+    {
+      id: 'valueAddedFX',
+      target: 'valueAddedFX',
+      category: 'IDENTITY',
+      inputs: ['exportVolume'],
+      params: ['muX', 'muXD'],
+      terms: terms(
+        ['exports', 'Exports', 'export-sectors', (c) => c.v('exportVolume')],
+        ['importedInputs', 'Imported inputs', 'import-leakage', (c) => -c.p('muX') * c.v('exportVolume')],
+        ['domesticInputs', 'Domestic inputs', undefined, (c) => -c.p('muXD') * c.v('exportVolume')],
+      ),
+      explain: { what: 'What exporters add to output, at baseline prices.', rule: 'Value added = exports × (1 − {muX} imported inputs − {muXD} domestic inputs).' },
+    },
+    {
+      id: 'importsConsumer',
+      target: 'importsConsumer',
+      category: 'BEHAVIOUR',
+      inputs: ['realConsumption', 'realExchangeRate', 'importPrice'],
+      params: ['muC', 'epsM'],
+      compute: (c) => c.v('importPrice') * c.p('muC') * c.v('realConsumption') * rq(c),
+      concepts: ['import-leakage'],
+      explain: { what: 'Consumer goods shops import.', rule: 'Imports = import prices × {muC} × real consumer spending × (real exchange rate)^−{epsM}.' },
+    },
+    {
+      id: 'importsInputs',
+      target: 'importsInputs',
+      category: 'BEHAVIOUR',
+      inputs: ['realConsumption', 'investmentReal', 'exportVolume', 'realExchangeRate', 'importPrice'],
+      params: ['muD', 'muXD', 'epsM'],
+      compute: (c) => c.v('importPrice') * c.p('muD') * (c.v('realConsumption') + c.v('investmentReal') + c.p('muXD') * c.v('exportVolume')) * rq(c),
+      concepts: ['import-leakage'],
+      explain: { what: 'Imported inputs domestic firms use to make what they sell.', rule: 'Imports = import prices × {muD} × (consumption + investment + exporters’ domestic inputs), real, × (real exchange rate)^−{epsM}.' },
+    },
+    {
+      id: 'importsEquipment',
+      target: 'importsEquipment',
+      category: 'BEHAVIOUR',
+      inputs: ['investmentReal', 'realExchangeRate', 'importPrice'],
+      params: ['muI', 'epsM'],
+      compute: (c) => c.v('importPrice') * c.p('muI') * c.v('investmentReal') * rq(c),
+      concepts: ['import-leakage'],
+      explain: { what: 'Imported machinery and equipment for investment.', rule: 'Imports = import prices × {muI} × real investment × (real exchange rate)^−{epsM}.' },
+    },
+    {
+      id: 'importsPublic',
+      target: 'importsPublic',
+      category: 'BEHAVIOUR',
+      inputs: ['publicPurchasesReal', 'realExchangeRate', 'importPrice'],
+      params: ['muG', 'epsM'],
+      compute: (c) => c.v('importPrice') * c.p('muG') * c.v('publicPurchasesReal') * rq(c),
+      concepts: ['import-leakage'],
+      explain: { what: 'Imported goods (medicines, equipment) behind public services.', rule: 'Imports = import prices × {muG} × real public purchases × (real exchange rate)^−{epsM}.' },
+    },
+    {
+      id: 'importsExporters',
+      target: 'importsExporters',
+      category: 'BEHAVIOUR',
+      inputs: ['exportVolume', 'importPrice'],
+      params: ['muX'],
+      compute: (c) => c.v('importPrice') * c.p('muX') * c.v('exportVolume'),
+      concepts: ['import-leakage'],
+      explain: { what: 'Alumina, fuel and other inputs exporters import.', rule: 'Imports = import prices × {muX} per unit of exports.' },
+    },
+    {
+      id: 'importVolume',
+      target: 'importVolume',
+      category: 'IDENTITY',
+      inputs: [...IMPORTS.map(([k]) => `imports${k}`), 'importPrice'],
+      terms: IMPORTS.map(([k, what]): TermDef => ({ id: k.toLowerCase(), label: what, concept: 'import-leakage', compute: (c: Ctx) => c.v(`imports${k}`) / c.v('importPrice') })),
+      explain: { what: 'All imports at baseline prices.', rule: 'Sum of the five kinds of imports, each divided by import prices.' },
+    },
+    {
+      id: 'revaluationFXReserves',
+      target: 'revaluationFXReserves',
+      category: 'IDENTITY',
+      inputs: ['exchangeRate'],
+      lagInputs: ['exchangeRate'],
+      stocks: [['fxReserves', 'CB']],
+      compute: (c) => (c.stock('fxReserves', 'CB') * (c.v('exchangeRate') / c.lag('exchangeRate') - 1)) / c.dt,
+      concepts: ['revaluation'],
+      explain: { what: 'The change in the króna value of the central bank’s foreign reserves when the króna moves (a yearly rate).', rule: 'Revaluation = reserves × the percentage change in the exchange rate this month ÷ one month.' },
+    },
+    {
+      id: 'revaluationForeignAssets',
+      target: 'revaluationForeignAssets',
+      category: 'IDENTITY',
+      inputs: ['exchangeRate'],
+      lagInputs: ['exchangeRate'],
+      stocks: [['foreignAssets', 'PF']],
+      compute: (c) => (c.stock('foreignAssets', 'PF') * (c.v('exchangeRate') / c.lag('exchangeRate') - 1)) / c.dt,
+      concepts: ['revaluation'],
+      explain: { what: 'The change in the króna value of pension funds’ foreign assets when the króna moves (a yearly rate).', rule: 'Revaluation = foreign assets × the percentage change in the exchange rate this month ÷ one month.' },
+    },
+    {
+      id: 'bondPurchasesW',
+      target: 'bondPurchasesW',
+      category: 'BEHAVIOUR',
+      label: 'Carry trade',
+      inputs: ['nominalGDP', 'keyRate', 'foreignRate'],
+      params: ['bW0', 'psiB', 'lamBW', 'i0', 'iF0'],
+      stocks: [['govBonds', 'W']],
+      terms: terms(
+        ['normal', 'Toward normal holdings', undefined, (c) => gapRate(c.p('lamBW'), c.dt) * (c.p('bW0') * c.v('nominalGDP') - c.stock('govBonds', 'W'))],
+        ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => gapRate(c.p('lamBW'), c.dt) * c.p('bW0') * c.v('nominalGDP') * c.p('psiB') * (c.v('keyRate') - c.p('i0') - (c.v('foreignRate') - c.p('iF0')))],
+      ),
+      concepts: ['carry-trade'],
+      explain: {
+        what: 'Government bonds non-residents buy from banks (negative: sell), paying with their króna deposits.',
+        rule: 'They want bonds worth {bW0} of GDP × (1 + {psiB} × the rate gap with abroad relative to normal), and close the gap to their holdings at speed {lamBW} a year.',
+      },
+    },
+    {
+      id: 'currentAccount',
+      target: 'currentAccount',
+      category: 'IDENTITY',
+      inputs: [
+        'exportValue', ...IMPORTS.map(([k]) => `imports${k}`), 'fxReserveIncome', 'foreignAssetIncome', 'depositInterestW', 'bondInterestW', 'dividendsFX_W',
+      ],
+      terms: terms(
+        ['exports', 'Exports', 'export-sectors', (c) => c.v('exportValue')],
+        ['imports', 'Imports', 'import-leakage', (c) => -IMPORTS.reduce((s, [k]) => s + c.v(`imports${k}`), 0)],
+        ['incomeIn', 'Income on foreign assets', undefined, (c) => c.v('fxReserveIncome') + c.v('foreignAssetIncome')],
+        ['incomeOut', 'Interest and dividends paid abroad', undefined, (c) => -(c.v('depositInterestW') + c.v('bondInterestW') + c.v('dividendsFX_W'))],
+      ),
+      concepts: ['current-account', 'sectoral-balances'],
+      explain: {
+        what: 'Iceland’s income from the rest of the world minus its payments to it. Positive means Iceland lends to the world.',
+        rule: 'Current account = exports − imports + income on foreign reserves and pension funds’ foreign assets − interest and dividends paid to non-residents.',
+      },
+    },
+  ],
+  flows: [
+    {
+      id: 'exports',
+      label: 'Exports',
+      kind: 'cash',
+      account: 'current',
+      posting: { type: 'transfer' },
+      legs: EXPORTS.map(([k]) => ({ from: 'W', to: 'FX', amount: `exports${k}` })),
+      concepts: ['export-sectors'],
+      explain: { what: 'Foreigners pay exporters for fish, aluminium, tourism and other exports, out of their króna deposits.' },
+    },
+    {
+      id: 'exporterInputs',
+      label: 'Exporters’ domestic inputs',
+      kind: 'cash',
+      account: 'current',
+      posting: { type: 'transfer' },
+      legs: [{ from: 'FX', to: 'FD', amount: 'exporterInputs' }],
+      explain: { what: 'Exporters buy food, transport, energy and services from domestic firms (hotels buy food, smelters buy services).' },
+    },
+    {
+      id: 'imports',
+      label: 'Imports',
+      kind: 'cash',
+      account: 'current',
+      posting: { type: 'transfer' },
+      legs: IMPORTS.map(([k, , from]) => ({ from, to: 'W', amount: `imports${k}` })),
+      concepts: ['import-leakage'],
+      explain: { what: 'Firms pay foreigners for imported consumer goods, inputs, machinery, public purchases and exporters’ alumina and fuel. The krónur end up in non-residents’ deposits.' },
+    },
+    {
+      id: 'revaluationFXReserves',
+      label: 'Revaluation of FX reserves',
+      kind: 'revaluation',
+      account: 'other',
+      posting: { type: 'revalue', instrument: 'fxReserves' },
+      legs: [{ from: 'W', to: 'CB', amount: 'revaluationFXReserves' }],
+      concepts: ['revaluation'],
+      explain: { what: 'When the króna weakens, the central bank’s foreign reserves are worth more krónur. A change in value, not a payment.' },
+    },
+    {
+      id: 'revaluationForeignAssets',
+      label: 'Revaluation of foreign pension assets',
+      kind: 'revaluation',
+      account: 'other',
+      posting: { type: 'revalue', instrument: 'foreignAssets' },
+      legs: [{ from: 'W', to: 'PF', amount: 'revaluationForeignAssets' }],
+      concepts: ['revaluation', 'funded-pensions'],
+      explain: { what: 'When the króna weakens, pension funds’ foreign assets are worth more krónur. A change in value, not a payment.' },
+    },
+    {
+      id: 'bondPurchasesW',
+      label: 'Carry trade in government bonds',
+      kind: 'cash',
+      account: 'financial',
+      posting: { type: 'trade', instrument: 'govBonds' },
+      legs: [{ from: 'W', to: 'B', amount: 'bondPurchasesW' }],
+      concepts: ['carry-trade'],
+      explain: { what: 'Foreign investors buy government bonds from banks with their króna deposits; the deposits are cancelled, so broad money held abroad shrinks.' },
+    },
+  ],
+  levers: [
+    {
+      id: 'foreignDemand',
+      label: 'Foreign demand',
+      group: 'World',
+      section: 'World economy',
+      kind: 'setting',
+      unit: '%',
+      default: 0,
+      min: -20,
+      max: 20,
+      step: 1,
+      binds: { param: 'foreignDemandShift', mode: 'add', scale: 0.01 },
+      description: 'Demand for all Icelandic exports.',
+      definition: 'Level shift in the volume of every kind of export, in percent of baseline, applied at once and persistent while set. Setting it back to 0 returns demand to baseline.',
+      concepts: ['export-sectors'],
+    },
+    {
+      id: 'tourism',
+      label: 'Tourism',
+      group: 'World',
+      section: 'World economy',
+      kind: 'setting',
+      unit: '%',
+      default: 0,
+      min: -60,
+      max: 30,
+      step: 5,
+      binds: { param: 'tourismShift', mode: 'add', scale: 0.01 },
+      description: 'Foreign visitors’ spending.',
+      definition: 'Level shift in tourism export volume, in percent of baseline, on top of foreign demand; applied at once and persistent while set. Setting it back to 0 ends it.',
+      concepts: ['export-sectors'],
+    },
+    {
+      id: 'kronaShock',
+      label: 'Króna sentiment shock',
+      group: 'World',
+      section: 'World economy',
+      kind: 'oneoff',
+      unit: '%',
+      default: -10,
+      min: -25,
+      max: 25,
+      step: 1,
+      description: 'A one-off shift in what investors think the króna is worth. Negative means a weaker króna.',
+      definition:
+        'One-off shift in the króna’s target value by this percentage (−10: about 10% weaker), fired once. It then fades at about 10% of its size a year; the króna itself moves toward the shifted target within a few months, and prices, rates and trade respond.',
+      concepts: ['floating-exchange-rate', 'exchange-rate-pass-through'],
+      fire: (s, size) => s.setLagged('sentimentShock', s.get('sentimentShock') - Math.log(1 + size / 100)),
+    },
+    {
+      id: 'foreignRate',
+      label: 'Foreign interest rate',
+      group: 'World',
+      section: 'World economy',
+      kind: 'setting',
+      unit: 'pp',
+      default: 0,
+      min: -3,
+      max: 5,
+      step: 0.25,
+      binds: { param: 'foreignRateShift', mode: 'add', scale: 0.01 },
+      description: 'Interest rates abroad; a higher rate pulls carry money out of krónur.',
+      definition: 'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. It also changes the cash yield on pension funds’ foreign assets. Setting it back to 0 ends it.',
+      concepts: ['carry-trade'],
+    },
+    {
+      id: 'importPrices',
+      label: 'World prices',
+      group: 'World',
+      section: 'World economy',
+      kind: 'setting',
+      unit: '%',
+      default: 0,
+      min: -20,
+      max: 40,
+      step: 1,
+      binds: { param: 'worldPriceShift', mode: 'add', scale: 0.01 },
+      description: 'Foreign-currency prices of imports and of fish and aluminium.',
+      definition: 'Level shift in world prices, in percent, applied at once and persistent while set. Import prices in shops follow gradually; fish and aluminium revenue jumps at once. Setting it back to 0 ends it.',
+      concepts: ['exchange-rate-pass-through'],
+    },
+  ],
+  tests: [
+    {
+      id: 'current-account-balanced',
+      label: 'At baseline the current account is balanced, so non-residents’ króna holdings are steady',
+      run: (e) => {
+        const ca = e.baseline('currentAccount');
+        return { pass: Math.abs(ca) < 1e-9, detail: `current account ${ca.toExponential(2)}` };
+      },
+    },
+    {
+      id: 'depreciation-revalues-foreign-assets',
+      label: 'A weaker króna revalues pension funds’ foreign assets without any payment',
+      run: (e) => {
+        const fa0 = e.balanceSheet('PF').assets.find((a) => a.instrument === 'foreignAssets')!.value;
+        e.fire('kronaShock', -10);
+        e.step(1);
+        const fa1 = e.balanceSheet('PF').assets.find((a) => a.instrument === 'foreignAssets')!.value;
+        const rev = e.value('revaluationForeignAssets') / 12;
+        const buy = e.value('foreignAssetPurchases') / 12;
+        const gap = fa1 - fa0 - rev - buy;
+        return { pass: rev > 0 && Math.abs(gap) < 1e-9, detail: `revaluation +${rev.toFixed(3)}, purchases ${buy.toFixed(3)}, unexplained ${gap.toExponential(2)} (% of GDP)` };
+      },
+    },
+  ],
+};

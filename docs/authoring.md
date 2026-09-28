@@ -102,7 +102,7 @@ A flow is a transaction type. Each leg (payer → payee) has its **own amount va
 | `accrue` | debtor (owes more) | creditor | accrual | current |
 | `revalue` / `writeoff` | side that loses | side that gains | revaluation / writeoff | other |
 
-A real asset has no issuer, so its `revalue` / `writeoff` is one-sided with `from = to` = the holder, as in depreciation:
+A `revalue` between two holders of the same instrument is a reclassification: value moves from `from` to `to` with no cash and no income, as when retirement moves pension rights from working-age members to pensioners in the Iceland model. A real asset has no issuer, so its `revalue` / `writeoff` is otherwise one-sided with `from = to` = the holder, as in depreciation:
 
 ```ts
 { id: 'depreciation', kind: 'writeoff', account: 'other', posting: { type: 'writeoff', instrument: 'capital' },
@@ -143,7 +143,7 @@ Every variable has a unit and a kind; variables with a `kind` other than `'exoge
 - **Categories:** `IDENTITY` (accounting), `CONTRACT` (institutional rule), `BEHAVIOUR` (an assumption), `POLICY` (an authority's decision rule).
 - **Declarations:** `c.v(id)` needs `inputs`, `c.lag(id, k)` needs `lagInputs`, `c.p(id)` needs `params`, `c.stock(ins, player)` needs `stocks`, `c.lever(id)` needs `levers`. The compiler dry-runs every rule, so an undeclared read is a compile error, and in dev mode the engine also throws on one at run time.
 - **Terms:** the desired value is the sum of the terms, so the inspector can show exactly which term moved. Write rules as terms whenever they add up.
-- **Adjust:** with `adjust`, value = last month's value + speed × dt × (desired − last month's value). Speeds are per year. The target's own lag is read automatically.
+- **Adjust:** with `adjust`, value = last month's value + speed × dt × (desired − last month's value). Speeds are per year. The target's own lag is read automatically. With `adjust: { speed, form: 'exponential' }` the share closed each step is 1 − e^(−speed × dt) instead: the exact first-order lag, which never overshoots and changes less when the step is halved (the Iceland model uses it throughout, as engine v1 did).
 - **Explain:** `{paramId}`, `{paramId%}` and `{paramId pp}` in `explain.rule` are filled with live parameter values.
 - **Lags:** `c.lag(id)` is last month; for "a year ago" write `c.lag(id, Math.round(1 / c.dt))` so the rule survives the half-step test.
 

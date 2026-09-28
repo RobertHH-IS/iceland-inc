@@ -6,6 +6,7 @@
  */
 import type { ConceptDef, ModelDef } from '../core/types.ts';
 import { referenceModel } from './reference/index.ts';
+import { icelandModel } from './iceland/index.ts';
 
 /** The shared concept library, if it is present (it is written separately). Without it the
  *  models still run; the compiler just warns that their concept ids are undefined. */
@@ -32,4 +33,4 @@ export function withConcepts(model: ModelDef, library: ConceptDef[] = conceptLib
   };
 }
 
-export const models: ModelDef[] = [withConcepts(referenceModel)];
+export const models: ModelDef[] = [withConcepts(referenceModel), withConcepts(icelandModel)];

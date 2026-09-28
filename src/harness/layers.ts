@@ -48,6 +48,9 @@ export interface HarnessResult {
 
 export const DRIFT_TOL = 1e-9;
 export const HALF_STEP_TOL = 0.2; // relative change of each calibration measure
+/** For a measure near zero a relative change means little, so the change may also be as large as
+ *  HALF_STEP_TOL × HALF_STEP_BAND of the width of the check's range (when both ends are finite). */
+export const HALF_STEP_BAND = 0.5;
 export const SOLVER_TOL_TOL = 1e-6; // indicator change when the solver tolerance is loosened
 
 const e2 = (x: number) => (Number.isFinite(x) ? x.toExponential(2) : String(x));
@@ -298,7 +301,8 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
         };
         const vh = c.measure(sub),
           v = measures[j];
-        const rel = Math.abs(vh - v) / Math.max(Math.abs(v), 1e-9);
+        const width = Number.isFinite(c.range[0]) && Number.isFinite(c.range[1]) ? c.range[1] - c.range[0] : 0;
+        const rel = Math.abs(vh - v) / Math.max(Math.abs(v), HALF_STEP_BAND * width, 1e-9);
         worst = Math.max(worst, rel);
         const pass = rel <= HALF_STEP_TOL;
         ok &&= pass;
@@ -313,7 +317,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Half-step sensitivity',
       '',
-      `Each calibration scenario rerun with half the time step (dt = ${def.dt / 2}); the measure may change by at most ${100 * HALF_STEP_TOL}%. ${verdict(ok)}.`,
+      `Each calibration scenario rerun with half the time step (dt = ${def.dt / 2}); the measure may change by at most ${100 * HALF_STEP_TOL}% of its value, or ${100 * HALF_STEP_TOL * HALF_STEP_BAND}% of the width of its target range when that is larger (a measure near zero). ${verdict(ok)}.`,
       '',
       '| Check | dt | dt / 2 | Change | Verdict |',
       '|---|---|---|---|---|',
