@@ -147,3 +147,14 @@ describe('H4: consumption is deflated by prices households pay for, not by house
     expect(Math.abs(pct(e, 'consumptionDeflator') / pct(e, 'cpi') - 1)).toBeLessThan(0.05);
   });
 });
+
+describe('L10: the housing part of the CPI says what it stands in for', () => {
+  test('the rule, the speed and the weight name rental equivalence and the proxy', () => {
+    const e = createEngine(model);
+    const inf = e.influences('housingCost');
+    expect(inf.rule!.rule).toContain('rental equivalence');
+    expect(inf.rule!.what).toContain('actual rents');
+    expect(inf.params.find((p) => p.id === 'lamHC')!.provenance.note).toContain('June 2024');
+    expect(e.influences('cpi').params.find((p) => p.id === 'omH')!.provenance.note).toContain('rental equivalence');
+  });
+});
