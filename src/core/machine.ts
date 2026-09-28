@@ -6,7 +6,7 @@
  * State: parameters, lever settings, the current value of every variable, a ring buffer of
  * past values (for lag()), and the ledger's positions.
  */
-import type { CRule, KModel } from './compile.ts';
+import { isAutomatic, type CRule, type KModel } from './compile.ts';
 import type { Ctx, Id } from './types.ts';
 import { Ledger, postLeg } from './ledger.ts';
 import type { Payments } from './payments.ts';
@@ -58,6 +58,13 @@ export class Machine {
   /** Baseline values: base() in rules, and the value a disabled term is held at. */
   baseVars: Float64Array;
   baseTerms: Float64Array;
+  /** Baseline term values in each stabiliser mode, [Manual, Automatic], when the model has a
+   *  stabiliser setting: `baseTerms` then follows the current mode at every evaluation. */
+  baseTermsByMode: Float64Array[] | null = null;
+  /** Was the stabiliser setting Automatic in the last evaluate()? termVal and desired were
+   *  computed under this mode, so influences compare them with its baseline (true in a model
+   *  without a stabiliser setting). */
+  evalAutomatic = true;
   readonly termDisabled: Uint8Array;
   readonly ledger: Ledger;
   readonly pay: Payments;
@@ -260,9 +267,17 @@ export class Machine {
     return prev + k * (d - prev);
   }
 
+  /** Is the stabiliser setting Automatic at the current lever values? */
+  automaticNow(): boolean {
+    const mode = this.m.def.stabiliserMode;
+    return mode && this.m.modeLever >= 0 ? isAutomatic(mode, this.leverVal[this.m.modeLever]) : true;
+  }
+
   /** Evaluate the whole schedule for this step. */
   evaluate(): void {
     const { m, cur } = this;
+    this.evalAutomatic = this.automaticNow();
+    if (this.baseTermsByMode) this.baseTerms = this.baseTermsByMode[this.evalAutomatic ? 1 : 0];
     let iters = 1;
     for (const b of m.blocks) {
       if (!b.simultaneous) {

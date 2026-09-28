@@ -315,6 +315,10 @@ export interface StabiliserDef {
    *  is above the lever, `lower` when below. `{value}` is the suggestion and `{change}` the size of
    *  the gap, in lever units. `indicator` is the chart the message opens. */
   feed?: { raise: string; lower: string; indicator: Id };
+  /** Variables that only feed the suggestion while the stabiliser is Manual, such as the rate a
+   *  Taylor rule calls for: on Manual they drive nothing, so ideas at play leaves them out. The
+   *  compiler checks that no other rule reads them on Manual. */
+  shadow?: Id[];
 }
 
 /** A stabiliser now (Engine.stabilisers()). `gap` = suggested − current, in lever units. */
@@ -541,7 +545,10 @@ export interface Influence {
   value: number;
   baseline: number;
   category?: Category;
-  rule?: { id: Id; what: string; rule: string };
+  /** The explanation, with parameter placeholders filled. `source` says where it comes from: a
+   *  variable's rule, a flow, an indicator, or (for an exogenous variable) outside the model, set
+   *  by the `levers` listed. */
+  rule?: { id: Id; what: string; rule: string; source: 'rule' | 'flow' | 'indicator' | 'exogenous'; levers?: Id[] };
   regime?: string | null;
   /** For rules with gradual adjustment: the desired value the variable is moving toward. */
   desired?: number;
@@ -550,6 +557,7 @@ export interface Influence {
   terms: { id: Id; label: string; value: number; baseline: number; change: number; concept?: Id; inputs: Id[] }[];
   /** True when terms are combined non-additively (e.g. a min), so changes do not simply add. */
   nonAdditive: boolean;
+  /** The rule's parameters, and any other parameter its explain texts name, with provenance. */
   params: { id: Id; value: number; unit: string; provenance: Provenance }[];
   upstream: Id[]; // variables this one reads (for navigation and trace-back)
   concepts: Id[];
@@ -637,7 +645,9 @@ export interface Engine {
   /** Concepts weighted by how much their terms currently move things (for "ideas at play").
    *  The scope is the economy (default), a player, a group at any depth, a flow, a variable,
    *  an indicator, or a pipe 'from->to[:kind]' whose ends are players or groups at any level
-   *  (a group end stands for all its players). */
+   *  (a group end stands for all its players). An unprefixed id is looked up as a variable,
+   *  flow, player or group, then indicator; prefix it with 'var:', 'flow:', 'indicator:',
+   *  'player:' or 'group:' when kinds share an id. */
   ideasAtPlay(scope?: Id): { concept: Id; weight: number; via: Id[] }[];
   checks(): CheckReport;
   /** Narration: feed rules crossing their thresholds (marked with the rule's id), and (Manual

@@ -15,7 +15,7 @@
  * The result is published by `baselineReport` (all variables, stocks and legs).
  */
 import type { Id, IndicatorCtx, LegSnapshot } from './types.ts';
-import { ROLE_HOLDER, ROLE_ISSUER, type KModel } from './compile.ts';
+import { isAutomatic, ROLE_HOLDER, ROLE_ISSUER, type KModel } from './compile.ts';
 import { Machine } from './machine.ts';
 import { lmStep, maxAbs, solveLinear, sumSq } from './numerics.ts';
 
@@ -38,6 +38,9 @@ export interface Baseline {
   vars: Float64Array;
   terms: Float64Array;
   desired: Float64Array;
+  /** For a model with a stabiliser setting: term and desired values at the baseline state in
+   *  each mode, [Manual, Automatic]. Terms gated by the mode differ; the state does not. */
+  byMode?: { terms: Float64Array; desired: Float64Array }[];
   regimes: (string | null)[];
   solved: Record<Id, number>;
   method: 'newton' | 'closed-form + newton' | 'none';
@@ -286,6 +289,24 @@ export function solveBaseline(m: KModel, opts: BaselineOptions = {}): Baseline {
   positions.set(pos);
   M.evaluate();
   const vars = new Float64Array(M.cur);
+  const terms = new Float64Array(M.termVal);
+  const desired = new Float64Array(M.desired);
+  const regimes = [...M.regimes];
+  let byMode: Baseline['byMode'];
+  const mode = m.def.stabiliserMode;
+  if (mode && m.modeLever >= 0) {
+    // the same state, evaluated with the stabiliser setting at the other mode
+    const keep = M.leverVal[m.modeLever];
+    const defaultAutomatic = isAutomatic(mode, keep);
+    M.leverVal[m.modeLever] = defaultAutomatic ? mode.manual : mode.automatic;
+    M.applyLevers();
+    M.evaluate();
+    const other = { terms: new Float64Array(M.termVal), desired: new Float64Array(M.desired) };
+    M.leverVal[m.modeLever] = keep;
+    M.applyLevers();
+    M.cur.set(vars);
+    byMode = defaultAutomatic ? [other, { terms, desired }] : [{ terms, desired }, other];
+  }
   const solved: Record<Id, number> = {};
   free.forEach((k, i) => (solved[m.params[k].id] = z[i]));
   const targets = spec.targets.map((t, i) => ({ id: t.id, describe: t.describe, residual: F[nP + nS + i] }));
@@ -294,9 +315,10 @@ export function solveBaseline(m: KModel, opts: BaselineOptions = {}): Baseline {
     exoBase: new Float64Array(M.exoBase),
     positions,
     vars,
-    terms: new Float64Array(M.termVal),
-    desired: new Float64Array(M.desired),
-    regimes: [...M.regimes],
+    terms,
+    desired,
+    byMode,
+    regimes,
     solved,
     method: n === 0 ? 'none' : method,
     iterations,

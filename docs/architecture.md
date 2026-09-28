@@ -154,7 +154,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | **A player** | Its live balance sheet (value, baseline, change), its biggest pipes, and its binding constraints |
 | **A group** | On the map, a closed group opens to show its members. In the inspector: its description, members, the summed balance sheet of its players, and its biggest pipes as the map shows them |
 | **An indicator** | How it is computed, its drivers, and their influences |
-| **"Ideas at play"** | `ideasAtPlay(scope)` weights each concept by the absolute change in the terms tagged with it, across the scope (a pipe, a player or the whole economy), and lists them with the terms they come from. Because they are live, the ideas at play shift as the shock travels: markup pricing first, then adaptive expectations, then the Taylor rule, then endogenous money |
+| **"Ideas at play"** | `ideasAtPlay(scope)` weights each concept by how much the terms tagged with it move their rule, across the scope (a pipe, a player, a flow, an indicator or the whole economy), and lists them with the terms they come from. For an additive rule that is the term's change; for a rule with `combine` it is the term's one-at-a-time effect on the rule's value, so a cap that does not bind weighs nothing. Stabiliser suggestions never count, and on Manual neither do the stabilisers' shadow variables, which then drive nothing. Because they are live, the ideas at play shift as the shock travels: markup pricing first, then adaptive expectations, then the Taylor rule, then endogenous money |
 | **The feed** | Declarative threshold rules on indicators. These are narration only, never logic |
 
 ## 6. The harness

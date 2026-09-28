@@ -66,7 +66,8 @@ export function navClear(n: NavState): NavState {
 export const canBack = (n: NavState) => n.index > 0;
 export const canForward = (n: NavState) => n.index < n.stack.length - 1;
 
-/** The ideasAtPlay scope for a selection (undefined = the whole economy). */
+/** The ideasAtPlay scope for a selection (undefined = the whole economy). Ids are prefixed
+ *  with their kind, because a flow, an indicator and a variable may share one. */
 export function selectionScope(s: Selection | null): Id | undefined {
   if (!s) return undefined;
   switch (s.kind) {
@@ -75,7 +76,7 @@ export function selectionScope(s: Selection | null): Id | undefined {
     case 'concept':
       return undefined;
     default:
-      return s.id;
+      return `${s.kind}:${s.id}`;
   }
 }
 

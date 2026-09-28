@@ -223,13 +223,14 @@ stabilisers: [{
   lever: 'keyRateFixed',          // the POLICY lever it stands in for (set by the user on Manual)
   offset: 'keyRateAddon',         // the lever that offsets it on Automatic, if not `lever` itself
   suggestion: 'keyRateSuggestion',
+  shadow: ['ruleRate'],           // variables that only feed the suggestion on Manual
   threshold: 0.125,               // lever units; half the lever's step calls exactly when Apply would move it
   description: 'The central bank’s Taylor rule: …',
   feed: { raise: 'The Taylor rule would raise the key rate to {value}%', lower: 'The Taylor rule would cut the key rate to {value}%', indicator: 'keyRate' },
 }],
 ```
 
-`engine.stabilisers()` then reports each one: `suggested`, `current` (the lever), `gap`, `calling` (Manual and the gap above the threshold) and `automatic`. The interface turns a calling lever red with the suggestion and an "Apply" button, marks the offset lever with the rule's value on Automatic, and the engine narrates a call in the feed. Keep the baseline identical in both modes: at the steady state the rule must suggest exactly what the lever's default gives.
+`engine.stabilisers()` then reports each one: `suggested`, `current` (the lever), `gap`, `calling` (Manual and the gap above the threshold) and `automatic`. The interface turns a calling lever red with the suggestion and an "Apply" button, marks the offset lever with the rule's value on Automatic, and the engine narrates a call in the feed. List the shadow variables in `shadow`: on Manual they drive nothing, so ideas at play leaves them out (the suggestion is always left out, because it restates the rule in lever units), and the compiler checks that no other rule reads them on Manual. Keep the baseline identical in both modes: at the steady state the rule must suggest exactly what the lever's default gives.
 
 **A one-off.** `fire` may change only non-stock state, through the restricted `ShockApi`. Here it lifts last month's wage rate, so the jump is felt this month:
 
@@ -264,7 +265,7 @@ Indicators are the charts. `compute` returns the level; `display` turns it into 
 
 ## 9. Concepts
 
-Tag rules, terms, flows, instruments, levers, indicators and feed rules with concept ids from the shared library (`src/concepts/library.ts`), such as `endogenous-money`, `markup-pricing`, `taylor-rule` or `credit-impulse`. Tag the **term** that expresses an idea whenever you can: `ideasAtPlay()` weights each concept by how much the terms tagged with it have moved from baseline, so the ideas at play shift as a shock travels. An id that no module defines is a compile warning. To add a new idea, add a `ConceptDef` to the library (or to a module's `concepts`).
+Tag rules, terms, flows, instruments, levers, indicators and feed rules with concept ids from the shared library (`src/concepts/library.ts`), such as `endogenous-money`, `markup-pricing`, `taylor-rule` or `credit-impulse`. Tag the **term** that expresses an idea whenever you can: `ideasAtPlay()` weights each concept by how much the terms tagged with it have moved their rule from baseline, so the ideas at play shift as a shock travels. In a rule with `combine`, a term counts by its one-at-a-time effect on the rule's value (a factor of a product at the product's level; a cap that does not bind not at all), so tag the factor that carries the idea. An id that no module defines is a compile warning. To add a new idea, add a `ConceptDef` to the library (or to a module's `concepts`).
 
 ## 10. The steady-state baseline
 
