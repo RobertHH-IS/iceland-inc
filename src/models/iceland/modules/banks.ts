@@ -152,7 +152,9 @@ export const banks: ModuleDef = {
       inputs: ['keyRate'],
       params: ['mD'],
       terms: terms(['keyRate', 'Key rate', 'taylor-rule', (c) => c.v('keyRate')], ['margin', 'Bank margin', undefined, (c) => -c.p('mD')]),
-      explain: { what: 'Interest banks pay on deposits.', rule: 'Deposit rate = key rate − {mD pp}.' },
+      combine: (t) => Math.max(0, t.keyRate + t.margin),
+      regime: (_c, _v, t) => (t.keyRate + t.margin < 0 ? 'Deposit rate at its floor: bank margin squeezed' : null),
+      explain: { what: 'Interest banks pay on deposits.', rule: 'Deposit rate = key rate − {mD pp}, never below 0%: when the key rate is lower than the margin, banks pay nothing on deposits and their margin is squeezed instead.' },
     },
     {
       id: 'loanRate',
@@ -339,6 +341,18 @@ export const banks: ModuleDef = {
     },
   ],
   tests: [
+    {
+      id: 'deposit-rate-floor',
+      label: 'With the key rate held at 0%, banks pay 0% on deposits, not −1%: no deposit interest is negative',
+      run: (e) => {
+        e.setLever('keyRateFixed', 0);
+        e.step(3);
+        const rate = e.value('depositRate');
+        const lowest = Math.min(...DEPOSITORS.map((pl) => e.value(`depositInterest${pl}`)));
+        const regime = e.influences('depositRate').regime ?? '';
+        return { pass: rate === 0 && lowest >= 0 && regime.startsWith('Deposit rate at its floor'), detail: `deposit rate ${rate}, lowest deposit interest ${lowest.toFixed(4)}; regime “${regime}”` };
+      },
+    },
     {
       id: 'capital-at-target',
       label: 'At baseline bank capital is at its target, so there is no loan premium and dividends equal profit',

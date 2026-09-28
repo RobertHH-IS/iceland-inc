@@ -39,7 +39,7 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   const o: Record<Id, number> = {}; // solved and derived parameters
   const v: Record<Id, number> = {}; // variables
   const i = p.i0,
-    id = i - p.mD,
+    id = Math.max(0, i - p.mD), // the deposit rate's floor (banks.ts)
     ib = i + p.sB,
     il = i + p.sL,
     imn = i + p.sMN,
