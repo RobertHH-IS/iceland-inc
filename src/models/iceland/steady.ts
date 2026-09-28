@@ -52,12 +52,16 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   const gs = [p.gHealth, p.gEdu, p.gOther];
   o.wsOther = (p.compG - p.wsHealth * p.gHealth - p.wsEdu * p.gEdu) / p.gOther;
   const wsA = [p.wsHealth, p.wsEdu, o.wsOther];
-  const NGk = gs.map((g, k) => (wsA[k] * g) / (1 + p.cEr));
+  // Public compensation (compG, national accounts D.1) includes the employer pension contribution
+  // and the payroll tax, like private compensation, so both are divided by the same labour-cost
+  // factor. The government pays the payroll tax on its own staff to itself: it is left out of the
+  // cash budget on both sides (Gspend counts (1 + cEr) × NG; revenue counts css on private wages).
+  const LCr = 1 + p.cEr + p.css;
+  const NGk = gs.map((g, k) => (wsA[k] * g) / LCr);
   const NG = sum(NGk);
   const vaG = sum(gs.map((g, k) => wsA[k] * g));
   const gPur = sum(gs.map((g, k) => (1 - wsA[k]) * g));
   const gServ = sum(gs);
-  const LCr = 1 + p.cEr + p.css;
   const Wpriv = (p.compTotal - p.compG) / LCr;
   const Ntot = Wpriv + NG;
   // Firms by sector (decision 0003): each sector's wage bill is its compensation of employees ÷ the
@@ -253,7 +257,6 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   // inputs, their purchases from retail and services close the gap to their value added (data).
   const salesFC = inv + p.maintShare * (Ctot - VAT);
   const imFC = o.muD * (inv + p.maintShare * Ctot);
-  o.salesFC0 = salesFC;
   o.dFC = (salesFC - p.muI * inv - imFC - p.gvaFC) / salesFC;
   if (!(o.dFC > 0)) warn.push(`construction's domestic-input share is not positive: ${o.dFC.toFixed(3)}`);
 
@@ -486,7 +489,6 @@ const meta: [Id, string, ParamDef['category'], string, Provenance][] = [
   ['divXOW', 'fraction', 'IDENTITY', 'Foreign owners’ share of other exporters’ dividends (data centres, pharma and other foreign-owned firms).', solved('dividends to foreign owners of all exporters match the data (fdiTarget), after the smelters’ (all abroad) and tourism’s (divXTW).')],
   ['mXO', 'fraction', 'BEHAVIOUR', 'Other exporters’ imported inputs per unit of exports.', derived('What is left of the TiVA import content of all exports (muX) after fisheries, aluminium and tourism.')],
   ['dFC', 'fraction', 'BEHAVIOUR', 'What builders buy from retail and service firms (materials, engineering, transport) per króna of their sales.', solved('construction’s value added matches the data (gvaFC).')],
-  ['salesFC0', '% of GDP/yr', 'IDENTITY', 'Builders’ real sales at baseline: all investment goods plus home repairs, net of VAT.', derived('Business and public investment + maintShare × (consumption − VAT).')],
   ['vaFR0', '% of GDP/yr', 'IDENTITY', 'Retail and service firms’ real value added at baseline (including VAT and housing services).', derived('Output − public value added − the other five sectors’ value added (data).')],
   ['vat0', 'fraction', 'POLICY', 'Effective VAT rate on consumer spending at baseline.', solved('baseline VAT revenue matches the data (vatTarget).')],
   ['cEe', 'fraction', 'CONTRACT', 'Employee pension contribution, deducted from the gross wage.', solved('baseline contributions match the data (conTarget).')],
@@ -504,7 +506,7 @@ const meta: [Id, string, ParamDef['category'], string, Provenance][] = [
   ['mRW', 'ratio', 'BEHAVIOUR', 'Working age: desired mortgage debt per króna of gross income.', solved('desired debt equals actual debt at baseline.')],
   ['potentialOutput', '% of GDP/yr', 'IDENTITY', 'Real output at baseline: the benchmark for the output gap.', derived('Baseline real output C + G + I + X − IM (100 by construction).')],
   ['uBase', 'fraction', 'IDENTITY', 'Unemployment rate at baseline: the rate at which wages grow only with expected inflation.', derived('Unemployed ÷ labour force from the age groups’ data.')],
-  ['Ntot0', '% of GDP/yr', 'IDENTITY', 'Baseline employment, measured as the gross wage bill at baseline wages.', derived('Private wages (compensation ÷ (1 + employer contribution + payroll tax)) + public staff.')],
+  ['Ntot0', '% of GDP/yr', 'IDENTITY', 'Baseline employment, measured as the gross wage bill at baseline wages.', derived('Private and public wages: compensation ÷ (1 + employer contribution + payroll tax), for public staff as for firms.')],
   ['rl0', 'fraction/yr', 'IDENTITY', 'Real business-loan rate at baseline.', derived('Neutral rate + loan spread.')],
   ['krona0', '% of GDP', 'IDENTITY', 'Non-residents’ króna holdings (deposits + government bonds) at baseline.', derived('depW + bondW.')],
   ['bW0', 'ratio', 'BEHAVIOUR', 'Non-residents’ government bonds ÷ GDP at baseline.', derived('bondW ÷ 100.')],

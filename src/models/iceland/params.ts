@@ -11,7 +11,7 @@
  * a year; speeds (lam*) per year, so the mean lag is 1/lam years.
  */
 import type { Category, Id, ParamDef, Provenance } from '../../core/types.ts';
-import { assumed, dataProv, datum, GDP_BN, placeholder, tuned } from './util.ts';
+import { assumed, dataProv, datum, derived, GDP_BN, placeholder, tuned } from './util.ts';
 
 const list: ParamDef[] = [];
 function P(id: Id, value: number, unit: string, category: Category, description: string, provenance: Provenance, range?: { min?: number; max?: number }): void {
@@ -41,9 +41,9 @@ P('gEdu', d(cof + 'education'), '% of GDP/yr', 'POLICY', 'Education spending, re
   });
 }
 P('gInv', d(eco + 'gross_fixed_capital_formation'), '% of GDP/yr', 'POLICY', 'Public investment, real, bought from domestic firms.', dataProv(eco + 'gross_fixed_capital_formation'));
-P('wsHealth', 0.55, 'fraction', 'POLICY', 'Share of health spending that is staff pay (including the employer pension contribution).', assumed());
-P('wsEdu', 0.7, 'fraction', 'POLICY', 'Share of education spending that is staff pay.', assumed());
-P('compG', d(eco + 'compensation_of_employees'), '% of GDP/yr', 'IDENTITY', 'Public compensation of employees; it fixes the pay share of other public services.', dataProv(eco + 'compensation_of_employees'));
+P('wsHealth', 0.55, 'fraction', 'POLICY', 'Share of health spending that is staff pay (compensation: including the employer pension contribution and the payroll tax).', assumed());
+P('wsEdu', 0.7, 'fraction', 'POLICY', 'Share of education spending that is staff pay (compensation, as for health).', assumed());
+P('compG', d(eco + 'compensation_of_employees'), '% of GDP/yr', 'IDENTITY', 'Public compensation of employees; it fixes the pay share of other public services. Like private compensation it includes the employer pension contribution and the payroll tax (tryggingagjald), which the government pays to itself.', dataProv(eco + 'compensation_of_employees', 'Also includes accrued public pension obligations beyond the 11.5% employer rate, so public gross wages are still somewhat overstated (audit L11).'));
 {
   const oa = d(eco + 'social_benefits') - d(sp + 'unemployment') - d(sp + 'family_children') - d(sp + 'housing');
   P('trOA', oa, '% of GDP/yr', 'POLICY', 'Old-age and disability cash transfers (Social Insurance, TR), real.', {
@@ -66,7 +66,7 @@ P('ueTarget', d(sp + 'unemployment'), '% of GDP/yr', 'POLICY', 'Baseline unemplo
 /* ----------------------------------------------------------------- taxes */
 P('vatTarget', d('tax_revenue_pct_gdp.vat_and_taxes_on_goods'), '% of GDP/yr', 'POLICY', 'Baseline VAT and taxes on goods; they fix the effective VAT rate on consumer spending.', dataProv('tax_revenue_pct_gdp.vat_and_taxes_on_goods'));
 P('citTarget', d('tax_revenue_pct_gdp.corporate_income_tax'), '% of GDP/yr', 'POLICY', 'Baseline corporate income tax; it fixes the effective tax rate on profits.', dataProv('tax_revenue_pct_gdp.corporate_income_tax'));
-P('css', 0.0635, 'fraction', 'POLICY', 'Payroll tax (tryggingagjald) on private gross wages.', assumed('Statutory social security tax rate.'));
+P('css', 0.0635, 'fraction', 'POLICY', 'Payroll tax (tryggingagjald) on gross wages. Firms pay it to the government; on public staff the government pays it to itself, so there it nets out of the cash budget.', assumed('Statutory social security tax rate.'));
 P('phiTau', 0.25, 'fraction', 'POLICY', 'Debt-tied tax rule: the income-tax rate rises 0.25 points per point of debt-to-GDP above baseline.', assumed());
 P('lamTau', 0.5, 'per year', 'POLICY', 'How fast the debt-tied tax rule phases in (a slow stabiliser).', assumed());
 
@@ -114,6 +114,8 @@ P('cycY', 1.8, 'ratio', 'BEHAVIOUR', 'How strongly young people’s jobs swing w
 P('cycW', 0.85, 'ratio', 'BEHAVIOUR', 'How strongly working-age jobs swing, relative to the average.', assumed());
 P('cycO', 0.5, 'ratio', 'BEHAVIOUR', 'How strongly older workers’ jobs swing, relative to the average.', assumed());
 P('mig', 0.3, 'fraction', 'BEHAVIOUR', 'Migration buffer: share of a change in jobs met by workers arriving or leaving, so the labour force moves with it.', tuned(), { min: 0, max: 0.8 });
+P('uFloor', 0.3, 'fraction', 'BEHAVIOUR', 'Frictional floor: however many jobs there are, each age group keeps at least this share of its normal number of unemployed (people between jobs); extra jobs are filled by people arriving from abroad.', assumed('Teaching value: a boom can take unemployment well below normal but not to zero (audit M5, 29 September 2026).'), { min: 0, max: 1 });
+P('uFloorStart', 0.6, 'fraction', 'BEHAVIOUR', 'Share of a group’s normal number of unemployed below which extra jobs start to be filled by people arriving from abroad rather than by the unemployed (above it, unemployment follows jobs exactly as before).', assumed('Teaching value; any value between uFloor and 1 leaves the baseline and moderate shocks unchanged (audit M5, 29 September 2026).'), { min: 0, max: 1 });
 P('sigW', 0.15, 'elasticity', 'BEHAVIOUR', 'Jobs versus the real product wage (wage ÷ domestic prices): firms economise on staff when pay outpaces prices.', tuned());
 P('okun', 0.6, 'elasticity', 'BEHAVIOUR', 'Jobs versus a sector’s output (below 1: firms hoard labour).', assumed());
 P('lamN', 3, 'per year', 'BEHAVIOUR', 'How fast employment adjusts.', assumed());
@@ -156,8 +158,8 @@ P('muG', 0.4, 'fraction', 'BEHAVIOUR', 'Import share of government purchases (me
 P('muI', pct('import_content.investment'), 'fraction', 'BEHAVIOUR', 'Import share of investment goods (TiVA import content of investment).', dataProv('import_content.investment'));
 P('muX', pct('import_content.exports'), 'fraction', 'BEHAVIOUR', 'Imported inputs per unit of exports, all exporters together (TiVA); what fisheries, aluminium and tourism do not use sets other exporters’ import share.', dataProv('import_content.exports'));
 P('epsM', 0.6, 'elasticity', 'BEHAVIOUR', 'Import volumes versus the real exchange rate.', assumed());
-P('eFish', 0.2, 'elasticity', 'BEHAVIOUR', 'Marine export volume versus the real exchange rate (quota-bound).', assumed());
-P('eAlu', 0.05, 'elasticity', 'BEHAVIOUR', 'Aluminium export volume versus the real exchange rate (capacity-bound).', assumed());
+P('eFish', 0.2, 'elasticity', 'BEHAVIOUR', 'Marine export volume versus the real exchange rate: a supply response, since fish sells at world prices and a weaker króna makes it more profitable (small: catches are quota-bound).', assumed());
+P('eAlu', 0.05, 'elasticity', 'BEHAVIOUR', 'Aluminium export volume versus the real exchange rate: a supply response, since aluminium sells at a dollar price (tiny: the smelters run at capacity).', assumed());
 P('eTour', 1, 'elasticity', 'BEHAVIOUR', 'Tourism volume versus the real exchange rate.', assumed());
 P('eOther', 0.8, 'elasticity', 'BEHAVIOUR', 'Other export volume versus the real exchange rate.', assumed());
 P('lamRer', 1, 'per year', 'BEHAVIOUR', 'How fast trade volumes react to the real exchange rate.', assumed());
@@ -254,7 +256,7 @@ P('divBshPF', 0.35, 'fraction', 'IDENTITY', 'Share of bank dividends paid to pen
 P('divBshW', 0.2, 'fraction', 'IDENTITY', 'Share of bank dividends paid to working-age households (the rest to older households).', placeholder());
 
 /* ----------------------------------------------------------------- rates */
-P('i0', 0.03, 'fraction/yr', 'POLICY', 'Neutral key rate (real, as the baseline has zero inflation).', assumed());
+P('i0', 0.03, 'fraction/yr', 'POLICY', 'Neutral real key rate. The nominal neutral rate, which the key rate is compared with, is i0 + piT.', assumed());
 P('piT', 0, 'fraction/yr', 'POLICY', 'Inflation target of the model. Iceland targets 2.5%; the zero-inflation baseline uses 0, so only deviations show.', assumed());
 P('mD', 0.01, 'fraction/yr', 'BEHAVIOUR', 'Deposit margin below the key rate.', assumed());
 P('sB', 0.005, 'fraction/yr', 'CONTRACT', 'Spread of the floating government-bond rate over the key rate.', assumed());
@@ -264,8 +266,10 @@ P('rMI0', 0.025, 'fraction/yr', 'BEHAVIOUR', 'Real rate on indexed mortgages at 
 P('psiIdx', 0.4, 'fraction', 'BEHAVIOUR', 'Pass-through of the key rate to the real rate on indexed mortgages.', assumed());
 P('rBI0', 0.02, 'fraction/yr', 'CONTRACT', 'Real coupon on indexed government bonds.', assumed());
 P('sBB', 0.01, 'fraction/yr', 'CONTRACT', 'Spread of bank (covered) bonds over the key rate.', assumed());
-P('iF0', 0.02, 'fraction/yr', 'BEHAVIOUR', 'Foreign interest rate at baseline, which is also the cash yield on pension funds’ foreign assets.', assumed());
-P('iFXR', 0.02, 'fraction/yr', 'BEHAVIOUR', 'Yield on the central bank’s foreign reserves.', assumed());
+const IF0 = 0.02;
+P('iF0', IF0, 'fraction/yr', 'BEHAVIOUR', 'Normal foreign interest rate. Carry traders compare the key rate above its nominal neutral (i0 + piT) with the foreign rate above this.', assumed());
+P('iFnow', IF0, 'fraction/yr', 'POLICY', 'Foreign interest rate in force at the start, before the foreign-rate lever; also the cash yield on pension funds’ foreign assets.', derived('Equal to iF0 on the steady start. A start from today sets today’s foreign rate here, so the rate gap with abroad starts where it is (docs/design/start-from-today.md §4.6).'));
+P('iFXR', 0.02, 'fraction/yr', 'BEHAVIOUR', 'Yield on the central bank’s foreign reserves at the normal foreign rate; it moves one for one with the foreign rate.', assumed());
 
 /* ------------------------------------ mortgage contracts and borrower-based rules */
 P('Tm', 25, 'years', 'CONTRACT', 'Average remaining term of mortgages: 1/Tm of the debt is repaid each year.', assumed());
@@ -305,7 +309,7 @@ P('lamH', 1, 'per year', 'BEHAVIOUR', 'How fast real house prices adjust.', assu
 P('betaHY', 1, 'elasticity', 'BEHAVIOUR', 'Real house prices versus real household disposable income.', assumed());
 P('betaHC', 3, 'fraction', 'BEHAVIOUR', 'Real house prices versus the flow of net mortgage credit (×100: % per % of GDP).', assumed());
 P('betaHR', 2, 'fraction', 'BEHAVIOUR', 'Real house prices versus the real mortgage rate (share lost per unit of rate).', assumed());
-P('lamHC', 1, 'per year', 'BEHAVIOUR', 'How fast the housing component of the CPI follows house prices.', assumed());
+P('lamHC', 1, 'per year', 'BEHAVIOUR', 'How fast the housing component of the CPI follows house prices.', assumed('House prices stand in for market rents: since June 2024 Statistics Iceland measures owner-occupied housing by rental equivalence (HMS rental register), which follows house prices more loosely and slowly. Not yet re-estimated against the post-2024 CPI housing series; a rent block is planned for v3.'));
 
 /* ------------------------------------------------------------------ firms */
 P('betaPi', 0.3, 'elasticity', 'BEHAVIOUR', 'Investment versus real profits.', assumed());
@@ -317,7 +321,7 @@ P('rhoL', 1, 'fraction', 'BEHAVIOUR', 'Firms retain more profit when their debt 
 P('firmCashSpeed', 12, 'per year', 'BEHAVIOUR', 'How fast firms borrow or repay to bring their deposits back to target (12: within about a month, as in v1).', assumed('v1 closed the gap every month.'));
 
 /* ---------------------------------------------- prices, wages, expectations */
-P('omH', pct('cpi_weights.housing'), 'fraction', 'IDENTITY', 'CPI weight of housing.', dataProv('cpi_weights.housing'));
+P('omH', pct('cpi_weights.housing'), 'fraction', 'IDENTITY', 'CPI weight of housing: owner-occupiers’ imputed rent (20.9) and actual rents (3.6).', dataProv('cpi_weights.housing', 'Imputed rent has been measured by rental equivalence (HMS market rents) since June 2024; the model’s housing component follows house prices as a stand-in.'));
 P('omM', pct('cpi_weights.imported_goods'), 'fraction', 'IDENTITY', 'CPI weight of imported goods.', dataProv('cpi_weights.imported_goods'));
 P('omD', pct('cpi_weights.domestic_goods_and_services'), 'fraction', 'IDENTITY', 'CPI weight of domestic goods and services.', dataProv('cpi_weights.domestic_goods_and_services'));
 P('aLab', 0.55, 'fraction', 'BEHAVIOUR', 'Labour’s share of domestic unit cost (the rest is imported inputs).', tuned('the wage-shock price level'));
@@ -330,7 +334,10 @@ P('lamPia', 1.5, 'per year', 'BEHAVIOUR', 'How fast the remembered rate of infla
 
 /* ------------------------------------------------------------ policy rule */
 P('aPi', 1.3, 'fraction', 'POLICY', 'Key-rate response to expected inflation above target (points per point).', tuned());
-P('aY', 0.6, 'fraction', 'POLICY', 'Key-rate response to the output gap (points per % of output).', tuned());
+P('aY', 1, 'fraction', 'POLICY', 'Key-rate response to the output gap (points per % of output).', {
+  basis: 'calibrated',
+  note: 'Re-tuned from v1’s 0.6 after the consumption deflator stopped reading house-price moves as changes in real spending (audit H4, 29 September 2026). That removed a false early recovery after a rate rise, and the output trough moved to the last quarter of the 8-quarter rate-shock scenario (outside rate-output-timing’s 4–7). betaC and betaRI move the depth of the trough, not its timing. 1.0 is the output-gap weight of Taylor’s (1999) balanced rule, and keeps every check in range, also with the rate held 1 pp for four quarters as in the CBI QMM experiment.',
+});
 P('aPiA', 0.3, 'fraction', 'POLICY', 'Key-rate response to actual 12-month inflation above target.', tuned());
 P('lamPol', 3, 'per year', 'POLICY', 'How fast the key rate moves toward what its rule says (smoothing).', assumed());
 
@@ -338,6 +345,7 @@ P('lamPol', 3, 'per year', 'POLICY', 'How fast the key rate moves toward what it
 P('betaI', 0.55, 'fraction', 'BEHAVIOUR', 'Króna response to the interest-rate gap with abroad (log points per unit of rate): carry demand.', tuned());
 P('betaH', 0.3, 'elasticity', 'BEHAVIOUR', 'Króna response to non-residents’ real króna holdings (portfolio balance).', assumed());
 P('lamFX', 12, 'per year', 'BEHAVIOUR', 'How fast the exchange rate moves toward its target.', assumed());
+P('lamPPP', 0.2, 'per year', 'BEHAVIOUR', 'How fast the króna’s long-run anchor absorbs a change in world prices (purchasing-power parity): 0.2 a year is a half-life of about 3.5 years.', assumed('Sarno and Taylor (2002) report a consensus half-life of deviations from PPP of three to five years (the purchasing-power-parity concept page); 0.2 a year sits inside it. Audit H5, 29 September 2026.'));
 P('lamSent', 0.1, 'per year', 'BEHAVIOUR', 'How fast a króna sentiment shock fades (about 10% of it a year).', tuned());
 P('psiB', 5, 'fraction', 'BEHAVIOUR', 'Non-residents’ bond demand versus the interest-rate gap (share per unit of rate).', assumed());
 P('lamBW', 2, 'per year', 'BEHAVIOUR', 'How fast non-residents move their bond holdings toward what they want.', assumed());
@@ -358,6 +366,12 @@ P('hoBondCashShare', 0.5, 'fraction', 'BEHAVIOUR', 'Share of older households’
 /* ------------------------------------------------ government financing */
 P('treasuryTopUp', 12, 'per year', 'POLICY', 'How fast bond sales restore the treasury account to its target (12: within about a month, as in v1).', assumed('v1 closed the gap every month.'));
 P('bondMixBankShare', 0.4, 'fraction', 'POLICY', 'Banks’ share of new government bonds in the default mix; pension funds buy the rest.', assumed('v1 default: 40% banks, 60% pension funds.'));
+
+/* ------------------------------------------------ world prices at the start */
+const startLevel = (what: string) => derived(`1 on the steady start (${what} at their 2025 level). A start from today sets today’s level relative to 2025 here (docs/design/start-from-today.md §4.6).`);
+P('worldPrice0', 1, 'index', 'BEHAVIOUR', 'Foreign-currency level of world prices at the start, before the world-prices lever.', startLevel('world prices'));
+P('fishPrice0', 1, 'index', 'BEHAVIOUR', 'Foreign-currency level of marine-product prices at the start, before the fish-price lever.', startLevel('fish prices'));
+P('aluminiumPrice0', 1, 'index', 'BEHAVIOUR', 'Foreign-currency level of the aluminium price at the start, before the aluminium-price lever.', startLevel('aluminium prices'));
 
 /* ------------------------------------------------ lever settings (baseline 0) */
 const lev = (note: string): Provenance => ({ basis: 'assumed', note: `Zero at baseline; ${note}` });

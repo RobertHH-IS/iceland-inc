@@ -202,10 +202,16 @@ function valueAddedRule(j: Firm): RuleDef {
       id: 'valueAddedFC',
       target: 'valueAddedFC',
       category: 'IDENTITY',
-      inputs: ['salesFC'],
-      params: ['gvaFC', 'salesFC0'],
-      terms: terms(['sales', 'Builders’ sales relative to baseline', 'investment-accelerator', (c) => (c.p('gvaFC') * c.v('salesFC')) / c.p('salesFC0')]),
-      explain: { what: 'What builders add to output, at baseline prices.', rule: 'Value added = baseline value added {gvaFC} × real sales ÷ baseline sales {salesFC0}: builders use fixed shares of imports and domestic inputs.' },
+      inputs: ['salesFC', 'importsEquipment', 'importsInputsFC', 'importPrice', 'constructionInputs', 'domesticPrice'],
+      terms: terms(
+        ['sales', 'Builders’ real sales', 'investment-accelerator', (c) => c.v('salesFC')],
+        ['imports', 'Imported equipment and inputs', 'import-leakage', (c) => -(c.v('importsEquipment') + c.v('importsInputsFC')) / c.v('importPrice')],
+        ['inputs', 'Materials and services from retail and service firms', undefined, (c) => -c.v('constructionInputs') / c.v('domesticPrice')],
+      ),
+      explain: {
+        what: 'What builders add to output, at baseline prices.',
+        rule: 'Value added = real sales − imported equipment and inputs (÷ import prices) − materials and services bought from retail and service firms (÷ domestic prices). A stronger króna makes builders use more imports per unit of sales, which cuts their own value added, not that of retail and services.',
+      },
     };
   if (j === 'FR')
     return {
@@ -405,7 +411,7 @@ export const firms: ModuleDef = {
     'iFD0', 'iFX0', 'betaPi', 'betaRI', 'betaU', 'lamInv', 'lamPi', 'rhoL', 'firmCashSpeed', 'depreciationRate', 'cEr', 'rl0',
     'divFDY', 'divFDW', 'divFDO', 'divXTW', 'divXOW', 'divFXdomW', 'divFXdomO', 'fdiTarget', 'depFX', 'depShareFC', 'pfEqFDshare',
     'loanTotal', 'loanShareFC', 'loanShareXF', 'loanShareXA', 'loanShareXT', 'loanShareXO',
-    'invShareFC', 'invShareXF', 'invShareXA', 'invShareXT', 'maintShare', 'gvaFC', 'salesFC0', 'dFC', 'vaFR0',
+    'invShareFC', 'invShareXF', 'invShareXA', 'invShareXT', 'maintShare', 'gvaFC', 'dFC', 'vaFR0',
     ...FIRMS.flatMap((j) => [`i${j}0`, `pi${j}0`, `l${j}0`, `dep${j}0`, ...(j === 'XA' ? [] : [`rho${j}0`])]),
   ]),
   vars,
@@ -435,13 +441,16 @@ export const firms: ModuleDef = {
       id: 'salesFC',
       target: 'salesFC',
       category: 'IDENTITY',
-      inputs: ['investmentReal', 'consumption', 'vat', 'cpi'],
+      inputs: ['investmentReal', 'consumption', 'vat', 'domesticPrice'],
       params: ['maintShare'],
       terms: terms(
         ['investment', 'Machines and buildings (business and public investment)', 'investment-accelerator', (c) => c.v('investmentReal')],
-        ['repairs', 'Home repairs, after VAT', 'consumption-function', (c) => (c.p('maintShare') * (c.v('consumption') - c.v('vat'))) / c.v('cpi')],
+        ['repairs', 'Home repairs, after VAT', 'consumption-function', (c) => (c.p('maintShare') * (c.v('consumption') - c.v('vat'))) / c.v('domesticPrice')],
       ),
-      explain: { what: 'What builders sell, at baseline prices.', rule: 'Sales = real business and public investment + home repairs ({maintShare%} of household spending, after VAT, ÷ CPI).' },
+      explain: {
+        what: 'What builders sell, at baseline prices.',
+        rule: 'Sales = real business and public investment + home repairs ({maintShare%} of household spending, after VAT, ÷ domestic prices: builders are domestic producers, and the value is already net of VAT).',
+      },
     },
     {
       id: 'constructionInputs',
@@ -480,10 +489,10 @@ export const firms: ModuleDef = {
       target: 'nominalGDP',
       category: 'IDENTITY',
       inputs: ['consumption', 'wage', 'publicEmployment', 'domesticPrice', 'publicPurchasesReal', 'investmentReal', 'exportValue', 'importsConsumer', 'importsInputs', 'importsEquipment', 'importsPublic', 'importsExporters'],
-      params: ['cEr'],
+      params: ['cEr', 'css'],
       terms: terms(
         ['consumption', 'Household consumption', 'consumption-function', (c) => c.v('consumption')],
-        ['government', 'Public services (staff costs and purchases)', 'multiplier', (c) => (1 + c.p('cEr')) * c.v('wage') * c.v('publicEmployment') + c.v('domesticPrice') * c.v('publicPurchasesReal')],
+        ['government', 'Public services (staff costs and purchases)', 'multiplier', (c) => (1 + c.p('cEr') + c.p('css')) * c.v('wage') * c.v('publicEmployment') + c.v('domesticPrice') * c.v('publicPurchasesReal')],
         ['investment', 'Investment', 'investment-accelerator', (c) => c.v('domesticPrice') * c.v('investmentReal')],
         ['exports', 'Exports', 'export-sectors', (c) => c.v('exportValue')],
         ['imports', 'Imports', 'import-leakage', (c) => -(c.v('importsConsumer') + c.v('importsInputs') + c.v('importsEquipment') + c.v('importsPublic') + c.v('importsExporters'))],

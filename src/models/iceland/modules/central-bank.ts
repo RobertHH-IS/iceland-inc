@@ -16,7 +16,7 @@ export const centralBank: ModuleDef = {
   id: 'central-bank',
   label: 'Central bank',
   description: 'The key rate (set by you, or by a smoothed Taylor-type rule plus your offset), interest on reserves and the profit remitted to the government.',
-  requires: ['stabilisers', 'structure', 'prices', 'government'],
+  requires: ['stabilisers', 'structure', 'prices', 'government', 'external'],
   params: pickParams(ALL_PARAMS, ['i0', 'piT', 'aPi', 'aPiA', 'aY', 'lamPol', 'iFXR', 'potentialOutput', 'bondCB', 'fxr', 'eqCB']),
   vars: [
     { id: 'ruleRate', label: 'Key rate the rule calls for', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'The key rate the central bank’s inflation rule points to, before your offset. Computed in both stabiliser modes.' },
@@ -36,7 +36,7 @@ export const centralBank: ModuleDef = {
       params: ['i0', 'piT', 'aPi', 'aPiA', 'aY', 'potentialOutput'],
       adjust: { speed: 'lamPol', form: 'exponential' },
       terms: terms(
-        ['neutral', 'Neutral rate', 'taylor-rule', (c) => c.p('i0')],
+        ['neutral', 'Neutral rate (real neutral + inflation target)', 'taylor-rule', (c) => c.p('i0') + c.p('piT')],
         ['expectedInflation', 'Expected inflation above target', 'anchored-expectations', (c) => c.p('aPi') * (lastMonth(c, 'expectedInflation') - c.p('piT'))],
         ['actualInflation', 'Inflation over the past year above target', 'taylor-rule', (c) => c.p('aPiA') * (lastMonth(c, 'inflation12') - c.p('piT'))],
         ['outputGap', 'Output above capacity', 'capacity-utilisation', (c) => c.p('aY') * (lastMonth(c, 'output') / c.p('potentialOutput') - 1)],
@@ -44,7 +44,7 @@ export const centralBank: ModuleDef = {
       concepts: ['taylor-rule', 'policy-lags'],
       explain: {
         what: 'The key interest rate the central bank’s inflation rule points to. With stabilisers on Automatic it sets the key rate; on Manual it is only a suggestion shown beside the key-rate lever. The rule moves gradually rather than jumping.',
-        rule: 'Target = neutral rate {i0%} + {aPi} × (expected inflation − target) + {aPiA} × (inflation over the past year − target) + {aY} × the output gap (last month’s output ÷ capacity − 1). The rate closes the gap to that target at speed {lamPol} a year (about a quarter of it each month). It is worked out every month in both modes.',
+        rule: 'Target = neutral nominal rate (the neutral real rate {i0%} + the inflation target {piT%}) + {aPi} × (expected inflation − target) + {aPiA} × (inflation over the past year − target) + {aY} × the output gap (last month’s output ÷ capacity − 1). The rate closes the gap to that target at speed {lamPol} a year (about a quarter of it each month). It is worked out every month in both modes.',
       },
     },
     {
@@ -97,10 +97,17 @@ export const centralBank: ModuleDef = {
       id: 'fxReserveIncome',
       target: 'fxReserveIncome',
       category: 'BEHAVIOUR',
-      params: ['iFXR'],
+      inputs: ['foreignRate'],
+      params: ['iFXR', 'iF0'],
       stocks: [['fxReserves', 'CB']],
-      compute: (c) => c.p('iFXR') * c.stock('fxReserves', 'CB'),
-      explain: { what: 'Interest and dividends the central bank earns on its foreign reserves.', rule: 'Income = foreign yield {iFXR%} × the reserves’ value in krónur.' },
+      terms: terms(
+        ['normal', 'Normal yield on the reserves', undefined, (c) => c.p('iFXR') * c.stock('fxReserves', 'CB')],
+        ['foreignRate', 'Change in rates abroad', undefined, (c) => (c.v('foreignRate') - c.p('iF0')) * c.stock('fxReserves', 'CB')],
+      ),
+      explain: {
+        what: 'Interest and dividends the central bank earns on its foreign reserves.',
+        rule: 'Income = (normal reserve yield {iFXR%} + the change in the foreign interest rate since normal, {iF0%}) × the reserves’ value in krónur. Reserves are held in foreign bonds and deposits, so their yield follows rates abroad.',
+      },
     },
     {
       id: 'cbProfit',
@@ -203,9 +210,10 @@ export const centralBank: ModuleDef = {
   tests: [
     {
       id: 'neutral-at-baseline',
-      label: 'At baseline the key rate equals the neutral rate',
+      label: 'At baseline the key rate equals the neutral nominal rate (real neutral + inflation target)',
       run: (e) => {
-        const n = e.influences('ruleRate').params.find((p) => p.id === 'i0')!.value;
+        const ps = e.influences('ruleRate').params;
+        const n = ps.find((p) => p.id === 'i0')!.value + ps.find((p) => p.id === 'piT')!.value;
         const k = e.baseline('keyRate');
         return { pass: Math.abs(k - n) < 1e-12, detail: `key rate ${k} vs neutral ${n}` };
       },
@@ -223,7 +231,8 @@ export const centralBank: ModuleDef = {
       id: 'manual-holds-the-key-rate',
       label: 'Manual: the key rate stays at the lever’s level while the rule’s suggestion moves; the default is the neutral rate',
       run: (e) => {
-        const n = e.influences('ruleRate').params.find((p) => p.id === 'i0')!.value;
+        const ps = e.influences('ruleRate').params;
+        const n = ps.find((p) => p.id === 'i0')!.value + ps.find((p) => p.id === 'piT')!.value;
         const lever = e.model.levers.find((l) => l.id === 'keyRateFixed')!;
         e.setLever('keyRateFixed', 7);
         e.fire('wageSettlement', 10);

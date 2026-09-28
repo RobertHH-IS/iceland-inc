@@ -43,6 +43,18 @@ function wrongSigns(settings: Setting[], automatic: boolean, months = 240): stri
   return [...bad].sort();
 }
 
+/** Months (Manual) in which pension funds' deposits are overdrawn while they still hold bank bonds. */
+function pfOverdraftWithBankBonds(settings: Setting[], months = 240): number {
+  const e = createEngine(model, { baseline: base.baselineData, dev: false });
+  for (const [id, v] of settings) e.setLever(id, v);
+  let n = 0;
+  for (let m = 1; m <= months; m++) {
+    e.step(1);
+    if (e.stock('deposits', 'PF') < -TOL && e.stock('bankBonds', 'PF') > TOL) n++;
+  }
+  return n;
+}
+
 // The worst cases of the lever-range sweep before the floors (each lever alone at its min or max,
 // and the bond buyers with a large deficit), with what went wrong then.
 const WORST: [string, Setting[], boolean][] = [
@@ -94,7 +106,16 @@ describe('Iceland model: balance sheets stay possible', () => {
     const gap = ['reserves/B', 'reserves/CB'];
     expect(wrongSigns([['incomeTax', 10], ['aluminiumPrice', -40], ['pfForeign', 20]], false)).toEqual(gap);
     expect(wrongSigns([['foreignRate', 5], ['pfForeign', 20], ['education', -3]], false)).toEqual(gap);
-    expect(wrongSigns([['vat', 10], ['incomeTax', 10]], false)).toEqual(gap);
+    // With the consumption deflator and the recalibrated rule (audit H4), VAT +10 with income tax
+    // +10 now also reaches the collapse gap below in month 238, after the bank bonds are gone.
+    expect(wrongSigns([['vat', 10], ['incomeTax', 10]], false)).toEqual(['deposits/PF', ...gap]);
+    // What the run-off fixed still holds in every case: the funds never overdraw while bank bonds remain.
+    for (const settings of [
+      [['incomeTax', 10], ['aluminiumPrice', -40], ['pfForeign', 20]],
+      [['foreignRate', 5], ['pfForeign', 20], ['education', -3]],
+      [['vat', 10], ['incomeTax', 10]],
+    ] as Setting[][])
+      expect(pfOverdraftWithBankBonds(settings)).toBe(0);
   });
 
   test('the bank-bond run-off takes over only when foreign sales are limited (holdings gone, or non-residents short of krónur)', () => {
@@ -116,7 +137,9 @@ describe('Iceland model: balance sheets stay possible', () => {
 
   test('known gap: a current-account surplus after non-residents have sold every bond overdraws their króna deposits', () => {
     // decision 0002 §6: nothing supplies them krónur once their bonds are gone (no króna borrowing).
-    expect(wrongSigns([['pfForeign', -20], ['tourism', 30]], false)).toEqual(['deposits/W']);
+    // Since world prices anchor the króna only slowly (audit H5) this case is clean on Manual and
+    // shows on Automatic.
+    expect(wrongSigns([['pfForeign', -20], ['tourism', 30]], true)).toEqual(['deposits/W']);
   });
 
   test('known gap: when the economy collapses, the funds run through every asset they can sell and overdraw deposits', () => {

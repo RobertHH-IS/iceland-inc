@@ -139,9 +139,12 @@ describe('Iceland model: the steady state matches engine v1', () => {
   // engine v1, legacy/v1-engine/test_output.txt section 1. The firm split (decision 0003) leaves the
   // parameters that do not depend on who owns which firm as they were; those that balance
   // households’ and pension funds’ dividend income and the current account move a little. v1's
-  // muXD, divFXW, rhoFD0 and rhoFX0 are replaced by per-sector values.
-  const V1_UNCHANGED: Record<string, number> = { tauF: 0.0901, vat0: 0.3033, cEe: 0.0465, rr: 0.3879, wsOther: 0.342, nuY: 0.0088, nuW: 0.016, mRY: 0.8906, mRW: 1.4206 };
-  const V1_MOVED: Record<string, number> = { tau0: 0.3848, c0Y: 0.9612, c0W: 9.5947, c0O: 4.4101, payout: 0.1788, ageing: 0.1159, muD: 0.0267 };
+  // muXD, divFXW, rhoFD0 and rhoFX0 are replaced by per-sector values. Public gross wages divide
+  // compensation by the same labour-cost factor as private ones (audit L11), so the public wage bill
+  // is 5.7% smaller than in v1, which moves the parameters solved from the wage bill (cEe, rr, nuY,
+  // nuW, mRY, mRW) by up to 6%.
+  const V1_UNCHANGED: Record<string, number> = { tauF: 0.0901, vat0: 0.3033, wsOther: 0.342 };
+  const V1_MOVED: Record<string, number> = { tau0: 0.3848, c0Y: 0.9612, c0W: 9.5947, c0O: 4.4101, payout: 0.1788, ageing: 0.1159, muD: 0.0267, cEe: 0.0465, rr: 0.3879, nuY: 0.0088, nuW: 0.016, mRY: 0.8906, mRW: 1.4206 };
   const e = createEngine(model);
   const solvedValue = (id: string) => e.baselineData.pBase[model.paramIndex.get(id)!];
 

@@ -199,16 +199,16 @@ export const banks: ModuleDef = {
       target: 'mortgageRateI',
       category: 'BEHAVIOUR',
       inputs: ['keyRate', 'loanPremium'],
-      params: ['rMI0', 'psiIdx', 'i0'],
+      params: ['rMI0', 'psiIdx', 'i0', 'piT'],
       terms: terms(
         ['normal', 'Normal real rate', undefined, (c) => c.p('rMI0')],
-        ['keyRate', 'Key rate above neutral (partly passed on)', 'taylor-rule', (c) => c.p('psiIdx') * (c.v('keyRate') - c.p('i0'))],
+        ['keyRate', 'Key rate above neutral (partly passed on)', 'taylor-rule', (c) => c.p('psiIdx') * (c.v('keyRate') - (c.p('i0') + c.p('piT')))],
         ['capitalPremium', 'Capital premium', 'bank-capital', (c) => c.v('loanPremium')],
       ),
       concepts: ['indexation'],
       explain: {
         what: 'The real interest rate paid in cash on CPI-indexed mortgages. Inflation is added to the loan instead of being paid.',
-        rule: 'Real rate = {rMI0%} + {psiIdx} × (key rate − neutral rate {i0%}) + the capital premium.',
+        rule: 'Real rate = {rMI0%} + {psiIdx} × (key rate − its neutral level, the real neutral rate {i0%} + the inflation target {piT%}) + the capital premium.',
       },
     },
     {

@@ -1,11 +1,14 @@
 /**
  * Iceland Inc.: the rest of the world (v1 equations E7–E9, E12, E14, E22, E39 and E44).
  *
- * The króna moves toward a level set by relative prices (purchasing-power parity in the long
- * run), the interest-rate gap with abroad (carry), how many krónur non-residents already hold
- * (portfolio balance) and sentiment. Each exporter sells one export line (decision 0003): fish
+ * The króna moves toward a level set by relative prices (purchasing-power parity), the
+ * interest-rate gap with abroad (carry), how many krónur non-residents already hold (portfolio
+ * balance) and sentiment. Parity is a slow anchor: the target follows domestic prices at once, but
+ * world prices only as a slowly moving anchor absorbs them, over years. Each exporter sells one export line (decision 0003): fish
  * and aluminium are priced in foreign currency at their own world prices, tourism and other
- * exports in krónur; volumes react to the real exchange rate, tourism most and aluminium least.
+ * exports in krónur. Volumes react to the real exchange rate, tourism most and aluminium least:
+ * for tourism and other exports because a weaker króna makes them cheaper abroad, for fish and
+ * aluminium, which sell at world prices, because it makes them more profitable in krónur.
  * Imports are split by what they are for and who pays for them, and each exporter buys domestic
  * inputs from retail and service firms. Foreign assets are revalued when the króna moves, and
  * non-resident carry traders buy or sell government bonds as the rate gap changes.
@@ -41,13 +44,20 @@ const exportRules: RuleDef[] = EXPORTS.flatMap(([k, seller, base0, elas, what, p
     terms: terms(
       ['normal', 'Baseline volume', undefined, (c) => c.p(base0)],
       ['demand', DEMAND[k].label, 'export-sectors', DEMAND[k].f],
-      ['competitiveness', 'Real exchange rate', 'real-exchange-rate', (c) => Math.pow(Math.max(1e-6, c.v('realExchangeRate')), c.p(elas))],
+      [
+        'competitiveness',
+        price ? 'Profitability: world prices in krónur ÷ domestic prices' : 'Real exchange rate',
+        'real-exchange-rate',
+        (c) => Math.pow(Math.max(1e-6, c.v('realExchangeRate')), c.p(elas)),
+      ],
     ),
     combine: (t) => t.normal * Math.max(0, t.demand) * t.competitiveness,
     concepts: ['export-sectors', 'real-exchange-rate'],
     explain: {
       what: `Volume of ${what} exports, sold by ${FIRM_NAME[seller]}, at baseline prices.`,
-      rule: `Volume = baseline {${base0}}${DEMAND[k].rule} × (real exchange rate)^{${elas}}. A weaker real króna makes Icelandic ${what} cheaper abroad; ${DEMAND[k].why}.`,
+      rule: price
+        ? `Volume = baseline {${base0}}${DEMAND[k].rule} × (real exchange rate)^{${elas}}. ${FIRM_NAME[seller][0].toUpperCase() + FIRM_NAME[seller].slice(1)} sell at world prices in foreign currency, so a weaker real króna does not make their ${what} cheaper abroad; it raises what they earn in krónur compared with their costs at home, which lifts volume a little. ${DEMAND[k].why[0].toUpperCase() + DEMAND[k].why.slice(1)}.`
+        : `Volume = baseline {${base0}}${DEMAND[k].rule} × (real exchange rate)^{${elas}}. A weaker real króna makes Icelandic ${what} cheaper abroad; ${DEMAND[k].why}.`,
     },
   },
   {
@@ -87,9 +97,10 @@ const wDepositsBeforeTrade = (c: Ctx) => c.stock('deposits', 'W') + c.dt * (c.v(
 const wDepositFloor = (c: Ctx) => ((c.p('wDepositFloorShare') * c.p('depW')) / (c.p('depW') + c.p('bondW'))) * (wDepositsBeforeTrade(c) + c.stock('govBonds', 'W'));
 /** Bond sales that keep their deposits at that floor this month (a yearly rate). */
 const wSaleNeeded = (c: Ctx) => Math.max(0, wDepositFloor(c) - wDepositsBeforeTrade(c)) / c.dt;
-/** The carry trade: toward normal holdings, and more when Icelandic rates are high relative to abroad. */
+/** The carry trade: toward normal holdings, and more when Icelandic rates are high relative to abroad
+ *  (the key rate against its normal nominal level i0 + piT, the foreign rate against iF0). */
 const wNormal = (c: Ctx) => gapRate(c.p('lamBW'), c.dt) * (c.p('bW0') * c.v('nominalGDP') - c.stock('govBonds', 'W'));
-const wCarry = (c: Ctx) => gapRate(c.p('lamBW'), c.dt) * c.p('bW0') * c.v('nominalGDP') * c.p('psiB') * (c.v('keyRate') - c.p('i0') - (c.v('foreignRate') - c.p('iF0')));
+const wCarry = (c: Ctx) => gapRate(c.p('lamBW'), c.dt) * c.p('bW0') * c.v('nominalGDP') * c.p('psiB') * (c.v('keyRate') - (c.p('i0') + c.p('piT')) - (c.v('foreignRate') - c.p('iF0')));
 /** When a sale is needed it overrides buying: normal + carry + this term = min(normal + carry, −the sale). */
 const wLiquidity = (c: Ctx) => {
   const need = wSaleNeeded(c);
@@ -111,6 +122,7 @@ const vars: VarDef[] = [
   { id: 'foreignRate', label: 'Foreign interest rate', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('foreignRate') },
   { id: 'kronaSentiment', label: 'Króna sentiment', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'A shift in what investors think the króna is worth; positive means a weaker króna.' },
   { id: 'sentimentShock', label: 'Króna sentiment shock this month', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'A one-off change in sentiment; zero in every month without one.' },
+  { id: 'worldPriceAnchor', label: 'World prices the króna has adjusted to (log)', unit: 'log points', kind: 'state', scale: 'none', initial: 0, description: 'The level of world prices that purchasing-power parity has so far built into the króna’s target, in logs (0 at baseline). It catches up with world prices over years.' },
   { id: 'logExchangeRate', label: 'Exchange rate (log)', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0 },
   { id: 'exchangeRate', label: 'Exchange rate', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Krónur per unit of foreign currency (1 at baseline); up means a weaker króna.' },
   { id: 'realExchangeRate', label: 'Real exchange rate (as trade sees it)', unit: 'index', kind: 'price', scale: 'none', initial: 1, description: 'Foreign prices in krónur ÷ domestic prices, smoothed; up means Iceland is cheaper.' },
@@ -142,7 +154,7 @@ export const external: ModuleDef = {
   requires: ['structure', 'prices', 'central-bank', 'firms', 'government', 'households', 'pensions'],
   params: pickParams(ALL_PARAMS, [
     'xFish', 'xAlu', 'xTour', 'xOther', 'eFish', 'eAlu', 'eTour', 'eOther', 'lamRer', 'muX', 'muC', 'muD', 'muI', 'muG', 'epsM',
-    'betaI', 'betaH', 'lamFX', 'lamSent', 'psiB', 'lamBW', 'iF0', 'krona0', 'bW0',
+    'betaI', 'betaH', 'lamFX', 'lamPPP', 'lamSent', 'psiB', 'lamBW', 'iF0', 'iFnow', 'krona0', 'bW0', 'worldPrice0', 'fishPrice0', 'aluminiumPrice0',
     'foreignDemandShift', 'tourismShift', 'foreignRateShift', 'worldPriceShift', 'fishPriceShift', 'aluminiumPriceShift', 'fdWeightFish', 'bondW', 'depW', 'eqW', 'wDepositFloorShare',
     'gvaXF', 'gvaXA', 'gvaXT', 'gvaXO', 'mXF', 'mXA', 'mXT', 'mXO', 'dXF', 'dXA', 'dXT', 'dXO',
   ]),
@@ -152,35 +164,44 @@ export const external: ModuleDef = {
       id: 'worldPrice',
       target: 'worldPrice',
       category: 'BEHAVIOUR',
-      params: ['worldPriceShift'],
-      terms: terms(['normal', 'Baseline', undefined, () => 1], ['shift', 'World-prices lever', 'exchange-rate-pass-through', (c) => c.p('worldPriceShift')]),
-      explain: { what: 'Foreign-currency prices of what Iceland imports and of fish and aluminium.', rule: 'World prices = 1 + the world-prices lever.' },
+      params: ['worldPrice0', 'worldPriceShift'],
+      terms: terms(['normal', 'Level at the start', undefined, (c) => c.p('worldPrice0')], ['shift', 'World-prices lever', 'exchange-rate-pass-through', (c) => c.p('worldPrice0') * c.p('worldPriceShift')]),
+      explain: { what: 'Foreign-currency prices of what Iceland imports and of fish and aluminium.', rule: 'World prices = their level at the start {worldPrice0} × (1 + the world-prices lever).' },
     },
     {
       id: 'fishPrice',
       target: 'fishPrice',
       category: 'BEHAVIOUR',
       inputs: ['worldPrice'],
-      params: ['fishPriceShift'],
-      terms: terms(['world', 'World prices', 'exchange-rate-pass-through', (c) => c.v('worldPrice')], ['fishMarket', 'Fish-price lever', 'export-sectors', (c) => c.v('worldPrice') * c.p('fishPriceShift')]),
-      explain: { what: 'What foreign buyers pay for Icelandic fish, in foreign currency (1 at baseline).', rule: 'Fish prices = world prices × (1 + the fish-price lever).' },
+      params: ['fishPrice0', 'worldPrice0', 'fishPriceShift'],
+      terms: terms(
+        ['world', 'World prices', 'exchange-rate-pass-through', (c) => (c.p('fishPrice0') * c.v('worldPrice')) / c.p('worldPrice0')],
+        ['fishMarket', 'Fish-price lever', 'export-sectors', (c) => ((c.p('fishPrice0') * c.v('worldPrice')) / c.p('worldPrice0')) * c.p('fishPriceShift')],
+      ),
+      explain: { what: 'What foreign buyers pay for Icelandic fish, in foreign currency (1 at baseline).', rule: 'Fish prices = their level at the start {fishPrice0} × (world prices ÷ their level at the start) × (1 + the fish-price lever).' },
     },
     {
       id: 'aluminiumPrice',
       target: 'aluminiumPrice',
       category: 'BEHAVIOUR',
       inputs: ['worldPrice'],
-      params: ['aluminiumPriceShift'],
-      terms: terms(['world', 'World prices', 'exchange-rate-pass-through', (c) => c.v('worldPrice')], ['metalMarket', 'Aluminium-price lever', 'export-sectors', (c) => c.v('worldPrice') * c.p('aluminiumPriceShift')]),
-      explain: { what: 'The world aluminium price in foreign currency (1 at baseline), set on the London Metal Exchange.', rule: 'Aluminium price = world prices × (1 + the aluminium-price lever).' },
+      params: ['aluminiumPrice0', 'worldPrice0', 'aluminiumPriceShift'],
+      terms: terms(
+        ['world', 'World prices', 'exchange-rate-pass-through', (c) => (c.p('aluminiumPrice0') * c.v('worldPrice')) / c.p('worldPrice0')],
+        ['metalMarket', 'Aluminium-price lever', 'export-sectors', (c) => ((c.p('aluminiumPrice0') * c.v('worldPrice')) / c.p('worldPrice0')) * c.p('aluminiumPriceShift')],
+      ),
+      explain: {
+        what: 'The world aluminium price in foreign currency (1 at baseline), set on the London Metal Exchange.',
+        rule: 'Aluminium price = its level at the start {aluminiumPrice0} × (world prices ÷ their level at the start) × (1 + the aluminium-price lever).',
+      },
     },
     {
       id: 'foreignRate',
       target: 'foreignRate',
       category: 'POLICY',
-      params: ['iF0', 'foreignRateShift'],
-      terms: terms(['normal', 'Baseline foreign rate', undefined, (c) => c.p('iF0')], ['shift', 'Foreign-rate lever', 'carry-trade', (c) => c.p('foreignRateShift')]),
-      explain: { what: 'Interest rates abroad, set by foreign central banks. It is also the cash yield on pension funds’ foreign assets.', rule: 'Foreign rate = {iF0%} + the foreign-rate lever.' },
+      params: ['iFnow', 'foreignRateShift'],
+      terms: terms(['normal', 'Foreign rate at the start', undefined, (c) => c.p('iFnow')], ['shift', 'Foreign-rate lever', 'carry-trade', (c) => c.p('foreignRateShift')]),
+      explain: { what: 'Interest rates abroad, set by foreign central banks. It is also the cash yield on pension funds’ foreign assets.', rule: 'Foreign rate = the rate at the start {iFnow%} + the foreign-rate lever.' },
     },
     {
       id: 'kronaSentiment',
@@ -206,22 +227,36 @@ export const external: ModuleDef = {
       explain: { what: 'A one-off change in króna sentiment, in log points.', rule: 'Zero in every month without a shock; the króna-shock lever sets it for the month it is fired.' },
     },
     {
+      id: 'worldPriceAnchor',
+      target: 'worldPriceAnchor',
+      category: 'BEHAVIOUR',
+      label: 'Purchasing-power parity, a slow anchor',
+      inputs: ['worldPrice'],
+      adjust: { speed: 'lamPPP', form: 'exponential' },
+      terms: terms(['worldPrice', 'World prices (log)', 'purchasing-power-parity', (c) => Math.log(c.v('worldPrice'))]),
+      concepts: ['purchasing-power-parity'],
+      explain: {
+        what: 'The level of world prices the króna’s target has adjusted to, in logs (0 at baseline).',
+        rule: 'Moves toward the log of world prices at speed {lamPPP} a year, so half of any change is absorbed in about three and a half years. Purchasing-power parity pulls the króna, but slowly: the evidence puts the half-life of deviations at three to five years.',
+      },
+    },
+    {
       id: 'logExchangeRate',
       target: 'logExchangeRate',
       category: 'BEHAVIOUR',
       label: 'The króna',
-      inputs: ['kronaSentiment', 'keyRate', 'foreignRate', 'worldPrice'],
+      inputs: ['kronaSentiment', 'keyRate', 'foreignRate', 'worldPriceAnchor'],
       lagInputs: ['domesticPrice'],
-      params: ['betaI', 'betaH', 'i0', 'iF0', 'krona0'],
+      params: ['betaI', 'betaH', 'i0', 'piT', 'iF0', 'krona0'],
       stocks: [
         ['deposits', 'W'],
         ['govBonds', 'W'],
       ],
       adjust: { speed: 'lamFX', form: 'exponential' },
       terms: terms(
-        ['ppp', 'Relative prices (purchasing-power parity)', 'purchasing-power-parity', (c) => Math.log(lastMonth(c, 'domesticPrice') / c.v('worldPrice'))],
+        ['ppp', 'Relative prices (purchasing-power parity)', 'purchasing-power-parity', (c) => Math.log(lastMonth(c, 'domesticPrice')) - c.v('worldPriceAnchor')],
         ['sentiment', 'Sentiment', 'floating-exchange-rate', (c) => c.v('kronaSentiment')],
-        ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => -c.p('betaI') * (c.v('keyRate') - c.p('i0') - (c.v('foreignRate') - c.p('iF0')))],
+        ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => -c.p('betaI') * (c.v('keyRate') - (c.p('i0') + c.p('piT')) - (c.v('foreignRate') - c.p('iF0')))],
         [
           'portfolio',
           'Non-residents’ króna holdings',
@@ -232,7 +267,7 @@ export const external: ModuleDef = {
       concepts: ['floating-exchange-rate', 'purchasing-power-parity'],
       explain: {
         what: 'The exchange rate in logs: krónur per unit of foreign currency. Up means a weaker króna.',
-        rule: 'Moves toward a target at speed {lamFX} a year. Target = log(domestic ÷ world prices) (in the long run the króna keeps Icelandic goods as dear as before) + sentiment − {betaI} × (key rate − foreign rate, relative to normal) (carry traders buy krónur for higher rates) + {betaH} × log of non-residents’ real króna holdings relative to normal (they want paying to hold more).',
+        rule: 'Moves toward a target at speed {lamFX} a year. Target = log of domestic prices − the world prices the króna has adjusted to (purchasing-power parity: in the long run the króna keeps Icelandic goods as dear as before; it follows domestic prices at once, so domestic inflation does not change the real exchange rate for long, but absorbs a change in world prices only over years, at {lamPPP} a year) + sentiment − {betaI} × the rate gap with abroad (carry traders buy krónur for higher rates). The rate gap is the key rate above its normal nominal level (the neutral real rate {i0%} + the inflation target {piT%}) minus the foreign rate above its normal {iF0%} + {betaH} × log of non-residents’ real króna holdings relative to normal (they want paying to hold more).',
       },
     },
     {
@@ -412,7 +447,7 @@ export const external: ModuleDef = {
       category: 'BEHAVIOUR',
       label: 'Carry trade',
       inputs: ['nominalGDP', 'keyRate', 'foreignRate', 'currentAccount', 'foreignAssetPurchases', 'bondIssueB', 'bondPurchasesPF', 'bondPurchasesHO'],
-      params: ['bW0', 'psiB', 'lamBW', 'i0', 'iF0', 'depW', 'bondW', 'wDepositFloorShare', 'liquiditySpeed'],
+      params: ['bW0', 'psiB', 'lamBW', 'i0', 'piT', 'iF0', 'depW', 'bondW', 'wDepositFloorShare', 'liquiditySpeed'],
       stocks: [
         ['govBonds', 'W'],
         ['deposits', 'W'],
@@ -439,7 +474,7 @@ export const external: ModuleDef = {
       concepts: ['carry-trade'],
       explain: {
         what: 'Government bonds non-residents buy from banks (negative: sell), paying with their króna deposits.',
-        rule: 'They want bonds worth {bW0} of GDP × (1 + {psiB} × the rate gap with abroad relative to normal), and close the gap to their holdings at speed {lamBW} a year. They also keep at least {wDepositFloorShare%} of their usual share of króna holdings in deposits ({wDepositFloorShare%} of {depW} ÷ ({depW} + {bondW})): when this month’s payments for exports, income and pension funds’ foreign sales would take their deposits below that, they sell enough bonds to banks to cover it. They buy only with deposits they have (at most 1 − e^(−{liquiditySpeed} × one month) of them) and only bonds banks hold, and sell only bonds they hold.',
+        rule: 'They want bonds worth {bW0} of GDP × (1 + {psiB} × the rate gap with abroad), and close the gap to their holdings at speed {lamBW} a year. The rate gap is the key rate above its normal nominal level ({i0%} + the inflation target {piT%}) minus the foreign rate above its normal {iF0%}. They also keep at least {wDepositFloorShare%} of their usual share of króna holdings in deposits ({wDepositFloorShare%} of {depW} ÷ ({depW} + {bondW})): when this month’s payments for exports, income and pension funds’ foreign sales would take their deposits below that, they sell enough bonds to banks to cover it. They buy only with deposits they have (at most 1 − e^(−{liquiditySpeed} × one month) of them) and only bonds banks hold, and sell only bonds they hold.',
       },
     },
     {
@@ -595,7 +630,8 @@ export const external: ModuleDef = {
       step: 0.25,
       binds: { param: 'foreignRateShift', mode: 'add', scale: 0.01 },
       description: 'Interest rates abroad; a higher rate pulls carry money out of krónur.',
-      definition: 'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. It also changes the cash yield on pension funds’ foreign assets. Setting it back to 0 ends it.',
+      definition:
+        'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. It also changes the cash yield on pension funds’ foreign assets and on the central bank’s foreign reserves, and so the profit the central bank hands to the government. Setting it back to 0 ends it.',
       concepts: ['carry-trade'],
     },
     {
@@ -611,7 +647,8 @@ export const external: ModuleDef = {
       step: 1,
       binds: { param: 'worldPriceShift', mode: 'add', scale: 0.01 },
       description: 'Foreign-currency prices of imports and of fish and aluminium.',
-      definition: 'Level shift in world prices, in percent, applied at once and persistent while set. Import prices in shops follow gradually; fish and aluminium revenue jumps at once. Setting it back to 0 ends it.',
+      definition:
+        'Level shift in world prices in foreign currency, in percent, applied at once and persistent while set. Fish and aluminium revenue in krónur jumps at once and import prices in shops follow within a year or two. The króna strengthens only slowly, over several years, as purchasing-power parity absorbs the new world prices, which takes back part of the rise in krónur. Setting it back to 0 ends it.',
       concepts: ['exchange-rate-pass-through'],
     },
     {

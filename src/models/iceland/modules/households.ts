@@ -90,7 +90,7 @@ function consumptionRule(g: Age): RuleDef {
     target: `consumption${g}`,
     category: 'BEHAVIOUR',
     label: 'Consumption function with habit',
-    inputs: [`netLabourIncome${g}`, `propertyIncome${g}`, 'keyRate', 'cpi', 'realHousePrice', ...homeInputs(g), ...(g !== 'O' ? [`netMortgageLending${g}`] : [])],
+    inputs: [`netLabourIncome${g}`, `propertyIncome${g}`, 'keyRate', 'consumptionDeflator', 'realHousePrice', ...homeInputs(g), ...(g !== 'O' ? [`netMortgageLending${g}`] : [])],
     lagInputs: ['expectedInflation', `consumption${g}`],
     params: [aL, 'aK', 'betaC', 'i0', c0, aW, `LW0${g}`, aH, `H0${g}`, ...(g !== 'O' ? ['aNL'] : []), 'lamC', 'liquiditySpeed', ...(g === 'O' ? ['hoBondCashShare'] : [])],
     stocks: liquidStocks(g),
@@ -99,10 +99,10 @@ function consumptionRule(g: Age): RuleDef {
       ['labourIncome', 'Spending out of income after tax and mortgage interest', 'consumption-function', labour],
       ['propertyIncome', 'Spending out of real interest and dividends', 'interest-distribution', property],
       ['realRate', 'Reward for saving (real key rate above neutral)', 'paradox-of-thrift', (c) => -c.p('betaC') * realGap(c) * (labour(c) + property(c))],
-      ['autonomous', 'Spending not tied to this month’s income', undefined, (c) => c.p(c0) * c.v('cpi')],
-      ['wealth', 'Savings above normal', 'stock-flow-consistency', (c) => c.p(aW) * (liquid(c, g) - c.v('cpi') * c.p(lw0))],
+      ['autonomous', 'Spending not tied to this month’s income', undefined, (c) => c.p(c0) * c.v('consumptionDeflator')],
+      ['wealth', 'Savings above normal', 'stock-flow-consistency', (c) => c.p(aW) * (liquid(c, g) - c.v('consumptionDeflator') * c.p(lw0))],
       ...(g !== 'O' ? ([['borrowing', 'New mortgage borrowing', 'credit-impulse', (c: Ctx) => c.p('aNL') * c.v(nml)]] as [string, string, string, (c: Ctx) => number][]) : []),
-      ['housing', 'Housing wealth', 'housing-wealth-effect', (c) => c.p(aH) * c.p(h0) * (c.v('realHousePrice') - 1) * c.v('cpi')],
+      ['housing', 'Housing wealth', 'housing-wealth-effect', (c) => c.p(aH) * c.p(h0) * (c.v('realHousePrice') - 1) * c.v('consumptionDeflator')],
     ),
     // Liquidity constraint: spending moves toward the target by the habit (the kernel's
     // exponential `adjust`, which closes k = 1 − e^(−lamC × dt) of the gap), but never above the
@@ -112,7 +112,7 @@ function consumptionRule(g: Age): RuleDef {
     concepts: ['consumption-function', 'habit-persistence', 'borrowers-and-savers'],
     explain: {
       what: `What the ${AGE_LABEL[g]} spend on goods and services, including VAT (% of baseline GDP a year).`,
-      rule: `Target = [{${aL}} × (net labour income ${g === 'O' ? '+ home sales' : '− home purchases'}) + {aK} × (interest and dividends − expected inflation × savings)] × (1 − {betaC} × (real key rate − neutral)) + {${c0}} × CPI + {${aW}} × savings above normal${g !== 'O' ? ' + {aNL} × net new mortgage borrowing' : ''} + {${aH}} × housing wealth × (real house price − 1). Spending moves toward the target at speed {lamC} a year (a habit), but never beyond their cash: income after tax, mortgage interest${g !== 'O' ? ', home purchases and new borrowing' : ' and home sales'} plus 1 − e^(−{liquiditySpeed} × one month) of their deposits${g === 'O' ? ' (less the {hoBondCashShare%} of that they keep for buying bonds)' : ''}, so their deposits never go negative.`,
+      rule: `Target = [{${aL}} × (net labour income ${g === 'O' ? '+ home sales' : '− home purchases'}) + {aK} × (interest and dividends − expected inflation × savings)] × (1 − {betaC} × (real key rate − neutral)) + {${c0}} × consumer prices + {${aW}} × savings above normal${g !== 'O' ? ' + {aNL} × net new mortgage borrowing' : ''} + {${aH}} × housing wealth × (real house price − 1). Consumer prices here are the consumption deflator, the CPI without housing, so a rise in house prices is not read as a rise in the cost of what households buy. Spending moves toward the target at speed {lamC} a year (a habit), but never beyond their cash: income after tax, mortgage interest${g !== 'O' ? ', home purchases and new borrowing' : ' and home sales'} plus 1 − e^(−{liquiditySpeed} × one month) of their deposits${g === 'O' ? ' (less the {hoBondCashShare%} of that they keep for buying bonds)' : ''}, so their deposits never go negative.`,
     },
   };
 }
@@ -213,9 +213,12 @@ export const households: ModuleDef = {
       id: 'realConsumption',
       target: 'realConsumption',
       category: 'IDENTITY',
-      inputs: ['consumption', 'cpi'],
-      compute: (c) => c.v('consumption') / c.v('cpi'),
-      explain: { what: 'Household spending at baseline prices.', rule: 'Real consumption = consumption ÷ CPI.' },
+      inputs: ['consumption', 'consumptionDeflator'],
+      compute: (c) => c.v('consumption') / c.v('consumptionDeflator'),
+      explain: {
+        what: 'Household spending at baseline prices.',
+        rule: 'Real consumption = consumption ÷ the consumption deflator (the CPI without housing). Housing in the CPI follows house prices and is mostly imputed rent that is never paid, so dividing by the full CPI would turn every rise in house prices into a fall in what households buy.',
+      },
     },
     {
       id: 'realDisposableIncome',

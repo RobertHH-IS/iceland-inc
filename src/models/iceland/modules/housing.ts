@@ -3,7 +3,10 @@
  *
  * Real house prices move toward a level set by households' real income, the flow of net mortgage
  * credit and the real mortgage rate. The housing component of the CPI follows house prices with
- * a lag. Homes are a real asset: young and working-age households buy homes from older ones each
+ * a lag: house prices stand in for market rents, which Statistics Iceland has used for
+ * owner-occupied housing (rental equivalence, from the HMS rental register) since June 2024, so
+ * the link is stronger and faster here than in the published index; a rent block is planned for
+ * v3. Household spending is deflated without this component (prices.ts). Homes are a real asset: young and working-age households buy homes from older ones each
  * year, homes are revalued when prices move, and they move up an age group with their owners.
  * The housing stock itself is fixed.
  */
@@ -86,7 +89,10 @@ export const housing: ModuleDef = {
       inputs: ['housePrice'],
       adjust: { speed: 'lamHC', form: 'exponential' },
       terms: terms(['housePrice', 'House prices', 'credit-and-house-prices', (c) => c.v('housePrice')]),
-      explain: { what: 'The housing component of the CPI (owner-occupied housing costs).', rule: 'Follows house prices at speed {lamHC} a year.' },
+      explain: {
+        what: 'The housing component of the CPI: owner-occupiers’ imputed rent and actual rents.',
+        rule: 'Follows house prices at speed {lamHC} a year. Since June 2024 Statistics Iceland has measured owner-occupied housing by rental equivalence, from market rents in the HMS rental register. Here house prices stand in for those rents, so the link from house prices to the CPI is stronger and faster than in the published index. A rent block is planned for v3.',
+      },
     },
     {
       id: 'homePurchasesY',
