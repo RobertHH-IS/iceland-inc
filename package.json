@@ -1,0 +1,22 @@
+{
+  "name": "iceland-inc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An explorable, stock-flow-consistent economy of Iceland: money flowing between balance sheets, with every rule explained.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "harness": "bun run src/harness/cli.ts",
+    "dev": "bun src/ui/index.html",
+    "build": "bun build src/ui/index.html --outdir dist --minify"
+  },
+  "dependencies": {
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "typescript": "^7.0.2"
+  }
+}

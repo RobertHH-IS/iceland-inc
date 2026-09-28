@@ -1,0 +1,695 @@
+{
+  "population": {
+    "age_0_17": {
+      "value": 84881,
+      "unit": "persons",
+      "year": 2026,
+      "source": "Hagstofa MAN00101 (Population by sex and age, 1 January)",
+      "note": "1 Jan 2026 (= end-2025 stock); 21.53% of total. 1 Jan 2025: 85,016 (21.83%). Summed single years 0-17."
+    },
+    "age_18_34": {
+      "value": 96712,
+      "unit": "persons",
+      "year": 2026,
+      "source": "Hagstofa MAN00101 (Population by sex and age, 1 January)",
+      "note": "1 Jan 2026; 24.53% of total. 1 Jan 2025: 96,271 (24.72%)."
+    },
+    "age_35_66": {
+      "value": 157307,
+      "unit": "persons",
+      "year": 2026,
+      "source": "Hagstofa MAN00101 (Population by sex and age, 1 January)",
+      "note": "1 Jan 2026; 39.89% of total. 1 Jan 2025: 154,515 (39.68%)."
+    },
+    "age_67_plus": {
+      "value": 55424,
+      "unit": "persons",
+      "year": 2026,
+      "source": "Hagstofa MAN00101 (Population by sex and age, 1 January)",
+      "note": "1 Jan 2026; 14.06% of total. 1 Jan 2025: 53,642 (13.77%)."
+    },
+    "total": {
+      "value": 394324,
+      "unit": "persons",
+      "year": 2026,
+      "source": "Hagstofa MAN00101 (Population by sex and age, 1 January)",
+      "note": "1 Jan 2026. 1 Jan 2025: 389,444."
+    }
+  },
+  "households": {
+    "young_18_34": {
+      "employment_rate": {
+        "value": 83.5,
+        "unit": "% of population",
+        "year": 2025,
+        "source": "Eurostat lfsa_pganws (LFS population by labour status, Iceland, thousands; data supplied by Hagstofa)",
+        "note": "20-34 + half of 16-19 band: employed 80.7k / population 96.6k. 20-34 alone: 85.8%. Hagstofa LFS 16-24: 74.8%, 25-54: 87.1%."
+      },
+      "unemployment_rate": {
+        "value": 5.8,
+        "unit": "% of labour force",
+        "year": 2025,
+        "source": "Eurostat lfsa_pganws (LFS population by labour status, Iceland, thousands; data supplied by Hagstofa)",
+        "note": "(active - employed)/active for 20-34 + half of 16-19: 4.95k / 85.6k. 20-34 alone 5.0%; 16-19 14.0%."
+      },
+      "share_of_total_wage_income": {
+        "value": 28.64,
+        "unit": "% of taxable wages",
+        "year": 2025,
+        "source": "Hagstofa TEK02011 (All taxable payments by sex and age, monthly withholding-tax data, summed Jan-Dec 2025)",
+        "note": "Individual-based. Total taxable wages 2025 = 2,174.5 bn ISK. Ages 0-17 earn the residual 1.29%. Family-based alternative (THJ09001 labour income, families headed <35): 26.13%. Bands 5-year; young = 20-34 + half of 15-19 (ages 18-19 assumed = half the band); working = 35-64 + 2/5 of 65-69; old = 70+ + 3/5 of 65-69 (uniform split within band)."
+      },
+      "share_of_social_benefits_received": {
+        "value": 20.13,
+        "unit": "% of taxable social benefits",
+        "year": 2025,
+        "source": "Hagstofa TEK02011 (All taxable payments by sex and age, monthly withholding-tax data, summed Jan-Dec 2025)",
+        "note": "Mostly TR payments (disability/rehabilitation), parental leave and unemployment benefits. Social benefits = TR/Icelandic Health Insurance payments + unemployment benefits + parental (childbirth) leave + municipal financial assistance = 286.6 bn ISK in 2025; excludes pension-fund payments, and non-taxable child/interest/housing benefits. Bands 5-year; young = 20-34 + half of 15-19 (ages 18-19 assumed = half the band); working = 35-64 + 2/5 of 65-69; old = 70+ + 3/5 of 65-69 (uniform split within band)."
+      },
+      "share_of_household_deposits": {
+        "value": 14.07,
+        "unit": "% of household deposits",
+        "year": 2025,
+        "source": "Hagstofa THJ09000 (Liabilities, assets and net worth by family type, age and residence, tax returns)",
+        "note": "219.2 of 1,557.4 bn ISK deposits on tax returns, end-2025. Unit is the tax 'family' (single person or married/cohabiting couple filing jointly), classified by age of the family head; age bands <24, 25-29, 30-34 = young; 35-39..60-66 = working; 67+ = old. The <24 band includes 16-17 year-old filers."
+      },
+      "share_of_household_mortgage_debt": {
+        "value": 22.47,
+        "unit": "% of household mortgage debt",
+        "year": 2025,
+        "source": "Hagstofa THJ09000 (Liabilities, assets and net worth by family type, age and residence, tax returns)",
+        "note": "598.2 of 2,662.1 bn ISK mortgages on tax returns, end-2025. Unit is the tax 'family' (single person or married/cohabiting couple filing jointly), classified by age of the family head; age bands <24, 25-29, 30-34 = young; 35-39..60-66 = working; 67+ = old. The <24 band includes 16-17 year-old filers."
+      },
+      "home_ownership_rate": {
+        "value": 66.6,
+        "unit": "% of persons living in owner-occupied dwellings",
+        "year": 2016,
+        "source": "Hagstofa LIF03211 (EU-SILC: Individuals, tenure status by sex and age, 2004-2016)",
+        "note": "Population-weighted average of 18-24 (74.1) and 25-34 (61.2). CAVEAT: latest age-specific tenure data Statistics Iceland publishes is 2016 (Eurostat has Iceland SILC only to 2020 and not by these ages). Measures persons LIVING IN an owner-occupied dwelling, so young adults living with owner parents count as owners; the share of young people who are themselves registered owners is much lower. Ownership has likely fallen since 2016 for the young (HMS, Stada a leigumarkadi 2026: registered owners among the bottom four income deciles fell to 13% in 2024)."
+      },
+      "avg_disposable_income_isk": {
+        "value": 6057000,
+        "unit": "ISK per family per year",
+        "year": 2025,
+        "source": "Hagstofa THJ09001 (Income and expenses by family type, age and residence, tax returns)",
+        "note": "Total income less taxes (after interest and child benefits), before interest expense: 526.2 bn ISK / 86,879 families. Unit is the tax 'family' (single person or married/cohabiting couple filing jointly), classified by age of the family head; age bands <24, 25-29, 30-34 = young; 35-39..60-66 = working; 67+ = old. The <24 band includes 16-17 year-old filers."
+      }
+    },
+    "working_35_66": {
+      "employment_rate": {
+        "value": 83.7,
+        "unit": "% of population",
+        "year": 2025,
+        "source": "Eurostat lfsa_pganws (LFS population by labour status, Iceland, thousands; data supplied by Hagstofa)",
+        "note": "35-64 + 2/5 of 65-69 band: 130.1k / 155.4k. 35-64 alone: 85.6%. Understated slightly because employment at 65-66 exceeds the 65-69 average."
+      },
+      "unemployment_rate": {
+        "value": 3.5,
+        "unit": "% of labour force",
+        "year": 2025,
+        "source": "Eurostat lfsa_pganws (LFS population by labour status, Iceland, thousands; data supplied by Hagstofa)",
+        "note": "35-64 + 2/5 of 65-69: 4.8k / 134.9k."
+      },
+      "share_of_total_wage_income": {
+        "value": 66.81,
+        "unit": "% of taxable wages",
+        "year": 2025,
+        "source": "Hagstofa TEK02011 (All taxable payments by sex and age, monthly withholding-tax data, summed Jan-Dec 2025)",
+        "note": "Individual-based. Family-based alternative (THJ09001, heads 35-66): 69.02%. Bands 5-year; young = 20-34 + half of 15-19 (ages 18-19 assumed = half the band); working = 35-64 + 2/5 of 65-69; old = 70+ + 3/5 of 65-69 (uniform split within band)."
+      },
+      "share_of_social_benefits_received": {
+        "value": 39.09,
+        "unit": "% of taxable social benefits",
+        "year": 2025,
+        "source": "Hagstofa TEK02011 (All taxable payments by sex and age, monthly withholding-tax data, summed Jan-Dec 2025)",
+        "note": "Mostly TR payments (largely disability pensions). Social benefits = TR/Icelandic Health Insurance payments + unemployment benefits + parental (childbirth) leave + municipal financial assistance = 286.6 bn ISK in 2025; excludes pension-fund payments, and non-taxable child/interest/housing benefits. Bands 5-year; young = 20-34 + half of 15-19 (ages 18-19 assumed = half the band); working = 35-64 + 2/5 of 65-69; old = 70+ + 3/5 of 65-69 (uniform split within band)."
+      },
+      "share_of_household_deposits": {
+        "value": 43.72,
+        "unit": "% of household deposits",
+        "year": 2025,
+        "source": "Hagstofa THJ09000 (Liabilities, assets and net worth by family type, age and residence, tax returns)",
+        "note": "681.0 of 1,557.4 bn ISK. Unit is the tax 'family' (single person or married/cohabiting couple filing jointly), classified by age of the family head; age bands <24, 25-29, 30-34 = young; 35-39..60-66 = working; 67+ = old. The <24 band includes 16-17 year-old filers."
+      },
+      "share_of_household_mortgage_debt": {
+        "value": 68.41,
+        "unit": "% of household mortgage debt",
+        "year": 2025,
+        "source": "Hagstofa THJ09000 (Liabilities, assets and net worth by family type, age and residence, tax returns)",
+        "note": "1,821.2 of 2,662.1 bn ISK. Unit is the tax 'family' (single person or married/cohabiting couple filing jointly), classified by age of the family head; age bands <24, 25-29, 30-34 = young; 35-39..60-66 = working; 67+ = old. The <24 band includes 16-17 year-old filers."
+      },
+      "home_ownership_rate": {
+        "value": 83.8,
+        "unit": "% of persons living in owner-occupied dwellings",
+        "year": 2016,
+        "source": "Hagstofa LIF03211 (EU-SILC: Individuals, tenure status by sex and age, 2004-2016)",
+        "note": "Population-weighted average of 35-44 (77.8), 45-54 (85.5), 55-64 (88.6); ages 65-66 not included. CAVEAT: latest age-specific tenure data Statistics Iceland publishes is 2016 (Eurostat has Iceland SILC only to 2020 and not by these ages). Measures persons LIVING IN an owner-occupied dwelling, so young adults living with owner parents count as owners; the share of young people who are themselves registered owners is much lower. Ownership has likely fallen since 2016 for the young (HMS, Stada a leigumarkadi 2026: registered owners among the bottom four income deciles fell to 13% in 2024)."
+      },
+      "avg_disposable_income_isk": {
+        "value": 13877000,
+        "unit": "ISK per family per year",
+        "year": 2025,
+        "source": "Hagstofa THJ09001 (Income and expenses by family type, age and residence, tax returns)",
+        "note": "1,456.8 bn ISK / 104,980 families. Unit is the tax 'family' (single person or married/cohabiting couple filing jointly), classified by age of the family head; age bands <24, 25-29, 30-34 = young; 35-39..60-66 = working; 67+ = old. The <24 band includes 16-17 year-old filers."
+      }
+    },
+    "old_67_plus": {
+      "employment_rate": {
+        "value": 18.6,
+        "unit": "% of population",
+        "year": 2025,
+        "source": "Eurostat lfsa_pganws (LFS population by labour status, Iceland, thousands; data supplied by Hagstofa)",
+        "note": "3/5 of 65-69 + 70-74 + 75+: 9.8k / 52.4k. 70-74: 15.5%; 75+: 6.1%; 65-69: 49.0%. Likely overstated (67-69 employment < 65-69 average)."
+      },
+      "unemployment_rate": {
+        "value": 1.2,
+        "unit": "% of labour force",
+        "year": 2025,
+        "source": "Eurostat lfsa_pganws (LFS population by labour status, Iceland, thousands; data supplied by Hagstofa)",
+        "note": "Unreliable: Eurostat suppresses unemployed 65+; ACT-EMP for the 67+ approximation = ~0.1k of ~9.9k active. Unemployment insurance ends at 70. Treat as ~0-1%."
+      },
+      "share_of_total_wage_income": {
+        "value": 3.26,
+        "unit": "% of taxable wages",
+        "year": 2025,
+        "source": "Hagstofa TEK02011 (All taxable payments by sex and age, monthly withholding-tax data, summed Jan-Dec 2025)",
+        "note": "Individual-based. Family-based alternative (THJ09001, heads 67+): 4.85%. Bands 5-year; young = 20-34 + half of 15-19 (ages 18-19 assumed = half the band); working = 35-64 + 2/5 of 65-69; old = 70+ + 3/5 of 65-69 (uniform split within band)."
+      },
+      "share_of_social_benefits_received": {
+        "value": 40.45,
+        "unit": "% of taxable social benefits",
+        "year": 2025,
+        "source": "Hagstofa TEK02011 (All taxable payments by sex and age, monthly withholding-tax data, summed Jan-Dec 2025)",
+        "note": "Mostly TR old-age pension. Ages 0-17 receive 0.33%. Social benefits = TR/Icelandic Health Insurance payments + unemployment benefits + parental (childbirth) leave + municipal financial assistance = 286.6 bn ISK in 2025; excludes pension-fund payments, and non-taxable child/interest/housing benefits. Bands 5-year; young = 20-34 + half of 15-19 (ages 18-19 assumed = half the band); working = 35-64 + 2/5 of 65-69; old = 70+ + 3/5 of 65-69 (uniform split within band)."
+      },
+      "share_of_household_deposits": {
+        "value": 42.2,
+        "unit": "% of household deposits",
+        "year": 2025,
+        "source": "Hagstofa THJ09000 (Liabilities, assets and net worth by family type, age and residence, tax returns)",
+        "note": "657.3 of 1,557.4 bn ISK. Unit is the tax 'family' (single person or married/cohabiting couple filing jointly), classified by age of the family head; age bands <24, 25-29, 30-34 = young; 35-39..60-66 = working; 67+ = old. The <24 band includes 16-17 year-old filers."
+      },
+      "share_of_household_mortgage_debt": {
+        "value": 9.12,
+        "unit": "% of household mortgage debt",
+        "year": 2025,
+        "source": "Hagstofa THJ09000 (Liabilities, assets and net worth by family type, age and residence, tax returns)",
+        "note": "242.7 of 2,662.1 bn ISK. Unit is the tax 'family' (single person or married/cohabiting couple filing jointly), classified by age of the family head; age bands <24, 25-29, 30-34 = young; 35-39..60-66 = working; 67+ = old. The <24 band includes 16-17 year-old filers."
+      },
+      "home_ownership_rate": {
+        "value": 88.4,
+        "unit": "% of persons living in owner-occupied dwellings",
+        "year": 2016,
+        "source": "Hagstofa LIF03211 (EU-SILC: Individuals, tenure status by sex and age, 2004-2016)",
+        "note": "Age band >64 (65+), 95% CI +/-2.5. 47.5% own without mortgage, 40.9% with mortgage. CAVEAT: latest age-specific tenure data Statistics Iceland publishes is 2016 (Eurostat has Iceland SILC only to 2020 and not by these ages). Measures persons LIVING IN an owner-occupied dwelling, so young adults living with owner parents count as owners; the share of young people who are themselves registered owners is much lower. Ownership has likely fallen since 2016 for the young (HMS, Stada a leigumarkadi 2026: registered owners among the bottom four income deciles fell to 13% in 2024)."
+      },
+      "avg_disposable_income_isk": {
+        "value": 11285000,
+        "unit": "ISK per family per year",
+        "year": 2025,
+        "source": "Hagstofa THJ09001 (Income and expenses by family type, age and residence, tax returns)",
+        "note": "474.2 bn ISK / 42,024 families. Includes capital income (nominal, incl. indexation)."
+      },
+      "share_income_from_pension_funds": {
+        "value": 57.2,
+        "unit": "% of taxable payments received",
+        "year": 2025,
+        "source": "Hagstofa TEK02011 (All taxable payments by sex and age, monthly withholding-tax data, summed Jan-Dec 2025)",
+        "note": "Pension-fund payments 250.4 bn / all taxable payments 438.0 bn for persons 67+ (est.). Excludes capital income (THJ09001: 67+ families had 117.4 bn capital income; incl. it the share is ~45%). Bounds: 70+ only 63.3%; 65-69 band 40.0%. Bands 5-year; young = 20-34 + half of 15-19 (ages 18-19 assumed = half the band); working = 35-64 + 2/5 of 65-69; old = 70+ + 3/5 of 65-69 (uniform split within band)."
+      },
+      "share_income_from_public_pension": {
+        "value": 26.3,
+        "unit": "% of taxable payments received",
+        "year": 2025,
+        "source": "Hagstofa TEK02011 (All taxable payments by sex and age, monthly withholding-tax data, summed Jan-Dec 2025)",
+        "note": "TR + Icelandic Health Insurance payments 115.1 bn / 438.0 bn for persons 67+ (est.). Incl. capital income in denominator ~21%. Bounds: 70+ only 30.7%; 65-69 band 14.0%. Remaining: wages 16.2% (overstated by uniform band split; 70+ only: 5.9%), other ~0.3%. Bands 5-year; young = 20-34 + half of 15-19 (ages 18-19 assumed = half the band); working = 35-64 + 2/5 of 65-69; old = 70+ + 3/5 of 65-69 (uniform split within band)."
+      }
+    }
+  },
+  "government_cofog_pct_gdp": {
+    "year": 2025,
+    "total": {
+      "value": 45.65,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP)",
+      "note": "2024: 47.14 (inflated by Grindavik support, see social protection n.e.c.)."
+    },
+    "general_public_services": {
+      "value": 7.87,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP)",
+      "note": "Includes public debt transactions (interest) 4.78% of GDP. 2024: 7.58."
+    },
+    "defence": {
+      "value": 0.27,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP)",
+      "note": "Iceland has no military; civil defence only. 2024: 0.21."
+    },
+    "public_order": {
+      "value": 1.54,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP)",
+      "note": "2024: 1.78."
+    },
+    "economic_affairs": {
+      "value": 5.05,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP)",
+      "note": "Road transport 2.55. 2024: 4.92."
+    },
+    "environment": {
+      "value": 0.73,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP)",
+      "note": "2024: 0.73."
+    },
+    "housing_community": {
+      "value": 0.53,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP)",
+      "note": "2024: 0.67."
+    },
+    "health": {
+      "value": 8.58,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP)",
+      "note": "2024: 8.64."
+    },
+    "recreation_culture": {
+      "value": 3.02,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP)",
+      "note": "2024: 3.04."
+    },
+    "education": {
+      "value": 7.03,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP)",
+      "note": "2024: 7.01."
+    },
+    "social_protection": {
+      "value": 11.03,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP)",
+      "note": "Excludes occupational pension fund benefits (pension funds are outside general government). 2024: 12.56 incl. 2.09 n.e.c. (Grindavik housing buy-out)."
+    },
+    "social_protection_breakdown": {
+      "old_age": {
+        "value": 2.84,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP) group 1020",
+        "note": "2024: 2.79. Public (TR) old-age pensions + elderly services; pension-fund pensions not included."
+      },
+      "sickness_disability": {
+        "value": 3.42,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP) groups 1011+1012",
+        "note": "Sickness 0.06 + disability 3.36. 2024: 3.24."
+      },
+      "family_children": {
+        "value": 2.65,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP) group 1040",
+        "note": "Includes parental leave fund and child benefits. 2024: 2.61."
+      },
+      "unemployment": {
+        "value": 0.76,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP) group 1050",
+        "note": "2024: 0.73."
+      },
+      "housing": {
+        "value": 0.31,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP) group 1060",
+        "note": "Housing benefits. 2024: 0.42."
+      },
+      "other": {
+        "value": 1.05,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ05142 (General government total expenditure by functions, % of GDP) groups 1030+1070+1090",
+        "note": "Survivors 0.01 + social exclusion 0.53 + n.e.c. 0.51. 2024: 2.76 (n.e.c. 2.09 was Grindavik)."
+      }
+    }
+  },
+  "government_economic_pct_gdp": {
+    "compensation_of_employees": {
+      "value": 14.4,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05143 (General government total expenditure by economic type, % of GDP)",
+      "note": "Item 21; includes accrued public-employee pension obligations. 2024: 14.19."
+    },
+    "intermediate_consumption": {
+      "value": 11.41,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05143 (General government total expenditure by economic type, % of GDP)",
+      "note": "Item 22 Use of goods and services. 2024: 11.51."
+    },
+    "social_benefits": {
+      "value": 7.28,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05143 (General government total expenditure by economic type, % of GDP)",
+      "note": "Item 27. 2024: 7.14."
+    },
+    "interest": {
+      "value": 4.66,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05143 (General government total expenditure by economic type, % of GDP)",
+      "note": "Item 24; includes CPI-indexation of indexed debt, hence high. 2024: 4.64."
+    },
+    "gross_fixed_capital_formation": {
+      "value": 4.18,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05143 (General government total expenditure by economic type, % of GDP)",
+      "note": "Item 311 gross acquisition of non-financial assets (GFS basis, close to P.51g). 2024: 4.06."
+    },
+    "subsidies": {
+      "value": 1.38,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05143 (General government total expenditure by economic type, % of GDP)",
+      "note": "Item 25. 2024: 1.64."
+    },
+    "other": {
+      "value": 2.34,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05143 (General government total expenditure by economic type, % of GDP)",
+      "note": "Grants to intl orgs 0.33 + other expense 2.01. With CFC netted out (item 23 in current expense offset by -23 in NFA), the seven items sum to total 45.65. 2024: 3.97."
+    }
+  },
+  "tax_revenue_pct_gdp": {
+    "personal_income_tax": {
+      "value": 14.05,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05132 (General government revenue, % of GDP)",
+      "note": "Item 1111 (state + municipal income tax on individuals, incl. capital income tax of individuals). Excludes 1113 unallocable 1.49. 2024: 13.76."
+    },
+    "corporate_income_tax": {
+      "value": 2.99,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05132 (General government revenue, % of GDP)",
+      "note": "Item 1112. 2024: 3.18."
+    },
+    "vat_and_taxes_on_goods": {
+      "value": 12.01,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05132 (General government revenue, % of GDP)",
+      "note": "Item 114 taxes on sales and services 11.85 + 115 customs 0.16. VAT alone (1141) 8.78. 2024: 11.98."
+    },
+    "social_contributions": {
+      "value": 3.1,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05132 (General government revenue, % of GDP)",
+      "note": "Item 12 (tryggingagjald, employer social security tax). Mandatory occupational pension contributions are NOT general-government revenue (see pensions). 2024: 2.97."
+    },
+    "other": {
+      "value": 4.38,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05132 (General government revenue, % of GDP)",
+      "note": "Unallocable income tax 1.49 + payroll 0.20 + property 2.34 + other taxes 0.35. Total tax+social contributions = 36.53; non-tax revenue (property income, sales, grants) 6.47 excluded. 2024: 4.66."
+    }
+  },
+  "exports_pct_gdp": {
+    "total": {
+      "value": 40.42,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ01102 (GDP and GNI, expenditure approach)",
+      "note": "1,997,388 m ISK / GDP 4,941,211. Goods 19.25, services 21.18. 2024: 42.47."
+    },
+    "tourism": {
+      "value": 13.08,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa UTA05003 (Selected items of exports of goods and services, quarterly, summed) + THJ01102 GDP",
+      "note": "'Revenues of foreign travellers' (travel + passenger transport) 646.4 bn ISK. 2024: 13.59."
+    },
+    "marine_products": {
+      "value": 7.26,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa UTA05003 (Selected items of exports of goods and services, quarterly, summed) + THJ01102 GDP",
+      "note": "358.9 bn ISK (Hagstofa marine products category). 2024: 7.57."
+    },
+    "aluminium": {
+      "value": 6.44,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa UTA05003 (Selected items of exports of goods and services, quarterly, summed) + THJ01102 GDP",
+      "note": "Aluminium and aluminium products 318.2 bn ISK. 2024: 6.83."
+    },
+    "other_goods": {
+      "value": 5.54,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa UTA05003 (Selected items of exports of goods and services, quarterly, summed) + THJ01102 GDP",
+      "note": "Goods exports 950.95 bn less marine less aluminium = 273.9 bn: other manufacturing (pharma, ferrosilicon, etc.) 159.4 bn (3.23%) + agricultural/other goods 114.5 bn (2.32%). 2024: 6.60."
+    },
+    "other_services": {
+      "value": 8.1,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa UTA05003 (Selected items of exports of goods and services, quarterly, summed) + THJ01102 GDP",
+      "note": "Services exports 1,046.4 bn less foreign-traveller revenues = 400.0 bn. UTA04006 2025 breakdown: transport other than air passengers ~107 bn, telecom/computer/information services (incl. data centres) 101.4, other business services 76.4, financial 41.2, IP charges 29.1, repair 21.6, other ~23. 2024: 7.88."
+    }
+  },
+  "imports_pct_gdp": {
+    "total": {
+      "value": 42.56,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ01102 (GDP and GNI, expenditure approach)",
+      "note": "2,102,762 m ISK. 2024: 43.74."
+    },
+    "goods": {
+      "value": 27.1,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ01102 (GDP and GNI, expenditure approach)",
+      "note": "fob, 1,338,986 m ISK. 2024: 28.05."
+    },
+    "services": {
+      "value": 15.46,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ01102 (GDP and GNI, expenditure approach)",
+      "note": "763,776 m ISK. 2024: 15.69."
+    }
+  },
+  "import_content": {
+    "household_consumption": {
+      "value": 25.2,
+      "unit": "% foreign value added in final demand component",
+      "year": 2022,
+      "source": "OECD TiVA 2025 edition, DSD_TIVA_MAINSH@DF_MAINSH (sdmx.oecd.org/sti-public), Iceland, CONS_VA_SH (100 - Iceland-origin share 74.76)",
+      "note": "PROXY: TiVA gives total final consumption (households + NPISH + government), not households alone; household-only import content is higher because government consumption is mostly domestic wages. 2021: 22.4."
+    },
+    "investment": {
+      "value": 44.4,
+      "unit": "% foreign value added in GFCF",
+      "year": 2022,
+      "source": "OECD TiVA 2025 edition, DSD_TIVA_MAINSH@DF_MAINSH (sdmx.oecd.org/sti-public), Iceland, GFCF_VA_SH (100 - Iceland-origin share 55.58)",
+      "note": "2021: 41.9; 2019: 38.4."
+    },
+    "exports": {
+      "value": 28.4,
+      "unit": "% of gross exports",
+      "year": 2022,
+      "source": "OECD TiVA 2025 edition, DSD_TIVA_MAINSH@DF_MAINSH (sdmx.oecd.org/sti-public), Iceland, EXGR_FVA (foreign value added in gross exports)",
+      "note": "2021: 26.2; 2019: 24.8. High for aluminium (imported alumina, foreign-owned)."
+    }
+  },
+  "export_sector": {
+    "value_added_share_of_gdp": {
+      "value": 12.96,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ08420 (Production approach components by kind of activity); Hagstofa SAM08008 (tourism satellite account)",
+      "note": "Gross value added 640.3 bn ISK = fishing & aquaculture (A03) 142.4 + fish processing (C10.2) 82.6 + basic metals incl. aluminium smelters (C24) 56.0 + chemicals & pharma (C20-21) 30.8 + tourism direct GVA (TSA) 328.5. Data centres not separable (inside J62-63) and excluded; electricity supply (D35, 159.4 bn) excluded even though much of it is sold to the smelters. = 14.5% of total GVA. 2024 equivalent: 620.5 bn = 13.56% of GDP."
+    },
+    "employment_share": {
+      "value": 14.3,
+      "unit": "% of employed persons",
+      "year": 2025,
+      "source": "Hagstofa VIN10022 (register employment by activity, 2025 avg) + SAM08010 (TSA employed persons)",
+      "note": "Fishing & aquaculture 3,711 + fish processing 4,125 + basic metals 2,050 + tourism-attributable employed persons (TSA) 22,363 = 32,249 of 225,194 register-employed. Pharma employment not published separately (excluded). Using all tourism-characteristic industries (register, 29,228) instead gives 17.4%."
+    },
+    "profits_to_foreign_owners_pct_gdp": {
+      "value": 1.25,
+      "unit": "% of GDP",
+      "year": 2024,
+      "source": "Eurostat bop_c6_a (BPM6, CBI source), IS, D4P__D__F debit = income on inward direct investment",
+      "note": "2024 inward-FDI income debit 57.3 bn ISK = dividends 11.9 + reinvested earnings 3.4 + intercompany interest 42.1. Covers all foreign-owned firms (aluminium smelters of Rio Tinto, Alcoa, Century; others), not smelters alone. Very volatile: 2023 86.4 bn (1.98%); 2025 -1.1 bn (-0.02%) because reinvested earnings were -45.1 bn (losses at foreign-owned firms) while interest was 29.7 bn and dividends 14.4 bn. 3-yr avg 2023-25 ~1.0% of GDP. Equity income only (div+RE): 2024 0.33%. Total primary-income property debits (THJ01102) 2025: 2.11% of GDP."
+    }
+  },
+  "labour": {
+    "wage_share_of_factor_income": {
+      "value": 60.6,
+      "unit": "% of GVA at factor cost",
+      "year": 2025,
+      "source": "Hagstofa THJ08420 (Production approach components by kind of activity)",
+      "note": "Compensation of employees 2,624.4 bn / (GVA 4,418.6 - taxes on production 134.7 + subsidies 45.5 = 4,329.4 bn). Gross basis (CFC in denominator); unadjusted for self-employed mixed income. Net of CFC: 73.6%. 2024: 60.7 gross."
+    },
+    "public_sector_employment_share": {
+      "value": 25.6,
+      "unit": "% of employed persons",
+      "year": 2025,
+      "source": "Hagstofa VIN10052 (Register-based employment by economic sector, monthly, averaged over 2025)",
+      "note": "Central government institutions (K1) 23,934 + local government institutions (K2) 32,424 + other governmental institutions (K) 1,240 = 57,598 of 225,134. Adding state/municipal enterprises (B2/C2/D4, e.g. Landsvirkjun, OR) 4,210 gives 27.5%. State-owned limited companies (ohf.) may be classed as limited companies."
+    },
+    "labour_force": {
+      "value": 235900,
+      "unit": "persons (16-74)",
+      "year": 2025,
+      "source": "Hagstofa VIN00901 / VIN00911 (LFS annual, 16-74)",
+      "note": "Employed 225,700; unemployed 10,300. 2024: 234,900."
+    },
+    "unemployment_rate_total": {
+      "value": 4.3,
+      "unit": "% of labour force (16-74)",
+      "year": 2025,
+      "source": "Hagstofa VIN00901 / VIN00911 (LFS annual, 16-74)",
+      "note": "Hagstofa LFS. Eurostat (15-74) 4.5. 2024: 3.3."
+    }
+  },
+  "pensions": {
+    "pf_contributions_pct_gdp": {
+      "value": 9.69,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Landssamtok lifeyrissjoda, Hagtolur lifeyrissjoda workbook (lifeyrismal.is/static/files/Hagtolur/hagtolur-a-vefinn-2026_6a.xlsx), compiled from CBI (FME) data, sheet 2.7",
+      "note": "Contributions 2025: mutual (samtrygging) 365.2 bn + personal (sereign) 113.7 bn = 478.9 bn ISK. Mutual only: 7.39% of GDP."
+    },
+    "pf_benefits_paid_pct_gdp": {
+      "value": 6.26,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Landssamtok lifeyrissjoda, Hagtolur lifeyrissjoda workbook (lifeyrismal.is/static/files/Hagtolur/hagtolur-a-vefinn-2026_6a.xlsx), compiled from CBI (FME) data, sheet 2.1",
+      "note": "Mutual-insurance pensions 2025: old-age 247.6 + disability 39.4 + survivors 20.8 + children 1.5 = 309.3 bn ISK. Excludes personal-pension (sereign) withdrawals; Hagstofa TEK02011 'pension fund payments' incl. those = 346.8 bn (7.02% of GDP)."
+    },
+    "public_old_age_pension_pct_gdp": {
+      "value": 2.48,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Tryggingastofnun (TR) annual report 2025, via Stjornarradid news 13 May 2026 (stjornarradid.is/.../Arsskyrsla-TR-86.000-einstaklingar...)",
+      "note": "TR old-age pension payments 2025: 122.6 bn ISK (+10% y/y) / GDP 2025. Disability pension 85.3 bn (1.73%); all TR payments ~250 bn. COFOG 1020 old age (incl. services) = 2.84%. 2024 (LL sheet 2.2): 109.5 bn = 2.39%."
+    },
+    "pf_assets_pct_gdp": {
+      "value": 179.7,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Landssamtok lifeyrissjoda, Hagtolur lifeyrissjoda workbook (lifeyrismal.is/static/files/Hagtolur/hagtolur-a-vefinn-2026_6a.xlsx), compiled from CBI (FME) data, sheet 1.3 (end-2025 portfolio)",
+      "note": "Total assets end-2025 8,878.5 bn ISK / GDP 2025. LL's own sheet 1.4 reports 179.2 (older GDP vintage). 2024: 180.3 (8,250.7 bn)."
+    },
+    "pf_foreign_asset_share": {
+      "value": 41.5,
+      "unit": "% of pension fund assets",
+      "year": 2025,
+      "source": "Landssamtok lifeyrissjoda, Hagtolur lifeyrissjoda workbook (lifeyrismal.is/static/files/Hagtolur/hagtolur-a-vefinn-2026_6a.xlsx), compiled from CBI (FME) data, sheet 1.3",
+      "note": "Foreign equities 3,647.0 + other foreign 34.5 = 3,681.5 bn of 8,878.5 bn, end-2025. End-2024: 40.4."
+    },
+    "pf_share_of_mortgage_stock": {
+      "value": 27.4,
+      "unit": "% of household mortgage loans",
+      "year": 2025,
+      "source": "Landssamtok lifeyrissjoda, Hagtolur lifeyrissjoda workbook (lifeyrismal.is/static/files/Hagtolur/hagtolur-a-vefinn-2026_6a.xlsx), compiled from CBI (FME) data, sheet 4.2 (CBI data)",
+      "note": "End-2025 household housing loans: pension funds 796.4 bn, banks 1,987.6 bn, IL-fund (HFF) 125.2 bn; total 2,909.2 bn. PF loans 74% indexed (590.8 indexed / 205.6 non-indexed)."
+    },
+    "pf_share_of_govt_bonds": {
+      "value": 58.6,
+      "unit": "% of Treasury bonds outstanding (nominal)",
+      "year": 2025,
+      "source": "Lanamal rikisins (Government Debt Management), Markadsupplysingar January 2026, table 'Eigendur rikisverdbrefa 31. desember 2025' (lanamal.is/asset/13858)",
+      "note": "Pension funds held 873.8 bn of 1,490.5 bn ISK nominal Treasury bonds (RIKB+RIKS) at 31 Dec 2025. Incl. T-bills (110.2 bn, PF 0.2 bn): 54.6%. Foreign holders 7.2%, banks 11.2%."
+    }
+  },
+  "cpi_weights": {
+    "housing": {
+      "value": 24.5,
+      "unit": "% of CPI",
+      "year": 2026,
+      "source": "Hagstofa VIS01101 (CPI by expenditure groups, 'breakdown' = weights, Jan 2026 basket)",
+      "note": "Group 5b Housing = imputed rent 20.9 + actual rent 3.6 (VIS01306 Dec-2025 weights). Maintenance, water/dwelling services and electricity/heating (5.8) sit in other groups. 2025 basket (Jan 2025): 23.9."
+    },
+    "imported_goods": {
+      "value": 25.0,
+      "unit": "% of CPI",
+      "year": 2026,
+      "source": "Hagstofa VIS01101 (CPI by expenditure groups, 'breakdown' = weights, Jan 2026 basket)",
+      "note": "Group 2b Imported products (food 2.2 + other 22.7). Excludes 'products with mixed origin' 10.0 (partly imported). 2025 basket: 28.0. Jan 2026 basket moved to COICOP 2018; weight on vehicle purchases fell."
+    },
+    "domestic_goods_and_services": {
+      "value": 50.5,
+      "unit": "% of CPI",
+      "year": 2026,
+      "source": "Hagstofa VIS01101 (CPI by expenditure groups, 'breakdown' = weights, Jan 2026 basket)",
+      "note": "Residual: domestic products 11.2 + mixed-origin products 10.0 + services excl. housing 29.3 (public 5.2, tourist 4.9, other 19.3). 2025 basket: 48.1."
+    }
+  },
+  "money_credit": {
+    "broad_money_m3_pct_gdp": {
+      "value": 67.4,
+      "unit": "% of GDP",
+      "year": 2024,
+      "source": "IMF MFS_MA (Monetary Aggregates), series ISL BM_MAI = broad money (national M3), api.imf.org SDMX; CBI source",
+      "note": "End-2024 broad money 3,084.5 bn ISK / 2024 GDP 4,576.6 bn. Latest obs Sep 2025: 3,271.1 bn (= 66.2% of 2025 GDP)."
+    },
+    "household_debt_pct_gdp": {
+      "value": 69.9,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Central Bank of Iceland, Fjarmalastodugleiki 2026/1 (25 Mar 2026), chart data workbook (sedlabanki.is/library/?itemid=5355f431-e53e-44ad-a213-a9d8749f8bca), chart I-27",
+      "note": "Household debt, end-2025 (Q4), CBI definition. End-2024: 71.8. Hagstofa financial accounts THJ10002 (loans, end-2024): 75. Tax-return household liabilities end-2025 (THJ09000): 3,433 bn = 69.5% of 2025 GDP."
+    },
+    "corporate_debt_pct_gdp": {
+      "value": 75.5,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Central Bank of Iceland, Fjarmalastodugleiki 2026/1 (25 Mar 2026), chart data workbook (sedlabanki.is/library/?itemid=5355f431-e53e-44ad-a213-a9d8749f8bca), chart I-27",
+      "note": "Debt of non-financial firms incl. publicly owned enterprises, end-2025 (Q4), CBI definition. End-2024: 76.3. The non-consolidated financial-accounts measure (THJ10002, loans+debt securities of S11, incl. intercompany) is much higher: 131 (2024)."
+    },
+    "indexed_share_of_mortgages": {
+      "value": 65.0,
+      "unit": "% of outstanding household housing loans",
+      "year": 2026,
+      "source": "Central Bank of Iceland, Fjarmalastodugleiki 2026/1 (25 Mar 2026), chart data workbook (sedlabanki.is/library/?itemid=5355f431-e53e-44ad-a213-a9d8749f8bca), text p. on household credit",
+      "note": "CPI-indexed share of all outstanding housing loans to households in January 2026 (~end-2025), up just over 4 pp y/y. Pension-fund housing loans alone: 74% indexed (end-2025, LL/CBI)."
+    },
+    "govt_debt_pct_gdp": {
+      "value": 56.7,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ05181 (General government financial assets and liabilities)",
+      "note": "Debt securities 37.4 + loans 19.3 (1,849 + 952 = 2,801 bn ISK), end-2025, general government. Excludes unfunded public-employee pension liabilities (25.2% of GDP) and other payables (6.4%); total liabilities 88.3% (Hagstofa March 2026 release: 84.2%). Net financial assets -38.2%."
+    }
+  }
+}

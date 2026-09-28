@@ -1,0 +1,315 @@
+
+========================================================================================================
+0. Browser bundle
+========================================================================================================
+file build/iceland-inc-engine.js: 127.1 KB; single top-level statement "var IcelandInc = (function(){...})();": PASS
+bundle is newer than every src/ module: PASS
+loads with new Function in a bare JS realm (no Node globals: require undefined, process undefined); 24 months run, inflation dev 0.932 pp: PASS
+speed: 34.4 microseconds per month in Node (budget 3,000 per month in a browser): PASS
+
+========================================================================================================
+1. Computed steady state (zero inflation, zero real growth; baseline annual GDP = 100)
+========================================================================================================
+solved balancing parameters (calibrated to target):
+  tau0=0.3848  tauF=0.0901  muXD=0.3954  divFXW=0.2452  vat0=0.3033
+  cEe=0.0465  rr=0.3879  wsOther=0.3420  muD=0.0267  rhoFD0=0.5033
+  rhoFX0=0.6903  c0Y=0.9612  c0W=9.5947  c0O=4.4101  payout=0.1788
+  ageing=0.1159  nuY=0.0088  nuW=0.0160  mRY=0.8906  mRW=1.4206
+baseline flows (% of GDP): consumption 51.61 (young 8.27, working 27.21, old 16.13); public services 29.53; investment 20.18; exports 40.42; imports 41.74
+  exporters' domestic inputs 15.98; profits FD 28.39, FX 4.78; distributed profit FD 12.83, FX 1.35 (to foreign owners 0.33)
+  taxes: income 24.88, VAT 12.01, corporate 2.99, payroll 2.09; govt interest 1.69
+  pensions: contributions 7.39, fund income 6.35, payouts 13.74 (stationary: payouts = contributions + income)
+  bank profit 1.94, central bank profit 0.035
+GDP identity C + G + I + X - IM - 100 (NOT imposed, must come out 0): 1.42e-14  PASS
+steady-state warnings: none
+baseline levels: unemployment 4.24% (young 5.80, working 3.50, old 1.20); key rate 3.00%; broad money 67.4% of GDP; mortgage debt 58.9%; government debt 56.7%; pension assets 179.7%; bank capital 22.0%
+parameters: 210 total, 61 from data, 29 flagged placeholder, 41 calibrated to target, rest assumed
+
+========================================================================================================
+2. No-shock run, 240 months: maximum absolute deviation from the steady state (every series, balance sheet)
+========================================================================================================
+  output           max |deviation| = 8.88e-14
+  inflation        max |deviation| = 2.22e-13
+  keyRate          max |deviation| = 2.08e-13
+  unemployment     max |deviation| = 3.82e-14
+  broadMoney       max |deviation| = 2.58e-12
+  mortgageDebt     max |deviation| = 6.89e-13
+  govDebt          max |deviation| = 8.74e-13
+  krona            max |deviation| = 1.78e-12
+  realHousePrice   max |deviation| = 8.10e-13
+  pfAssets         max |deviation| = 1.78e-12
+all 34 series: max |deviation| = 2.58e-12 (broadMoney); balance-sheet entries: max |change| = 5.77e-12   PASS
+
+========================================================================================================
+3. Calibration checks (published-style whole-model responses; CHECKS, never equations)
+========================================================================================================
+scenario                            target                                                            result                            verdict
+Key rate +1 pp for 8 quarters       output trough, % -0.6 to -0.25                                    -0.33                             PASS
+Key rate +1 pp for 8 quarters       output trough timing, quarter 4 to 7                              q6 (month 16)                     PASS
+Key rate +1 pp for 8 quarters       annual inflation trough, pp -0.35 to -0.1                         -0.31                             PASS
+Key rate +1 pp for 8 quarters       inflation trough timing, quarter 5 to 9                           q6 (month 16)                     PASS
+Key rate +1 pp for 8 quarters       krona appreciation (peak, first 8 quarters), % 0.3 to 1.5         +0.44                             PASS
+Wages +10% one-off                  inflation peak, pp 1.5 to 3.5                                     +1.95                             PASS
+Wages +10% one-off                  inflation peak timing, quarter 4 to 8                             q5 (month 14)                     PASS
+Wages +10% one-off                  key-rate peak, pp 0.8 to 2                                        +1.31                             PASS
+Wages +10% one-off                  unemployment peak, pp 0.3 to 1.2                                  +0.42                             PASS
+Wages +10% one-off                  price level after 6 years, % 3 to 8                               +3.25                             PASS
+Wages +10% one-off                  output at year 6 / peak deviation 0 to 0.25                       19% of peak -0.64                 PASS
+Wages +10% one-off                  unemployment at year 6 / peak deviation 0 to 0.25                 17% of peak +0.42                 PASS
+Wages +10% one-off                  real wage at year 6 / peak deviation 0 to 0.25                    3% of peak +9.94                  PASS
+Wages +10% one-off                  consumption at year 6 / peak deviation 0 to 0.25                  4% of peak +0.98                  PASS
+Govt purchases +1% of GDP           output, year-1 average, % 0.3 to 0.8                              +0.72                             PASS
+Govt purchases +1% of GDP           broad money, bank- minus PF-financed, pp (min of m12, m24) >= 0.5 +1.14 (banks +2.89% vs PF +0.84% at m24)PASS
+Krona -10% sentiment                price level at 8 quarters, % 1.5 to 3                             +1.62                             PASS
+Lending +1% of GDP for 12 months    credit impulse, months 1-12 (minimum), pp >= 0.2                  +0.86                             PASS
+Lending +1% of GDP for 12 months    credit impulse, months 13-24 (maximum), pp <= -0.2                -1.08                             PASS
+Lending +1% held constant           largest absolute credit impulse, months 18-48, pp 0 to 0.3        +0.23                             PASS
+20 of 20 checks pass; smallest margin inside a band: 0.12 of the band width
+
+========================================================================================================
+4a. Key rate: rule + 1 pp add-on for 8 quarters (deviations from the steady-state baseline)
+========================================================================================================
+series                                  unit                            m3      m6     m12     m18     m24     m36     m48     m72
+Output (real GDP)                       % vs baseline                -0.14   -0.24   -0.32   -0.33   -0.32   +0.00   -0.01   -0.02
+Unemployment rate                       pp vs baseline               +0.02   +0.05   +0.10   +0.11   +0.11   +0.01   +0.00   +0.01
+Unemployment, young (18-34)             pp vs baseline               +0.03   +0.08   +0.15   +0.17   +0.17   +0.01   -0.01   +0.01
+Inflation (12-month CPI)                pp vs baseline               -0.06   -0.13   -0.29   -0.31   -0.28   +0.06   +0.08   +0.02
+Consumer price level                    % vs baseline                -0.06   -0.13   -0.29   -0.44   -0.58   -0.52   -0.44   -0.38
+Expected inflation                      pp vs baseline               -0.04   -0.07   -0.12   -0.14   -0.13   +0.00   +0.03   +0.01
+Key interest rate                       pp vs baseline               +0.97   +0.88   +0.68   +0.57   +0.55   -0.12   +0.04   +0.01
+Krona value                             % vs baseline (+ stronger    +0.43   +0.30   +0.21   +0.24   +0.31   +0.26   +0.34   +0.36
+Real wages                              % vs baseline                +0.05   +0.11   +0.17   +0.19   +0.19   +0.04   +0.04   +0.03
+Household consumption (real)            % vs baseline                -0.19   -0.32   -0.47   -0.51   -0.52   -0.09   -0.07   -0.07
+Investment (real)                       % vs baseline                -0.39   -0.67   -0.98   -1.08   -1.10   -0.13   -0.02   -0.03
+Exports (real)                          % vs baseline                -0.06   -0.09   -0.08   -0.05   -0.02   +0.08   +0.03   +0.01
+Broad money (bank deposits)             % vs baseline                -0.10   -0.19   -0.39   -0.56   -0.70   -0.53   -0.34   -0.17
+Net new mortgage lending                % of GDP                     -0.28   -0.27   -0.24   -0.20   -0.18   +0.08   +0.05   +0.03
+Credit impulse (mortgages)              pp of GDP                    -0.28   -0.27   -0.24   +0.07   +0.06   +0.26   -0.03   -0.01
+Real house prices                       % vs baseline                -0.33   -0.74   -1.24   -1.42   -1.47   -0.26   +0.00   -0.02
+Government balance                      pp of GDP                    -0.47   -0.47   -0.40   -0.35   -0.33   +0.12   +0.08   +0.10
+Government debt / GDP                   pp of GDP                    +0.22   +0.41   +0.75   +1.03   +1.27   +0.94   +0.81   +0.61
+Real disposable income, young           % vs baseline                -0.40   -0.40   -0.38   -0.39   -0.43   -0.19   -0.26   -0.27
+Real disposable income, working age     % vs baseline                -0.69   -0.71   -0.69   -0.66   -0.67   -0.06   -0.17   -0.21
+Real disposable income, old             % vs baseline                +1.12   +1.01   +0.84   +0.80   +0.85   +0.15   +0.24   +0.11
+Profits, domestic-market firms (real)   % vs baseline                -0.48   -0.67   -0.87   -0.88   -0.86   +0.00   -0.03   -0.06
+Profits, exporters (real)               % vs baseline                -2.05   -1.48   -0.86   -0.55   -0.41   +0.53   +0.14   +0.00
+Pension fund assets (real)              % vs baseline                -0.05   +0.13   +0.41   +0.60   +0.74   +0.58   +0.45   +0.36
+
+========================================================================================================
+4b. Wages +10% one-off, key rate on its rule
+========================================================================================================
+series                                  unit                            m3      m6     m12     m18     m24     m36     m48     m72
+Output (real GDP)                       % vs baseline                +0.23   +0.24   -0.07   -0.44   -0.62   -0.52   -0.30   -0.12
+Unemployment rate                       pp vs baseline               +0.33   +0.41   +0.39   +0.40   +0.42   +0.35   +0.22   +0.07
+Unemployment, young (18-34)             pp vs baseline               +0.50   +0.62   +0.59   +0.60   +0.63   +0.53   +0.33   +0.11
+Inflation (12-month CPI)                pp vs baseline               +0.28   +0.80   +1.84   +1.66   +0.93   +0.25   +0.14   -0.01
+Consumer price level                    % vs baseline                +0.28   +0.80   +1.84   +2.47   +2.79   +3.05   +3.19   +3.25
+Expected inflation                      pp vs baseline               +0.18   +0.45   +0.74   +0.67   +0.47   +0.19   +0.09   +0.00
+Key interest rate                       pp vs baseline               +0.08   +0.39   +1.10   +1.28   +0.89   +0.15   -0.01   -0.06
+Krona value                             % vs baseline (+ stronger    -0.09   -0.35   -0.61   -0.81   -1.23   -2.10   -2.71   -3.15
+Real wages                              % vs baseline                +8.99   +7.53   +5.30   +3.98   +3.12   +1.87   +1.02   +0.33
+Household consumption (real)            % vs baseline                +0.71   +0.97   +0.84   +0.55   +0.43   +0.47   +0.40   +0.04
+Investment (real)                       % vs baseline                -0.14   -0.45   -1.03   -1.46   -1.59   -1.13   -0.62   -0.21
+Exports (real)                          % vs baseline                -0.04   -0.14   -0.48   -0.85   -1.07   -1.00   -0.67   -0.19
+Broad money (bank deposits)             % vs baseline                +1.66   +2.64   +4.12   +4.90   +5.16   +4.96   +4.50   +3.62
+Net new mortgage lending                % of GDP                     +1.22   +1.01   +0.58   +0.27   +0.15   +0.07   -0.03   -0.10
+Credit impulse (mortgages)              pp of GDP                    +1.22   +1.01   +0.58   -0.74   -0.43   -0.08   -0.10   -0.01
+Real house prices                       % vs baseline                +0.70   +1.76   +2.55   +2.15   +1.45   +0.65   +0.22   -0.42
+Government balance                      pp of GDP                    -0.40   -0.69   -1.00   -1.03   -0.80   -0.31   -0.11   +0.03
+Government debt / GDP                   pp of GDP                    -1.06   -1.26   -1.23   -0.81   -0.31   +0.28   +0.49   +0.59
+Real disposable income, young           % vs baseline                +6.42   +5.24   +3.48   +2.38   +1.75   +0.99   +0.45   -0.01
+Real disposable income, working age     % vs baseline                +2.70   +2.47   +1.70   +0.96   +0.59   +0.29   +0.02   -0.25
+Real disposable income, old             % vs baseline                -1.05   -0.55   +0.26   +0.36   -0.09   -0.75   -0.73   -0.49
+Profits, domestic-market firms (real)   % vs baseline                -8.12   -5.60   -3.02   -2.25   -1.91   -1.24   -0.78   -0.37
+Profits, exporters (real)               % vs baseline               -13.26  -10.33   -8.28   -7.78   -6.57   -3.89   -2.24   -0.80
+Pension fund assets (real)              % vs baseline                -0.11   -0.34   -0.78   -0.85   -0.62   -0.12   +0.18   +0.47
+
+========================================================================================================
+4c. Government purchases (other public services) +1% of GDP, permanent: who buys the bonds decides the money
+========================================================================================================
+month      M3 banks      M3 CB      M3 PF  M3 old hh    y banks       y PF   debt/GDP   tax rate
+6            +0.805     +0.805     +0.223     +0.224     +0.719     +0.719     -0.073     -0.012
+12           +1.455     +1.454     +0.318     +0.320     +0.694     +0.694     +0.387     -0.002
+24           +2.894     +2.889     +0.837     +0.848     +0.656     +0.656     +1.407     +0.086
+36           +4.343     +4.328     +1.641     +1.668     +0.618     +0.617     +2.435     +0.241
+48           +5.686     +5.654     +2.592     +2.641     +0.574     +0.572     +3.428     +0.435
+72           +7.970     +7.897     +4.708     +4.803     +0.495     +0.493     +5.164     +0.861
+(broad money = deposits of households, firms and pension funds, % vs baseline. Banks and the central bank pay with new money; pension funds and
+ households pay with existing deposits, so money only grows as they later rebalance by selling bonds to banks.)
+
+========================================================================================================
+4d. Krona sentiment shock -10% (fades at about 10% a year): pass-through
+========================================================================================================
+series                                  unit                            m1      m3      m6     m12     m24     m36     m48     m72
+Krona value                             % vs baseline (+ stronger    -6.44   -8.17   -6.02   -3.59   -1.72   -0.80   -0.72   -0.97
+Consumer price level                    % vs baseline                +0.27   +0.89   +1.48   +1.88   +1.62   +1.22   +1.13   +1.24
+Inflation (12-month CPI)                pp vs baseline               +0.27   +0.89   +1.48   +1.88   -0.25   -0.39   -0.09   +0.04
+Key interest rate                       pp vs baseline               +0.00   +0.25   +0.89   +1.49   +0.29   -0.32   -0.19   +0.05
+Exports (real)                          % vs baseline                +0.35   +1.16   +1.87   +2.01   +0.99   +0.05   -0.31   -0.20
+Imports (real)                          % vs baseline                -0.23   -0.72   -1.17   -1.51   -1.07   -0.15   +0.30   +0.20
+Current account                         pp of GDP                    +0.68   +0.74   +0.30   +0.40   +0.57   +0.21   -0.05   -0.08
+Profits, exporters (real)               % vs baseline               +17.79  +19.21   +8.88   +1.64   +0.36   -0.09   -0.33   -0.44
+Real wages                              % vs baseline                -0.27   -0.83   -1.22   -1.10   -0.21   +0.28   +0.31   +0.08
+Pension fund assets (real)              % vs baseline                +2.63   +2.97   +1.55   +0.42   +0.17   +0.06   -0.01   -0.02
+
+========================================================================================================
+4e. Bank lending appetite +1% of GDP per year: 12 months vs held (credit impulse = change in the yearly credit flow)
+========================================================================================================
+month     net lend 12m        CI 12m    CI tot 12m     money 12m  house pr 12m net lend held       CI held debt/GDP held
+1               +1.000        +1.000        +1.085        +0.100        +0.000        +1.000        +1.000        +0.068
+3               +0.986        +0.986        +1.066        +0.293        +0.461        +0.986        +0.986        +0.207
+6               +0.955        +0.955        +1.021        +0.572        +1.005        +0.955        +0.955        +0.421
+9               +0.912        +0.912        +0.961        +0.841        +1.396        +0.912        +0.912        +0.636
+12              +0.860        +0.860        +0.892        +1.097        +1.654        +0.860        +0.860        +0.847
+13              -0.159        -1.159        -1.302        +1.079        +1.714        +0.841        -0.159        +0.916
+15              -0.185        -1.171        -1.313        +1.045        +1.331        +0.802        -0.185        +1.051
+18              -0.213        -1.168        -1.295        +0.987        +0.835        +0.744        -0.212        +1.245
+24              -0.223        -1.082        -1.162        +0.854        +0.114        +0.636        -0.223        +1.593
+30              -0.198        +0.015        +0.049        +0.715        -0.276        +0.545        -0.199        +1.888
+36              -0.167        +0.056        +0.093        +0.593        -0.423        +0.469        -0.167        +2.132
+48              -0.114        +0.052        +0.070        +0.413        -0.385        +0.355        -0.114        +2.499
+60              -0.079        +0.035        +0.041        +0.300        -0.249        +0.277        -0.078        +2.763
+72              -0.058        +0.021        +0.021        +0.229        -0.155        +0.220        -0.057        +2.965
+binding constraint per group after 24 months: DSTI cap -12 pp -> ["HY:DSTI","HW:DSTI"]; LTV cap 60% -> ["HY:none","HW:none"]
+
+========================================================================================================
+5. Combined policy (the core teaching interaction): wages +10%, then at month 3 the key-rate add-on +1 pp for 24 months
+========================================================================================================
+series                            case            m3      m6     m12     m18     m24     m36     m48     m72
+Output (real GDP)                 wages        +0.23   +0.24   -0.07   -0.44   -0.62   -0.52   -0.30   -0.12
+                                  + rate       +0.23   +0.09   -0.37   -0.77   -0.94   -0.53   -0.30   -0.14
+Unemployment rate                 wages        +0.33   +0.41   +0.39   +0.40   +0.42   +0.35   +0.22   +0.07
+                                  + rate       +0.33   +0.43   +0.47   +0.50   +0.53   +0.37   +0.21   +0.08
+Unemployment, young (18-34)       wages        +0.50   +0.62   +0.59   +0.60   +0.63   +0.53   +0.33   +0.11
+                                  + rate       +0.50   +0.65   +0.71   +0.76   +0.80   +0.57   +0.32   +0.12
+Inflation (12-month CPI)          wages        +0.28   +0.80   +1.84   +1.66   +0.93   +0.25   +0.14   -0.01
+                                  + rate       +0.28   +0.74   +1.62   +1.33   +0.62   +0.23   +0.24   +0.02
+Consumer price level              wages        +0.28   +0.80   +1.84   +2.47   +2.79   +3.05   +3.19   +3.25
+                                  + rate       +0.28   +0.74   +1.62   +2.09   +2.25   +2.48   +2.73   +2.88
+Key interest rate                 wages        +0.08   +0.39   +1.10   +1.28   +0.89   +0.15   -0.01   -0.06
+                                  + rate       +0.08   +1.36   +1.87   +1.89   +1.44   -0.06   +0.05   -0.03
+Krona value                       wages        -0.09   -0.35   -0.61   -0.81   -1.23   -2.10   -2.71   -3.15
+                                  + rate       -0.09   +0.08   -0.37   -0.60   -0.96   -1.90   -2.39   -2.83
+Real wages                        wages        +8.99   +7.53   +5.30   +3.98   +3.12   +1.87   +1.02   +0.33
+                                  + rate       +8.99   +7.59   +5.46   +4.18   +3.33   +1.93   +1.05   +0.35
+Real house prices                 wages        +0.70   +1.76   +2.55   +2.15   +1.45   +0.65   +0.22   -0.42
+                                  + rate       +0.70   +1.41   +1.46   +0.73   -0.05   +0.24   +0.29   -0.43
+Real disposable income, young     wages        +6.42   +5.24   +3.48   +2.38   +1.75   +0.99   +0.45   -0.01
+                                  + rate       +6.42   +4.86   +3.12   +2.04   +1.39   +0.88   +0.22   -0.30
+Real disposable income, working a wages        +2.70   +2.47   +1.70   +0.96   +0.59   +0.29   +0.02   -0.25
+                                  + rate       +2.70   +1.79   +1.00   +0.30   -0.05   +0.32   -0.12   -0.47
+Real disposable income, old       wages        -1.05   -0.55   +0.26   +0.36   -0.09   -0.75   -0.73   -0.49
+                                  + rate       -1.05   +0.55   +1.16   +1.17   +0.73   -0.70   -0.48   -0.39
+Government debt / GDP             wages        -1.06   -1.26   -1.23   -0.81   -0.31   +0.28   +0.49   +0.59
+                                  + rate       -1.06   -1.04   -0.66   +0.08   +0.83   +1.27   +1.32   +1.24
+
+key numbers                                   wages only          wages + rate
+inflation peak, pp                            +1.95 @m14            +1.67 @m13
+unemployment peak, pp                         +0.42 @m25            +0.53 @m25
+young unemployment peak, pp                   +0.64 @m25            +0.80 @m25
+output trough, %                              -0.64 @m27            -0.96 @m26
+key-rate peak, pp                             +1.31 @m16            +1.97 @m15
+price level after 2 / 6 years, %         +2.79 /   +3.25       +2.25 /   +2.88
+cumulative output, %-years (6 yrs)                 -1.65                 -2.32
+cumulative inflation, pp-years                     +3.23                 +2.85
+
+========================================================================================================
+6. Wages +10% plus health and education spending cut by 0.5% of GDP each (permanent, from month 0)
+========================================================================================================
+series                            case            m3      m6     m12     m18     m24     m36     m48     m72
+Output (real GDP)                 wages        +0.23   +0.24   -0.07   -0.44   -0.62   -0.52   -0.30   -0.12
+                                  + cuts       -0.63   -0.61   -0.87   -1.20   -1.35   -1.18   -0.91   -0.64
+Unemployment rate                 wages        +0.33   +0.41   +0.39   +0.40   +0.42   +0.35   +0.22   +0.07
+                                  + cuts       +1.26   +1.35   +1.32   +1.29   +1.29   +1.18   +1.02   +0.83
+Unemployment, young (18-34)       wages        +0.50   +0.62   +0.59   +0.60   +0.63   +0.53   +0.33   +0.11
+                                  + cuts       +1.91   +2.05   +2.00   +1.96   +1.95   +1.79   +1.54   +1.26
+Inflation (12-month CPI)          wages        +0.28   +0.80   +1.84   +1.66   +0.93   +0.25   +0.14   -0.01
+                                  + cuts       +0.21   +0.63   +1.45   +1.19   +0.38   -0.39   -0.53   -0.67
+Consumer price level              wages        +0.28   +0.80   +1.84   +2.47   +2.79   +3.05   +3.19   +3.25
+                                  + cuts       +0.21   +0.63   +1.45   +1.83   +1.84   +1.44   +0.90   -0.38
+Key interest rate                 wages        +0.08   +0.39   +1.10   +1.28   +0.89   +0.15   -0.01   -0.06
+                                  + cuts       -0.13   -0.04   +0.43   +0.48   +0.01   -0.83   -1.01   -1.01
+Government balance                wages        -0.40   -0.69   -1.00   -1.03   -0.80   -0.31   -0.11   +0.03
+                                  + cuts       +0.50   +0.31   +0.14   +0.21   +0.50   +1.01   +1.16   +1.09
+Government debt / GDP             wages        -1.06   -1.26   -1.23   -0.81   -0.31   +0.28   +0.49   +0.59
+                                  + cuts       -0.68   -1.03   -1.41   -1.45   -1.43   -1.80   -2.53   -4.05
+Income-tax rate                   wages        -0.02   -0.05   -0.11   -0.14   -0.15   -0.09   -0.01   +0.08
+                                  + cuts       -0.01   -0.03   -0.09   -0.15   -0.20   -0.27   -0.38   -0.68
+Real disposable income, young     wages        +6.42   +5.24   +3.48   +2.38   +1.75   +0.99   +0.45   -0.01
+                                  + cuts       +5.05   +3.74   +1.81   +0.65   +0.03   -0.57   -0.86   -0.83
+Real disposable income, working a wages        +2.70   +2.47   +1.70   +0.96   +0.59   +0.29   +0.02   -0.25
+                                  + cuts       +2.07   +1.78   +0.98   +0.27   -0.05   -0.15   -0.22   -0.10
+Real disposable income, old       wages        -1.05   -0.55   +0.26   +0.36   -0.09   -0.75   -0.73   -0.49
+                                  + cuts       -1.43   -1.17   -0.55   -0.49   -0.93   -1.49   -1.30   -0.69
+
+========================================================================================================
+7. Distribution: real disposable income by age group, % vs baseline (cash basis: after tax and mortgage interest)
+========================================================================================================
+
+wages +10% (rule)
+group                                   m3      m6     m12     m18     m24     m36     m48     m72
+young 18-34                          +6.42   +5.24   +3.48   +2.38   +1.75   +0.99   +0.45   -0.01
+working age 35-66                    +2.70   +2.47   +1.70   +0.96   +0.59   +0.29   +0.02   -0.25
+old 67+                              -1.05   -0.55   +0.26   +0.36   -0.09   -0.75   -0.73   -0.49
+memo: unemployment young, pp         +0.50   +0.62   +0.59   +0.60   +0.63   +0.53   +0.33   +0.11
+memo: real wage                      +8.99   +7.53   +5.30   +3.98   +3.12   +1.87   +1.02   +0.33
+
+key rate +1 pp for 8 quarters
+group                                   m3      m6     m12     m18     m24     m36     m48     m72
+young 18-34                          -0.40   -0.40   -0.38   -0.39   -0.43   -0.19   -0.26   -0.27
+working age 35-66                    -0.69   -0.71   -0.69   -0.66   -0.67   -0.06   -0.17   -0.21
+old 67+                              +1.12   +1.01   +0.84   +0.80   +0.85   +0.15   +0.24   +0.11
+memo: unemployment young, pp         +0.03   +0.08   +0.15   +0.17   +0.17   +0.01   -0.01   +0.01
+memo: real wage                      +0.05   +0.11   +0.17   +0.19   +0.19   +0.04   +0.04   +0.03
+
+combined: wages +10%, rate +1 pp from month 3
+group                                   m3      m6     m12     m18     m24     m36     m48     m72
+young 18-34                          +6.42   +4.86   +3.12   +2.04   +1.39   +0.88   +0.22   -0.30
+working age 35-66                    +2.70   +1.79   +1.00   +0.30   -0.05   +0.32   -0.12   -0.47
+old 67+                              -1.05   +0.55   +1.16   +1.17   +0.73   -0.70   -0.48   -0.39
+memo: unemployment young, pp         +0.50   +0.65   +0.71   +0.76   +0.80   +0.57   +0.32   +0.12
+memo: real wage                      +8.99   +7.59   +5.46   +4.18   +3.33   +1.93   +1.05   +0.35
+
+========================================================================================================
+8. Numerical sensitivity: max |difference| in the shocked-minus-baseline response, months 1-72
+========================================================================================================
+scenario  series            tol 1e-10 vs 1e-13  1 vs 2 steps/month  2 vs 4 steps/month     peak |response|
+wage      output                      5.53e-11              0.0203              0.0103               0.636
+wage      inflation                   1.92e-10              0.0298              0.0144               1.949
+wage      keyRate                     1.88e-10              0.0373              0.0180               1.308
+wage      unemployment                2.09e-10              0.0089              0.0046               0.419
+wage      mortgageDebt                1.72e-10              0.0653              0.0322               0.921
+wage      krona                       8.75e-10              0.0822              0.0412               3.153
+rate      output                      1.63e-10              0.0024              0.0012               0.332
+rate      inflation                   4.66e-10              0.0086              0.0044               0.313
+rate      keyRate                     4.45e-10              0.0140              0.0069               1.000
+rate      unemployment                4.21e-10              0.0029              0.0015               0.112
+rate      mortgageDebt                2.05e-10              0.0024              0.0015               0.271
+rate      krona                        1.53e-9              0.0121              0.0050               0.438
+(one-step lags make results depend on the step length at O(dt): halving the step roughly halves the difference.)
+
+========================================================================================================
+9. API contract checks (flows, pair flows, balance sheets, levers, events)
+========================================================================================================
+flows(): 45 rows (kinds cash/accrual/reval), max |row sum| now 7.11e-15, baseline 7.11e-15   PASS
+pairFlows(): 65 payer->payee pipes; per sector, pipes in - pipes out = sum of its row entries: max gap 5.27e-15   PASS
+balanceSheet(): assets - liabilities = net worth, max gap 1.78e-14; net worths sum to 7.11e-14 (financial claims net out)   PASS
+explain(): texts for 79 rows and series, every parameter with value and basis   PASS
+seriesMeta: 34 series; all 26 required series present   PASS
+levers: 25 (Policy 16, Economy 4, World 5); events logged: m0 Wage settlement: +10%; m3 Key rate: add-on to the rule: +1 pp; m27 Key rate: add-on to the rule: 0 pp
+sectors: HY #8FC3E8, HW #3A87C8, HO #1B4B82, FD #F2A93B, FX #C8611A, B #009E73, CB #CC79A7, G #B5A300, PF #882255, W #8C8C8C
+reset(): t=0, events=0, vat lever=0, series length=1   PASS
+history cap: after 700 months series length = 601 (601 = 600 months + the latest point)
+
+========================================================================================================
+10. Accounting checks, asserted every step (limit 1e-9) in every run above; maximum residuals
+========================================================================================================
+runs: 22, months checked: 1656
+transaction rows sum to zero                        max |residual| = 8.88e-16
+sector d(net worth) = saving + revaluations         max |residual| = 1.05e-13
+each instrument sums to zero across holders          max |residual| = 6.08e-12
+instrument flows sum to zero                         max |residual| = 1.07e-13
+d(stock) = cash + accrual + revaluation + write-off  max |residual| = 1.02e-13
+all residuals < 1e-9: PASS
+
+SUMMARY: all tests pass

@@ -1,0 +1,105 @@
+/* ---------------------------------------------------------------- 60_series.js
+ * Reported series. measure(m) returns levels after a month; each series shows the deviation from the
+ * steady-state baseline: dev 'pct' = (level / baseline - 1) x 100, 'diff' = level - baseline.
+ */
+function S_(id, label, unit, group, dev, fn, what, rule, category, params) {
+  return { id: id, label: label, unit: unit, group: group, dev: dev, fn: fn, what: what, rule: rule, category: category, params: params || [] };
+}
+// [E46 IDENTITY] broad money = sum of deposits of residents outside banks and government; credit impulse (70_api.js)
+function sav(L, sec) { var t = 0; for (var q = 0; q < ROWS.length; q++) if (ROWS[q].saving) t += L.rows[q * NS + sec]; return t; }
+function depositsOf(bs, list) { var t = 0; for (var j = 0; j < list.length; j++) t += bs[list[j] * NI + DEP]; return t; }
+var MONEY_HOLDERS = [HY, HW, HO, FD, FX, PF];
+
+var SERIES = [
+  S_('output', 'Output (real GDP)', '% vs baseline', 'Economy', 'pct', function (m) { return m.s.y; },
+    'Everything produced in Iceland in a year, at baseline prices.',
+    'Output follows demand: consumption + public services + investment + exports - imports. Capacity pressure shows up in prices, not in a supply limit.', 'IDENTITY', ['okun', 'eta']),
+  S_('consumption', 'Household consumption (real)', '% vs baseline', 'Economy', 'pct', function (m) { return m.s.F.C / m.s.P; },
+    'What households spend on goods and services, adjusted for prices.', 'Sum of the three age groups\' spending, each moving gradually toward its target (see the consumption row).', 'BEHAVIOUR', ['lamC', 'aK', 'betaC']),
+  S_('investment', 'Investment (real)', '% vs baseline', 'Economy', 'pct', function (m) { return m.s.X.inv; },
+    'Spending by firms and the government on buildings, machines and infrastructure.', 'Business investment follows profits, the real loan rate and capacity use with a planning lag; public investment is a lever.', 'BEHAVIOUR', ['betaPi', 'betaRI', 'betaU', 'lamInv']),
+  S_('unemployment', 'Unemployment rate', 'pp vs baseline', 'Economy', 'diff', function (m) { return m.s.u * 100; },
+    'Share of the labour force without a job.', 'Jobs follow sector output with a lag; part of any change in jobs is met by migration, which moves the labour force too.', 'BEHAVIOUR', ['okun', 'lamN', 'mig']),
+  S_('unemploymentY', 'Unemployment, young (18-34)', 'pp vs baseline', 'Economy', 'diff', function (m) { return m.s.ug[0] * 100; },
+    'Unemployment among 18-34 year olds.', 'Young workers take {cycY} times the average share of job gains and losses.', 'BEHAVIOUR', ['cycY']),
+  S_('unemploymentW', 'Unemployment, working age (35-66)', 'pp vs baseline', 'Economy', 'diff', function (m) { return m.s.ug[1] * 100; },
+    'Unemployment among 35-66 year olds.', 'Working-age jobs swing a little less than average.', 'BEHAVIOUR', ['cycW']),
+  S_('unemploymentO', 'Unemployment, old (67+)', 'pp vs baseline', 'Economy', 'diff', function (m) { return m.s.ug[2] * 100; },
+    'Unemployment among over-67s who still work.', 'Older workers\' jobs swing least.', 'BEHAVIOUR', ['cycO']),
+  S_('realWage', 'Real wages', '% vs baseline', 'Economy', 'pct', function (m) { return m.s.w / m.s.P; },
+    'Wage rates divided by consumer prices: what a wage buys.', 'Wage growth = expected inflation + {phiU} x (normal - actual unemployment) - {phiW} x (wage share above normal), plus settlements.', 'BEHAVIOUR', ['phiU', 'chi']),
+  S_('profitsFD', 'Profits, domestic-market firms (real)', '% vs baseline', 'Economy', 'pct', function (m) { return (1 - m.p.tauF) * m.s.F.PiFD / m.s.P; },
+    'After-tax profits of retail, services and construction firms, adjusted for prices.', 'Sales minus imports, labour costs, payroll tax and net interest, minus corporate tax.', 'IDENTITY', ['tauF']),
+  S_('profitsFX', 'Profits, exporters (real)', '% vs baseline', 'Economy', 'pct', function (m) { return (1 - m.p.tauF) * m.s.F.PiFX / m.s.P; },
+    'After-tax profits of fish, aluminium and tourism firms, adjusted for prices.', 'Export revenue minus imported inputs, labour costs and net interest, minus tax. A weaker krona lifts fish and aluminium revenue at once.', 'IDENTITY', ['tauF']),
+  S_('inflation', 'Inflation (12-month CPI)', 'pp vs baseline', 'Prices', 'diff', function (m) { return m.s.pi12 * 100; },
+    'How much consumer prices rose over the past 12 months.', 'CPI = VAT factor x (domestic prices x {omD%} + import prices x {omM%}) + housing x {omH%}.', 'IDENTITY', ['omD', 'omM', 'omH']),
+  S_('priceLevel', 'Consumer price level', '% vs baseline', 'Prices', 'pct', function (m) { return m.s.P; },
+    'The consumer price index.', 'See inflation.', 'IDENTITY', ['omD', 'omM', 'omH']),
+  S_('expInflation', 'Expected inflation', 'pp vs baseline', 'Prices', 'diff', function (m) { return m.s.pie * 100; },
+    'Inflation people expect: it feeds into wage demands.', 'Expected = {chi%} x target + the rest x a slowly updated average of recent inflation (speed {lamPia} per year).', 'BEHAVIOUR', ['chi', 'lamPia']),
+  S_('keyRate', 'Key interest rate', 'pp vs baseline', 'Money & credit', 'diff', function (m) { return m.s.X.i * 100; },
+    'The central bank\'s policy rate.', 'Rule: neutral rate {i0%} + {aPi} x (expected inflation - target) + {aPiA} x (12-month inflation - target) + {aY} x output gap (%), smoothed at {lamPol} per year; plus any add-on, or fixed by the lever. Never below 0%.', 'POLICY', ['aPi', 'aPiA', 'aY', 'lamPol']),
+  S_('mortgageRate', 'Non-indexed mortgage rate', 'pp vs baseline', 'Money & credit', 'diff', function (m) { return m.s.X.imn * 100; },
+    'Interest rate on new and existing non-indexed mortgages.', 'Key rate + {sMN pp} + a premium that rises as bank capital nears its minimum.', 'BEHAVIOUR', ['sMN', 'sCap']),
+  S_('broadMoney', 'Broad money (bank deposits)', '% vs baseline', 'Money & credit', 'pct', function (m) { return depositsOf(m.s.bs, MONEY_HOLDERS); },
+    'All bank deposits of households, firms and pension funds. Not set by any formula: it is whatever the accounting leaves in deposit accounts.', 'Rises when banks lend or buy bonds, falls when loans are repaid or deposits turn into bank bonds.', 'IDENTITY', []),
+  S_('creditImpulse', 'Credit impulse (mortgages)', 'pp of GDP', 'Money & credit', 'diff', function (m) { return m.ci; },
+    'Change in the yearly flow of new mortgage credit compared with a year earlier. Positive means credit is accelerating.', 'Credit impulse = net new lending (last month, annual rate) - the same a year ago, % of baseline GDP.', 'IDENTITY', []),
+  S_('creditImpulseTotal', 'Credit impulse (households + firms)', 'pp of GDP', 'Money & credit', 'diff', function (m) { return m.ciT; },
+    'As the credit impulse, including business borrowing (which is noisier).', 'Same formula with firm net borrowing added.', 'IDENTITY', []),
+  S_('netMortgage', 'Net new mortgage lending', '% of GDP', 'Money & credit', 'diff', function (m) { return m.nlm; },
+    'New mortgages minus repayments, at an annual rate.', 'See the new-mortgage row: demand from income and rates, capped by the debt-service rule.', 'BEHAVIOUR', ['lamM', 'betaM']),
+  S_('mortgageDebt', 'Mortgage debt / GDP', 'pp of GDP', 'Money & credit', 'diff', function (m) { return (m.s.bs[B * NI + MN] + m.s.bs[B * NI + MI] + m.s.bs[PF * NI + MN] + m.s.bs[PF * NI + MI]) / m.s.Yn * 100; },
+    'Household mortgage debt relative to a year\'s GDP.', 'Debt rises with net lending and with CPI indexation of indexed loans.', 'IDENTITY', ['theta']),
+  S_('bankCapital', 'Bank capital ratio', 'pp vs baseline', 'Money & credit', 'diff', function (m) { return m.s.X.kap * 100; },
+    'Bank equity divided by risk-weighted loans.', 'Equity grows with retained profit; dividends are cut to rebuild capital.', 'BEHAVIOUR', ['kapT', 'lamEq']),
+  S_('realHousePrice', 'Real house prices', '% vs baseline', 'Housing', 'pct', function (m) { return m.s.qh; },
+    'House prices relative to consumer prices.', 'Move with a lag toward a level set by household income, the flow of mortgage credit and real mortgage rates.', 'BEHAVIOUR', ['betaHY', 'betaHC', 'betaHR', 'lamH']),
+  S_('krona', 'Krona value', '% vs baseline (+ stronger)', 'External', 'pct', function (m) { return 1 / m.s.e; },
+    'What a krona buys in foreign currency.', 'Moves toward a level set by prices (purchasing-power parity), the interest gap with abroad (carry), foreigners\' krona holdings and sentiment.', 'BEHAVIOUR', ['betaI', 'betaH', 'lamFX', 'lamSent']),
+  S_('currentAccount', 'Current account', 'pp of GDP', 'External', 'diff', function (m) { return -sav(m.L, W) / m.dt / m.s.Yn * 100; },
+    'Exports minus imports plus net income from abroad. Positive means Iceland lends to the world.', 'Equals minus the rest of the world\'s saving in the transactions matrix.', 'IDENTITY', []),
+  S_('exports', 'Exports (real)', '% vs baseline', 'External', 'pct', function (m) { return m.s.X.x; },
+    'Volume of goods and services sold abroad.', 'Fish and aluminium are capacity-bound; tourism and other exports react to the real exchange rate and to demand levers.', 'BEHAVIOUR', ['eFish', 'eAlu', 'eTour', 'eOther']),
+  S_('imports', 'Imports (real)', '% vs baseline', 'External', 'pct', function (m) { return sum(m.s.F.im); },
+    'Volume of goods and services bought from abroad.', 'Consumer goods, inputs, equipment and exporters\' inputs; cheaper when the krona is strong.', 'BEHAVIOUR', ['muC', 'muD', 'muI', 'muX']),
+  S_('govBalance', 'Government balance', 'pp of GDP', 'Government', 'diff', function (m) { return sav(m.L, G) / m.dt / m.s.Yn * 100; },
+    'Revenue minus spending (accrual basis: indexation of indexed debt counts as spending).', 'Sum of the government column of the transactions matrix.', 'IDENTITY', []),
+  S_('govDebt', 'Government debt / GDP', 'pp of GDP', 'Government', 'diff', function (m) { return -(m.s.bs[G * NI + BOND] + m.s.bs[G * NI + BONDI]) / m.s.Yn * 100; },
+    'Government bonds outstanding relative to a year\'s GDP.', 'Rises with deficits and with indexation of indexed bonds.', 'IDENTITY', []),
+  S_('incomeTaxRate', 'Income-tax rate', 'pp vs baseline', 'Government', 'diff', function (m) { return m.s.X.tau * 100; },
+    'Average personal income-tax rate.', 'Baseline + lever + the slow debt-tied rule.', 'POLICY', ['tau0', 'phiTau', 'lamTau']),
+  S_('rdiY', 'Real disposable income, young', '% vs baseline', 'Distribution', 'pct', function (m) { return m.s.F.yd[0] / m.s.P; },
+    'Cash income after tax and mortgage interest of 18-34 year olds, adjusted for prices.', 'Wages + benefits + interest and dividends - income tax - mortgage interest (cash part).', 'IDENTITY', []),
+  S_('rdiW', 'Real disposable income, working age', '% vs baseline', 'Distribution', 'pct', function (m) { return m.s.F.yd[1] / m.s.P; },
+    'Same for 35-66 year olds.', 'As for the young, plus dividends.', 'IDENTITY', []),
+  S_('rdiO', 'Real disposable income, old', '% vs baseline', 'Distribution', 'pct', function (m) { return m.s.F.yd[2] / m.s.P; },
+    'Same for over-67s, including pensions.', 'Pension payouts + public pensions + interest and dividends - income tax.', 'IDENTITY', []),
+  S_('pfAssets', 'Pension fund assets (real)', '% vs baseline', 'Pensions', 'pct', function (m) { return pfAssetsOf(m.s.bs) / m.s.P; },
+    'Total assets of the pension funds, adjusted for prices.', 'Grow with contributions and returns, shrink with payouts; foreign assets gain when the krona weakens.', 'IDENTITY', ['lamFA']),
+  S_('pfForeignShare', 'Pension funds\' foreign share', 'pp vs baseline', 'Pensions', 'diff', function (m) { return m.s.bs[PF * NI + FA] / pfAssetsOf(m.s.bs) * 100; },
+    'Share of pension assets invested abroad.', 'Moves toward its target through new flows; revaluations shift it too.', 'BEHAVIOUR', ['lamFA'])
+];
+var SERIES_IX = {}; SERIES.forEach(function (x, j) { SERIES_IX[x.id] = j; });
+
+var FEED_RULES = [
+  { id: 'rateUp', series: 'keyRate', above: 0.25, message: 'The central bank raises its key rate' },
+  { id: 'rateDown', series: 'keyRate', below: -0.25, message: 'The central bank cuts its key rate' },
+  { id: 'lendLess', series: 'netMortgage', below: -0.15, message: 'Banks lend less, so less new money is created' },
+  { id: 'lendMore', series: 'netMortgage', above: 0.15, message: 'Banks lend more, creating new deposits' },
+  { id: 'ciNeg', series: 'creditImpulse', below: -0.15, message: 'Credit is slowing: the credit impulse turns negative' },
+  { id: 'youthJobs', series: 'unemploymentY', above: 0.3, message: 'Unemployment among young people rises' },
+  { id: 'jobsUp', series: 'unemployment', below: -0.2, message: 'More people find work' },
+  { id: 'inflUp', series: 'inflation', above: 0.5, message: 'Inflation picks up' },
+  { id: 'inflDown', series: 'inflation', below: -0.2, message: 'Inflation eases' },
+  { id: 'kronaWeak', series: 'krona', below: -2, message: 'The krona weakens, making imports dearer' },
+  { id: 'kronaStrong', series: 'krona', above: 1, message: 'The krona strengthens as foreign money seeks higher rates' },
+  { id: 'housing', series: 'realHousePrice', above: 2, message: 'House prices outpace consumer prices' },
+  { id: 'housingDown', series: 'realHousePrice', below: -2, message: 'Real house prices fall' },
+  { id: 'debt', series: 'govDebt', above: 2, message: 'Government debt rises; the tax rule slowly leans against it' },
+  { id: 'realWageDown', series: 'realWage', below: -1, message: 'Real wages fall as prices outpace pay' },
+  { id: 'oldGain', series: 'rdiO', above: 0.5, message: 'Older savers gain from higher interest income' },
+  { id: 'youngSqueeze', series: 'rdiY', below: -0.5, message: 'Young households\' budgets are squeezed' },
+  { id: 'money', series: 'broadMoney', above: 1, message: 'Broad money grows as new deposits are created' }
+];
