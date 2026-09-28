@@ -17,7 +17,9 @@
  * product's level, and a cap that does not bind weighs nothing. Changes are measured in
  * comparable units: pp of GDP for money, pp for rates and ratios, % of baseline for prices and
  * indices. Stabiliser suggestions are left out (they restate their rule in lever units), and on
- * Manual so are the stabilisers' shadow variables, which then drive nothing.
+ * Manual so are the stabilisers' shadow variables, which then drive nothing. A scope walks
+ * through them only when it is that variable itself ('var:ruleRate'), not when an indicator,
+ * flow or player merely lists one among its drivers.
  */
 import type { Ctx, Id, Influence } from './types.ts';
 import type { KModel } from './compile.ts';
@@ -199,10 +201,12 @@ function nodeMembers(m: KModel, id: Id, kind?: 'player' | 'group'): Set<number> 
   return g === undefined ? undefined : new Set(m.groups[g].allPlayers.map((x) => m.playerIndex.get(x)!));
 }
 
-/** What a scope starts from: seed variables, and the legs (by index) in the scope. */
+/** What a scope starts from: seed variables, and the legs (by index) in the scope. `explicit`
+ *  when the user picked the variable itself, so the walk starts from it even if it is inert. */
 interface Seeds {
   vars: number[];
   legs: number[];
+  explicit?: boolean;
 }
 
 /** The seeds of a scope id, or null for the whole economy. An unprefixed id is looked up as a
@@ -225,7 +229,7 @@ function scopeSeeds(m: KModel, scope?: Id): Seeds | null {
       // an unprefixed flow id that is also its own leg's amount: the flow is a superset
       const f = kind ? undefined : m.flowIndex.get(id);
       if (f !== undefined && m.clegs.some((l) => l.flow === f && l.amount === k)) return flowSeeds(f);
-      return { vars: [k], legs: [] };
+      return { vars: [k], legs: [], explicit: true };
     }
   }
   if (!kind || kind === 'flow') {
@@ -264,17 +268,16 @@ export function inertVars(m: KModel, automatic: boolean): Set<number> {
 }
 
 /** Rules feeding the seed variables, transitively (same-step and lagged inputs). The walk does
- *  not go through `skip` variables, unless they are seeds themselves. */
+ *  not go through `skip` variables, seeds included. */
 export function upstreamRules(m: KModel, seeds: number[], skip?: Set<number>): Set<number> {
   const seen = new Set<number>();
   const stack = [...seeds];
   const visitedVar = new Set<number>();
-  const seedSet = new Set(seeds);
   while (stack.length) {
     const v = stack.pop()!;
     if (visitedVar.has(v)) continue;
     visitedVar.add(v);
-    if (skip?.has(v) && !seedSet.has(v)) continue;
+    if (skip?.has(v)) continue;
     const r = m.ruleOfVar[v];
     if (r < 0 || seen.has(r)) continue;
     seen.add(r);
@@ -290,7 +293,11 @@ export function ideasAtPlay(S: InfluenceSource, scope?: Id): { concept: Id; weig
   const seeds = scopeSeeds(m, scope);
   const inert = inertVars(m, S.automatic);
   const { termVal, baseTerms, desired, baseDesired } = S; // the baselines of the current mode, read once
-  const rules = seeds ? upstreamRules(m, seeds.vars, inert) : new Set(m.crules.filter((c) => !inert.has(c.target)).map((c) => c.idx));
+  // Inert seeds are walked only when the user picked that variable (var:ruleRate), or when
+  // nothing else is left to start from; an indicator's or a flow's inert drivers are not.
+  const walkInert = seeds && (seeds.explicit || seeds.vars.every((v) => inert.has(v)));
+  const skip = walkInert ? new Set([...inert].filter((v) => !seeds.vars.includes(v))) : inert;
+  const rules = seeds ? upstreamRules(m, seeds.vars, skip) : new Set(m.crules.filter((c) => !inert.has(c.target)).map((c) => c.idx));
   const acc = new Map<Id, { weight: number; via: Id[] }>();
   const add = (concept: Id | undefined, w: number, via: Id) => {
     if (!concept || !(w > 1e-12)) return;

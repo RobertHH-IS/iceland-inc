@@ -185,9 +185,27 @@ describe('what is at play on Manual and Automatic', () => {
         expect(via.some((v) => v.startsWith('ruleRate'))).toBe(true);
         expect(via.some((v) => v.startsWith('taxRuleAdjustment'))).toBe(true);
         expect(concepts(e, 'var:keyRate')).toContain('taylor-rule');
+        expect(concepts(e, 'indicator:keyRate')).toContain('taylor-rule');
       }
       expect(via.filter((v) => /^(keyRateSuggestion|taxRuleSuggestion)\b/.test(v))).toEqual([]);
     }
+  });
+
+  test('Manual: an indicator whose drivers include a shadow does not walk through it', () => {
+    const e = ice();
+    e.setLever('incomeTax', 3);
+    e.step(24);
+    for (const [scope, concept, shadow] of [
+      ['indicator:keyRate', 'taylor-rule', /^(ruleRate|keyRateSuggestion)\b/],
+      ['indicator:incomeTaxRate', 'fiscal-rule', /^(taxRuleAdjustment|taxRuleSuggestion)\b/],
+    ] as const) {
+      const ideas = e.ideasAtPlay(scope);
+      expect(ideas.map((x) => x.concept)).not.toContain(concept);
+      expect(ideas.flatMap((x) => x.via).filter((v) => shadow.test(v))).toEqual([]);
+    }
+    // the variable picked by itself is still explained
+    expect(concepts(e, 'var:ruleRate')).toContain('taylor-rule');
+    expect(concepts(e, 'var:taxRuleAdjustment')).toContain('fiscal-rule');
   });
 
   test('selecting the shadow itself still shows what drives it', () => {
