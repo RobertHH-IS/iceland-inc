@@ -19,6 +19,7 @@ import {
   isHidden,
   legSnapshots,
   memberCount,
+  membersOf,
   nodeOfPlayer,
   nodePipes,
   pipeBetween,
@@ -333,6 +334,57 @@ describe('pipes at mixed levels', () => {
     const open = nodePipes(info, legValues, e, 'firms');
     expect(open.some((p) => p.from === 'domestic' && p.to === 'exporters')).toBe(true);
     expect(open.some((p) => p.from === 'firms' || p.to === 'firms')).toBe(false);
+  });
+});
+
+describe('pipes in the inspector (M16, M17)', () => {
+  const allViews = () => {
+    const ex = expandableGroups(info);
+    const out: Set<Id>[] = [];
+    for (let m = 0; m < 1 << ex.length; m++) out.push(eff(ex.filter((_, i) => m & (1 << i))));
+    return out;
+  };
+  const legKeys = (p: { legs: { index: number }[] }) => p.legs.map((l) => l.index).sort((x, y) => x - y);
+
+  test('each row of a node’s pipes opens a pipe with the same legs and value, in every view', () => {
+    let nested = 0;
+    for (const e of allViews())
+      for (const id of [...info.players.map((p) => p.id), ...info.groups.map((g) => g.id)])
+        for (const row of nodePipes(info, legValues, e, id)) {
+          const opened = pipeBetween(info, legValues, row.from, row.to, row.kind)!;
+          expect(legKeys(opened)).toEqual(legKeys(row));
+          expect(opened.value).toBeCloseTo(row.value, 12);
+          expect(opened.baseline).toBeCloseTo(row.baseline, 12);
+          if (row.from !== row.to && (membersOf(info, row.from).includes(row.to) || membersOf(info, row.to).includes(row.from) || info.ancestorsOf.get(row.from)?.includes(row.to) || info.ancestorsOf.get(row.to)?.includes(row.from))) nested++;
+        }
+    expect(nested).toBeGreaterThan(0);
+  });
+
+  test('between nested nodes, the legs inside the inner node are its own pipe, not part of this one', () => {
+    // Exporters hidden in closed Firms: Retail → Fisheries and Retail → Aluminium, but not Fisheries → Aluminium.
+    const p = pipeBetween(info, legValues, 'firms', 'exporters', 'cash')!;
+    expect(p.legs.map((l) => `${l.from}->${l.to}`)).toEqual(['FR->FF', 'FR->FA']);
+    expect(pipeBetween(info, legValues, 'exporters', 'exporters', 'cash')!.legs.map((l) => `${l.from}->${l.to}`)).toEqual(['FF->FA']);
+    expect(pipeBetween(info, legValues, 'firms', 'FF', 'cash')!.legs.map((l) => l.from)).toEqual(['FR']);
+    // Disjoint ends are unchanged.
+    expect(pipeBetween(info, legValues, 'domestic', 'exporters', 'cash')!.legs).toHaveLength(2);
+  });
+
+  test('every leg carries its index, so a flow with several legs between the same two players explains each one (Iceland imports)', () => {
+    const def = models.find((m) => m.id === 'iceland')!;
+    const e = createEngine(def);
+    const ice = describeModel(e.model, (id) => e.baseline(id));
+    const values = Float64Array.from(e.legs().map((l) => l.value));
+    const p = pipeBetween(ice, values, 'domestic', 'W', 'cash')!;
+    const imports = p.legs.filter((l) => l.flow === 'imports');
+    const amounts = imports.map((l) => ice.legs[l.index].amount);
+    expect(new Set(amounts).size).toBe(imports.length);
+    expect(amounts).toEqual(expect.arrayContaining(['importsConsumer', 'importsInputsFR', 'importsPublic', 'importsEquipment', 'importsInputsFC']));
+    for (const l of p.legs) {
+      const leg = ice.legs[l.index];
+      expect([leg.flow, leg.from, leg.to]).toEqual([l.flow, l.from, l.to]);
+      expect(l.value).toBe(values[l.index]);
+    }
   });
 });
 

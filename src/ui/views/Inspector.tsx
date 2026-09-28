@@ -13,12 +13,12 @@
  * Breadcrumbs keep the path of clicks, with back and forward.
  */
 import { memo, useEffect, useRef, type ReactNode } from 'react';
-import type { BalanceSheet, FlowKind, Id, Influence, Pipe } from '../../core/types.ts';
+import type { BalanceSheet, FlowKind, Id, Influence } from '../../core/types.ts';
 import { describePosting } from '../../core/format.ts';
 import type { EngineClient, Frame } from '../engine-client.ts';
 import { chartRef, chartWindow } from '../model/charts.ts';
 import { fmtChange, fmtCompact, fmtCompactChange, fmtIndicator, fmtNum, fmtSigned, fmtValue, shortUnit, unitCaption } from '../model/format.ts';
-import { directMembers, memberCount, nodePipes, pipeBetween } from '../model/hierarchy.ts';
+import { directMembers, memberCount, nodePipes, pipeBetween, type ViewLeg } from '../model/hierarchy.ts';
 import { nodeColor, nodeLabel, nodeMembers, varLabel, type ModelInfo } from '../model/info.ts';
 import { GROUP_NOUNS } from '../model/player-cards.ts';
 import { canBack, canForward, navCurrent, selectionKey, selectionLabel, type NavState } from '../model/navigation.ts';
@@ -255,7 +255,7 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
   const pipe = pipeBetween(info, frame.legs, from, to, kind);
   if (!pipe) return <p className="muted">No flow of this kind runs between these two.</p>;
   const dev = deviation(pipe.value, pipe.baseline);
-  const byFlow = new Map<Id, Pipe['legs']>();
+  const byFlow = new Map<Id, ViewLeg[]>();
   for (const l of pipe.legs) byFlow.set(l.flow, [...(byFlow.get(l.flow) ?? []), l]);
   let shown = 0;
   return (
@@ -293,14 +293,13 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
             {flow && <p className="inf-what">{flow.explain.what}</p>}
             {flow && <p className="muted small">{describePosting(flow.posting)}</p>}
             {flow && <ConceptChips info={info} ids={flow.concepts ?? []} onSelect={onSelect} />}
-            {legs.map((leg, j) => {
-              const idx = info.legsByKey.get(`${leg.flow}\u0000${leg.from}\u0000${leg.to}`) ?? [];
-              const amount = info.legs[idx[Math.min(j, idx.length - 1)] ?? -1]?.amount;
+            {legs.map((leg) => {
+              const amount = info.legs[leg.index]?.amount;
               const ldev = deviation(leg.value, leg.baseline);
               const open = shown++ < 2;
               return (
                 <Disclosure
-                  key={`${leg.from}-${leg.to}-${j}`}
+                  key={leg.index}
                   className="leg"
                   defaultOpen={open}
                   title={
