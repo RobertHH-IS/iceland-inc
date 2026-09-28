@@ -8,7 +8,7 @@
  *   2. evaluate the schedule; simultaneous blocks by Gauss–Seidel (Newton as a fallback);
  *      record every term, desired value and regime;
  *   3. post every leg (amount × dt) through the payment system;
- *   4. run the four accounting checks;
+ *   4. run the four accounting checks, and the position-sign diagnostic beside them;
  *   5. record history, and take a full snapshot every 12 months for fast seek().
  *
  * Events at month t are applied on arrival at t, after that month's snapshot, so replaying
@@ -31,13 +31,14 @@ import type {
   Scenario,
   ScenarioEvent,
   ShockApi,
+  SignViolation,
   StabiliserState,
 } from './types.ts';
 import { compile, isAutomatic, isCompiled, ROLE_ISSUER, type CLever, type KModel } from './compile.ts';
 import { Machine, type MachineState } from './machine.ts';
 import type { Ledger } from './ledger.ts';
 import { baselineReport, solveBaseline, type Baseline, type BaselineReport } from './steady.ts';
-import { CHECKS, DEFAULT_TOLERANCE, measureChecks, type CheckSpec } from './checks.ts';
+import { CHECKS, DEFAULT_SIGN_TOLERANCE, DEFAULT_TOLERANCE, measureChecks, measureSigns, type CheckSpec, type SignSpec } from './checks.ts';
 import { ideasAtPlay, influenceOf, type InfluenceSource } from './influence.ts';
 import { toDisplay } from './format.ts';
 import { nodeFor } from './hierarchy.ts';
@@ -51,6 +52,8 @@ export interface EngineOptions {
   onCheckFailure?: 'record' | 'throw';
   /** Accounting tolerance (default 1e-9). */
   tolerance?: number;
+  /** Tolerance of the position-sign diagnostic (default 1e-6). */
+  signTolerance?: number;
   /** Gauss–Seidel tolerance for simultaneous blocks (default 1e-12). */
   solverTol?: number;
   /** Gauss–Seidel iteration guard before Newton (default 200). */
@@ -139,6 +142,8 @@ class KEngine implements KernelEngine {
   readonly warnings: string[];
   private readonly M: Machine;
   private readonly tol: number;
+  private readonly signTol: number;
+  private readonly signSpec: SignSpec;
   private readonly every: number;
   private readonly checkSpec: CheckSpec;
   private readonly baseInd: Float64Array;
@@ -160,6 +165,10 @@ class KEngine implements KernelEngine {
   private feedPrev: Uint8Array;
   private stabFeed: StabiliserFeedState;
   private failures: { t: number; id: Id; residual: number }[] = [];
+  /** First wrong-sign month of each position (signSeen marks the positions already reported). */
+  private signViolations: SignViolation[] = [];
+  private signSeen: Uint8Array;
+  private readonly signBuf: number[] = [];
   private stepCount = 0;
   private stepMillis = 0;
   private maxIters = 0;
@@ -169,6 +178,7 @@ class KEngine implements KernelEngine {
     this.options = opts;
     const m = model;
     this.tol = opts.tolerance ?? DEFAULT_TOLERANCE;
+    this.signTol = opts.signTolerance ?? DEFAULT_SIGN_TOLERANCE;
     this.every = Math.max(1, Math.round(opts.snapshotEvery ?? 12));
     const base = opts.baseline ?? solveBaseline(m, { params: opts.params, dev: opts.dev, lagWindow: opts.lagWindow });
     this.baselineData = base;
@@ -193,6 +203,8 @@ class KEngine implements KernelEngine {
       financial: new Uint8Array(m.instruments.map((i) => (i.kind === 'financial' ? 1 : 0))),
       exemptFlows: new Uint8Array(m.flows.map((_, f) => (m.clegs.some((l) => l.flow === f && l.oneSided) ? 1 : 0))),
     };
+    this.signSpec = { role: m.role, exempt: m.signExempt };
+    this.signSeen = new Uint8Array(m.NI * m.NP);
     const NP = m.NP;
     const signed = (pos: Float64Array, ins: Id, pl: Id) => {
       const i = m.instrumentIndex.get(ins),
@@ -304,14 +316,38 @@ class KEngine implements KernelEngine {
     this.hChecks = [];
     this.feedLog = [];
     this.failures = [];
+    this.signViolations = [];
+    this.signSeen.fill(0);
     this.checkBuf.fill(0);
     this.feedPrev.fill(0);
     this.stabFeed.prev.fill(0);
     this.stabFeed.lastT.fill(-Infinity);
     this.stabFeed.lastDir.fill(0);
     this.record();
+    this.checkSigns();
     this.updateFeed(false);
     this.snaps.set(0, this.snap());
+  }
+
+  /** The position-sign diagnostic for the current month: record each position's first breach. */
+  private checkSigns(): void {
+    const { M, model: m } = this;
+    const out = this.signBuf;
+    out.length = 0;
+    const pos = M.ledger.pos;
+    measureSigns(pos, this.signSpec, this.signTol, out);
+    for (const j of out) {
+      if (this.signSeen[j]) continue;
+      this.signSeen[j] = 1;
+      const issuer = m.role[j] === ROLE_ISSUER;
+      this.signViolations.push({
+        instrument: m.instruments[Math.floor(j / m.NP)].id,
+        player: m.players[j % m.NP].id,
+        role: issuer ? 'issuer' : 'holder',
+        t: M.t,
+        value: issuer ? -pos[j] : pos[j],
+      });
+    }
   }
 
   private snap(): Snapshot {
@@ -400,6 +436,7 @@ class KEngine implements KernelEngine {
         failed ??= `${CHECKS[k].id} residual ${r[k]} > ${this.tol}`;
       }
     this.record();
+    this.checkSigns();
     this.updateFeed(true);
     if (M.t % this.every === 0) this.snaps.set(M.t, this.snap());
     // Arrive fully at month t (its events applied) before any throw, so a caller that catches
@@ -531,6 +568,10 @@ class KEngine implements KernelEngine {
     this.checkBuf.set(this.hChecks[best]);
     this.feedLog = this.feedLog.filter((f) => f.t <= best);
     this.failures = this.failures.filter((f) => f.t <= best);
+    this.signViolations = this.signViolations.filter((v) => v.t <= best);
+    this.signSeen.fill(0);
+    const m = this.model;
+    for (const v of this.signViolations) this.signSeen[m.instrumentIndex.get(v.instrument)! * m.NP + m.playerIndex.get(v.player)!] = 1;
     for (const t of [...this.snaps.keys()]) if (t > best) this.snaps.delete(t);
     this.applyEventsAt(best);
     this.step(target - best);
@@ -727,6 +768,8 @@ class KEngine implements KernelEngine {
       items: CHECKS.map((c, k) => ({ id: c.id, label: c.label, residual: r[k] })),
       tolerance: this.tol,
       failures: this.failures.map((f) => ({ ...f })),
+      signViolations: this.signViolations.map((v) => ({ ...v })),
+      signTolerance: this.signTol,
     };
   }
 

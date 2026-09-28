@@ -88,7 +88,8 @@ export function postLeg(L: Ledger, P: Payments, leg: CLeg, a: number): void {
       break;
     case POSTING_CODE.purchase:
       // cash buys a real asset at cost: the buyer swaps money for the asset (no change in
-      // net worth); the seller earns the sale as income
+      // net worth); the seller earns the sale as income. A negative amount un-produces the
+      // asset (see LegDef): exact accounting, but not a resale
       settle(L, P, from, to, a);
       L.move(ins, from, a, CASH);
       L.income[to] += a;

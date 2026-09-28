@@ -153,6 +153,9 @@ export interface KModel extends CompiledModel {
   blocks: { rules: number[]; simultaneous: boolean }[];
   /** role[ins * NP + player]: 0 none, 1 holder, 2 issuer. */
   role: Uint8Array;
+  /** signExempt[ins * NP + player]: 1 where InstrumentDef.mayGoNegative lets the position take
+   *  either sign, so the position-sign diagnostic skips it. */
+  signExempt: Uint8Array;
   settlement: Uint8Array;
   pay: PaymentIndex;
   /** Module that declared each rule/flow/etc. (for messages and the inspector). */
@@ -403,6 +406,21 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     }
   });
   const roleOf = (ins: number, pl: number) => role[ins * NP + pl];
+  const signExempt = new Uint8Array(NI * NP);
+  instruments.forEach(({ def: ins, module }, i) => {
+    const free = ins.mayGoNegative;
+    if (!free) return;
+    const where = `instrument '${ins.id}' (module '${module}') mayGoNegative`;
+    if (typeof free.reason !== 'string' || !free.reason.trim()) err(`${where} needs a reason: say why this position may take either sign`);
+    const list = free.players ?? [...(ins.issuers ?? []), ...(ins.holders ?? [])];
+    if (free.players && !free.players.length) err(`${where} lists no players (leave 'players' out to exempt every position)`);
+    for (const p of list) {
+      const pi = playerIndex.get(p);
+      if (pi === undefined) err(`${where} lists unknown player '${p}'`);
+      else if (roleOf(i, pi) === ROLE_NONE) err(`${where} lists '${p}', which neither holds nor issues it`);
+      else signExempt[i * NP + pi] = 1;
+    }
+  });
 
   /* 5. players and the payment system ------------------------------------- */
   const settlement = new Uint8Array(NP);
@@ -1106,6 +1124,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     clevers,
     blocks,
     role,
+    signExempt,
     settlement,
     pay,
     origin,
