@@ -3,7 +3,9 @@
  *
  * Employment in each of the six firm sectors follows its own output (Okun's law) and falls when
  * wages outpace prices. Jobs gained or lost fall most on the young, tourism's more so, and part of
- * any change is met by migration, which moves the labour force too. Wages grow with expected inflation and a tight labour market
+ * any change is met by migration, which moves the labour force too. When a group runs short of
+ * unemployed people, extra jobs are filled more and more by people arriving from abroad, so
+ * unemployment approaches a frictional floor but never goes below it. Wages grow with expected inflation and a tight labour market
  * (a wage Phillips curve), and slow while they are high relative to domestic prices (the Nordic
  * main-course error correction). A wage settlement lifts the wage rate at once.
  *
@@ -18,6 +20,16 @@ import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth, VA
  *  correspondingly fewer, so every age group's total pay is unchanged. The extra pay moved from
  *  working-age to young workers in tourism, and back in retail and services. */
 const youthSwap = (c: Ctx) => c.p('youthTiltXT') * (1 - c.p('cEe')) * c.v('wage') * c.v('employmentXT') * (c.v('employmentY') / c.v('employmentTotal'));
+/** Unemployed after the frictional floor: x itself down to start × U0, then a smooth approach to
+ *  floor × U0 (the value and slope match at the join, so the income–spending block stays smooth).
+ *  At baseline x = U0 is above the join, so the baseline is exactly as before. */
+export function flooredUnemployed(x: number, u0: number, floor: number, start: number): number {
+  const join = start * u0,
+    lo = floor * u0;
+  if (x >= join || join <= lo) return Math.max(x, lo);
+  return lo + (join - lo) * Math.exp((x - join) / (join - lo));
+}
+
 const swapSign = (j: Firm, g: Age): number => (g === 'O' ? 0 : j === 'XT' ? (g === 'Y' ? 1 : -1) : j === 'FR' ? (g === 'Y' ? -1 : 1) : 0);
 
 const byAge: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
@@ -50,15 +62,18 @@ const byAge: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
       target: `unemployed${g}`,
       category: 'BEHAVIOUR',
       inputs: [`employment${g}`],
-      params: [`U0${g}`, `emp0${g}`, `wb${g}`, 'mig'],
+      params: [`U0${g}`, `emp0${g}`, `wb${g}`, 'mig', 'uFloor', 'uFloorStart'],
       terms: terms(
         ['normal', 'Unemployed at baseline', undefined, (c) => c.p(u0)],
         ['jobs', 'Jobs gained or lost', 'okun-law', (c) => -(c.v(emp) / c.p(wb) - c.p(emp0))],
         ['migration', 'Workers arriving or leaving', 'migration-buffer', (c) => c.p('mig') * (c.v(emp) / c.p(wb) - c.p(emp0))],
       ),
+      combine: (t, c) => flooredUnemployed(t.normal + t.jobs + t.migration, c.p(u0), c.p('uFloor'), c.p('uFloorStart')),
+      regime: (c, _v, t) => (t.normal + t.jobs + t.migration < c.p('uFloorStart') * c.p(u0) ? 'Few unemployed left: extra jobs go to people arriving from abroad' : null),
+      concepts: ['migration-buffer'],
       explain: {
         what: `People aged ${g === 'Y' ? '18–34' : g === 'W' ? '35–66' : '67+'} who want a job but have none, in thousands.`,
-        rule: `Unemployed = baseline unemployed − (workers − baseline workers) × (1 − {mig}). Workers = jobs ÷ the wage per worker; a share {mig} of any change in jobs is met by people arriving or leaving, so it does not change unemployment.`,
+        rule: `Unemployed = baseline unemployed − (workers − baseline workers) × (1 − {mig}). Workers = jobs ÷ the wage per worker; a share {mig} of any change in jobs is met by people arriving or leaving, so it does not change unemployment. When that would take the group below {uFloorStart} of its normal number of unemployed, the migration share rises: more and more of the extra jobs are filled by people arriving from abroad, so unemployment approaches {uFloor} of normal (people between jobs) but never goes below it, and never below zero. The newcomers join the labour force.`,
       },
     },
     {
@@ -151,7 +166,7 @@ export const labourAndWages: ModuleDef = {
   description: 'Employment in the six firm sectors and by age group, unemployment with a migration buffer, and a wage Phillips curve with error correction.',
   requires: ['structure', 'prices', 'external', 'government', 'households'],
   params: pickParams(ALL_PARAMS, [
-    'phiU', 'phiW', 'lamN', 'okun', 'sigW', 'mig', 'cEe', 'compTotal', 'compFC', 'compXF', 'compXA', 'compXT', 'compXO', 'youthTiltXT',
+    'phiU', 'phiW', 'lamN', 'okun', 'sigW', 'mig', 'uFloor', 'uFloorStart', 'cEe', 'compTotal', 'compFC', 'compXF', 'compXA', 'compXT', 'compXO', 'youthTiltXT',
     ...AGES.flatMap((g) => [`pop${g}`, `er${g}`, `u0${g}`, `wsh${g}`, `cyc${g}`]), 'uBase', 'Ntot0', ...FIRMS.map((j) => `N${j}0`),
     ...AGES.flatMap((g) => [`Ng0${g}`, `cycSh${g}`, `U0${g}`, `emp0${g}`, `wb${g}`]),
   ]),
@@ -297,6 +312,28 @@ export const labourAndWages: ModuleDef = {
         const want = [0.058, 0.035, 0.012];
         const ok = got.every((x, j) => Math.abs(x - want[j]) < 1e-9);
         return { pass: ok, detail: got.map((x) => (100 * x).toFixed(3) + '%').join(', ') };
+      },
+    },
+    {
+      id: 'unemployment-stays-positive-in-a-boom',
+      label: 'Public spending +3% of GDP on both health and education, on Manual and on Automatic: every group keeps some unemployed people, so benefits stay positive',
+      run: (e) => {
+        let worst = Infinity,
+          worstBenefit = Infinity;
+        for (const mode of [0, 1]) {
+          const f = e.fork();
+          f.setLever('stabilisers', mode);
+          f.setLever('health', 3);
+          f.setLever('education', 3);
+          for (let m = 0; m < 120; m++) {
+            f.step(1);
+            for (const g of AGES) {
+              worst = Math.min(worst, f.value(`unemployed${g}`) / f.baseline(`unemployed${g}`));
+              worstBenefit = Math.min(worstBenefit, f.value(`unemploymentBenefits${g}`));
+            }
+          }
+        }
+        return { pass: worst > 0.25 && worstBenefit > 0, detail: `fewest unemployed in any group ${(100 * worst).toFixed(1)}% of normal; smallest benefit leg ${worstBenefit.toFixed(4)}% of GDP` };
       },
     },
     {

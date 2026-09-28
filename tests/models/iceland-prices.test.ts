@@ -9,6 +9,7 @@ import { createEngine, type KernelEngine } from '../../src/core/engine.ts';
 import { runScenario } from '../../src/core/scenario.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 import { calibration } from '../../src/models/iceland/calibration.ts';
+import { flooredUnemployed } from '../../src/models/iceland/modules/labour-and-wages.ts';
 import { withConcepts } from '../../src/models/index.ts';
 
 const model = compile(withConcepts(icelandModel));
@@ -156,5 +157,39 @@ describe('L10: the housing part of the CPI says what it stands in for', () => {
     expect(inf.rule!.what).toContain('actual rents');
     expect(inf.params.find((p) => p.id === 'lamHC')!.provenance.note).toContain('June 2024');
     expect(e.influences('cpi').params.find((p) => p.id === 'omH')!.provenance.note).toContain('rental equivalence');
+  });
+});
+
+describe('M5: unemployment has a smooth frictional floor', () => {
+  test('the floor is the identity above its start, smooth at the join, and never below floor × normal', () => {
+    const [u0, floor, start] = [5, 0.3, 0.6];
+    for (const x of [u0, 4, 3]) expect(flooredUnemployed(x, u0, floor, start)).toBe(x);
+    const h = 1e-7,
+      j = start * u0;
+    const slope = (flooredUnemployed(j, u0, floor, start) - flooredUnemployed(j - h, u0, floor, start)) / h;
+    expect(slope).toBeCloseTo(1, 5);
+    for (const x of [2.9, 1, 0, -5, -1e3]) {
+      const y = flooredUnemployed(x, u0, floor, start);
+      expect(y).toBeGreaterThanOrEqual(floor * u0);
+      expect(y).toBeLessThanOrEqual(Math.max(x, j));
+    }
+  });
+
+  test('the baseline is untouched, and a large public-spending boom no longer drives unemployment or benefits negative', () => {
+    const e = createEngine(model);
+    for (const g of ['Y', 'W', 'O']) expect(e.influences(`unemployed${g}`).regime ?? null).toBeNull();
+    e.setLever('education', 3);
+    e.setLever('health', 3);
+    let lowest = Infinity;
+    for (let m = 0; m < 60; m++) {
+      e.step(1);
+      for (const g of ['Y', 'W', 'O']) {
+        lowest = Math.min(lowest, e.value(`unemployed${g}`) / e.baseline(`unemployed${g}`));
+        expect(e.value(`unemploymentBenefits${g}`)).toBeGreaterThan(0);
+      }
+    }
+    expect(lowest).toBeGreaterThan(0.3);
+    expect(lowest).toBeLessThan(0.6); // the floor is doing the work: the old rule went below zero here
+    expect(e.influences('unemployedO').regime).toContain('arriving from abroad');
   });
 });

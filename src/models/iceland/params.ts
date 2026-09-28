@@ -114,6 +114,8 @@ P('cycY', 1.8, 'ratio', 'BEHAVIOUR', 'How strongly young people’s jobs swing w
 P('cycW', 0.85, 'ratio', 'BEHAVIOUR', 'How strongly working-age jobs swing, relative to the average.', assumed());
 P('cycO', 0.5, 'ratio', 'BEHAVIOUR', 'How strongly older workers’ jobs swing, relative to the average.', assumed());
 P('mig', 0.3, 'fraction', 'BEHAVIOUR', 'Migration buffer: share of a change in jobs met by workers arriving or leaving, so the labour force moves with it.', tuned(), { min: 0, max: 0.8 });
+P('uFloor', 0.3, 'fraction', 'BEHAVIOUR', 'Frictional floor: however many jobs there are, each age group keeps at least this share of its normal number of unemployed (people between jobs); extra jobs are filled by people arriving from abroad.', assumed('Teaching value: a boom can take unemployment well below normal but not to zero (audit M5, 29 September 2026).'), { min: 0, max: 1 });
+P('uFloorStart', 0.6, 'fraction', 'BEHAVIOUR', 'Share of a group’s normal number of unemployed below which extra jobs start to be filled by people arriving from abroad rather than by the unemployed (above it, unemployment follows jobs exactly as before).', assumed('Teaching value; any value between uFloor and 1 leaves the baseline and moderate shocks unchanged (audit M5, 29 September 2026).'), { min: 0, max: 1 });
 P('sigW', 0.15, 'elasticity', 'BEHAVIOUR', 'Jobs versus the real product wage (wage ÷ domestic prices): firms economise on staff when pay outpaces prices.', tuned());
 P('okun', 0.6, 'elasticity', 'BEHAVIOUR', 'Jobs versus a sector’s output (below 1: firms hoard labour).', assumed());
 P('lamN', 3, 'per year', 'BEHAVIOUR', 'How fast employment adjusts.', assumed());
