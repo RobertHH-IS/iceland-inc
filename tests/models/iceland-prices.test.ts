@@ -193,3 +193,17 @@ describe('M5: unemployment has a smooth frictional floor', () => {
     expect(e.influences('unemployedO').regime).toContain('arriving from abroad');
   });
 });
+
+describe('M7: builders’ imports come out of builders’ value added', () => {
+  test('value added = sales − imports − domestic inputs, and a stronger króna lowers it per unit of sales', () => {
+    const e = createEngine(model);
+    const share0 = e.baseline('valueAddedFC') / e.baseline('salesFC');
+    e.fire('kronaShock', 10); // a stronger króna: imports get cheaper, builders use more of them
+    e.step(18);
+    const v = (id: string) => e.value(id);
+    const identity = v('salesFC') - (v('importsEquipment') + v('importsInputsFC')) / v('importPrice') - v('constructionInputs') / v('domesticPrice');
+    expect(v('valueAddedFC')).toBeCloseTo(identity, 12);
+    expect(v('realExchangeRate')).toBeLessThan(1);
+    expect(v('valueAddedFC') / v('salesFC')).toBeLessThan(share0);
+  });
+});

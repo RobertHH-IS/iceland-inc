@@ -196,10 +196,16 @@ function valueAddedRule(j: Firm): RuleDef {
       id: 'valueAddedFC',
       target: 'valueAddedFC',
       category: 'IDENTITY',
-      inputs: ['salesFC'],
-      params: ['gvaFC', 'salesFC0'],
-      terms: terms(['sales', 'Builders’ sales relative to baseline', 'investment-accelerator', (c) => (c.p('gvaFC') * c.v('salesFC')) / c.p('salesFC0')]),
-      explain: { what: 'What builders add to output, at baseline prices.', rule: 'Value added = baseline value added {gvaFC} × real sales ÷ baseline sales {salesFC0}: builders use fixed shares of imports and domestic inputs.' },
+      inputs: ['salesFC', 'importsEquipment', 'importsInputsFC', 'importPrice', 'constructionInputs', 'domesticPrice'],
+      terms: terms(
+        ['sales', 'Builders’ real sales', 'investment-accelerator', (c) => c.v('salesFC')],
+        ['imports', 'Imported equipment and inputs', 'import-leakage', (c) => -(c.v('importsEquipment') + c.v('importsInputsFC')) / c.v('importPrice')],
+        ['inputs', 'Materials and services from retail and service firms', undefined, (c) => -c.v('constructionInputs') / c.v('domesticPrice')],
+      ),
+      explain: {
+        what: 'What builders add to output, at baseline prices.',
+        rule: 'Value added = real sales − imported equipment and inputs (÷ import prices) − materials and services bought from retail and service firms (÷ domestic prices). A stronger króna makes builders use more imports per unit of sales, which cuts their own value added, not that of retail and services.',
+      },
     };
   if (j === 'FR')
     return {
@@ -392,7 +398,7 @@ export const firms: ModuleDef = {
     'iFD0', 'iFX0', 'betaPi', 'betaRI', 'betaU', 'lamInv', 'lamPi', 'rhoL', 'firmCashSpeed', 'depreciationRate', 'cEr', 'rl0',
     'divFDY', 'divFDW', 'divFDO', 'divXTW', 'divXOW', 'divFXdomW', 'divFXdomO', 'fdiTarget', 'depFX', 'depShareFC', 'pfEqFDshare',
     'loanTotal', 'loanShareFC', 'loanShareXF', 'loanShareXA', 'loanShareXT', 'loanShareXO',
-    'invShareFC', 'invShareXF', 'invShareXA', 'invShareXT', 'maintShare', 'gvaFC', 'salesFC0', 'dFC', 'vaFR0',
+    'invShareFC', 'invShareXF', 'invShareXA', 'invShareXT', 'maintShare', 'gvaFC', 'dFC', 'vaFR0',
     ...FIRMS.flatMap((j) => [`i${j}0`, `pi${j}0`, `l${j}0`, `dep${j}0`, ...(j === 'XA' ? [] : [`rho${j}0`])]),
   ]),
   vars,

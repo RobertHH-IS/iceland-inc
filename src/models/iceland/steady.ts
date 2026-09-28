@@ -253,7 +253,6 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   // inputs, their purchases from retail and services close the gap to their value added (data).
   const salesFC = inv + p.maintShare * (Ctot - VAT);
   const imFC = o.muD * (inv + p.maintShare * Ctot);
-  o.salesFC0 = salesFC;
   o.dFC = (salesFC - p.muI * inv - imFC - p.gvaFC) / salesFC;
   if (!(o.dFC > 0)) warn.push(`construction's domestic-input share is not positive: ${o.dFC.toFixed(3)}`);
 
@@ -486,7 +485,6 @@ const meta: [Id, string, ParamDef['category'], string, Provenance][] = [
   ['divXOW', 'fraction', 'IDENTITY', 'Foreign owners’ share of other exporters’ dividends (data centres, pharma and other foreign-owned firms).', solved('dividends to foreign owners of all exporters match the data (fdiTarget), after the smelters’ (all abroad) and tourism’s (divXTW).')],
   ['mXO', 'fraction', 'BEHAVIOUR', 'Other exporters’ imported inputs per unit of exports.', derived('What is left of the TiVA import content of all exports (muX) after fisheries, aluminium and tourism.')],
   ['dFC', 'fraction', 'BEHAVIOUR', 'What builders buy from retail and service firms (materials, engineering, transport) per króna of their sales.', solved('construction’s value added matches the data (gvaFC).')],
-  ['salesFC0', '% of GDP/yr', 'IDENTITY', 'Builders’ real sales at baseline: all investment goods plus home repairs, net of VAT.', derived('Business and public investment + maintShare × (consumption − VAT).')],
   ['vaFR0', '% of GDP/yr', 'IDENTITY', 'Retail and service firms’ real value added at baseline (including VAT and housing services).', derived('Output − public value added − the other five sectors’ value added (data).')],
   ['vat0', 'fraction', 'POLICY', 'Effective VAT rate on consumer spending at baseline.', solved('baseline VAT revenue matches the data (vatTarget).')],
   ['cEe', 'fraction', 'CONTRACT', 'Employee pension contribution, deducted from the gross wage.', solved('baseline contributions match the data (conTarget).')],
