@@ -38,24 +38,46 @@ export function formatValue(v: number, unit: string, digits = 2): string {
   return `${formatNumber(v, digits)} ${u}`;
 }
 
-/** Fill {paramId}, {paramId%} and {paramId pp} placeholders in explain texts. */
-export function fillTemplate(text: string, lookup: (id: string) => number | undefined): string {
-  return text.replace(/\{(\w+)( pp|%)?\}/g, (whole, id: string, suffix?: string) => {
+/** The suffix of an explain-text placeholder: none (`{k}`), percent (`{rate%}`) or points (`{rate pp}`). */
+export type TemplateSuffix = '' | '%' | ' pp';
+
+/** How a placeholder's value is written. The default is English: `{rate%}` of 0.035 is "3.5%",
+ *  `{rate pp}` "3.5 pp", `{k}` of 1.5 "1.5". A translation passes its own, with its own decimal mark. */
+export type TemplateFormatter = (value: number, suffix: TemplateSuffix) => string;
+
+export const englishTemplateFormat: TemplateFormatter = (v, suffix) => {
+  if (suffix === '%') return `${+(v * 100).toPrecision(3)}%`;
+  if (suffix === ' pp') return `${+(v * 100).toPrecision(3)} pp`;
+  return String(+v.toPrecision(4));
+};
+
+const PLACEHOLDER = /\{(\w+)( pp|%)?\}/g;
+
+/** Fill {paramId}, {paramId%} and {paramId pp} placeholders in explain texts. A placeholder
+ *  whose id the lookup does not know (or whose value is not finite) is left as written. */
+export function fillTemplate(text: string, lookup: (id: string) => number | undefined, format: TemplateFormatter = englishTemplateFormat): string {
+  return text.replace(PLACEHOLDER, (whole, id: string, suffix?: string) => {
     const v = lookup(id);
     if (typeof v !== 'number' || !Number.isFinite(v)) return whole;
-    if (suffix === '%') return `${+(v * 100).toPrecision(3)}%`;
-    if (suffix === ' pp') return `${+(v * 100).toPrecision(3)} pp`;
-    return String(+v.toPrecision(4));
+    return format(v, (suffix ?? '') as TemplateSuffix);
   });
+}
+
+/** The ids named by placeholders in an explain text, in order of first use. */
+export function templateIds(text: string): string[] {
+  return [...new Set([...text.matchAll(PLACEHOLDER)].map((x) => x[1]))];
 }
 
 /**
  * How big "one unit of change" is for a variable, so changes of different measures can be
- * compared (used to weight ideas at play): 1 pp of GDP for money, 1 pp for rates and ratios,
- * 1% of the baseline for prices, indices and anything else.
+ * compared (used to weight ideas at play): 1 pp of GDP for money, 1 pp for rates and ratios
+ * (0.01 for a fraction, 1 for a variable already held in percent or points, such as '%/yr',
+ * 'pp' or '% of GDP'), and 1% of the baseline for prices, indices and anything else.
  */
 export function unitScale(v: Pick<VarDef, 'kind' | 'unit'>, base: number): number {
   const pctOfBase = 0.01 * Math.max(Math.abs(base), 1e-9);
+  const u = v.unit.trim();
+  if (isPointUnit(u)) return 1; // already in points: 1 pp, or 1 pp of GDP
   switch (v.kind) {
     case 'rate':
     case 'ratio':
@@ -65,28 +87,41 @@ export function unitScale(v: Pick<VarDef, 'kind' | 'unit'>, base: number): numbe
     case 'index':
       return pctOfBase;
     default:
-      return /GDP/i.test(v.unit) ? 1 : pctOfBase;
+      return /GDP/i.test(u) ? 1 : pctOfBase;
   }
 }
 
-/** Plain-English description of a posting type, for the inspector. */
-export function describePosting(p: Posting): string {
+/** A unit written in percent or percentage points ('%/yr', '% of GDP', 'pp'). */
+const isPointUnit = (u: string) => u.startsWith('%') || /^pp\b/.test(u);
+
+/** Units `unitScale` understands for a rate, ratio or expectation: a fraction (scale 0.01),
+ *  log points (0.01), or a percent or points unit (1). Any other unit gets a compile warning,
+ *  because its scale would be a guess. */
+export function knownRateUnit(unit: string): boolean {
+  const u = unit.trim();
+  return ['fraction', 'fraction/yr', 'ratio', 'log points'].includes(u) || isPointUnit(u) || /GDP/i.test(u);
+}
+
+/** Plain-English description of a posting type, for the inspector. `label` names an instrument
+ *  or real asset by its id; without it the ids are printed. */
+export function describePosting(p: Posting, label: (id: string) => string | undefined = () => undefined): string {
+  const name = (id: string) => label(id) ?? id;
   switch (p.type) {
     case 'transfer':
       return 'A cash payment for income or spending: the payer’s saving falls and the payee’s rises.';
     case 'purchase':
-      return `A cash payment that buys a real asset (${p.realAsset}) at cost: the buyer swaps money for the asset; the seller earns income.`;
+      return `A cash payment that buys a real asset (${name(p.realAsset)}) at cost: the buyer swaps money for the asset; the seller earns income.`;
     case 'issue':
-      return `A new claim (${p.instrument}): the lender pays the borrower and gains the claim. A bank lender pays by creating a deposit, which is new money.`;
+      return `A new claim (${name(p.instrument)}): the lender pays the borrower and gains the claim. A bank lender pays by creating a deposit, which is new money.`;
     case 'redeem':
-      return `A repayment of ${p.instrument}: the borrower pays the lender and the claim shrinks on both sides. Repaying a bank destroys the deposit used.`;
+      return `A repayment of ${name(p.instrument)}: the borrower pays the lender and the claim shrinks on both sides. Repaying a bank destroys the deposit used.`;
     case 'trade':
-      return `An existing ${p.instrument} changes hands for cash: the buyer pays the seller.`;
+      return `An existing ${name(p.instrument)} changes hands for cash: the buyer pays the seller.`;
     case 'accrue':
-      return `Interest or indexation added to ${p.instrument}: the debtor owes more and the creditor holds more. No money moves.`;
+      return `Interest or indexation added to ${name(p.instrument)}: the debtor owes more and the creditor holds more. No money moves.`;
     case 'revalue':
-      return `A change in the value of ${p.instrument}, or a reclassification of it between two holders: no money moves and it is not income; it goes to the revaluation account.`;
+      return `A change in the value of ${name(p.instrument)}, or a reclassification of it between two holders: no money moves and it is not income; it goes to the revaluation account.`;
     case 'writeoff':
-      return `A write-off of ${p.instrument}: value is lost without any payment.`;
+      return `A write-off of ${name(p.instrument)}: value is lost without any payment.`;
   }
 }

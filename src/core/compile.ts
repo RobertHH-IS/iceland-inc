@@ -38,6 +38,7 @@ import type {
   VarDef,
 } from './types.ts';
 import { buildHierarchy, nodeFor } from './hierarchy.ts';
+import { knownRateUnit, templateIds } from './format.ts';
 
 export interface CompileOptions {
   /** Concepts defined outside the model (e.g. the shared library). Model concepts win. */
@@ -1046,7 +1047,18 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     if (!readVars.has(v.id)) warn(`variable '${v.id}' is not read by any rule, leg or indicator`);
     if (lagged[j] && v.initial === undefined && ss?.initialVars?.[v.id] === undefined && !ss?.solve)
       warn(`variable '${v.id}' has no history: it is read with lag() or adjusts gradually but has no 'initial' value or initialVars guess, so the baseline solver starts it at 0`);
+    if ((v.kind === 'rate' || v.kind === 'ratio' || v.kind === 'expectation') && !knownRateUnit(v.unit))
+      warn(`variable '${v.id}' is a ${v.kind} in '${v.unit}': use a fraction ('fraction', 'fraction/yr', 'ratio'), 'log points', or a percent or points unit ('%…', 'pp…'), so ideas at play can size its changes`);
   });
+  // explain-text placeholders name parameters (filled with their values in the inspector)
+  const checkTemplate = (text: string | undefined, where: string) => {
+    for (const id of templateIds(text ?? '')) if (!paramIndex.has(id)) warn(`${where} names '{${id}}', which is not a parameter, so it is shown as written`);
+  };
+  rules.forEach(({ def: r }) => {
+    checkTemplate(r.explain?.what, `rule '${r.id}' explain.what`);
+    checkTemplate(r.explain?.rule, `rule '${r.id}' explain.rule`);
+  });
+  flows.forEach(({ def: f }) => checkTemplate(f.explain?.what, `flow '${f.id}' explain.what`));
 
   if (errors.length) throw new CompileError(errors, warnings);
 
