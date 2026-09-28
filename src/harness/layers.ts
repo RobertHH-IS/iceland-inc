@@ -15,7 +15,8 @@ import { createEngine, type KernelEngine } from '../core/engine.ts';
 import { runScenario } from '../core/scenario.ts';
 import { CHECKS, DEFAULT_TOLERANCE } from '../core/checks.ts';
 import { baselineReport, type BaselineReport } from '../core/steady.ts';
-import { compareGolden, readGolden, writeGolden, GOLDEN_ABS, GOLDEN_REL, type GoldenFile } from './golden.ts';
+import { compareGolden, nonFiniteValues, readGolden, writeGolden, GOLDEN_ABS, GOLDEN_REL, type GoldenFile } from './golden.ts';
+import { allLeversScenarios, type HarnessScenario } from './scenarios.ts';
 import { rng } from './rng.ts';
 
 export interface HarnessOptions {
@@ -378,25 +379,27 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   }
   // 6e. golden scenarios
   {
-    const scen: { name: string; events: ScenarioEvent[]; months: number }[] = [{ name: 'baseline', events: [], months: 24 }];
+    const scen: HarnessScenario[] = [{ name: 'baseline', events: [], months: 24 }];
     for (const c of calib) scen.push({ name: `calibration-${c.id}`, events: c.scenario, months: c.months });
-    const all: ScenarioEvent[] = [];
-    levers.forEach((l, j) => {
-      const t = 3 * j;
-      if (l.kind === 'oneoff') all.push({ t, lever: l.id, value: l.default, fire: true });
-      else {
-        const hi = l.max ?? l.default + 1;
-        all.push({ t, lever: l.id, value: Math.round((l.default + (hi - l.default) / 2) * 1000) / 1000 });
-      }
-    });
-    scen.push({ name: 'all-levers', events: all, months: 60 });
+    scen.push(...allLeversScenarios(m));
     const rows: string[] = [];
     let ok = 0;
     for (const s of scen) {
+      // An event at or after the last month never reaches the recorded history (events apply after recording).
+      const late = s.events.filter((e) => e.t >= s.months);
+      if (late.length) {
+        rows.push(`| ${s.name} | | ${late.length} event(s) at or after month ${s.months} would never apply, first ${late[0].lever} at ${late[0].t} | FAIL |`);
+        continue;
+      }
       const r = run(`golden ${s.name}`, s.events, s.months);
       const g: GoldenFile = { format: 'iceland-inc/golden@1', modelId: m.def.id, scenario: s.name, months: s.months, events: s.events, indicators: {} };
       for (const ind of m.indicators) g.indicators[ind.id] = r.series(ind.id);
       if (opts.updateGolden) {
+        const bad = nonFiniteValues(g);
+        if (bad.length) {
+          rows.push(`| ${s.name} | not written | ${bad.length} value(s) not finite, first ${bad[0]} | FAIL |`);
+          continue;
+        }
         writeGolden(opts.goldenDir, g);
         ok++;
         rows.push(`| ${s.name} | written | | PASS |`);
@@ -409,7 +412,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       }
       const c = compareGolden(stored, g);
       if (c.pass) ok++;
-      rows.push(`| ${s.name} | ${e2(c.maxDiff)} | ${c.where} | ${verdict(c.pass)} |`);
+      rows.push(`| ${s.name} | ${e2(c.diff)} (${f(c.ratio, 2)} × tolerance) | ${c.where} | ${verdict(c.pass)} |`);
     }
     const pass = ok === scen.length;
     pass6 &&= pass;
@@ -417,9 +420,9 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Golden scenarios',
       '',
-      `Stored indicator paths in \`tests/golden/${m.def.id}/\`, compared with tolerance ${GOLDEN_ABS} + ${GOLDEN_REL} × |value|. ${opts.updateGolden ? 'Updated in this run.' : ''}`,
+      `Stored indicator paths in \`tests/golden/${m.def.id}/\`, compared point by point with tolerance ${GOLDEN_ABS} + ${GOLDEN_REL} × |stored value|; a stored or new value that is not a finite number fails. The table shows the point furthest outside, or nearest to, its tolerance. The all-levers scenarios move every lever in turn, one every 3 months, and run 36 months past the last${def.stabiliserMode ? ', once in each stabiliser mode' : ''}. ${opts.updateGolden ? 'Updated in this run.' : ''}`,
       '',
-      '| Scenario | Largest difference | Where | Verdict |',
+      '| Scenario | Difference at the worst point | Where | Verdict |',
       '|---|---|---|---|',
       ...rows,
       '',
