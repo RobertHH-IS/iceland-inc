@@ -1,6 +1,24 @@
 import { describe, expect, test } from 'bun:test';
 import type { LeverInfo } from '../../src/ui/model/info.ts';
-import { changedCount, clampLever, firedCounts, isChanged, leverBar, leverSections, leverStep, leverValueLabel, niceStep, stepDecimals, stepLever } from '../../src/ui/model/levers.ts';
+import {
+  changedCount,
+  clampLever,
+  firedCounts,
+  isChanged,
+  isShown,
+  leverBar,
+  leverSections,
+  leverStep,
+  leverValueLabel,
+  niceStep,
+  resetsWhenSetting,
+  sectionCalling,
+  shownChangedCount,
+  snapToStep,
+  stabiliserMarks,
+  stepDecimals,
+  stepLever,
+} from '../../src/ui/model/levers.ts';
 
 let n = 0;
 const lever = (p: Partial<LeverInfo> & { id: string }): LeverInfo => ({
@@ -99,5 +117,56 @@ describe('labels', () => {
     expect(leverValueLabel(lever({ id: 'a', unit: '%', kind: 'oneoff', default: 10 }), 10)).toBe('10%');
     expect(leverValueLabel(lever({ id: 'a', unit: '% of GDP/yr' }), -1)).toBe('−1% of GDP/yr');
     expect(leverValueLabel(lever({ id: 'c', kind: 'choice', unit: '', options: [{ value: 0, label: 'Floating' }, { value: 1, label: 'Pegged' }] }), 1)).toBe('Pegged');
+  });
+});
+
+describe('showWhen and stabilisers (decision 0004)', () => {
+  const mode = lever({ id: 'mode', kind: 'choice', default: 0, index: 0, section: 'Stabilisers', options: [{ value: 0, label: 'Manual' }, { value: 1, label: 'Automatic' }] });
+  const fixed = lever({ id: 'fixed', unit: '%', default: 3, min: 0, max: 15, step: 0.25, index: 1, section: 'Central bank', showWhen: { lever: 'mode', equals: 0 } });
+  const offset = lever({ id: 'offset', default: 0, min: -3, max: 5, step: 0.25, index: 2, section: 'Central bank', showWhen: { lever: 'mode', equals: [1] } });
+  const tax = lever({ id: 'tax', default: 0, min: -10, max: 10, step: 0.5, index: 3, section: 'Government' });
+  const all = [mode, fixed, offset, tax];
+  const byId = new Map(all.map((l) => [l.id, l]));
+  const [bank, gov] = leverSections([fixed, offset, tax]);
+
+  test('a lever shows only while the lever its showWhen names has one of the values', () => {
+    expect([isShown(fixed, [0, 3, 0, 0], byId), isShown(offset, [0, 3, 0, 0], byId)]).toEqual([true, false]);
+    expect([isShown(fixed, [1, 3, 0, 0], byId), isShown(offset, [1, 3, 0, 0], byId)]).toEqual([false, true]);
+    expect(isShown(tax, [1, 3, 0, 0], byId)).toBe(true);
+  });
+
+  test('hidden levers are not counted in section badges', () => {
+    const values = [1, 4.5, 1, 0]; // Automatic, with a stale Manual rate and an offset
+    expect(changedCount(bank, values, new Map())).toBe(2);
+    expect(shownChangedCount(bank, values, new Map(), byId)).toBe(1);
+  });
+
+  test('switching mode puts the levers the new mode hides back to their defaults', () => {
+    expect(resetsWhenSetting(all, [0, 4.5, 0, 1], 'mode', 1)).toEqual([{ id: 'fixed', value: 3 }]);
+    expect(resetsWhenSetting(all, [1, 3, 1.25, 1], 'mode', 0)).toEqual([{ id: 'offset', value: 0 }]);
+    expect(resetsWhenSetting(all, [1, 3, 0, 1], 'mode', 0)).toEqual([]);
+    expect(resetsWhenSetting(all, [0, 4.5, 0, 1], 'tax', 2)).toEqual([]);
+  });
+
+  test('Apply rounds the suggestion to the lever’s step grid, within its range', () => {
+    expect(snapToStep(fixed, 4.27)).toBe(4.25);
+    expect(snapToStep(fixed, 4.38)).toBe(4.5);
+    expect(snapToStep(fixed, -1)).toBe(0);
+    expect(snapToStep(tax, 0.83)).toBe(1);
+    expect(snapToStep(tax, -0.07)).toBe(0);
+  });
+
+  test('Manual: a calling stabiliser marks its lever red with its suggestion; Automatic: a note on the offset', () => {
+    const s = { id: 'rule', label: 'Central bank’s rule', lever: 'fixed', offset: 'offset', suggested: 4.2713, calling: true, automatic: false };
+    const manual = stabiliserMarks([s], byId);
+    expect(manual.get('fixed')).toEqual({ kind: 'calling', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Central bank’s rule: 4.27%', suggested: 4.2713, apply: 4.25 });
+    expect(manual.has('offset')).toBe(false);
+    expect(sectionCalling(bank, manual, [0, 3, 0, 0], byId)).toBe(true);
+    expect(sectionCalling(gov, manual, [0, 3, 0, 0], byId)).toBe(false);
+    expect(stabiliserMarks([{ ...s, calling: false }], byId).size).toBe(0);
+    const auto = stabiliserMarks([{ ...s, calling: false, automatic: true }], byId);
+    expect(auto.get('offset')).toEqual({ kind: 'acting', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Set by Central bank’s rule: 4.27%' });
+    const debt = stabiliserMarks([{ id: 'debt', label: 'Debt rule', lever: 'tax', offset: 'tax', suggested: 0.834, calling: true, automatic: false }], byId);
+    expect(debt.get('tax')).toMatchObject({ text: 'Debt rule: +0.83 pp', apply: 1 });
   });
 });

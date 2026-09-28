@@ -1,6 +1,13 @@
 /**
  * Iceland Inc.: the 20 calibration checks of engine v1 (legacy/v1-engine/tools/calibration_checks.js),
- * with the same scenarios and target ranges, and three checks on the firm sectors (decision 0003).
+ * with the same scenarios and target ranges, three checks on the firm sectors (decision 0003) and
+ * five on the stabiliser setting (decision 0004).
+ *
+ * Every published response these checks compare with comes from an economy whose policy reacts:
+ * the central bank follows its rule and the debt rule leans on income tax. So each of the 23
+ * original scenarios first sets stabilisers to Automatic at month 0 (AUTO), which keeps their
+ * results exactly as they were before Manual became the default. The Manual checks run with the
+ * default setting.
  * They are CHECKS on whole-model responses, never equations. Each range's source is in `source`
  * (v1 SPEC §7.3, the research report docs/research/icelandic-economy-flow-simulation.md, and
  * data/iceland/calibration.json for the sector checks).
@@ -10,6 +17,8 @@
 import type { CalibrationCheck, ModelDef, RunResult, ScenarioEvent } from '../../core/types.ts';
 import { createEngine, type KernelEngine } from '../../core/engine.ts';
 import { runScenario } from '../../core/scenario.ts';
+import { centralBank } from './modules/central-bank.ts';
+import { indicators } from './modules/indicators.ts';
 
 const quarter = (month: number) => Math.ceil(month / 3);
 function argBest(a: number[], better: (x: number, y: number) => boolean, from: number, to: number): number {
@@ -21,27 +30,36 @@ const argmin = (a: number[], from: number, to: number) => argBest(a, (x, y) => x
 const argmax = (a: number[], from: number, to: number) => argBest(a, (x, y) => x > y, from, to);
 
 /* ----------------------------------------------------------------- scenarios */
+/** Policy reacts: the central bank's rule and the debt rule act (stabilisers on Automatic). */
+const AUTO: ScenarioEvent = { t: 0, lever: 'stabilisers', value: 1 };
 const RATE: ScenarioEvent[] = [
+  AUTO,
   { t: 0, lever: 'keyRateAddon', value: 1 },
   { t: 24, lever: 'keyRateAddon', value: 0 },
 ];
-const WAGE: ScenarioEvent[] = [{ t: 0, lever: 'wageSettlement', value: 10, fire: true }];
+const WAGE: ScenarioEvent[] = [AUTO, { t: 0, lever: 'wageSettlement', value: 10, fire: true }];
 const G_BANKS: ScenarioEvent[] = [
+  AUTO,
   { t: 0, lever: 'bondBuyers', value: 1 },
   { t: 0, lever: 'otherServices', value: 1 },
 ];
 const G_FUNDS: ScenarioEvent[] = [
+  AUTO,
   { t: 0, lever: 'bondBuyers', value: 3 },
   { t: 0, lever: 'otherServices', value: 1 },
 ];
-const KRONA: ScenarioEvent[] = [{ t: 0, lever: 'kronaShock', value: -10, fire: true }];
+const KRONA: ScenarioEvent[] = [AUTO, { t: 0, lever: 'kronaShock', value: -10, fire: true }];
 const LEND_12: ScenarioEvent[] = [
+  AUTO,
   { t: 0, lever: 'lendingAppetite', value: 1 },
   { t: 12, lever: 'lendingAppetite', value: 0 },
 ];
-const LEND_HELD: ScenarioEvent[] = [{ t: 0, lever: 'lendingAppetite', value: 1 }];
-const TOURISM: ScenarioEvent[] = [{ t: 0, lever: 'tourism', value: -30 }];
-const ALUMINIUM: ScenarioEvent[] = [{ t: 0, lever: 'aluminiumPrice', value: 20 }];
+const LEND_HELD: ScenarioEvent[] = [AUTO, { t: 0, lever: 'lendingAppetite', value: 1 }];
+const TOURISM: ScenarioEvent[] = [AUTO, { t: 0, lever: 'tourism', value: -30 }];
+const ALUMINIUM: ScenarioEvent[] = [AUTO, { t: 0, lever: 'aluminiumPrice', value: 20 }];
+/** Stabilisers on Manual (the default): policy levers stay where they are set. */
+const M_TAX: ScenarioEvent[] = [{ t: 0, lever: 'incomeTax', value: 1 }];
+const M_WAGE: ScenarioEvent[] = [{ t: 0, lever: 'wageSettlement', value: 10, fire: true }];
 const FIRMS = ['FC', 'FR', 'XF', 'XA', 'XT', 'XO'] as const;
 
 /* ------------------------------------------------------------------ sources */
@@ -57,12 +75,30 @@ const SRC = {
     'Reasoned from 2020: foreign visitor numbers fell by about three-quarters and the króna lost nearly 10% in trade-weighted terms over the year (euro 14.9% dearer), cushioned by pension funds pausing FX purchases and by central-bank FX sales (Íslandsbanki, Economic review 2020; Landsbankinn, 8 January 2021; CBI Monetary Bulletin 2020/4). Scaled to a 30% fall, about 4%; the model has no FX intervention, so up to 10%. Tourism is 13% of GDP of exports and the exporter most sensitive to the exchange rate, so its output must fall most (calibration.json: firm_sectors.tourism). https://www.landsbankinn.is/en/news/2021/01/08/the-icelandic-krona-depreciated-in-2020',
   aluminium:
     'Reasoned from ownership and tax: the three smelters are wholly foreign-owned (Rio Tinto, Alcoa, Century), so every króna of profit they do not reinvest is paid abroad; corporate tax takes about 9% of profit (effective rate from Hagstofa THJ05132); inward-FDI equity income was 78% dividends and 22% reinvested earnings in 2024 (Eurostat bop_c6_a). So 60–95% of a windfall should leave within two years (calibration.json: firm_sectors.aluminium).',
+  manualHeld: 'Design of the stabiliser setting (decision 0004): on Manual no policy lever moves unless the user moves it, so the key rate is the level of its lever, exactly, whatever else happens.',
+  manualTax:
+    'Reasoned: +1 pp on a tax base of about 65% of GDP raises revenue by about 0.65% of GDP. Tax multipliers are at or below spending multipliers (cross-country median spending multiplier about 0.7, IMF WP 2026/043, smaller in open economies), and with the key rate held there is no monetary offset: a year-2 multiplier of 0.25–1.2 gives output −0.15% to −0.8%. https://www.elibrary.imf.org/view/journals/001/2026/043/article-A001-en.xml',
+  manualWage:
+    'As the Automatic check (research report, "Wages +10%": CPI about +2% in year 1 rising toward +4% as pass-through completes, CBI MB 2026/2 Box 2), without the rate rise that damps it, so up to the 4% of full pass-through. The central bank’s rule must be calling for a higher rate at the peak: its suggestion is more than its threshold above the held key rate. Every chart must stay finite for 20 years.',
+  drift: 'Architecture §4.5: the baseline is a steady state in both stabiliser modes; with no shock nothing may move by more than the harness’s drift limit of 1e-9 over 20 years.',
   squeeze:
     'First-round arithmetic on Hagstofa THJ08420 (2025): a 10% wage rise cuts profit by 10% × labour cost ÷ profit. Labour cost is 72% of tourism’s value added (labour ÷ profit about 3) and about 45% of retail and services’ once VAT and housing services are counted (about 0.85): a ratio near 3.5 on impact, less as prices catch up (calibration.json: firm_sectors).',
 };
 
 /** Percent change of a raw variable from month 0. */
 const pctOf = (run: RunResult, id: string, m: number) => 100 * (run.value(id, m) / run.value(id, 0) - 1);
+
+/** Largest absolute value any chart shows over the run (charts are deviations from baseline). */
+const CHARTS = (indicators.indicators ?? []).map((i) => i.id);
+function largestChartMove(run: RunResult): number {
+  let worst = 0;
+  for (const id of CHARTS) for (const x of run.series(id)) worst = Number.isFinite(x) ? Math.max(worst, Math.abs(x)) : Infinity;
+  return worst;
+}
+
+/** The key-rate stabiliser, its threshold and the key-rate lever's default (Manual level). */
+const RATE_RULE = centralBank.stabilisers!.find((s) => s.id === 'keyRateRule')!;
+const HELD_RATE = centralBank.levers!.find((l) => l.id === RATE_RULE.lever)!.default;
 
 /* ------------------------------------- the bank- versus fund-financed money gap */
 
@@ -322,5 +358,56 @@ export const calibration: CalibrationCheck[] = [
     },
     range: [2, 6],
     source: SRC.squeeze,
+  },
+  // Stabilisers on Manual, the default (decision 0004): policy levers stay where they are set
+  {
+    id: 'manual-tax-key-rate-held',
+    label: 'Manual: income tax +1 pp held: largest change in the key rate over 20 years, pp',
+    scenario: M_TAX,
+    months: 240,
+    measure: (run) => Math.max(...run.series('keyRate').map(Math.abs)),
+    range: [0, 0],
+    source: SRC.manualHeld,
+  },
+  {
+    id: 'manual-tax-output',
+    label: 'Manual: income tax +1 pp held: output, year-2 average, % vs baseline',
+    scenario: M_TAX,
+    months: 72,
+    measure: (run) => run.series('output').slice(13, 25).reduce((s, x) => s + x, 0) / 12,
+    range: [-0.8, -0.15],
+    source: SRC.manualTax,
+  },
+  {
+    id: 'manual-wage-inflation-peak',
+    label: 'Manual: wages +10% one-off: 12-month inflation peak, pp vs baseline; the central bank’s rule must be calling for a higher key rate at the peak and every chart must stay finite for 20 years (otherwise not a number)',
+    scenario: M_WAGE,
+    months: 240,
+    measure: (run) => {
+      const a = run.series('inflation');
+      const j = argmax(a, 1, 72);
+      const calling = run.value(RATE_RULE.suggestion, j) - HELD_RATE > RATE_RULE.threshold;
+      return calling && Number.isFinite(largestChartMove(run)) ? a[j] : NaN;
+    },
+    range: [1.5, 4],
+    source: SRC.manualWage,
+  },
+  {
+    id: 'manual-no-shock-drift',
+    label: 'Manual: no shock: largest move of any chart over 20 years',
+    scenario: [],
+    months: 240,
+    measure: largestChartMove,
+    range: [0, 1e-9],
+    source: SRC.drift,
+  },
+  {
+    id: 'automatic-no-shock-drift',
+    label: 'Automatic: no shock: largest move of any chart over 20 years',
+    scenario: [AUTO],
+    months: 240,
+    measure: largestChartMove,
+    range: [0, 1e-9],
+    source: SRC.drift,
   },
 ];

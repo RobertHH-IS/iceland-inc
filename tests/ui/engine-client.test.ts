@@ -6,6 +6,7 @@ import { describe, expect, test } from 'bun:test';
 import { models } from '../../src/models/index.ts';
 import { createEngine } from '../../src/core/engine.ts';
 import { createEngineClient } from '../../src/ui/engine-client.ts';
+import { stabiliserMarks } from '../../src/ui/model/levers.ts';
 
 const reference = models.find((m) => m.id === 'reference')!;
 const base = createEngine(reference);
@@ -145,6 +146,52 @@ describe('engine client', () => {
     const c = fresh();
     const withRegime = c.info.rules.filter((r) => r.hasRegime).map((r) => r.id);
     expect(Object.keys(c.getFrame().regimes).sort()).toEqual(withRegime.sort());
+    c.dispose();
+  });
+});
+
+describe('engine client: stabilisers (decision 0004)', () => {
+  const iceland = models.find((m) => m.id === 'iceland')!;
+  const ibase = createEngine(iceland);
+
+  test('frames carry every stabiliser; on Manual the key-rate rule calls and Apply answers it', () => {
+    const c = createEngineClient(createEngine(ibase.model, { baseline: ibase.baselineData }));
+    expect(c.info.stabiliserMode).toEqual({ lever: 'stabilisers', manual: 0, automatic: 1 });
+    expect(c.getFrame().stabilisers.map((s) => [s.id, s.calling, s.automatic])).toEqual([
+      ['keyRateRule', false, false],
+      ['debtRule', false, false],
+    ]);
+    const quiet = c.getFrame().stabilisers;
+    c.setSpeed(3); // a frame without a step keeps the same array
+    expect(c.getFrame().stabilisers).toBe(quiet);
+    c.setLever('incomeTax', 1);
+    c.pause();
+    c.step(12);
+    const rule = c.getFrame().stabilisers.find((s) => s.id === 'keyRateRule')!;
+    expect(rule.calling).toBe(true);
+    expect(c.value('keyRate')).toBe(0.03);
+    const mark = stabiliserMarks(c.getFrame().stabilisers, c.info.leverById).get('keyRateFixed');
+    expect(mark?.kind).toBe('calling');
+    if (mark?.kind !== 'calling') return;
+    c.setLever('keyRateFixed', mark.apply); // the Apply button
+    c.pause();
+    const after = c.getFrame().stabilisers.find((s) => s.id === 'keyRateRule')!;
+    expect(after.current).toBe(mark.apply);
+    expect(after.calling).toBe(false);
+    c.step(1);
+    expect(c.value('keyRate')).toBe(mark.apply / 100);
+    c.dispose();
+  });
+
+  test('on Automatic the rules act and nothing calls', () => {
+    const c = createEngineClient(createEngine(ibase.model, { baseline: ibase.baselineData }));
+    c.setLever('stabilisers', 1);
+    c.setLever('incomeTax', 1);
+    c.pause();
+    c.step(24);
+    const f = c.getFrame();
+    expect(f.stabilisers.every((s) => s.automatic && !s.calling)).toBe(true);
+    expect(c.value('keyRate')).toBeLessThan(0.03);
     c.dispose();
   });
 });

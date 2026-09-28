@@ -6,6 +6,7 @@
  * zero inflation, solved by the kernel. This is the model the authoring guide walks through.
  */
 import type { ModelDef } from '../../core/types.ts';
+import { stabilisers } from './stabilisers.ts';
 import { structure } from './structure.ts';
 import { labourPrices } from './labour-prices.ts';
 import { demand } from './demand.ts';
@@ -19,7 +20,7 @@ export const referenceModel: ModelDef = {
   id: 'reference',
   label: 'Reference economy',
   description: 'A small closed economy with households, firms, a bank, a central bank and a government, for learning the flow paradigm.',
-  modules: [structure, labourPrices, demand, banking, centralBank, government, indicators],
+  modules: [stabilisers, structure, labourPrices, demand, banking, centralBank, government, indicators],
   paymentSystem: {
     bank: 'B',
     centralBank: 'CB',
@@ -51,4 +52,6 @@ export const referenceModel: ModelDef = {
     initialVars: { consumption: 69, disposableIncome: 69, firmProfit: 16 },
   },
   calibration,
+  // Automatic by default here, unlike Iceland: this economy has no other anchor (decision 0004).
+  stabiliserMode: { lever: 'stabilisers', manual: 0, automatic: 1 },
 };

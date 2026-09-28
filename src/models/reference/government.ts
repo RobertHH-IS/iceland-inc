@@ -3,9 +3,11 @@
  *
  * The government buys goods and services, taxes household income and borrows its deficit by
  * selling bonds to the bank. Because the bank pays for the bonds and the government spends the
- * proceeds, deficits add to the money households and firms hold.
+ * proceeds, deficits add to the money households and firms hold. A debt rule sets the tax rate
+ * when stabilisers are Automatic (the default here), and only suggests on Manual (decision 0004).
  */
 import type { ModuleDef, ParamDef } from '../../core/types.ts';
+import { automatic } from './stabilisers.ts';
 
 const params: ParamDef[] = [
   {
@@ -26,7 +28,7 @@ const params: ParamDef[] = [
   },
   { id: 'fiscalResponse', value: 0.3, unit: 'fraction', category: 'POLICY', description: 'Tax-rate points added per point of debt-to-GDP above baseline, divided by 100 (0.3: +3 points of tax for 10 points of debt).', provenance: { basis: 'assumed' } },
   { id: 'fiscalSpeed', value: 0.5, unit: 'per year', category: 'POLICY', description: 'How fast the tax rate moves toward what the debt rule says (budgets change slowly).', provenance: { basis: 'assumed' } },
-  { id: 'taxShift', value: 0, unit: 'fraction', category: 'POLICY', description: 'Change in the tax rate decided on top of the debt rule (set by the tax lever).', provenance: { basis: 'assumed', note: 'Zero at baseline; moved by a lever.' } },
+  { id: 'taxShift', value: 0, unit: 'fraction', category: 'POLICY', description: 'Your change in the tax rate (set by the tax lever); on Automatic it is added to the debt rule’s rate.', provenance: { basis: 'assumed', note: 'Zero at baseline; moved by a lever.' } },
   { id: 'treasuryTarget', value: 2, unit: '% of GDP', category: 'POLICY', description: 'Money the government keeps in its account at the central bank.', provenance: { basis: 'assumed' } },
   { id: 'treasuryTopUp', value: 6, unit: 'per year', category: 'POLICY', description: 'How fast bond sales restore the account to its target.', provenance: { basis: 'assumed' } },
 ];
@@ -35,12 +37,14 @@ export const government: ModuleDef = {
   id: 'government',
   label: 'Government',
   description: 'Spending, taxes, the deficit and the bonds that finance it.',
-  requires: ['structure', 'labour-and-prices', 'central-bank', 'banking-and-credit'],
+  requires: ['stabilisers', 'structure', 'labour-and-prices', 'central-bank', 'banking-and-credit'],
   params,
   vars: [
     { id: 'govSpending', label: 'Government spending', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
     { id: 'debtRatio', label: 'Government debt ratio', unit: '% of GDP', kind: 'ratio', scale: 'none', initial: 55 },
-    { id: 'taxRate', label: 'Income-tax rate', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0.23 },
+    { id: 'debtRuleRate', label: 'Tax rate the debt rule calls for', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0.23, description: 'The debt rule’s tax rate, computed in both stabiliser modes.' },
+    { id: 'taxRuleSuggestion', label: 'Tax shift the debt rule suggests', unit: 'pp', kind: 'rate', scale: 'none', description: 'The debt rule’s rate minus the normal rate, in percentage points: comparable with the tax lever.' },
+    { id: 'taxRate', label: 'Income-tax rate', unit: 'fraction', kind: 'rate', scale: 'none' },
     { id: 'taxes', label: 'Income tax', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
     { id: 'bondInterestBank', label: 'Bond interest to the bank', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
     { id: 'bondInterestCB', label: 'Bond interest to the central bank', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
@@ -73,8 +77,8 @@ export const government: ModuleDef = {
       },
     },
     {
-      id: 'taxRate',
-      target: 'taxRate',
+      id: 'debtRuleRate',
+      target: 'debtRuleRate',
       category: 'POLICY',
       label: 'Debt rule',
       lagInputs: ['debtRatio'],
@@ -89,10 +93,40 @@ export const government: ModuleDef = {
           compute: (c) => (c.p('fiscalResponse') * (c.lag('debtRatio') - c.base('debtRatio'))) / 100,
         },
       ],
-      concepts: ['policy-lags', 'automatic-stabilisers'],
+      concepts: ['policy-lags'],
       explain: {
-        what: 'The income-tax rate set by the government’s debt rule.',
-        rule: 'The rate moves toward {normalTaxRate%} + {fiscalResponse} × (debt ratio − its starting level) ÷ 100, at speed {fiscalSpeed} a year: 10 more points of debt mean about 3 more points of tax. Without such a rule, interest on a growing debt could feed on itself.',
+        what: 'The income-tax rate the government’s debt rule calls for. With stabilisers on Automatic it is the tax rate (before your lever); on Manual it is only a suggestion.',
+        rule: 'The rate moves toward {normalTaxRate%} + {fiscalResponse} × (debt ratio − its starting level) ÷ 100, at speed {fiscalSpeed} a year, in both modes: 10 more points of debt mean about 3 more points of tax. Without such a rule, interest on a growing debt could feed on itself.',
+      },
+    },
+    {
+      id: 'taxRuleSuggestion',
+      target: 'taxRuleSuggestion',
+      category: 'POLICY',
+      inputs: ['debtRuleRate'],
+      params: ['normalTaxRate'],
+      compute: (c) => 100 * (c.v('debtRuleRate') - c.p('normalTaxRate')),
+      explain: {
+        what: 'The tax shift the debt rule would set now, in percentage points: what “Apply” sets the tax lever to on Manual.',
+        rule: 'Suggestion = (the debt rule’s rate − {normalTaxRate%}) × 100. It is the whole shift the rule wants given today’s debt, so a lever already set there satisfies it.',
+      },
+    },
+    {
+      id: 'taxRate',
+      target: 'taxRate',
+      category: 'POLICY',
+      label: 'Tax rate: the debt rule’s, or the normal rate',
+      inputs: ['debtRuleRate'],
+      params: ['normalTaxRate'],
+      levers: ['stabilisers'],
+      terms: [
+        { id: 'rule', label: 'The debt rule (Automatic)', concept: 'deficits-and-money', compute: (c) => (automatic(c) ? c.v('debtRuleRate') : 0) },
+        { id: 'normal', label: 'The normal rate (Manual)', compute: (c) => (automatic(c) ? 0 : c.p('normalTaxRate')) },
+      ],
+      concepts: ['policy-lags'],
+      explain: {
+        what: 'The income-tax rate before your tax lever.',
+        rule: 'Automatic (the default here): the debt rule’s rate. Manual: the normal rate {normalTaxRate%}, held; the debt rule only suggests. Your tax lever is added in both.',
       },
     },
     {
@@ -245,10 +279,23 @@ export const government: ModuleDef = {
       max: 3,
       step: 0.5,
       binds: { param: 'taxShift', mode: 'add', scale: 0.01 },
-      description: 'Raises (or cuts) the tax rate on household income by this many points, on top of the debt rule.',
+      description: 'Raises (or cuts) the tax rate on household income by this many points: on top of the debt rule on Automatic, the whole change on Manual.',
       definition:
-        'Level shift in the income-tax rate, in percentage points, persistent while set. The debt rule then gradually offsets it as debt moves away from target. Setting it back to 0 removes the shift; the debt rule unwinds what it did.',
+        'Level shift in the income-tax rate, in percentage points, persistent while set. On Automatic the debt rule then gradually offsets it as debt moves away from target; on Manual nothing offsets it and the debt rule only suggests. Setting it back to 0 removes the shift; on Automatic the debt rule unwinds what it did.',
       concepts: ['automatic-stabilisers'],
+    },
+  ],
+  stabilisers: [
+    {
+      id: 'debtRule',
+      label: 'Debt rule',
+      lever: 'taxRate',
+      suggestion: 'taxRuleSuggestion',
+      threshold: 0.25, // half the lever's half-point step: calls when Apply would move the lever
+      description:
+        'The government’s debt rule: about 3 points more income tax for 10 points more debt, reached gradually. On Automatic it sets the tax rate and your lever adds to it; on Manual it suggests a shift for the tax lever, which turns red when applying it would move the lever.',
+      concepts: ['policy-lags'],
+      feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'govDebt' },
     },
   ],
   tests: [

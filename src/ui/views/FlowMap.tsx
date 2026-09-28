@@ -36,6 +36,8 @@ interface FlowMapProps {
   pipes: Pipe[];
   legs: Float64Array;
   regimes: Readonly<Record<Id, string | null>>;
+  /** Stabilisers acting now (Automatic), space-separated ids: their numbers get a "rule" marker. */
+  rulesActing?: string;
   seq: number;
   selection: Selection | null;
   onSelect: OnSelect;
@@ -82,7 +84,7 @@ interface Anim {
 
 let animSeq = 0;
 
-export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, legs, regimes, seq, selection, onSelect, onOpenGroup, onCloseGroup }: FlowMapProps) {
+export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, legs, regimes, rulesActing = '', seq, selection, onSelect, onOpenGroup, onCloseGroup }: FlowMapProps) {
   // Lay the map out in the container's own pixels, so text stays readable at any size, and
   // scale it down only as far as the cards need to stay clear of each other.
   const wrap = useRef<HTMLDivElement>(null);
@@ -267,6 +269,7 @@ export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, le
                   lines={box.card.lines}
                   legs={legs}
                   regimes={regimes}
+                  rulesActing={rulesActing}
                   seq={seq}
                   selected={focus.selected === n.id}
                   dim={!lit(n.id)}
@@ -478,6 +481,7 @@ interface NodeLiveProps {
   lines: 1 | 2;
   legs: Float64Array;
   regimes: Readonly<Record<Id, string | null>>;
+  rulesActing: string;
   seq: number;
   selected: boolean;
   dim: boolean;
@@ -487,7 +491,7 @@ interface NodeLiveProps {
 }
 
 /** Computes the card's live numbers each tick, then hands strings to the memoised card. */
-function NodeCardLive({ info, client, node, px, py, lines, legs, regimes, selected, dim, entering, onSelect, onOpenGroup }: NodeLiveProps) {
+function NodeCardLive({ info, client, node, px, py, lines, legs, regimes, rulesActing, selected, dim, entering, onSelect, onOpenGroup }: NodeLiveProps) {
   const metrics = useMemo(() => resolveCardMetrics(info, node.id, undefined, lines), [info, node.id, lines]);
   const owned = useMemo(() => {
     const members = new Set(node.members);
@@ -498,6 +502,8 @@ function NodeCardLive({ info, client, node, px, py, lines, legs, regimes, select
   const dots = useMemo(() => (group ? directMembers(info, node.id).map((m) => nodeColor(info, m.id)).join(' ') : ''), [info, node.id, group]);
   const values = metrics.map((m) => evalMetric(m, info, client, node, legs));
   const binding = owned.map((r) => regimes[r]).filter((x): x is string => !!x);
+  const acting = rulesActing ? rulesActing.split(' ') : [];
+  const byRule = (m: ResolvedMetric | undefined) => !!m && 'stabiliser' in m && !!m.stabiliser && acting.includes(m.stabiliser);
   return (
     <NodeCard
       node={node}
@@ -511,6 +517,8 @@ function NodeCardLive({ info, client, node, px, py, lines, legs, regimes, select
       m2={values[1]?.label ?? ''}
       v2={values[1]?.text ?? ''}
       t2={values[1]?.tone ?? 'flat'}
+      r1={byRule(metrics[0])}
+      r2={byRule(metrics[1])}
       regime={binding[0] ?? null}
       regimeCount={binding.length}
       selected={selected}
@@ -535,6 +543,9 @@ interface NodeCardProps {
   m2: string;
   v2: string;
   t2: Tone;
+  /** The number is set by a stabiliser that is acting (Automatic): mark it "rule". */
+  r1: boolean;
+  r2: boolean;
   regime: string | null;
   regimeCount: number;
   selected: boolean;
@@ -544,23 +555,24 @@ interface NodeCardProps {
   onOpenGroup: (id: Id) => void;
 }
 
-const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, t1, m2, v2, t2, regime, regimeCount, selected, dim, entering, onSelect, onOpenGroup }: NodeCardProps) {
+const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, t1, m2, v2, t2, r1, r2, regime, regimeCount, selected, dim, entering, onSelect, onOpenGroup }: NodeCardProps) {
   const group = n.kind === 'group';
   const x = px - n.w / 2,
     y = py - n.h / 2;
   const open = () => (group ? onOpenGroup(n.id) : onSelect({ kind: 'player', id: n.id }));
   const label = group
-    ? `${n.label}, a group of ${count}. ${m1} ${v1}. ${m2 ? `${m2} ${v2}.` : ''}${regime ? ` ${regime}.` : ''} Open it to see its members.`
-    : `${n.label}. ${m1} ${v1}. ${m2 ? `${m2} ${v2}.` : ''}${regime ? ` ${regime}.` : ''} Open its balance sheet.`;
+    ? `${n.label}, a group of ${count}. ${m1} ${v1}${r1 ? ', set by the rule' : ''}. ${m2 ? `${m2} ${v2}${r2 ? ', set by the rule' : ''}.` : ''}${regime ? ` ${regime}.` : ''} Open it to see its members.`
+    : `${n.label}. ${m1} ${v1}${r1 ? ', set by the rule' : ''}. ${m2 ? `${m2} ${v2}${r2 ? ', set by the rule' : ''}.` : ''}${regime ? ` ${regime}.` : ''} Open its balance sheet.`;
   const maxChars = Math.floor((n.w - (group ? 40 : 22)) / 7.2);
   // The full name when it fits, else the player's short name; never a cut-off label if avoidable.
   const name = n.label.length <= maxChars ? n.label : n.short && n.short.length < n.label.length ? n.short : n.label;
   const title = name.length > maxChars ? name.slice(0, maxChars - 1) + '…' : name;
   const compact = n.h - (group ? 16 : 0) < 56;
   const shift = group ? 16 : 0;
-  const row = (y0: number, m: string, v: string, t: Tone) => (
+  const row = (y0: number, m: string, v: string, t: Tone, rule: boolean) => (
     <text className="node-metric" x={14} y={y0}>
       <tspan className="node-mlabel">{m.length > 14 ? m.slice(0, 13) + '…' : m}</tspan>
+      {rule && <tspan className="node-rule"> rule</tspan>}
       <tspan className={`node-mval tone-${t}`} x={n.w - 10} textAnchor="end">
         {v}
       </tspan>
@@ -605,8 +617,8 @@ const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, 
           </g>
         </>
       )}
-      {m1 && row((compact ? 35 : 39) + shift, m1, v1, t1)}
-      {m2 && !compact && row(55 + shift, m2, v2, t2)}
+      {m1 && row((compact ? 35 : 39) + shift, m1, v1, t1, r1)}
+      {m2 && !compact && row(55 + shift, m2, v2, t2, r2)}
       {regime && (
         <g className="regime-badge" transform={`translate(${n.w - 8},-8)`}>
           <title>{regime}</title>

@@ -13,6 +13,7 @@ These rules apply to everyone who changes this repository, people and coding age
 7. **Units are explicit.** Money flows are % of baseline annual GDP at annual rates; stocks are % of baseline annual GDP; rates are fractions per year. Never label two different measures with the same unit.
 8. **Explanations are plain English.** Every `explain.what` and `explain.rule` should be readable by a curious non-economist. Define terms the first time you use them.
 9. **Counterfactuals compare shocked and unshocked runs within the same variant,** and are never shown as an additive waterfall.
+10. **POLICY settings never change unless the user changes them;** automatic policy reactions exist only as declared stabilisers (`StabiliserDef`), which act only in Automatic mode and appear as suggestions in Manual mode. Compute each stabiliser's suggestion in both modes ([decision 0004](docs/decisions/0004-stabilisers.md)).
 
 ## Before you push
 

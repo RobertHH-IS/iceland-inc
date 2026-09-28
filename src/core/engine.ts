@@ -30,8 +30,9 @@ import type {
   Scenario,
   ScenarioEvent,
   ShockApi,
+  StabiliserState,
 } from './types.ts';
-import { compile, isCompiled, ROLE_ISSUER, type CLever, type KModel } from './compile.ts';
+import { compile, isAutomatic, isCompiled, ROLE_ISSUER, type CLever, type KModel } from './compile.ts';
 import { Machine, type MachineState } from './machine.ts';
 import type { Ledger } from './ledger.ts';
 import { baselineReport, solveBaseline, type Baseline, type BaselineReport } from './steady.ts';
@@ -96,10 +97,37 @@ export interface KernelEngine extends Engine {
   stats(): { steps: number; microsPerStep: number; newtonFallbacks: number; maxIterations: number };
 }
 
+/** What the stabiliser narration remembers from one month to the next (per stabiliser). */
+interface StabiliserFeedState {
+  /** Calling at the last update. */
+  prev: Uint8Array;
+  /** The stabiliser's lever and the mode lever at the last update: a change means the user
+   *  moved them, and a call that the change itself causes is not narrated. */
+  lever: Float64Array;
+  mode: Float64Array;
+  /** Month and direction (+1 raise, −1 lower) of the last message, to keep the feed sparse. */
+  lastT: Float64Array;
+  lastDir: Int8Array;
+}
+
+type FeedEntry = { t: number; message: string; indicator: Id; concept?: Id; stabiliser?: Id };
+
 interface Snapshot {
   machine: MachineState;
   feedPrev: Uint8Array;
+  stabFeed: StabiliserFeedState;
 }
+
+const cloneStabFeed = (s: StabiliserFeedState): StabiliserFeedState => ({
+  prev: new Uint8Array(s.prev),
+  lever: new Float64Array(s.lever),
+  mode: new Float64Array(s.mode),
+  lastT: new Float64Array(s.lastT),
+  lastDir: new Int8Array(s.lastDir),
+});
+
+/** A number in a stabiliser's feed message: at most two decimals, no trailing zeros. */
+const feedNumber = (x: number) => String(Number(x.toFixed(2))).replace('-', '−');
 
 class KEngine implements KernelEngine {
   readonly model: KModel;
@@ -125,8 +153,9 @@ class KEngine implements KernelEngine {
   private hInd: Float64Array[] = [];
   private hPos: Float64Array[] = [];
   private hChecks: Float64Array[] = [];
-  private feedLog: { t: number; message: string; indicator: Id; concept?: Id }[] = [];
+  private feedLog: FeedEntry[] = [];
   private feedPrev: Uint8Array;
+  private stabFeed: StabiliserFeedState;
   private failures: { t: number; id: Id; residual: number }[] = [];
   private stepCount = 0;
   private stepMillis = 0;
@@ -224,6 +253,8 @@ class KEngine implements KernelEngine {
       },
     };
     this.feedPrev = new Uint8Array(m.feed.length);
+    const ns = m.stabilisers.length;
+    this.stabFeed = { prev: new Uint8Array(ns), lever: new Float64Array(ns), mode: new Float64Array(ns), lastT: new Float64Array(ns).fill(-Infinity), lastDir: new Int8Array(ns) };
     this.reset();
   }
 
@@ -272,13 +303,16 @@ class KEngine implements KernelEngine {
     this.failures = [];
     this.checkBuf.fill(0);
     this.feedPrev.fill(0);
+    this.stabFeed.prev.fill(0);
+    this.stabFeed.lastT.fill(-Infinity);
+    this.stabFeed.lastDir.fill(0);
     this.record();
     this.updateFeed(false);
     this.snaps.set(0, this.snap());
   }
 
   private snap(): Snapshot {
-    return { machine: this.M.snapshot(), feedPrev: new Uint8Array(this.feedPrev) };
+    return { machine: this.M.snapshot(), feedPrev: new Uint8Array(this.feedPrev), stabFeed: cloneStabFeed(this.stabFeed) };
   }
 
   private levelNow(i: number): number {
@@ -308,6 +342,36 @@ class KEngine implements KernelEngine {
       const on = (f.above !== undefined && v > f.above) || (f.below !== undefined && v < f.below) ? 1 : 0;
       if (log && on && !this.feedPrev[j]) this.feedLog.push({ t, message: f.message, indicator: f.indicator, concept: f.concept });
       this.feedPrev[j] = on;
+    });
+    if (m.stabilisers.length) this.updateStabiliserFeed(log);
+  }
+
+  /**
+   * Manual mode: narrate a stabiliser that starts calling for action ("The central bank's rule
+   * would raise the key rate to 4.25%"). Kept sparse: nothing when the user has just moved the
+   * stabiliser's lever or the mode (the lever panel shows that call at once), and no repeat in
+   * the same direction within a year of the last message.
+   */
+  private updateStabiliserFeed(log: boolean): void {
+    const m = this.model;
+    const t = this.M.t;
+    const sf = this.stabFeed;
+    const year = Math.max(1, Math.round(1 / m.def.dt));
+    const modeVal = m.modeLever >= 0 ? this.M.leverVal[m.modeLever] : 0;
+    this.stabilisers().forEach((s, j) => {
+      const def = m.stabilisers[j];
+      const lv = this.M.leverVal[m.cstabilisers[j].lever];
+      const touched = !Object.is(lv, sf.lever[j]) || !Object.is(modeVal, sf.mode[j]);
+      const dir = s.gap > 0 ? 1 : -1;
+      if (log && def.feed && s.calling && !sf.prev[j] && !touched && !(sf.lastDir[j] === dir && t - sf.lastT[j] < year)) {
+        const message = (dir > 0 ? def.feed.raise : def.feed.lower).replace(/\{value\}/g, feedNumber(s.suggested)).replace(/\{change\}/g, feedNumber(Math.abs(s.gap)));
+        this.feedLog.push({ t, message, indicator: def.feed.indicator, concept: def.concepts?.[0], stabiliser: def.id });
+        sf.lastT[j] = t;
+        sf.lastDir[j] = dir;
+      }
+      sf.prev[j] = s.calling ? 1 : 0;
+      sf.lever[j] = lv;
+      sf.mode[j] = modeVal;
     });
   }
 
@@ -431,6 +495,7 @@ class KEngine implements KernelEngine {
     const s = this.snaps.get(best)!;
     this.M.restore(s.machine);
     this.feedPrev.set(s.feedPrev);
+    this.stabFeed = cloneStabFeed(s.stabFeed);
     const keep = best + 1;
     this.hVars.length = keep;
     this.hTerms.length = keep;
@@ -652,8 +717,21 @@ class KEngine implements KernelEngine {
     });
   }
 
-  feed(): { t: number; message: string; indicator: Id; concept?: Id }[] {
+  feed(): FeedEntry[] {
     return this.feedLog.map((f) => ({ ...f }));
+  }
+
+  stabilisers(): StabiliserState[] {
+    const m = this.model;
+    const mode = m.stabiliserMode;
+    const automatic = mode && m.modeLever >= 0 ? isAutomatic(mode, this.M.leverVal[m.modeLever]) : true;
+    return m.stabilisers.map((s, j) => {
+      const cs = m.cstabilisers[j];
+      const suggested = this.M.cur[cs.suggestion];
+      const current = this.M.leverVal[cs.lever];
+      const gap = suggested - current;
+      return { id: s.id, label: s.label, lever: s.lever, offset: s.offset ?? s.lever, suggested, current, gap, calling: !automatic && Math.abs(gap) > s.threshold, automatic, description: s.description };
+    });
   }
 
   baselineReport(): BaselineReport {

@@ -19,6 +19,8 @@
   --cat-contract: #c3a6ff;
   --cat-behaviour: #ffb454;
   --cat-policy: #7fe3ff;
+  /* A stabiliser calling for action (Manual mode): 6.3:1 on the cards, never used without text. */
+  --alert: #ff6b6b;
   color-scheme: dark;
 }
 
@@ -782,6 +784,57 @@ button.chip {
   background: rgba(255, 180, 84, 0.18);
   border-color: var(--amber);
 }
+/* Stabilisers (decision 0004): the Manual / Automatic setting, a lever whose rule is calling
+   for action (red edge, tint and text), and the note on a lever a rule acts through (cyan). */
+.stab-mode {
+  padding: 10px 2px 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.stab-choices {
+  display: flex;
+}
+.stab-choices .seg {
+  flex: 1;
+}
+.lever.calling {
+  border-color: rgba(255, 107, 107, 0.5);
+  border-left: 3px solid var(--alert);
+  background: rgba(255, 107, 107, 0.08);
+  box-shadow: none;
+}
+.stab-call {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--alert);
+  font-size: 12.5px;
+}
+.stab-call span {
+  flex: 1;
+}
+.btn.stab-apply {
+  border-color: rgba(255, 107, 107, 0.55);
+  color: var(--alert);
+  background: rgba(255, 107, 107, 0.08);
+}
+.btn.stab-apply:hover {
+  background: rgba(255, 107, 107, 0.18);
+  border-color: var(--alert);
+}
+.stab-note {
+  margin-top: 8px;
+  color: var(--accent);
+  font-size: 12.5px;
+}
+.call-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--alert);
+  box-shadow: 0 0 8px rgba(255, 107, 107, 0.6);
+}
 .lever-info {
   margin-top: 8px;
   font-size: 12.5px;
@@ -956,6 +1009,11 @@ button.chip {
 .node-mlabel {
   font-family: var(--ui);
   fill: var(--muted);
+}
+.node-rule {
+  font-family: var(--ui);
+  font-size: 9.5px;
+  fill: var(--accent);
 }
 .node-mval {
   font-family: var(--mono);

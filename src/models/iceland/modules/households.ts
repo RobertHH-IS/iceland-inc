@@ -274,7 +274,7 @@ export const households: ModuleDef = {
       id: 'rate-hike-moves-income-to-savers',
       label: 'A higher key rate cuts the real disposable income of borrowers and raises that of older savers',
       run: (e) => {
-        e.setLever('keyRateAddon', 1);
+        e.setLever('keyRateFixed', 4); // 1 pp above the neutral 3%, held (stabilisers on Manual)
         e.step(6);
         const d = (g: Age) => (e.value(`disposableIncome${g}`) / e.value('cpi') / e.baseline(`disposableIncome${g}`) - 1) * 100;
         const [y, w, o] = [d('Y'), d('W'), d('O')];

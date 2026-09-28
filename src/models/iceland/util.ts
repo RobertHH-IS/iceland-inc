@@ -28,6 +28,14 @@ export const stepsIn = (c: Ctx, years: number): number => Math.max(1, Math.round
  *  use c.lag(id) directly. */
 export const lastMonth = (c: Ctx, id: Id): number => c.lag(id, stepsIn(c, 1 / 12));
 
+/** The global stabiliser setting (modules/stabilisers.ts): 0 Manual, 1 Automatic. A rule that reads
+ *  it declares `levers: [STABILISERS]`. */
+export const STABILISERS = 'stabilisers';
+export const MANUAL = 0;
+export const AUTOMATIC = 1;
+/** True when the policy rules act (Automatic); false when policy levers are held (Manual). */
+export const automatic = (c: Ctx): boolean => Math.round(c.lever(STABILISERS)) >= AUTOMATIC;
+
 /** Age groups of households and the two borrowing groups. */
 export const AGES = ['Y', 'W', 'O'] as const;
 export type Age = (typeof AGES)[number];

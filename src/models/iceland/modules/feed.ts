@@ -1,7 +1,9 @@
 /**
  * Iceland Inc.: the narration feed, ported from engine v1's feedRules, plus six rules on the firm
  * sectors. Each rule fires when a chart's displayed deviation crosses its threshold. The feed only
- * narrates; it never changes the model.
+ * narrates; it never changes the model. With stabilisers on Manual, the kernel also narrates a
+ * stabiliser that starts calling for action, from the `feed` messages declared with it
+ * (central-bank.ts, government.ts).
  */
 import type { ModuleDef } from '../../../core/types.ts';
 
@@ -24,7 +26,7 @@ export const feed: ModuleDef = {
     { id: 'kronaStrong', indicator: 'krona', above: 1, message: 'The króna strengthens as foreign money seeks higher rates', concept: 'carry-trade' },
     { id: 'housing', indicator: 'realHousePrice', above: 2, message: 'House prices outpace consumer prices', concept: 'credit-and-house-prices' },
     { id: 'housingDown', indicator: 'realHousePrice', below: -2, message: 'Real house prices fall', concept: 'credit-and-house-prices' },
-    { id: 'debt', indicator: 'govDebt', above: 2, message: 'Government debt rises; the tax rule slowly leans against it', concept: 'fiscal-rule' },
+    { id: 'debt', indicator: 'govDebt', above: 2, message: 'Government debt rises as a share of GDP', concept: 'fiscal-rule' },
     { id: 'realWageDown', indicator: 'realWage', below: -1, message: 'Real wages fall as prices outpace pay', concept: 'real-wages' },
     { id: 'oldGain', indicator: 'rdiO', above: 0.5, message: 'Older savers gain from higher interest income', concept: 'borrowers-and-savers' },
     { id: 'youngSqueeze', indicator: 'rdiY', below: -0.5, message: 'Young households’ budgets are squeezed', concept: 'borrowers-and-savers' },

@@ -19,6 +19,9 @@ export interface CardMetricSpec {
   variable?: Id;
   /** Short label for the card; defaults to the indicator's or variable's label. */
   label?: string;
+  /** A stabiliser (StabiliserDef id) that sets this number when it acts: the card then marks
+   *  it "rule" while stabilisers are Automatic (decision 0004). */
+  stabiliser?: Id;
 }
 
 export type CardMapping = Record<Id, CardMetricSpec[]>;
@@ -28,13 +31,13 @@ export const PLAYER_CARDS: Record<Id, CardMapping> = {
     HH: [{ indicator: 'unemployment', label: 'Unemployment' }, { variable: 'consumption', label: 'Spending' }],
     F: [{ indicator: 'output', label: 'Output' }, { variable: 'investment', label: 'Investment' }],
     B: [{ indicator: 'broadMoney', label: 'Broad money' }, { indicator: 'creditImpulse', label: 'Credit impulse' }],
-    CB: [{ indicator: 'keyRate', label: 'Key rate' }, { indicator: 'inflation', label: 'Inflation' }],
+    CB: [{ indicator: 'keyRate', label: 'Key rate', stabiliser: 'taylorRule' }, { indicator: 'inflation', label: 'Inflation' }],
     G: [{ indicator: 'govDebt', label: 'Debt' }, { variable: 'deficit', label: 'Deficit' }],
     // Group level: the reference model has one player per group, with the group as its label.
     Households: [{ indicator: 'unemployment', label: 'Unemployment' }, { variable: 'consumption', label: 'Spending' }],
     Firms: [{ indicator: 'output', label: 'Output' }, { variable: 'investment', label: 'Investment' }],
     Banks: [{ indicator: 'broadMoney', label: 'Broad money' }, { indicator: 'creditImpulse', label: 'Credit impulse' }],
-    'Central bank': [{ indicator: 'keyRate', label: 'Key rate' }, { indicator: 'inflation', label: 'Inflation' }],
+    'Central bank': [{ indicator: 'keyRate', label: 'Key rate', stabiliser: 'taylorRule' }, { indicator: 'inflation', label: 'Inflation' }],
     Government: [{ indicator: 'govDebt', label: 'Debt' }, { variable: 'deficit', label: 'Deficit' }],
   },
   iceland: {
@@ -48,7 +51,7 @@ export const PLAYER_CARDS: Record<Id, CardMapping> = {
     XT: [{ indicator: 'exportsXT', label: 'Exports' }, { indicator: 'jobsXT', label: 'Jobs' }],
     XO: [{ indicator: 'exportsXO', label: 'Exports' }, { indicator: 'profitsXO', label: 'Profits' }],
     B: [{ indicator: 'bankCapital', label: 'Capital ratio' }, { indicator: 'broadMoney', label: 'Broad money' }],
-    CB: [{ indicator: 'keyRate', label: 'Key rate' }, { indicator: 'inflation', label: 'Inflation' }],
+    CB: [{ indicator: 'keyRate', label: 'Key rate', stabiliser: 'keyRateRule' }, { indicator: 'inflation', label: 'Inflation' }],
     G: [{ indicator: 'govBalance', label: 'Balance' }, { indicator: 'govDebt', label: 'Debt' }],
     PF: [{ indicator: 'pfAssets', label: 'Assets' }],
     W: [{ indicator: 'currentAccount', label: 'Current acct' }, { indicator: 'krona', label: 'Króna' }],
@@ -58,7 +61,7 @@ export const PLAYER_CARDS: Record<Id, CardMapping> = {
     'Domestic firms': [{ indicator: 'consumption', label: 'Demand' }, { indicator: 'profitsFD', label: 'Profits' }],
     Exporters: [{ indicator: 'exports', label: 'Exports' }, { indicator: 'profitsFX', label: 'Profits' }],
     Banks: [{ indicator: 'broadMoney', label: 'Broad money' }, { indicator: 'bankCapital', label: 'Capital ratio' }],
-    'Central bank': [{ indicator: 'keyRate', label: 'Key rate' }, { indicator: 'inflation', label: 'Inflation' }],
+    'Central bank': [{ indicator: 'keyRate', label: 'Key rate', stabiliser: 'keyRateRule' }, { indicator: 'inflation', label: 'Inflation' }],
     Government: [{ indicator: 'govBalance', label: 'Balance' }, { indicator: 'govDebt', label: 'Debt' }],
     'Pension funds': [{ indicator: 'pfAssets', label: 'Assets' }],
     'Rest of world': [{ indicator: 'currentAccount', label: 'Current acct' }, { indicator: 'krona', label: 'Króna' }],
@@ -77,8 +80,8 @@ export const GROUP_NOUNS: Record<Id, Record<Id, [one: string, many: string]>> = 
 };
 
 export type ResolvedMetric =
-  | { key: string; kind: 'indicator'; id: Id; label: string }
-  | { key: string; kind: 'variable'; id: Id; label: string }
+  | { key: string; kind: 'indicator'; id: Id; label: string; stabiliser?: Id }
+  | { key: string; kind: 'variable'; id: Id; label: string; stabiliser?: Id }
   | { key: string; kind: 'netWorth'; label: string }
   | { key: string; kind: 'cashIn'; label: string };
 
@@ -91,10 +94,10 @@ export function resolveCardMetrics(info: ModelInfo, nodeId: Id, mapping: CardMap
     if (out.length >= max) break;
     if (spec.indicator && info.indicatorById.has(spec.indicator)) {
       const ind = info.indicatorById.get(spec.indicator)!;
-      out.push({ key: `i:${ind.id}`, kind: 'indicator', id: ind.id, label: spec.label ?? ind.label });
+      out.push({ key: `i:${ind.id}`, kind: 'indicator', id: ind.id, label: spec.label ?? ind.label, ...(spec.stabiliser ? { stabiliser: spec.stabiliser } : {}) });
     } else if (spec.variable && info.varById.has(spec.variable)) {
       const v = info.varById.get(spec.variable)!;
-      out.push({ key: `v:${v.id}`, kind: 'variable', id: v.id, label: spec.label ?? v.label });
+      out.push({ key: `v:${v.id}`, kind: 'variable', id: v.id, label: spec.label ?? v.label, ...(spec.stabiliser ? { stabiliser: spec.stabiliser } : {}) });
     }
   }
   if (out.length) return out;

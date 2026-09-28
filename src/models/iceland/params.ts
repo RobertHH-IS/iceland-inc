@@ -354,10 +354,9 @@ P('bondMixBankShare', 0.4, 'fraction', 'POLICY', 'Banks’ share of new governme
 
 /* ------------------------------------------------ lever settings (baseline 0) */
 const lev = (note: string): Provenance => ({ basis: 'assumed', note: `Zero at baseline; ${note}` });
-P('incomeTaxShift', 0, 'fraction', 'POLICY', 'Change in the income-tax rate decided on top of the debt rule (the income-tax lever).', lev('set by the income-tax lever.'));
+P('incomeTaxShift', 0, 'fraction', 'POLICY', 'Your change in the income-tax rate (the income-tax lever). With stabilisers on Automatic, the debt rule’s adjustment is added on top.', lev('set by the income-tax lever.'));
 P('vatShift', 0, 'fraction', 'POLICY', 'Change in the effective VAT rate (the VAT lever).', lev('set by the VAT lever.'));
 P('rrShift', 0, 'fraction', 'POLICY', 'Change in the unemployment-benefit replacement rate (the lever).', lev('set by the unemployment-benefit lever.'));
-P('fiscalRuleOn', 1, 'switch', 'POLICY', 'Debt-tied tax rule switch: 1 on, 0 off.', { basis: 'assumed', note: 'On at baseline, as in v1; set by the debt-rule lever.' });
 P('dstiShift', 0, 'fraction', 'POLICY', 'Shift of both debt-service caps (the debt-service-cap lever).', lev('set by the debt-service-cap lever.'));
 P('ltvLimit', 0, 'fraction', 'POLICY', 'Loan-to-value cap; 0 means off (the lever).', lev('the LTV cap is off unless the lever turns it on.'));
 P('lendingAppetite', 0, '% of GDP/yr', 'BEHAVIOUR', 'Extra mortgage lending banks are keen to push each year (the lending-appetite lever).', lev('set by the lending-appetite lever.'));

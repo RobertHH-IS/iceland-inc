@@ -190,6 +190,8 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
   const vkey = viewKey(eff);
   // Pipes at the level that is open on the map, recomputed each tick.
   const viewPipes = useMemo(() => client.pipes({ expanded: [...eff] }), [client, frame.seq, vkey]);
+  // Stabilisers acting now (Automatic): the numbers they set get a "rule" marker on the map.
+  const rulesActing = useMemo(() => frame.stabilisers.filter((st) => st.automatic).map((st) => st.id).join(' '), [frame.stabilisers]);
   const expandable = useMemo(() => expandableGroups(info), [info]);
 
   // Going to a player or group hidden inside a closed group (from the inspector, the ledger or
@@ -280,7 +282,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
           )}
         </div>
       )}
-      <LeverPanel info={info} client={client} values={frame.levers} events={frame.events} />
+      <LeverPanel info={info} client={client} values={frame.levers} events={frame.events} stabilisers={frame.stabilisers} />
       <main className="stage panel" aria-label="The economy">
         <div className="stage-bar">
           <div className="seg-group" role="group" aria-label="View">
@@ -313,7 +315,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
           )}
         </div>
         {stage === 'map' ? (
-          <FlowMap info={info} client={client} expanded={eff} pipes={viewPipes} legs={frame.legs} regimes={frame.regimes} seq={frame.seq} selection={selection} onSelect={onSelect} onOpenGroup={onOpenGroup} onCloseGroup={onCloseGroup} />
+          <FlowMap info={info} client={client} expanded={eff} pipes={viewPipes} legs={frame.legs} regimes={frame.regimes} rulesActing={rulesActing} seq={frame.seq} selection={selection} onSelect={onSelect} onOpenGroup={onOpenGroup} onCloseGroup={onCloseGroup} />
         ) : (
           <LedgerView info={info} client={client} legs={frame.legs} columns={ledgerCols === 'map' ? { expanded: eff } : 'player'} onSelect={onSelect} />
         )}

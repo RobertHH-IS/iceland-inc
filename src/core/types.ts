@@ -269,6 +269,54 @@ export interface LeverDef {
   /** Precise definition: level vs growth, duration, what happens when it ends. */
   definition: string;
   concepts?: Id[];
+  /** Show the lever only while another lever (a setting or choice) has one of these values,
+   *  e.g. only in one stabiliser mode. Presentation only: the engine still applies its value. */
+  showWhen?: { lever: Id; equals: number | number[] };
+}
+
+/**
+ * A stabiliser: an automatic POLICY reaction, such as a central bank's inflation rule or a
+ * debt-tied tax rule, declared so that it never acts unseen. The model's global stabiliser
+ * setting (ModelDef.stabiliserMode) decides whether it acts:
+ *   Automatic: the model's rules apply it (the user's lever becomes an offset to the rule);
+ *   Manual:    policy levers stay where the user sets them, and the stabiliser only suggests.
+ * The model must compute `suggestion` in BOTH modes (in Manual it is a shadow value).
+ */
+export interface StabiliserDef {
+  id: Id;
+  label: string; // "Central bank’s inflation rule"
+  /** The POLICY lever it acts on or stands in for: the lever the user sets in Manual mode. */
+  lever: Id;
+  /** Variable: what the rule would set `lever` to now, in the lever's units. */
+  suggestion: Id;
+  /** In lever units: |suggestion − lever value| above this counts as calling for action. */
+  threshold: number;
+  description: string;
+  concepts?: Id[];
+  /** Automatic mode: the lever that offsets the rule, when it is not `lever` itself (a key-rate
+   *  add-on that replaces a hidden key-rate level). Default: `lever`. */
+  offset?: Id;
+  /** Feed messages when the stabiliser starts calling in Manual mode: `raise` when the suggestion
+   *  is above the lever, `lower` when below. `{value}` is the suggestion and `{change}` the size of
+   *  the gap, in lever units. `indicator` is the chart the message opens. */
+  feed?: { raise: string; lower: string; indicator: Id };
+}
+
+/** A stabiliser now (Engine.stabilisers()). `gap` = suggested − current, in lever units. */
+export interface StabiliserState {
+  id: Id;
+  label: string;
+  lever: Id;
+  /** The lever that offsets the rule in Automatic mode (`lever` unless declared). */
+  offset: Id;
+  suggested: number;
+  current: number;
+  gap: number;
+  /** Manual mode and |gap| > threshold: the rule would move the lever if it were in charge. */
+  calling: boolean;
+  /** The model's stabiliser setting is Automatic: the rule is acting. */
+  automatic: boolean;
+  description: string;
 }
 
 export interface ShockApi {
@@ -365,6 +413,8 @@ export interface ModuleDef {
   indicators?: IndicatorDef[];
   concepts?: ConceptDef[];
   feed?: FeedRule[];
+  /** Automatic policy reactions this module's rules implement (see StabiliserDef). */
+  stabilisers?: StabiliserDef[];
   tests?: ModuleTest[];
 }
 
@@ -409,6 +459,9 @@ export interface ModelDef {
   dt: number; // 1/12
   steadyState: SteadyStateSpec;
   calibration?: CalibrationCheck[];
+  /** The global stabiliser setting: the lever whose value says Manual or Automatic. Required
+   *  when any module declares stabilisers. A value nearer `automatic` than `manual` is Automatic. */
+  stabiliserMode?: { lever: Id; manual: number; automatic: number };
 }
 
 /* ------------------------------------------------------------------ runtime */
@@ -532,7 +585,12 @@ export interface Engine {
    *  (a group end stands for all its players). */
   ideasAtPlay(scope?: Id): { concept: Id; weight: number; via: Id[] }[];
   checks(): CheckReport;
-  feed(): { t: number; message: string; indicator: Id; concept?: Id }[];
+  /** Narration: feed rules crossing their thresholds, and (Manual mode) stabilisers that start
+   *  calling for action, marked with the stabiliser's id. */
+  feed(): { t: number; message: string; indicator: Id; concept?: Id; stabiliser?: Id }[];
+  /** Every declared stabiliser now, in declaration order: what it suggests, and whether it acts
+   *  (Automatic) or calls for action (Manual, gap above its threshold). */
+  stabilisers(): StabiliserState[];
   /** Independent copy for counterfactuals: compare shock vs no-shock within the SAME variant.
    *  The fork replays this engine's events from the baseline under its own options.
    *  disableTerms ('ruleId.termId' or 'varId.termId') holds those terms at their baseline
@@ -571,6 +629,9 @@ export interface CompiledModel {
   indicators: IndicatorDef[];
   concepts: ConceptDef[];
   feed: FeedRule[];
+  /** Declared stabilisers of every module, in module order. */
+  stabilisers: StabiliserDef[];
+  stabiliserMode?: { lever: Id; manual: number; automatic: number };
   /** Evaluation schedule: ordered blocks; a block with >1 rule is solved simultaneously. */
   schedule: { rules: Id[]; simultaneous: boolean }[];
   ruleFor(varId: Id): RuleDef | undefined;

@@ -14,7 +14,7 @@
  * snapshots, so the numbers are identical to a straight run.
  */
 import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
-import type { BalanceSheet, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent } from '../core/types.ts';
+import type { BalanceSheet, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent, StabiliserState } from '../core/types.ts';
 import { describeModel, type ModelInfo } from './model/info.ts';
 
 export type Speed = 1 | 3 | 6;
@@ -29,6 +29,8 @@ export interface FeedItem {
   message: string;
   indicator: Id;
   concept?: Id;
+  /** Set when a stabiliser started calling for action (Manual mode). */
+  stabiliser?: Id;
 }
 
 export interface IdeaWeight {
@@ -69,6 +71,8 @@ export interface Frame {
   feed: readonly FeedItem[];
   /** Active regime of each rule that has one (null when nothing special), by rule id. */
   regimes: Readonly<Record<Id, string | null>>;
+  /** Every stabiliser now: what it suggests, and whether it acts (Automatic) or calls (Manual). */
+  stabilisers: readonly StabiliserState[];
   /** The last action that failed, if any. */
   error: string | null;
 }
@@ -117,6 +121,9 @@ const sameEvents = (a: readonly ScenarioEvent[], b: readonly ScenarioEvent[]) =>
   a.length === b.length && a.every((e, i) => e.t === b[i].t && e.lever === b[i].lever && e.value === b[i].value && !!e.fire === !!b[i].fire);
 
 const sameNumbers = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((x, i) => Object.is(x, b[i]));
+
+const sameStabilisers = (a: readonly StabiliserState[], b: readonly StabiliserState[]) =>
+  a.length === b.length && a.every((x, i) => x.id === b[i].id && Object.is(x.suggested, b[i].suggested) && Object.is(x.current, b[i].current) && x.calling === b[i].calling && x.automatic === b[i].automatic);
 
 class MainThreadClient implements EngineClient {
   readonly info: ModelInfo;
@@ -195,6 +202,7 @@ class MainThreadClient implements EngineClient {
       }
     }
     const sameRegimes = prev && this.regimeRules.every((r) => prev.regimes[r.id] === regimes[r.id]);
+    const stabilisers = e.stabilisers();
     this.frame = {
       seq: ++this.seq,
       modelId: this.info.id,
@@ -211,6 +219,7 @@ class MainThreadClient implements EngineClient {
       checks,
       feed,
       regimes: sameRegimes ? prev!.regimes : regimes,
+      stabilisers: prev && sameStabilisers(prev.stabilisers, stabilisers) ? prev.stabilisers : stabilisers,
       error: this.error,
     };
     if (notify) for (const fn of [...this.listeners]) fn();

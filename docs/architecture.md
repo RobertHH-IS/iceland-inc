@@ -38,7 +38,8 @@ All types live in `src/core/types.ts`. In brief:
 | **Rule** | The one equation that sets a variable: terms (additive), a combine (e.g. `min`), optional gradual adjustment, a regime label | Desired mortgage lending = Σ terms; actual = min(desired, debt-service cap, loan-to-value cap) |
 | **Flow** | A transaction type with a *posting* and *legs* (payer → payee, each with its own amount variable) | Wages: exporters → young households, exporters → working-age households, … |
 | **Posting** | How a leg changes balance sheets: `transfer`, `purchase`, `issue`, `redeem`, `trade`, `accrue`, `revalue`, `writeoff` | A bank `issue` of a mortgage creates a deposit; a pension-fund `issue` moves an existing one |
-| **Lever** | A setting or one-off shock with a precise definition | Key-rate add-on (pp, persistent); wage settlement (one-off level shift) |
+| **Lever** | A setting or one-off shock with a precise definition; `showWhen` shows it only while another lever has given values | Key interest rate (%, persistent, shown on Manual); wage settlement (one-off level shift) |
+| **Stabiliser** | An automatic POLICY reaction, declared: the lever it acts on, a variable with what it would set that lever to now, and a threshold for "calling for action". It acts only when the model's stabiliser setting is Automatic | The central bank's inflation rule on the key rate; the debt rule on income tax |
 | **Indicator** | A chart series computed from variables and stocks, with a display transform | Broad money, % vs baseline |
 | **Concept** | An economic idea with a plain-English explanation and references | "Loans create deposits" (Bank of England 2014) |
 | **Module** | A bundle of all of the above, plus its own tests | `pensions/funded`, `government/cofog-channels` |
@@ -48,6 +49,15 @@ All types live in `src/core/types.ts`. In brief:
 Players are the unit of accounting; groups are a way of looking at them. A module declares `GroupDef`s (with an optional `parent`) and each player names its own group. The compiler checks the tree (unique ids, parents that exist, no cycles, every player in a declared group, no id that is both a group and a player) and publishes it as `CompiledModel.groups`, parents first, with each group's direct `players`, sub-groups (`children`) and `allPlayers`. A group's colour and layout default to its first player's colour and its players' centroid. A model without `GroupDef`s gets flat groups from its players' `group` labels, as before.
 
 The map shows a group as one node until it is expanded. `nodeOf(player, expanded)` is the player's outermost closed group, or the player itself when every group around it is open, and `engine.pipes({ expanded })` sums legs to those nodes (legs inside a node become a loop on it). A group's balance sheet is the sum of its players', instrument by instrument, without netting claims between them. Because groups own nothing, opening and closing them can never change a number. Decision record [0003](decisions/0003-player-hierarchy.md) has the details.
+
+### Policy is held; stabilisers are a setting
+
+A POLICY lever never changes unless the user changes it, and no rule moves a policy setting behind the user's back. Some policy rules do react to the economy by design, such as a central bank's inflation rule or a debt-tied tax rule. Each is declared as a `StabiliserDef` next to the rules that implement it, and one global setting (`ModelDef.stabiliserMode`, a choice lever) decides whether they act:
+
+- **Manual** (the Iceland model's default): policy reactions are off. The key rate is the level on its lever and the income-tax rate is its baseline plus the user's shift, and they stay there. Each rule still works out what it *would* do every month (its `suggestion`, a shadow value), and `engine.stabilisers()` reports it: when the lever is further from the suggestion than the stabiliser's threshold, the stabiliser is *calling*, the lever panel turns that lever red with the rule's number and an "Apply" button, and the feed says so. The user becomes the stabiliser.
+- **Automatic**: the rules act on the variables (the key rate is the rule's rate; the debt rule's adjustment is added to the tax rate), and the user's lever becomes an offset on top of the rule. The lever values themselves still change only when the user changes them; the interface marks the levers a rule acts through ("Set by the central bank's inflation rule: 4.25%").
+
+This is different from *institutional responses*, the automatic stabilisers of economics: tax revenue that falls and unemployment benefits that rise when incomes and jobs fall. Those are the rules of the game at the rates the user has set, and they work in both modes. The baseline is the same in both modes, and `showWhen` hides the lever that does nothing in the current mode (the Manual key rate on Automatic, the offset on Manual). Decision record [0004](decisions/0004-stabilisers.md) has the details, and why the reference economy starts on Automatic.
 
 ### Why legs carry their own amounts
 
@@ -161,7 +171,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 - **`EngineClient`** wraps the engine. It runs on the main thread today, and a Web Worker with the same interface can come later. Views receive compact snapshots and ask for details (influences, balance sheets) on demand.
 - **Views, all generated from the compiled model:**
   - the flow map, with groups that open in place, one level at a time;
-  - lever sections;
+  - the stabiliser setting and lever sections, with each rule's suggestion (Manual) or its value (Automatic);
   - the inspector for pipes, players, indicators, concepts and terms;
   - chart tabs by indicator group;
   - the ledger (a live Godley table);
@@ -185,6 +195,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | **A flow** | Add a `FlowDef` with its posting and legs, and one rule per leg amount (usually a family). The kernel posts it, checks it and draws it |
 | **A behaviour** | Add a rule with terms and concepts. To refine an existing one, add a rule with `replaces` in a new module and keep the old module for comparison |
 | **A lever** | Add a `LeverDef` with a precise `definition` and bind it to a parameter or exogenous variable, or give it a `fire` for one-off shocks that touch only non-stock state |
+| **A policy reaction** | Declare it as a `StabiliserDef` in its module, compute its suggestion in both modes, and make the rules apply it only when the stabiliser setting is Automatic |
 | **A chart** | Add an `IndicatorDef` with drivers and concepts |
 | **An idea** | Add a `ConceptDef` and tag the rules and terms that express it |
 | **A calibration target** | Add a `CalibrationCheck` with a source for its range |
@@ -204,6 +215,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | 7 | Monthly step, flows at annual rates in % of baseline GDP | Readable numbers; the step can be changed; the harness checks sensitivity |
 | 8 | Engine v1 kept in `legacy/` | A reference to port from and to compare results against |
 | 9 | Groups are views over players, not players ([0003](decisions/0003-player-hierarchy.md)) | Opening and closing groups can never change the accounting; pipes and balance sheets at any level are sums of the same legs and positions |
+| 10 | Policy is held; stabilisers are a setting, Manual by default ([0004](decisions/0004-stabilisers.md)) | Levers never move by themselves; every automatic policy reaction is declared, acts only on Automatic, and is a visible suggestion on Manual |
 
 ## 10. Roadmap
 

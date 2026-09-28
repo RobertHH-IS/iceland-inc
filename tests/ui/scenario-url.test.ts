@@ -71,4 +71,27 @@ describe('scenario URL hash', () => {
     a.dispose();
     b.dispose();
   });
+
+  test('share links carry the stabiliser setting, which is a lever event like any other', () => {
+    const def = models.find((m) => m.id === 'iceland')!;
+    const a = createEngineClient(createEngine(def));
+    a.setLever('incomeTax', 1);
+    a.pause();
+    a.step(6);
+    a.setLever('stabilisers', 1);
+    a.pause();
+    a.step(6);
+    const hash = encodeScenarioHash(a.scenario());
+    expect(hash).toContain('6:stabilisers:1');
+    const d = decodeScenarioHash(hash);
+    expect(d.ok).toBe(true);
+    if (!d.ok) return;
+    const b = createEngineClient(createEngine(def));
+    b.load({ modelId: d.state.modelId!, events: d.state.events, months: d.state.months });
+    expect(b.getFrame().levers[b.info.leverById.get('stabilisers')!.index]).toBe(1);
+    expect(b.series('keyRate')).toEqual(a.series('keyRate'));
+    expect(b.getFrame().stabilisers).toEqual(a.getFrame().stabilisers);
+    a.dispose();
+    b.dispose();
+  });
 });

@@ -20,6 +20,7 @@ import type {
   ParamDef,
   PlayerDef,
   Posting,
+  StabiliserDef,
   VarDef,
 } from '../../core/types.ts';
 import type { KModel } from '../../core/compile.ts';
@@ -89,6 +90,9 @@ export interface ModelInfo {
   indicators: IndicatorInfo[];
   concepts: ConceptDef[];
   feed: FeedRule[];
+  /** Declared stabilisers (automatic policy reactions) and the setting that switches them. */
+  stabilisers: StabiliserDef[];
+  stabiliserMode?: { lever: Id; manual: number; automatic: number };
   warnings: string[];
   /* lookups */
   varById: Map<Id, VarDef>;
@@ -204,6 +208,8 @@ export function describeModel(m: KModel, baseline: (varId: Id) => number, warnin
     indicators,
     concepts: m.concepts.map((c) => ({ ...c })),
     feed: m.feed.map((f) => ({ ...f })),
+    stabilisers: m.stabilisers.map((s) => ({ ...s, ...(s.concepts ? { concepts: [...s.concepts] } : {}), ...(s.feed ? { feed: { ...s.feed } } : {}) })),
+    ...(m.stabiliserMode ? { stabiliserMode: { ...m.stabiliserMode } } : {}),
     warnings: [...warnings],
     varById: byId(m.vars),
     paramById: byId(m.params),

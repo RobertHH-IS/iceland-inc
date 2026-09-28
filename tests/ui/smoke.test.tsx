@@ -2,7 +2,8 @@
  * The interface renders for every registered model, and for a test model with a two-level
  * hierarchy of groups (react-dom/server, no browser): at the baseline with every group closed,
  * fully expanded, after a replayed scenario from a shared link (which may open groups), and
- * with the inspector open on every kind of selection.
+ * with the inspector open on every kind of selection; and the lever panel and map in both
+ * stabiliser modes.
  */
 import { describe, expect, test } from 'bun:test';
 import { renderToString } from 'react-dom/server';
@@ -17,6 +18,7 @@ import { Inspector } from '../../src/ui/views/Inspector.tsx';
 import { IdeasAtPlay } from '../../src/ui/views/IdeasAtPlay.tsx';
 import { LedgerView } from '../../src/ui/views/LedgerView.tsx';
 import { FlowMap } from '../../src/ui/views/FlowMap.tsx';
+import { LeverPanel } from '../../src/ui/views/LeverPanel.tsx';
 import { hierarchyModel } from '../fixtures/hierarchy.ts';
 
 const all: ModelDef[] = [...models, hierarchyModel()];
@@ -144,4 +146,48 @@ test('an unknown model in a link falls back to a registered one', () => {
   const html = renderToString(<App models={models} initialHash="#m=no-such-model" />);
   expect(html).toContain('ICELAND');
   expect(html).toContain('Levers');
+});
+
+describe('the lever panel and the map with stabilisers (decision 0004)', () => {
+  const iceland = models.find((m) => m.id === 'iceland')!;
+
+  test('Manual: the setting on top, only the Manual key-rate lever, red calling levers with Apply, red dots on their sections', () => {
+    const client = createEngineClient(iceland);
+    client.setLever('incomeTax', 1);
+    client.pause();
+    client.step(12);
+    const f = client.getFrame();
+    expect(f.stabilisers.every((s) => s.calling)).toBe(true);
+    const html = renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />);
+    expect(html).toContain('class="stab-mode"');
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Manual</);
+    expect(html).toContain('>Key interest rate<');
+    expect(html).not.toContain('Key rate: your offset to the rule');
+    expect(count(html, /class="lever [^"]*calling"/g)).toBe(1); // the Government section is closed
+    expect(html).toMatch(/class="stab-call"><span>Central bank’s inflation rule: 2\.\d\d%<\/span>/);
+    expect(html).toContain('>Apply</button>');
+    expect(count(html, /class="call-dot"/g)).toBe(2); // Central bank and Government
+    client.dispose();
+  });
+
+  test('Automatic: the offset lever instead, with what the rule sets; the map marks the key rate "rule"', () => {
+    const client = createEngineClient(iceland);
+    client.setLever('stabilisers', 1);
+    client.pause();
+    client.step(3);
+    const f = client.getFrame();
+    const html = renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Automatic</);
+    expect(html).toContain('Key rate: your offset to the rule');
+    expect(html).not.toContain('>Key interest rate<');
+    expect(html).toContain('class="stab-note">Set by Central bank’s inflation rule: 3%');
+    expect(html).not.toContain('class="call-dot"');
+    const info = client.info;
+    const eff = effectiveExpanded(info, []);
+    const map = (acting: string) =>
+      renderToString(<FlowMap info={info} client={client} expanded={eff} pipes={client.pipes({ expanded: [...eff] })} legs={f.legs} regimes={f.regimes} rulesActing={acting} seq={f.seq} selection={null} onSelect={noop} onOpenGroup={noop} onCloseGroup={noop} />);
+    expect(count(map('keyRateRule debtRule'), /class="node-rule"/g)).toBe(1);
+    expect(count(map(''), /class="node-rule"/g)).toBe(0);
+    client.dispose();
+  });
 });

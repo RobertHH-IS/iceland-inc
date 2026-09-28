@@ -6,6 +6,11 @@
  "events": [
   {
    "t": 0,
+   "lever": "stabilisers",
+   "value": 1
+  },
+  {
+   "t": 0,
    "lever": "tourism",
    "value": -30
   }

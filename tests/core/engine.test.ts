@@ -162,7 +162,7 @@ describe('influences: exact within each rule', () => {
 
   test('non-additive rules are flagged and name the active regime', () => {
     const e = fresh();
-    const inf = e.influences('keyRate');
+    const inf = e.influences('ruleRate'); // the Taylor rule (decision 0004 moved it off keyRate)
     expect(inf.nonAdditive).toBe(true);
     expect(inf.regime).toBeNull();
     expect(inf.category).toBe('POLICY');
@@ -204,7 +204,7 @@ describe('adjust semantics', () => {
     const e = fresh();
     e.setLever('govSpending', 2);
     e.step(5);
-    for (const id of ['consumption', 'price', 'keyRate', 'employment']) {
+    for (const id of ['consumption', 'price', 'ruleRate', 'employment']) {
       const inf = e.influences(id);
       const r = model.ruleFor(id)!;
       const speedParam = r.adjust!.speed as string;

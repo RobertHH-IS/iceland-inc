@@ -10,11 +10,12 @@ export const referenceModel: ModelDef = {
   id: 'reference',
   label: 'Reference economy',
   description: '…',
-  modules: [structure, labourPrices, demand, banking, centralBank, government, indicators],
+  modules: [stabilisers, structure, labourPrices, demand, banking, centralBank, government, indicators],
   paymentSystem: { bank: 'B', centralBank: 'CB', treasury: 'G', deposits: 'deposits', reserves: 'reserves', treasuryAccount: 'treasuryAccount' },
   dt: 1 / 12,
   steadyState: { … },
   calibration,
+  stabiliserMode: { lever: 'stabilisers', manual: 0, automatic: 1 },
 };
 ```
 
@@ -22,12 +23,13 @@ Each module (`ModuleDef`) bundles players, instruments, variables, parameters, r
 
 | File | Module | What it holds |
 |---|---|---|
+| `stabilisers.ts` | `stabilisers` | the Manual / Automatic setting for the policy rules (section 7) |
 | `structure.ts` | `structure` | 5 players, 6 instruments |
 | `labour-prices.ts` | `labour-and-prices` | jobs, wages, prices, expectations; wage-settlement lever |
 | `demand.ts` | `demand` | disposable income, consumption, investment, GDP |
 | `banking.ts` | `banking-and-credit` | loans, repayments, interest, dividends; lending-appetite lever |
-| `central-bank.ts` | `central-bank` | Taylor rule, reserves, open-market operations; key-rate lever |
-| `government.ts` | `government` | spending, the debt rule, taxes, deficit, bonds; spending and tax levers |
+| `central-bank.ts` | `central-bank` | Taylor rule (a stabiliser), reserves, open-market operations; key-rate levers |
+| `government.ts` | `government` | spending, the debt rule (a stabiliser), taxes, deficit, bonds; spending and tax levers |
 | `indicators.ts` | `indicators` | 8 charts and the narration feed |
 | `calibration.ts` | (model level) | 3 calibration checks |
 
@@ -185,7 +187,49 @@ A lever is a setting or a one-off with a precise `definition`: level or growth, 
 }
 ```
 
-**A setting read by a rule.** The key-rate add-on binds nothing; the Taylor rule declares `levers: ['keyRateAddon']` and reads `c.lever('keyRateAddon') / 100` in its `addOn` term.
+**A setting read by a rule.** The key-rate offset binds nothing; the Taylor rule declares `levers: ['stabilisers', 'keyRateAddon']` and reads `c.lever('keyRateAddon') / 100` in its `addOn` term (only on Automatic, below).
+
+**A lever shown in one mode only.** `showWhen` shows a lever only while another lever has one of the listed values. The Manual key rate and the offset to the rule are never on screen together:
+
+```ts
+{ id: 'keyRateFixed', label: 'Key interest rate', unit: '%', default: 3, step: 0.25, showWhen: { lever: 'stabilisers', equals: 0 }, … },
+{ id: 'keyRateAddon', label: 'Key rate: your offset to the rule', unit: 'pp', default: 0, step: 0.25, showWhen: { lever: 'stabilisers', equals: 1 }, … },
+```
+
+It is presentation only: the engine still applies a hidden lever's value, so the rules must ignore it in the other mode, and the lever panel puts it back to its default when the mode hides it. The compiler checks that `showWhen` names another setting or choice, and that each value is one of its options.
+
+### Policy reactions are stabilisers
+
+A POLICY setting never changes unless the user changes it. A rule that reacts to the economy by moving a policy setting (a Taylor rule, a debt rule) is a *stabiliser*: declare it, and make it act only when the model's stabiliser setting is Automatic ([decision 0004](decisions/0004-stabilisers.md)).
+
+1. **The setting.** One choice lever for the whole model (`stabilisers.ts`: Manual 0, Automatic 1), named in `ModelDef.stabiliserMode`.
+2. **The shadow value.** Compute what the rule would do every month in both modes. The reference's Taylor rule is a variable of its own, `ruleRate`, and the key rate uses it only on Automatic:
+
+```ts
+{ id: 'keyRate', target: 'keyRate', category: 'POLICY', inputs: ['ruleRate'], levers: ['stabilisers', 'keyRateFixed'],
+  terms: [
+    { id: 'rule', label: 'The Taylor rule (Automatic)', compute: (c) => (automatic(c) ? c.v('ruleRate') : 0) },
+    { id: 'set', label: 'The rate you set (Manual)', compute: (c) => (automatic(c) ? 0 : c.lever('keyRateFixed') / 100) },
+  ],
+  … }
+```
+
+3. **The suggestion,** a variable in the lever's own units, so it can be compared with the lever and "Apply" can set it: `keyRateSuggestion = 100 × ruleRate` (%). For a rule that adds to a lever (a tax shift), suggest the whole shift the rule would set, not the rule's addition on top of the user's setting: otherwise each "Apply" would ratchet.
+4. **The declaration,** in the module with the rules:
+
+```ts
+stabilisers: [{
+  id: 'taylorRule', label: 'Taylor rule',
+  lever: 'keyRateFixed',          // the POLICY lever it stands in for (set by the user on Manual)
+  offset: 'keyRateAddon',         // the lever that offsets it on Automatic, if not `lever` itself
+  suggestion: 'keyRateSuggestion',
+  threshold: 0.125,               // lever units; half the lever's step calls exactly when Apply would move it
+  description: 'The central bank’s Taylor rule: …',
+  feed: { raise: 'The Taylor rule would raise the key rate to {value}%', lower: 'The Taylor rule would cut the key rate to {value}%', indicator: 'keyRate' },
+}],
+```
+
+`engine.stabilisers()` then reports each one: `suggested`, `current` (the lever), `gap`, `calling` (Manual and the gap above the threshold) and `automatic`. The interface turns a calling lever red with the suggestion and an "Apply" button, marks the offset lever with the rule's value on Automatic, and the engine narrates a call in the feed. Keep the baseline identical in both modes: at the steady state the rule must suggest exactly what the lever's default gives.
 
 **A one-off.** `fire` may change only non-stock state, through the restricted `ShockApi`. Here it lifts last month's wage rate, so the jump is felt this month:
 
@@ -290,6 +334,8 @@ Module tests check a module's own arithmetic on a fresh engine at the baseline:
 **Add a behaviour.** Add a variable and a rule written as terms, with concepts on the terms. To refine an existing rule, put the new rule in a new module with `replaces: '<old rule id>'` and the same `target`; the old module stays for comparison, and removing the new module restores the old behaviour. Two rules for one variable without `replaces` is a compile error.
 
 **Add a lever.** Add a `LeverDef` with a precise `definition`. Bind a setting to a parameter or exogenous variable (with `scale` if the units differ), or let a rule read it through `levers`. For a one-off, write `fire` using only `ShockApi.get` and `setLagged`. Give it a range the model survives: the harness pulls random combinations within it.
+
+**Add a policy reaction.** Declare it as a stabiliser (section 7): a shadow value computed in both modes, a suggestion in the lever's units, a `StabiliserDef`, and rules that apply it only on Automatic. Check the model in Manual too: the harness's property tests draw the mode like any other lever.
 
 **Add a chart.** Add an `IndicatorDef` with `drivers`, `concepts` and the right `display`. The harness stores every indicator in the golden scenarios, so run `bun run harness --update-golden` once and commit the new files.
 

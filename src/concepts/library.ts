@@ -828,7 +828,7 @@ export const concepts: ConceptDef[] = [
       `*key rate = neutral real rate + inflation + 0.5 × (inflation − target) + 0.5 × output gap*`,
       `The *neutral real rate* is the inflation-adjusted rate that neither stimulates nor restrains the economy; the *output gap* is how far output is above or below its sustainable level. The key feature is that the rate moves more than one-for-one with inflation, so the *real* rate rises when inflation climbs.`,
       `Many central-bank models, including the Central Bank of Iceland's QMM, describe policy with rules of this kind. In 2026 the Bank estimated its neutral real rate at about 2¼%, against an inflation target of 2.5%, and the key rate stood at 7.75% after rises in the spring.`,
-      `A Taylor rule is a description, not an instruction. The Monetary Policy Committee weighs many indicators, and the Federal Reserve notes that different rules can give quite different answers. Post-Keynesians add that rate changes redistribute income as much as they curb demand. In Iceland Inc., the central bank's rule is labelled POLICY, and its settings are levers you can change.`,
+      `A Taylor rule is a description, not an instruction. The Monetary Policy Committee weighs many indicators, and the Federal Reserve notes that different rules can give quite different answers. Post-Keynesians add that rate changes redistribute income as much as they curb demand. In Iceland Inc., the rule sets the key rate only when stabilisers are Automatic; on Manual it only suggests one.`,
     ),
     school: 'new-keynesian',
     references: [ref.taylor1993, ref.fedRules, ref.cbiMb2026],

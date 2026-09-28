@@ -13,12 +13,15 @@ import { withConcepts } from '../../src/models/index.ts';
 
 const model = compile(withConcepts(icelandModel));
 
+// v1's levers, less its two policy-rule switches (keyRateMode, fiscalRule), which the stabiliser
+// setting replaced (decision 0004).
 const V1_LEVERS = [
-  'keyRateMode', 'keyRateAddon', 'keyRateFixed', 'incomeTax', 'vat', 'health', 'education', 'otherServices', 'publicInvestment',
-  'oldAgeTransfers', 'familyBenefits', 'unemploymentBenefits', 'fiscalRule', 'bondBuyers', 'dstiCap', 'ltvCap', 'wageSettlement',
+  'keyRateAddon', 'keyRateFixed', 'incomeTax', 'vat', 'health', 'education', 'otherServices', 'publicInvestment',
+  'oldAgeTransfers', 'familyBenefits', 'unemploymentBenefits', 'bondBuyers', 'dstiCap', 'ltvCap', 'wageSettlement',
   'lendingAppetite', 'pfForeign', 'migration', 'foreignDemand', 'tourism', 'kronaShock', 'foreignRate', 'importPrices',
 ];
 const SECTOR_LEVERS = ['fishPrices', 'aluminiumPrice'];
+const STABILISER_LEVERS = ['stabilisers'];
 const V1_SERIES = [
   'output', 'consumption', 'investment', 'unemployment', 'unemploymentY', 'unemploymentW', 'unemploymentO', 'realWage', 'profitsFD', 'profitsFX',
   'inflation', 'priceLevel', 'expInflation', 'keyRate', 'mortgageRate', 'broadMoney', 'creditImpulse', 'creditImpulseTotal', 'netMortgage',
@@ -59,9 +62,22 @@ describe('Iceland model: structure', () => {
     }
   });
 
-  test('v1’s 25 levers, with the same ids, plus the fish- and aluminium-price levers; a precise definition each', () => {
-    expect(model.levers.map((l) => l.id).sort()).toEqual([...V1_LEVERS, ...SECTOR_LEVERS].sort());
+  test('v1’s levers with the same ids (less its two rule switches), the fish- and aluminium-price levers and the stabiliser setting; a precise definition each', () => {
+    expect(model.levers.map((l) => l.id).sort()).toEqual([...V1_LEVERS, ...SECTOR_LEVERS, ...STABILISER_LEVERS].sort());
     for (const l of model.levers) expect(l.definition.length).toBeGreaterThan(40);
+  });
+
+  test('two stabilisers, the key-rate levers shown one mode at a time, Manual by default', () => {
+    expect(model.stabilisers.map((s) => [s.id, s.lever, s.offset ?? s.lever, s.suggestion])).toEqual([
+      ['keyRateRule', 'keyRateFixed', 'keyRateAddon', 'keyRateSuggestion'],
+      ['debtRule', 'incomeTax', 'incomeTax', 'taxRuleSuggestion'],
+    ]);
+    expect(model.stabiliserMode).toEqual({ lever: 'stabilisers', manual: 0, automatic: 1 });
+    const lever = (id: string) => model.levers.find((l) => l.id === id)!;
+    expect(lever('stabilisers').default).toBe(0);
+    expect(lever('keyRateFixed').showWhen).toEqual({ lever: 'stabilisers', equals: 0 });
+    expect(lever('keyRateAddon').showWhen).toEqual({ lever: 'stabilisers', equals: 1 });
+    expect(lever('incomeTax').showWhen).toBeUndefined();
   });
 
   test('v1’s 34 charts, with the same ids, in four tabs, plus 17 charts by firm sector in a fifth', () => {

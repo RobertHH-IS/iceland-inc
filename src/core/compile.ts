@@ -2,8 +2,9 @@
  * The compiler: turns a declared ModelDef into a validated, indexed and scheduled model.
  *
  *   1. merge modules and apply `replaces`;
- *   2. check that ids are unique and every reference resolves, and build the player
- *      hierarchy (groups; see hierarchy.ts);
+ *   2. check that ids are unique and every reference resolves (including levers' `showWhen`,
+ *      the stabiliser setting and each stabiliser's levers and suggestion), and build the
+ *      player hierarchy (groups; see hierarchy.ts);
  *   3. enforce one rule per endogenous variable;
  *   4. dry-run every rule, term and indicator against a recording context, so that reading
  *      an undeclared input (or an id that does not exist) is a compile error;
@@ -32,6 +33,7 @@ import type {
   PlayerDef,
   RuleDef,
   Settlement,
+  StabiliserDef,
   TermDef,
   VarDef,
 } from './types.ts';
@@ -159,6 +161,23 @@ export interface KModel extends CompiledModel {
   groupIndex: Map<Id, number>;
   /** For each player (by index), its enclosing groups, outermost first. */
   groupChains: Id[][];
+  /** Indices behind each stabiliser, in `stabilisers` order. */
+  cstabilisers: CStabiliser[];
+  /** Lever index of the stabiliser setting, or -1 when the model has none. */
+  modeLever: number;
+}
+
+export interface CStabiliser {
+  lever: number;
+  offset: number;
+  suggestion: number;
+  /** Module that declared it (for messages). */
+  module: Id;
+}
+
+/** Is a stabiliser-mode lever value Automatic? The value nearer `automatic` wins; a tie is Automatic. */
+export function isAutomatic(mode: { manual: number; automatic: number }, value: number): boolean {
+  return Math.abs(value - mode.automatic) <= Math.abs(value - mode.manual);
 }
 
 /* ---------------------------------------------------------------- utilities */
@@ -290,6 +309,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   const indicators = gather((m) => m.indicators);
   const concepts = gather((m) => m.concepts);
   const feed = gather((m) => m.feed);
+  const stabilisers = gather((m) => m.stabilisers);
 
   /* 2. replaces ----------------------------------------------------------- */
   const ruleById = new Map<Id, Tagged<RuleDef>>();
@@ -328,6 +348,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   const leverIndex = indexOf(levers, 'lever');
   const indicatorIndex = indexOf(indicators, 'indicator');
   indexOf(feed, 'feed rule');
+  indexOf(stabilisers, 'stabiliser');
   const conceptList: ConceptDef[] = [];
   const conceptIndex = new Map<Id, number>();
   for (const c of concepts) {
@@ -726,6 +747,61 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     } else if (l.kind !== 'oneoff' && !leverReadByRule.has(l.id)) warn(`lever '${l.id}' is bound to nothing: it binds no parameter or variable and no rule reads it`);
     return { def: l, bindParam, bindVar, mode, scale };
   });
+  /** A lever another declaration refers to: it must exist and be a setting or choice. */
+  const settingLever = (id: Id | undefined, where: string, what: string): number => {
+    const k = id === undefined ? undefined : leverIndex.get(id);
+    if (k === undefined) {
+      err(`${where} ${what} unknown lever '${id}'`);
+      return -1;
+    }
+    if (levers[k].def.kind === 'oneoff') err(`${where} ${what} one-off lever '${id}'; it must be a setting or a choice`);
+    return k;
+  };
+  /** Values a choice lever cannot take are almost certainly typos. */
+  const checkOption = (k: number, value: number, where: string) => {
+    const l = levers[k]?.def;
+    if (!Number.isFinite(value)) err(`${where}: value ${value} is not a finite number`);
+    else if (l?.kind === 'choice' && (l.options ?? []).length && !l.options!.some((o) => o.value === value)) err(`${where}: ${value} is not an option of choice lever '${l.id}'`);
+  };
+  levers.forEach(({ def: l, module }) => {
+    if (!l.showWhen) return;
+    const where = `lever '${l.id}' (module '${module}')`;
+    if (l.showWhen.lever === l.id) err(`${where} showWhen refers to itself`);
+    const k = settingLever(l.showWhen.lever, where, 'showWhen refers to');
+    const vals = Array.isArray(l.showWhen.equals) ? l.showWhen.equals : [l.showWhen.equals];
+    if (!vals.length) err(`${where} showWhen lists no values`);
+    if (k >= 0) for (const v of vals) checkOption(k, v, `${where} showWhen`);
+  });
+
+  /* 8b. stabilisers --------------------------------------------------------- */
+  const sm = def.stabiliserMode;
+  let modeLever = -1;
+  if (sm) {
+    modeLever = settingLever(sm.lever, 'stabiliserMode', 'names');
+    if (modeLever >= 0) {
+      checkOption(modeLever, sm.manual, 'stabiliserMode.manual');
+      checkOption(modeLever, sm.automatic, 'stabiliserMode.automatic');
+      if (!leverReadByRule.has(sm.lever)) warn(`stabiliserMode lever '${sm.lever}' is read by no rule, so the mode changes nothing`);
+    }
+    if (sm.manual === sm.automatic) err('stabiliserMode: manual and automatic must be different values');
+    if (!stabilisers.length) warn('stabiliserMode is declared but no module declares a stabiliser');
+  } else if (stabilisers.length) err(`the model declares ${stabilisers.length} stabiliser(s) but no stabiliserMode: say which lever switches them between Manual and Automatic`);
+  const cstabilisers: CStabiliser[] = stabilisers.map(({ def: s, module }) => {
+    const where = `stabiliser '${s.id}' (module '${module}')`;
+    if (!s.label) err(`${where} has no label`);
+    if (!s.description) err(`${where} needs a description`);
+    if (!(Number.isFinite(s.threshold) && s.threshold > 0)) err(`${where} needs a positive threshold (in lever units)`);
+    const lever = settingLever(s.lever, where, 'acts on');
+    const offset = s.offset === undefined ? lever : settingLever(s.offset, where, 'offsets with');
+    if (lever >= 0 && lever === modeLever) err(`${where} acts on the stabiliser setting itself`);
+    const suggestion = varIndex.get(s.suggestion) ?? -1;
+    if (suggestion < 0) err(`${where} suggests unknown variable '${s.suggestion}'`);
+    if (s.feed) {
+      if (!s.feed.raise || !s.feed.lower) err(`${where} feed needs both a 'raise' and a 'lower' message`);
+      if (!indicatorIndex.has(s.feed.indicator)) err(`${where} feed opens unknown indicator '${s.feed.indicator}'`);
+    }
+    return { lever, offset, suggestion, module };
+  });
 
   /* 9. indicators, feed, steady state, calibration ------------------------ */
   indicators.forEach(({ def: ind, module }) => {
@@ -933,6 +1009,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   indicators.forEach(({ def: i }) => (i.concepts ?? []).forEach((c) => refConcept(c, `indicator '${i.id}'`)));
   instruments.forEach(({ def: i }) => (i.concepts ?? []).forEach((c) => refConcept(c, `instrument '${i.id}'`)));
   feed.forEach(({ def: f }) => refConcept(f.concept, `feed rule '${f.id}'`));
+  stabilisers.forEach(({ def: s }) => (s.concepts ?? []).forEach((c) => refConcept(c, `stabiliser '${s.id}'`)));
   conceptList.forEach((c) => (c.related ?? []).forEach((r) => refConcept(r, `concept '${c.id}'`)));
 
   // parameters the closed-form steady state reads count as used: dry-run it on a recording record
@@ -964,6 +1041,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   clevers.forEach((l) => {
     if (l.bindVar >= 0) readVars.add(vars[l.bindVar].def.id);
   });
+  stabilisers.forEach(({ def: s }) => readVars.add(s.suggestion));
   vars.forEach(({ def: v }, j) => {
     if (!readVars.has(v.id)) warn(`variable '${v.id}' is not read by any rule, leg or indicator`);
     if (lagged[j] && v.initial === undefined && ss?.initialVars?.[v.id] === undefined && !ss?.solve)
@@ -992,6 +1070,8 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     indicators: indicators.map((x) => x.def as IndicatorDef),
     concepts: conceptList,
     feed: feed.map((x) => x.def as FeedRule),
+    stabilisers: stabilisers.map((x) => x.def as StabiliserDef),
+    stabiliserMode: sm ? { ...sm } : undefined,
     schedule: blocks.map((b) => ({ rules: b.rules.map((j) => ruleList[j].id), simultaneous: b.simultaneous })),
     ruleFor(varId: Id) {
       const k = varIndex.get(varId);
@@ -1030,6 +1110,8 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     origin,
     groupIndex: hierarchy.groupIndex,
     groupChains,
+    cstabilisers,
+    modeLever,
   };
   return model;
 }
