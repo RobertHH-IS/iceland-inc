@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import type { IndicatorInfo } from '../../src/ui/model/info.ts';
-import { CHART_SPAN, areaPath, chartRef, chartTabs, chartWindow, eventMarks, linePath, xAt, yAt, yTicks } from '../../src/ui/model/charts.ts';
+import type { IndicatorInfo, LeverInfo } from '../../src/ui/model/info.ts';
+import { CHART_SPAN, areaPath, chartRef, chartTabs, chartWindow, eventMarkTitle, eventMarks, linePath, xAt, yAt, yTicks } from '../../src/ui/model/charts.ts';
 
 const series = (n: number, f: (m: number) => number) => Array.from({ length: n }, (_, m) => f(m));
 
@@ -71,6 +71,25 @@ describe('paths and marks', () => {
     expect(marks.map((m) => m.t)).toEqual([40, 90]);
     expect(marks[0].x).toBeCloseTo(12);
     expect(marks[1].fire).toBe(true);
+    // A month's mark carries every event in it; the last one (the user's change) leads.
+    expect(marks[0].events.map((e) => e.lever)).toEqual(['a', 'b']);
+    expect(marks[0]).toMatchObject({ lever: 'b', value: 2, fire: false });
+  });
+
+  test('a mode switch’s mark names the switch first, then the reset recorded before it', () => {
+    const w = chartWindow(series(30, () => 0), 29);
+    const lever = (id: string, label: string, extra: Partial<LeverInfo> = {}) => [id, { id, label, unit: '', kind: 'setting', default: 0, ...extra } as LeverInfo] as const;
+    const info = { leverById: new Map([lever('keyRateFixed', 'Key interest rate', { unit: '%', default: 3 }), lever('stabilisers', 'Stabilisers', { kind: 'choice', options: [{ value: 0, label: 'Manual' }, { value: 1, label: 'Automatic' }] })]) };
+    const [m] = eventMarks(
+      [
+        { t: 12, lever: 'keyRateFixed', value: 3 },
+        { t: 12, lever: 'stabilisers', value: 1 },
+      ],
+      w,
+      100,
+    );
+    expect(eventMarkTitle(m, info)).toBe('Month 12: Stabilisers → Automatic · Key interest rate → 3%');
+    expect(eventMarkTitle(eventMarks([{ t: 3, lever: 'shock', value: 10, fire: true }], w, 100)[0], info)).toBe('Month 3: shock applied 10');
   });
 
   test('axis ticks: the reference line and the extremes', () => {

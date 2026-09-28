@@ -6,7 +6,8 @@
  * afterwards the window scrolls. The zero line is the baseline; lever events are amber marks.
  */
 import type { Id, ScenarioEvent } from '../../core/types.ts';
-import type { IndicatorInfo } from './info.ts';
+import type { IndicatorInfo, ModelInfo } from './info.ts';
+import { leverValueLabel } from './levers.ts';
 
 export const CHART_SPAN = 72;
 
@@ -92,21 +93,36 @@ export function areaPath(w: ChartWindow, width: number, height: number): string 
 export interface EventMark {
   t: number;
   x: number;
+  /** The month's last event: the lever the user changed (the panel records resets first). */
   lever: Id;
   value: number;
   fire: boolean;
+  /** Every event of the month, in the order they were recorded. */
+  events: { lever: Id; value: number; fire: boolean }[];
 }
 
-/** Lever events inside the window, as x positions (one mark per month). */
+/** Lever events inside the window, as x positions: one mark per month, carrying all its events. */
 export function eventMarks(events: readonly ScenarioEvent[], w: ChartWindow, width: number): EventMark[] {
-  const seen = new Set<number>();
-  const out: EventMark[] = [];
+  const byMonth = new Map<number, EventMark>();
   for (const e of events) {
-    if (e.t < w.from || e.t > w.to || seen.has(e.t)) continue;
-    seen.add(e.t);
-    out.push({ t: e.t, x: xAt(w, e.t, width), lever: e.lever, value: e.value, fire: !!e.fire });
+    if (e.t < w.from || e.t > w.to) continue;
+    const ev = { lever: e.lever, value: e.value, fire: !!e.fire };
+    const m = byMonth.get(e.t);
+    if (m) {
+      m.events.push(ev);
+      Object.assign(m, ev);
+    } else byMonth.set(e.t, { t: e.t, x: xAt(w, e.t, width), ...ev, events: [ev] });
   }
-  return out;
+  return [...byMonth.values()];
+}
+
+/** A mark's tooltip: "Month 12: Stabilisers → Automatic · Key interest rate → 3%", the last event first. */
+export function eventMarkTitle(m: EventMark, info: Pick<ModelInfo, 'leverById'>): string {
+  const one = (e: EventMark['events'][number]) => {
+    const l = info.leverById.get(e.lever);
+    return `${l?.label ?? e.lever} ${e.fire ? 'applied' : '→'} ${l ? leverValueLabel(l, e.value) : e.value}`;
+  };
+  return `Month ${m.t}: ${[...m.events].reverse().map(one).join(' · ')}`;
 }
 
 export interface ChartTab {
