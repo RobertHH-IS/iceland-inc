@@ -14,15 +14,15 @@
  * snapshots, so the numbers are identical to a straight run.
  *
  * A lever hidden by the stabiliser setting stays at its default (decision 0004). The panel adds
- * those resets when the user switches mode; when a lever is changed before a later switch (after
- * going back in time), or a scenario is loaded, the client adds the resets the script is missing
- * at the later switches (missingModeResets), so the later switch replays as it would in a
- * straight run.
+ * those resets when the user switches mode. After going back in time, a change can break the rule
+ * later in the script (a lever set before a later switch that hides it, or a switch made before a
+ * later setting of a lever it hides), and so can a loaded scenario; the client then rewrites the
+ * script as a straight run would have recorded it (keepHiddenAtDefault).
  */
 import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
 import type { BalanceSheet, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent, StabiliserState } from '../core/types.ts';
 import { describeModel, type ModelInfo } from './model/info.ts';
-import { missingModeResets } from './model/levers.ts';
+import { keepHiddenAtDefault } from './model/levers.ts';
 
 export type Speed = 1 | 3 | 6;
 export const SPEEDS: readonly Speed[] = [1, 3, 6];
@@ -352,17 +352,16 @@ class MainThreadClient implements EngineClient {
   setLever(id: Id, value: number): void {
     this.act(() => {
       this.engine.setLever(id, value);
-      this.addMissingResets();
+      this.keepHiddenAtDefault();
       if (!this.playing) this.start();
     });
   }
 
-  /** Add the resets of hidden levers the script is missing, by replaying it to this month. */
-  private addMissingResets(): void {
-    const events = this.engine.events;
-    const add = missingModeResets(this.info.levers, events);
-    if (!add.length) return;
-    this.engine.load({ modelId: this.info.id, events: [...events, ...add], months: this.engine.t });
+  /** Keep every hidden lever at its default through the script, replaying it to this month if it changes. */
+  private keepHiddenAtDefault(): void {
+    const events = keepHiddenAtDefault(this.info.levers, this.engine.events);
+    if (!events) return;
+    this.engine.load({ modelId: this.info.id, events, months: this.engine.t });
     this.rebuildHistory();
   }
 
@@ -383,7 +382,7 @@ class MainThreadClient implements EngineClient {
     this.halt();
     this.act(() => {
       try {
-        this.engine.load({ ...s, events: [...s.events, ...missingModeResets(this.info.levers, s.events)], months: Math.min(s.months, this.maxMonths) });
+        this.engine.load({ ...s, events: keepHiddenAtDefault(this.info.levers, s.events) ?? s.events, months: Math.min(s.months, this.maxMonths) });
       } catch (err) {
         this.engine.reset();
         this.horizon = 0;

@@ -185,38 +185,62 @@ export function resetsWhenSetting(levers: readonly ShowWhenLever[], values: read
 }
 
 /**
- * Resets a scenario is missing: the ones resetsWhenSetting would have added at each month that
- * sets a lever others' `showWhen` depends on, for the values in force at that month. The panel
- * adds resets when the user switches mode, from the values at that moment; but after time
- * travel, a lever changed before a later mode switch would otherwise keep its value through the
- * switch, hidden (decision 0004: a hidden lever never carries a setting the user cannot see).
- * Lever values depend only on the events, so the walk needs no simulation. Events for unknown
- * levers are ignored; the result is empty when nothing is missing.
+ * The script with every hidden lever kept at its default, or null when it already is (decision
+ * 0004: a hidden lever never carries a setting the user cannot see). Playing straight on, the
+ * panel keeps this: switching mode first resets the levers the new mode hides, and a hidden lever
+ * cannot be set. After time travel, or in a hand-made link, a script can break it: a lever set
+ * before a later switch that hides it, or a lever set while a mode hides it (a switch made
+ * earlier, or the default mode). Walking the months in order and tracking lever values, at each
+ * month that has events:
+ *   - a setting that moves a lever off its default while the lever is hidden, both when it
+ *     applies and at the end of the month, is dropped: a straight run could not have made it;
+ *   - a lever then hidden and still off its default gets a reset to its default at that month,
+ *     after the month's events, as the panel adds at a mode switch.
+ * The result is what a straight run to the same months would have recorded. Lever values depend
+ * only on the events, so the walk needs no simulation. One-offs and events for unknown levers
+ * are kept as they are.
  */
-export function missingModeResets(levers: readonly ShowWhenLever[], events: readonly ScenarioEvent[]): ScenarioEvent[] {
+export function keepHiddenAtDefault(levers: readonly ShowWhenLever[], events: readonly ScenarioEvent[]): ScenarioEvent[] | null {
   const byId = new Map(levers.map((l) => [l.id, l]));
-  const controls = new Set(levers.flatMap((l) => (l.showWhen ? [l.showWhen.lever] : [])));
+  const setting = (e: ScenarioEvent) => (e.fire ? undefined : byId.get(e.lever));
+  const off = (l: ShowWhenLever, v: number) => Math.abs(v - l.default) > 1e-12;
   const values: number[] = [];
   for (const l of levers) values[l.index] = l.default;
   const sorted = [...events].sort((a, b) => a.t - b.t);
   const out: ScenarioEvent[] = [];
+  let changed = false;
   for (let i = 0; i < sorted.length; ) {
     const t = sorted[i].t;
-    const set = new Set<Id>();
-    for (; i < sorted.length && sorted[i].t === t; i++) {
-      const e = sorted[i],
-        l = byId.get(e.lever);
-      if (!l || e.fire) continue;
-      values[l.index] = e.value;
-      if (controls.has(e.lever)) set.add(e.lever);
-    }
-    for (const c of set)
-      for (const r of resetsWhenSetting(levers, values, c, values[byId.get(c)!.index])) {
-        out.push({ t, lever: r.id, value: r.value });
-        values[byId.get(r.id)!.index] = r.value;
+    let j = i;
+    while (j < sorted.length && sorted[j].t === t) j++;
+    const month = sorted.slice(i, j);
+    i = j;
+    // First pass: which settings apply to a hidden lever, and the values at the end of the month.
+    const end = [...values];
+    const hiddenWhenSet = month.map((e) => {
+      const l = setting(e);
+      if (!l) return false;
+      const hidden = !isShown(l, end, byId);
+      end[l.index] = e.value;
+      return hidden;
+    });
+    month.forEach((e, k) => {
+      const l = setting(e);
+      if (l && hiddenWhenSet[k] && off(l, e.value) && !isShown(l, end, byId)) {
+        changed = true;
+        return;
+      }
+      out.push(e);
+      if (l) values[l.index] = e.value;
+    });
+    for (const l of levers)
+      if (l.showWhen && !isShown(l, values, byId) && off(l, values[l.index])) {
+        out.push({ t, lever: l.id, value: l.default });
+        values[l.index] = l.default;
+        changed = true;
       }
   }
-  return out;
+  return changed ? out : null;
 }
 
 /** The value the "Apply" button sets: the nearest point of the lever's step grid (anchored at

@@ -6,11 +6,11 @@ import {
   firedCounts,
   isChanged,
   isShown,
+  keepHiddenAtDefault,
   leverBar,
   leverSections,
   leverStep,
   leverValueLabel,
-  missingModeResets,
   niceStep,
   resetsWhenSetting,
   sectionCalling,
@@ -149,24 +149,31 @@ describe('showWhen and stabilisers (decision 0004)', () => {
     expect(resetsWhenSetting(all, [0, 4.5, 0, 1], 'tax', 2)).toEqual([]);
   });
 
-  test('resets a script is missing at later mode switches, for the values in force then', () => {
+  test('a script keeps every hidden lever at its default, as a straight run would have recorded it', () => {
+    const ev = (t: number, lever: string, value: number) => ({ t, lever, value });
     // Set the Manual rate at 30, before a switch to Automatic at 40 that was recorded without a reset.
-    expect(missingModeResets(all, [{ t: 40, lever: 'mode', value: 1 }, { t: 30, lever: 'fixed', value: 5 }])).toEqual([{ t: 40, lever: 'fixed', value: 3 }]);
+    expect(keepHiddenAtDefault(all, [ev(40, 'mode', 1), ev(30, 'fixed', 5)])).toEqual([ev(30, 'fixed', 5), ev(40, 'mode', 1), ev(40, 'fixed', 3)]);
     // Chained: Automatic at 40, Manual at 50, Automatic at 70, the Manual rate set at 55.
-    const chain = [
-      { t: 40, lever: 'mode', value: 1 },
-      { t: 50, lever: 'mode', value: 0 },
-      { t: 55, lever: 'fixed', value: 4 },
-      { t: 70, lever: 'mode', value: 1 },
-    ];
-    expect(missingModeResets(all, chain)).toEqual([{ t: 70, lever: 'fixed', value: 3 }]);
+    const chain = [ev(40, 'mode', 1), ev(50, 'mode', 0), ev(55, 'fixed', 4), ev(70, 'mode', 1)];
+    expect(keepHiddenAtDefault(all, chain)).toEqual([...chain, ev(70, 'fixed', 3)]);
     // An offset set on Automatic is reset when switching to Manual.
-    expect(missingModeResets(all, [{ t: 0, lever: 'mode', value: 1 }, { t: 10, lever: 'offset', value: 1.5 }, { t: 20, lever: 'mode', value: 0 }])).toEqual([{ t: 20, lever: 'offset', value: 0 }]);
-    // Nothing missing: the reset is there already (the panel's), or nothing is hidden off its default.
-    expect(missingModeResets(all, [...chain, { t: 70, lever: 'fixed', value: 3 }])).toEqual([]);
-    expect(missingModeResets(all, [{ t: 5, lever: 'tax', value: 2 }, { t: 9, lever: 'mode', value: 1 }])).toEqual([]);
-    // One-offs and unknown levers are ignored.
-    expect(missingModeResets(all, [{ t: 1, lever: 'nope', value: 1 }, { t: 2, lever: 'fixed', value: 7, fire: true }, { t: 3, lever: 'mode', value: 1 }])).toEqual([]);
+    expect(keepHiddenAtDefault(all, [ev(0, 'mode', 1), ev(10, 'offset', 1.5), ev(20, 'mode', 0)])).toEqual([ev(0, 'mode', 1), ev(10, 'offset', 1.5), ev(20, 'mode', 0), ev(20, 'offset', 0)]);
+    // Mode switched earlier, the hidden lever set later (a switch made after going back in time):
+    // the setting is dropped, so switching back later does not bring it back.
+    expect(keepHiddenAtDefault(all, [ev(30, 'mode', 1), ev(50, 'fixed', 5)])).toEqual([ev(30, 'mode', 1)]);
+    expect(keepHiddenAtDefault(all, [ev(30, 'mode', 1), ev(50, 'fixed', 5), ev(60, 'mode', 0)])).toEqual([ev(30, 'mode', 1), ev(60, 'mode', 0)]);
+    // A hidden lever set with no mode event at all (a hand-made link): the default mode hides the offset.
+    expect(keepHiddenAtDefault(all, [ev(0, 'offset', 2)])).toEqual([]);
+    expect(keepHiddenAtDefault(all, [ev(0, 'offset', 2), ev(0, 'tax', 1)])).toEqual([ev(0, 'tax', 1)]);
+    // Nothing to change: the reset is there already (the panel's), nothing is hidden off its
+    // default, or the lever is shown by the end of the month it is set in.
+    expect(keepHiddenAtDefault(all, [...chain, ev(70, 'fixed', 3)])).toBeNull();
+    expect(keepHiddenAtDefault(all, [ev(40, 'fixed', 5), ev(40, 'fixed', 3), ev(40, 'mode', 1)])).toBeNull();
+    expect(keepHiddenAtDefault(all, [ev(5, 'tax', 2), ev(9, 'mode', 1)])).toBeNull();
+    expect(keepHiddenAtDefault(all, [ev(0, 'offset', 1), ev(0, 'mode', 1)])).toBeNull();
+    expect(keepHiddenAtDefault(all, [])).toBeNull();
+    // One-offs and unknown levers are kept as they are.
+    expect(keepHiddenAtDefault(all, [ev(1, 'nope', 1), { t: 2, lever: 'fixed', value: 7, fire: true }, ev(3, 'mode', 1)])).toBeNull();
   });
 
   test('Apply rounds the suggestion to the lever’s step grid, within its range', () => {
