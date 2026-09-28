@@ -11,7 +11,7 @@
  * a year; speeds (lam*) per year, so the mean lag is 1/lam years.
  */
 import type { Category, Id, ParamDef, Provenance } from '../../core/types.ts';
-import { assumed, dataProv, datum, GDP_BN, placeholder, tuned } from './util.ts';
+import { assumed, dataProv, datum, derived, GDP_BN, placeholder, tuned } from './util.ts';
 
 const list: ParamDef[] = [];
 function P(id: Id, value: number, unit: string, category: Category, description: string, provenance: Provenance, range?: { min?: number; max?: number }): void {
@@ -200,13 +200,19 @@ P('pfMortN', (205.6 / GDP_BN) * 100, '% of GDP', 'IDENTITY', 'Pension funds’ n
 }
 P('govDebt', d('money_credit.govt_debt_pct_gdp'), '% of GDP', 'IDENTITY', 'Gross government debt.', dataProv('money_credit.govt_debt_pct_gdp'));
 P('govIdxShare', 0.35, 'fraction', 'CONTRACT', 'CPI-indexed share of government debt (held by pension funds).', placeholder());
-P('pfGovShare', pct('pensions.pf_share_of_govt_bonds'), 'fraction', 'IDENTITY', 'Pension funds’ share of government bonds (applied to all government debt; indexed bonds first).', dataProv('pensions.pf_share_of_govt_bonds'));
+P('pfGovShare', pct('pensions.pf_share_of_govt_bonds'), 'fraction', 'IDENTITY', 'Pension funds’ share of government bonds (applied to all government debt; indexed bonds first).', dataProv('pensions.pf_share_of_govt_bonds', `The datum is a share of Treasury bonds (ISK 1,490.5 bn, about ${((1490.5 / GDP_BN) * 100).toFixed(1)}% of GDP), but the model applies it to all general-government debt (${d('money_credit.govt_debt_pct_gdp')}% of GDP, including loans and municipal debt). So the funds hold about ${(pct('pensions.pf_share_of_govt_bonds') * d('money_credit.govt_debt_pct_gdp')).toFixed(1)}% of GDP of government debt in the model against ${((873.8 / GDP_BN) * 100).toFixed(1)}% in Treasury bonds in the data.`));
 P('bondCB', 1, '% of GDP', 'IDENTITY', 'The central bank’s government bonds.', placeholder());
 P('bondO', 4, '% of GDP', 'IDENTITY', 'Older households’ government bonds.', placeholder());
-P('bondW', 0.072 * d('money_credit.govt_debt_pct_gdp'), '% of GDP', 'IDENTITY', 'Non-residents’ government bonds (carry trade).', {
-  ...dataProv('pensions.pf_share_of_govt_bonds'),
-  note: 'Foreign holders 7.2% of Treasury bonds (Lánamál ríkisins, 31 Dec 2025) × government debt.',
-});
+P(
+  'bondW',
+  0.072 * d('money_credit.govt_debt_pct_gdp'),
+  '% of GDP',
+  'IDENTITY',
+  'Non-residents’ government bonds (carry trade).',
+  derived(
+    `Foreign holders’ 7.2% share of Treasury bonds (Lánamál ríkisins, 31 Dec 2025; calibration.json: pensions.pf_share_of_govt_bonds, notes) × general-government debt (Hagstofa THJ05181). The share is applied to a broader aggregate than it was measured on: on Treasury bonds alone it would be ${((0.072 * 1490.5) / GDP_BN * 100).toFixed(2)}% of GDP.`,
+  ),
+);
 P('m3', d('money_credit.broad_money_m3_pct_gdp'), '% of GDP', 'IDENTITY', 'Broad money (M3). It fixes domestic firms’ deposits at the start; afterwards money is only ever a sum of deposits.', dataProv('money_credit.broad_money_m3_pct_gdp'));
 P('fxr', 18, '% of GDP', 'IDENTITY', 'Central-bank foreign-exchange reserves.', placeholder());
 P('tga', 5, '% of GDP', 'POLICY', 'Treasury account at the central bank: the government keeps it at this level by selling bonds.', placeholder());
@@ -222,9 +228,11 @@ P('pfEqFDshare', 0.7, 'fraction', 'IDENTITY', 'Share of domestic equity (pension
 P('divFDY', 0.05, 'fraction', 'IDENTITY', 'Share of domestic firms’ distributed profit (dividends and owners’ income) going to the young.', placeholder());
 P('divFDW', 0.67, 'fraction', 'IDENTITY', 'Share going to working-age owners and the self-employed.', placeholder());
 P('divFDO', 0.18, 'fraction', 'IDENTITY', 'Share going to older households; the rest (10%) goes to pension funds.', assumed('Capital income of the 67+ group, ISK 117.4 bn (Hagstofa THJ09001).'));
-P('fdiTarget', 0.33, '% of GDP/yr', 'IDENTITY', 'Baseline dividends to foreign owners of exporters (the smelters’ parents and others); it fixes the foreign share of other exporters’ dividends.', {
-  ...dataProv('export_sector.profits_to_foreign_owners_pct_gdp'),
-  note: 'Equity income only (dividends + reinvested earnings) on inward FDI, 2024: 0.33% of GDP (calibration notes).',
+P('fdiTarget', 0.33, '% of GDP/yr', 'IDENTITY', 'Baseline profits paid to foreign owners of exporters (the smelters’ parents and others), paid in the model as cash dividends; it fixes the foreign share of other exporters’ dividends.', {
+  basis: 'derived',
+  source: 'Eurostat bop_c6_a (BPM6, CBI source), income on inward direct investment, 2024: dividends ISK 11.9 bn + reinvested earnings 3.4 bn ÷ 2024 GDP [calibration.json: export_sector.profits_to_foreign_owners_pct_gdp, notes]',
+  vintage: '2024',
+  note: 'Equity income (dividends plus reinvested earnings), not the leaf’s value of 1.25, which also counts intercompany interest. The model pays all of it as cash dividends; reinvested earnings are never paid in cash, and dividends alone were about 0.26% of GDP. That lower value is not used because the smelters’ dividends alone are about as large, which would leave other exporters a negative foreign share.',
 });
 P('divXTW', 0.1, 'fraction', 'IDENTITY', 'Foreign owners’ share of tourism firms’ dividends (foreign-owned hotels and tour operators).', placeholder());
 P('divFXdomW', 0.55, 'fraction', 'IDENTITY', 'Working-age households’ weight in the domestic split of exporters’ dividends.', placeholder());
