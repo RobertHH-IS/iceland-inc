@@ -207,3 +207,18 @@ describe('M7: builders’ imports come out of builders’ value added', () => {
     expect(v('valueAddedFC') / v('salesFC')).toBeLessThan(share0);
   });
 });
+
+describe('L11: public and private gross wages are on the same basis', () => {
+  test('public compensation = (1 + employer contribution + payroll tax) × gross public wages, as for firms; the public payroll tax is a wash', () => {
+    const e = createEngine(model);
+    const p = (id: string) => e.influences('publicEmployment').params.find((x) => x.id === id)!.value;
+    const lcr = 1 + p('cEr') + p('css');
+    expect(lcr * e.baseline('publicEmployment')).toBeCloseTo(e.baseline('publicValueAdded'), 12);
+    // cash spending on a channel leaves the payroll tax out, and GDP still counts the full compensation
+    const cash = ['health_HY', 'health_HW', 'health_HO', 'health_PF'].reduce((s, id) => s + e.baseline(id), 0);
+    const staffHealth = e.influences('publicEmployment').terms.find((t) => t.id === 'health')!.baseline;
+    expect(cash).toBeCloseTo((1 + p('cEr')) * staffHealth, 12);
+    expect(e.baseline('nominalGDP')).toBeCloseTo(100, 9);
+    expect(Math.abs(e.baseline('deficit'))).toBeLessThan(1e-9);
+  });
+});

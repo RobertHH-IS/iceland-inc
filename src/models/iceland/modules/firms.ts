@@ -476,10 +476,10 @@ export const firms: ModuleDef = {
       target: 'nominalGDP',
       category: 'IDENTITY',
       inputs: ['consumption', 'wage', 'publicEmployment', 'domesticPrice', 'publicPurchasesReal', 'investmentReal', 'exportValue', 'importsConsumer', 'importsInputs', 'importsEquipment', 'importsPublic', 'importsExporters'],
-      params: ['cEr'],
+      params: ['cEr', 'css'],
       terms: terms(
         ['consumption', 'Household consumption', 'consumption-function', (c) => c.v('consumption')],
-        ['government', 'Public services (staff costs and purchases)', 'multiplier', (c) => (1 + c.p('cEr')) * c.v('wage') * c.v('publicEmployment') + c.v('domesticPrice') * c.v('publicPurchasesReal')],
+        ['government', 'Public services (staff costs and purchases)', 'multiplier', (c) => (1 + c.p('cEr') + c.p('css')) * c.v('wage') * c.v('publicEmployment') + c.v('domesticPrice') * c.v('publicPurchasesReal')],
         ['investment', 'Investment', 'investment-accelerator', (c) => c.v('domesticPrice') * c.v('investmentReal')],
         ['exports', 'Exports', 'export-sectors', (c) => c.v('exportValue')],
         ['imports', 'Imports', 'import-leakage', (c) => -(c.v('importsConsumer') + c.v('importsInputs') + c.v('importsEquipment') + c.v('importsPublic') + c.v('importsExporters'))],

@@ -41,9 +41,9 @@ P('gEdu', d(cof + 'education'), '% of GDP/yr', 'POLICY', 'Education spending, re
   });
 }
 P('gInv', d(eco + 'gross_fixed_capital_formation'), '% of GDP/yr', 'POLICY', 'Public investment, real, bought from domestic firms.', dataProv(eco + 'gross_fixed_capital_formation'));
-P('wsHealth', 0.55, 'fraction', 'POLICY', 'Share of health spending that is staff pay (including the employer pension contribution).', assumed());
-P('wsEdu', 0.7, 'fraction', 'POLICY', 'Share of education spending that is staff pay.', assumed());
-P('compG', d(eco + 'compensation_of_employees'), '% of GDP/yr', 'IDENTITY', 'Public compensation of employees; it fixes the pay share of other public services.', dataProv(eco + 'compensation_of_employees'));
+P('wsHealth', 0.55, 'fraction', 'POLICY', 'Share of health spending that is staff pay (compensation: including the employer pension contribution and the payroll tax).', assumed());
+P('wsEdu', 0.7, 'fraction', 'POLICY', 'Share of education spending that is staff pay (compensation, as for health).', assumed());
+P('compG', d(eco + 'compensation_of_employees'), '% of GDP/yr', 'IDENTITY', 'Public compensation of employees; it fixes the pay share of other public services. Like private compensation it includes the employer pension contribution and the payroll tax (tryggingagjald), which the government pays to itself.', dataProv(eco + 'compensation_of_employees', 'Also includes accrued public pension obligations beyond the 11.5% employer rate, so public gross wages are still somewhat overstated (audit L11).'));
 {
   const oa = d(eco + 'social_benefits') - d(sp + 'unemployment') - d(sp + 'family_children') - d(sp + 'housing');
   P('trOA', oa, '% of GDP/yr', 'POLICY', 'Old-age and disability cash transfers (Social Insurance, TR), real.', {
@@ -66,7 +66,7 @@ P('ueTarget', d(sp + 'unemployment'), '% of GDP/yr', 'POLICY', 'Baseline unemplo
 /* ----------------------------------------------------------------- taxes */
 P('vatTarget', d('tax_revenue_pct_gdp.vat_and_taxes_on_goods'), '% of GDP/yr', 'POLICY', 'Baseline VAT and taxes on goods; they fix the effective VAT rate on consumer spending.', dataProv('tax_revenue_pct_gdp.vat_and_taxes_on_goods'));
 P('citTarget', d('tax_revenue_pct_gdp.corporate_income_tax'), '% of GDP/yr', 'POLICY', 'Baseline corporate income tax; it fixes the effective tax rate on profits.', dataProv('tax_revenue_pct_gdp.corporate_income_tax'));
-P('css', 0.0635, 'fraction', 'POLICY', 'Payroll tax (tryggingagjald) on private gross wages.', assumed('Statutory social security tax rate.'));
+P('css', 0.0635, 'fraction', 'POLICY', 'Payroll tax (tryggingagjald) on gross wages. Firms pay it to the government; on public staff the government pays it to itself, so there it nets out of the cash budget.', assumed('Statutory social security tax rate.'));
 P('phiTau', 0.25, 'fraction', 'POLICY', 'Debt-tied tax rule: the income-tax rate rises 0.25 points per point of debt-to-GDP above baseline.', assumed());
 P('lamTau', 0.5, 'per year', 'POLICY', 'How fast the debt-tied tax rule phases in (a slow stabiliser).', assumed());
 

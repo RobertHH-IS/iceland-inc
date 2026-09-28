@@ -23,8 +23,10 @@ const CHANNELS: Channel[] = [
 ];
 const PAYEES = [...AGES.map((g) => HH[g]), 'PF', 'FR'] as const;
 
-/** Public staff in a channel, as a gross wage bill at baseline wages. */
-const staff = (c: Ctx, ch: Channel) => (c.p(ch.share) * c.p(ch.level)) / (1 + c.p('cEr'));
+/** Public staff in a channel, as a gross wage bill at baseline wages. The pay share is compensation
+ *  of employees, which includes the employer pension contribution and the payroll tax, as for
+ *  firms; the government pays that payroll tax to itself, so it nets out of the cash budget. */
+const staff = (c: Ctx, ch: Channel) => (c.p(ch.share) * c.p(ch.level)) / (1 + c.p('cEr') + c.p('css'));
 
 const channelLegs: RuleDef[] = CHANNELS.flatMap((ch) =>
   PAYEES.map((to): RuleDef => {
@@ -46,7 +48,7 @@ const channelLegs: RuleDef[] = CHANNELS.flatMap((ch) =>
         target: id,
         category: 'CONTRACT',
         inputs: ['wage'],
-        params: [ch.level, ch.share, 'cEr', 'cEe'],
+        params: [ch.level, ch.share, 'cEr', 'css', 'cEe'],
         compute: (c) => (c.p('cEr') + c.p('cEe')) * c.v('wage') * staff(c, ch),
         concepts: ['funded-pensions'],
         explain: { what: `Pension contributions for staff in ${ch.label.toLowerCase()}, paid straight to the pension funds.`, rule: '(employer {cEr%} + employee {cEe%}) × wage rate × public staff.' },
@@ -57,11 +59,11 @@ const channelLegs: RuleDef[] = CHANNELS.flatMap((ch) =>
       target: id,
       category: 'POLICY',
       inputs: ['wage', `employment${g}`, 'employmentTotal'],
-      params: [ch.level, ch.share, 'cEr', 'cEe'],
+      params: [ch.level, ch.share, 'cEr', 'css', 'cEe'],
       compute: (c) => ((1 - c.p('cEe')) * c.v('wage') * staff(c, ch) * c.v(`employment${g}`)) / c.v('employmentTotal'),
       explain: {
         what: `Pay of staff in ${ch.label.toLowerCase()} who are ${AGE_LABEL[g]}, after the employee pension contribution.`,
-        rule: `(1 − {cEe%}) × wage rate × public staff ({${ch.share}} × {${ch.level}} ÷ (1 + {cEr%})) × the ${AGE_LABEL[g]}’s share of all jobs.`,
+        rule: `(1 − {cEe%}) × wage rate × public staff ({${ch.share}} × {${ch.level}} ÷ (1 + {cEr%} + {css%}), since the pay share includes the employer pension contribution and the payroll tax) × the ${AGE_LABEL[g]}’s share of all jobs.`,
       },
     };
   }),
@@ -182,9 +184,12 @@ const rules: RuleDef[] = [
     id: 'publicEmployment',
     target: 'publicEmployment',
     category: 'POLICY',
-    params: [...CHANNELS.flatMap((ch) => [ch.level, ch.share]), 'cEr'],
+    params: [...CHANNELS.flatMap((ch) => [ch.level, ch.share]), 'cEr', 'css'],
     terms: CHANNELS.map((ch) => ({ id: ch.id, label: ch.label, compute: (c: Ctx) => staff(c, ch) })),
-    explain: { what: 'Public staff, measured as a gross wage bill at baseline wages.', rule: 'Staff = Σ over health, education and other services of pay share × real level ÷ (1 + {cEr%}).' },
+    explain: {
+      what: 'Public staff, measured as a gross wage bill at baseline wages.',
+      rule: 'Staff = Σ over health, education and other services of pay share × real level ÷ (1 + {cEr%} + {css%}). The pay share is compensation of employees, which includes the employer pension contribution and the payroll tax, as for firms.',
+    },
   },
   {
     id: 'publicValueAdded',
@@ -222,7 +227,10 @@ const rules: RuleDef[] = [
         ['pensions', 'Pension contributions', 'funded-pensions', (c) => c.v(`${ch.id}_PF`)],
         ['purchases', 'Purchases from retail and service firms', 'multiplier', (c) => c.v(`${ch.id}_FR`)],
       ),
-      explain: { what: `Total spending on ${ch.label.toLowerCase()}.`, rule: 'Spending = staff pay + their pension contributions + purchases from retail and service firms.' },
+      explain: {
+        what: `Total cash spending on ${ch.label.toLowerCase()}.`,
+        rule: 'Spending = staff pay + their pension contributions + purchases from retail and service firms. The payroll tax on public staff is paid by the government to itself, so it is neither spent nor collected in cash.',
+      },
     }),
   ),
   {
