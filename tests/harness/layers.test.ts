@@ -1,6 +1,7 @@
 /**
  * The harness layers on the reference model: half-step tolerances (audit L27, L28), runs on
- * forks reaching the accounting layer (L29) and the golden guard for late events (M19).
+ * forks reaching the accounting layer (L29), the golden guard for late events (M19) and the
+ * severity switch of the lever-extremes sweep (M22).
  */
 import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
@@ -18,6 +19,9 @@ const opts: HarnessOptions = {
   propertyRuns: 4,
   propertyMonths: 36,
   seed: 1,
+  extremeMonths: 60,
+  plausibility: 'warn',
+  signs: 'warn',
 };
 const layer = (r: ReturnType<typeof runHarness>, n: number) => r.layers.find((l) => l.n === n)!;
 
@@ -111,5 +115,18 @@ describe('runHarness on the reference model', () => {
     const l6 = layer(runHarness(late, opts), 6);
     expect(l6.pass).toBe(false);
     expect(l6.body.find((x) => x.startsWith('| calibration-late |'))).toContain('1 event(s) at or after month 60 would never apply');
+  });
+
+  test('M22: breaches are warnings by default and failures when the severity says so', () => {
+    const extremes = (o: HarnessOptions) => {
+      const s = /extremes (\d+)\/(\d+) \((\d+) breach/.exec(layer(runHarness(reference, o), 6).summary)!;
+      return { ok: Number(s[1]), runs: Number(s[2]), warnings: Number(s[3]) };
+    };
+    const warn = extremes(opts);
+    expect(warn.ok).toBe(warn.runs);
+    const fail = extremes({ ...opts, plausibility: 'fail', signs: 'fail' });
+    expect(fail.warnings).toBe(warn.warnings);
+    if (warn.warnings) expect(fail.ok).toBeLessThan(fail.runs);
+    else expect(fail.ok).toBe(fail.runs);
   });
 });

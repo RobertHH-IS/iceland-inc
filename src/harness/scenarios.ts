@@ -1,9 +1,9 @@
 /**
- * Scenarios the harness builds from a model's levers: the all-levers golden scenarios and the
- * shock used to time a step. Kept apart from layers.ts so that tests can check which events they
- * contain without running the harness.
+ * Scenarios the harness builds from a model's levers: the all-levers golden scenarios, the
+ * lever-extremes sweep and the shock used to time a step. Kept apart from layers.ts so that
+ * tests can check which events they contain without running the harness.
  */
-import type { LeverDef, ScenarioEvent } from '../core/types.ts';
+import type { Id, LeverDef, ScenarioEvent } from '../core/types.ts';
 import type { KModel } from '../core/compile.ts';
 import type { KernelEngine } from '../core/engine.ts';
 
@@ -59,6 +59,36 @@ export function allLeversScenarios(m: KModel): HarnessScenario[] {
     events: event ? [event, ...seq] : seq,
     months,
   }));
+}
+
+export interface ExtremeRun {
+  lever: Id;
+  value: number;
+  /** Stabiliser mode label, or '' when the model has no stabiliser setting. */
+  mode: string;
+  events: ScenarioEvent[];
+}
+
+/** The values a lever is swept to: its min and max (a choice: every option). A setting or choice
+ *  skips its default and a one-off skips 0, since neither is a shock. */
+export function extremeValues(l: LeverDef): number[] {
+  const ends = l.kind === 'choice' && l.options?.length ? l.options.map((o) => o.value) : [l.min ?? l.default - 1, l.max ?? l.default + 1];
+  return [...new Set(ends)].filter((v) => (l.kind === 'oneoff' ? v !== 0 : v !== l.default));
+}
+
+/**
+ * The lever-extremes sweep: every lever alone, at each extreme value, from month 0, in each
+ * stabiliser mode. The random property runs rarely land on a lever's limits; this covers them all.
+ */
+export function leverExtremeRuns(m: KModel): ExtremeRun[] {
+  const runs: ExtremeRun[] = [];
+  for (const { label, event } of stabiliserModes(m))
+    for (const l of shockLevers(m))
+      for (const value of extremeValues(l)) {
+        const ev = leverEvent(l, 0, value);
+        runs.push({ lever: l.id, value, mode: label, events: event ? [event, ev] : [ev] });
+      }
+  return runs;
 }
 
 /**

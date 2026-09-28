@@ -1,14 +1,14 @@
 /**
- * The scenarios the harness builds from the levers: the all-levers goldens (audit M19) and the
- * shock the step timing runs under (L31).
+ * The scenarios the harness builds from the levers: the all-levers goldens (audit M19), the
+ * lever-extremes sweep (M22, H1) and the shock the step timing runs under (L31).
  */
 import { describe, expect, test } from 'bun:test';
 import { compile, type KModel } from '../../src/core/compile.ts';
 import { createEngine } from '../../src/core/engine.ts';
 import { runScenario } from '../../src/core/scenario.ts';
-import type { ScenarioEvent } from '../../src/core/types.ts';
+import type { LeverDef, ScenarioEvent } from '../../src/core/types.ts';
 import { models } from '../../src/models/index.ts';
-import { ALL_LEVERS_TAIL, allLeversScenarios, timingShock } from '../../src/harness/scenarios.ts';
+import { ALL_LEVERS_TAIL, allLeversScenarios, extremeValues, leverExtremeRuns, timingShock } from '../../src/harness/scenarios.ts';
 
 const compiled = models.map((def) => compile(def));
 
@@ -41,6 +41,21 @@ describe.each(compiled.map((m) => [m.def.id, m] as const))('%s', (_, m) => {
       }
   });
 
+  test('extremes: every lever other than the mode at its min and max, alone, from month 0, in each mode', () => {
+    const runs = leverExtremeRuns(m);
+    for (const modeLabel of ['Manual', 'Automatic'])
+      for (const l of others) {
+        const values = runs.filter((r) => r.mode === modeLabel && r.lever === l.id).map((r) => r.value);
+        const expected = l.kind === 'choice' ? l.options!.map((o) => o.value).filter((v) => v !== l.default) : [l.min!, l.max!].filter((v) => l.kind === 'oneoff' || v !== l.default);
+        expect(values).toEqual(expected);
+      }
+    for (const r of runs) {
+      expect(r.events.every((e) => e.t === 0)).toBe(true);
+      expect(r.events[0].lever).toBe(mode.lever);
+      expect(r.events).toHaveLength(2);
+    }
+  });
+
   test('timing: a real shock, never the stabiliser setting', () => {
     const s = timingShock(m)!;
     expect(s).not.toBeNull();
@@ -49,6 +64,18 @@ describe.each(compiled.map((m) => [m.def.id, m] as const))('%s', (_, m) => {
     s.apply(e);
     e.step(12);
     expect(e.stats().maxIterations).toBeGreaterThan(1);
+  });
+});
+
+describe('extremeValues', () => {
+  const lever = (x: Partial<LeverDef>): LeverDef => ({ id: 'x', label: 'x', group: 'Policy', kind: 'setting', unit: '', default: 0, description: '', definition: '', ...x });
+  test('a setting whose default is one of its ends is swept to the other end only', () => {
+    expect(extremeValues(lever({ min: 0, max: 100 }))).toEqual([100]);
+    expect(extremeValues(lever({ min: -3, max: 3 }))).toEqual([-3, 3]);
+  });
+  test('a one-off fires at both ends, except at zero, which is no shock', () => {
+    expect(extremeValues(lever({ kind: 'oneoff', default: 10, min: -5, max: 20 }))).toEqual([-5, 20]);
+    expect(extremeValues(lever({ kind: 'oneoff', default: 10, min: 0, max: 20 }))).toEqual([20]);
   });
 });
 

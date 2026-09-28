@@ -6,8 +6,8 @@
  *   3. accounting       the four checks across every scenario the harness runs
  *   4. baseline         240 months without a shock: drift of every variable and stock
  *   5. calibration      the model's CalibrationChecks, PASS/FAIL against their ranges
- *   6. robustness       property tests, half-step and tolerance sensitivity, determinism,
- *                       golden scenarios
+ *   6. robustness       property tests, lever extremes, half-step and tolerance sensitivity,
+ *                       determinism, golden scenarios
  */
 import type { CalibrationCheck, ModelDef, RunResult, ScenarioEvent } from '../core/types.ts';
 import { compile, CompileError, type KModel } from '../core/compile.ts';
@@ -16,7 +16,8 @@ import { runScenario } from '../core/scenario.ts';
 import { CHECKS, DEFAULT_TOLERANCE } from '../core/checks.ts';
 import { baselineReport, type BaselineReport } from '../core/steady.ts';
 import { compareGolden, nonFiniteValues, readGolden, writeGolden, GOLDEN_ABS, GOLDEN_REL, type GoldenFile } from './golden.ts';
-import { allLeversScenarios, timingShock, type HarnessScenario } from './scenarios.ts';
+import { firstNonFinite, plausibilityBounds, plausibilityBreaches, SIGN_TOL, type Breach, type Severity } from './plausibility.ts';
+import { allLeversScenarios, leverExtremeRuns, timingShock, type HarnessScenario } from './scenarios.ts';
 import { rng } from './rng.ts';
 
 export interface HarnessOptions {
@@ -25,6 +26,13 @@ export interface HarnessOptions {
   propertyRuns: number;
   propertyMonths: number;
   seed: number;
+  /** Months of each lever-extremes run. */
+  extremeMonths: number;
+  /** Whether implausible values (unemployment outside [0, 50%], a price index at or below zero…)
+   *  in the property and lever-extremes runs fail the robustness layer or are only reported. */
+  plausibility: Severity;
+  /** The same for positions with the wrong sign for their role (a holder's overdraft). */
+  signs: Severity;
 }
 
 export interface LayerResult {
@@ -47,7 +55,6 @@ export interface HarnessResult {
    *  solver iterations in a month (above 1 shows the shock kept the simultaneous block working). */
   timing?: { shock: string; runs: number; months: number; maxIterations: number };
   baseline?: BaselineReport;
-
   model?: KModel;
 }
 
@@ -272,11 +279,29 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   let pass6 = true;
   const sum6: string[] = [];
   const levers = m.levers;
+  // What every property and lever-extremes run must satisfy (a failure) and should (a breach,
+  // which fails only when its severity option says so).
+  const bounds = plausibilityBounds(m);
+  let worstRes = 0;
+  const inspect = (name: string, events: ScenarioEvent[], months: number): { why: string; breaches: Breach[] } => {
+    try {
+      const e = run(name, events, months).engine;
+      for (const x of e.maxResiduals()) worstRes = Math.max(worstRes, x.residual);
+      const fails = e.checks().failures!.length;
+      const why = firstNonFinite(m, e) || (fails ? `${fails} accounting failure(s)` : '');
+      return { why, breaches: plausibilityBreaches(m, e, bounds) };
+    } catch (err) {
+      return { why: `threw: ${(err as Error).message}`, breaches: [] };
+    }
+  };
+  const gated = (b: Breach) => (b.kind === 'sign' ? opts.signs : opts.plausibility) === 'fail';
+  const failNote = (b: Breach[]) => `${b.length} breach(es) that fail, first ${b[0].what} ${b[0].rule} at month ${b[0].first}`;
+  const gateNote = `Implausible values ${opts.plausibility === 'fail' ? 'fail' : 'are warnings'}; wrong-signed positions ${opts.signs === 'fail' ? 'fail' : 'are warnings'}`;
   // 6a. property tests
   {
     const rand = rng(opts.seed);
     let ok = 0;
-    let worstRes = 0;
+    let warned = 0;
     const bad: string[] = [];
     for (let k = 0; k < opts.propertyRuns; k++) {
       const nEv = 1 + Math.floor(rand() * 4);
@@ -289,25 +314,10 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
         events.push(l.kind === 'oneoff' ? { t: Math.floor(rand() * 25), lever: l.id, value, fire: true } : { t: Math.floor(rand() * 25), lever: l.id, value });
       }
       events.sort((a, b) => a.t - b.t);
-      let why = '';
-      try {
-        const r = run(`property run ${k + 1}`, events, opts.propertyMonths);
-        const e = r.engine;
-        for (let t = 0; t <= e.t && !why; t++) {
-          for (const v of m.vars)
-            if (!Number.isFinite(e.valueAt(v.id, t))) {
-              why = `${v.id} is not finite at month ${t}`;
-              break;
-            }
-          if (!why && !e.positionsAt(t).every(Number.isFinite)) why = `a stock is not finite at month ${t}`;
-        }
-        const fails = e.checks().failures!.length;
-        if (!why && fails) why = `${fails} accounting failure(s)`;
-        for (const x of e.maxResiduals()) worstRes = Math.max(worstRes, x.residual);
-      } catch (err) {
-        why = `threw: ${(err as Error).message}`;
-      }
-      if (why) bad.push(`- run ${k + 1}: ${why}; events ${JSON.stringify(events)}`);
+      const { why, breaches } = inspect(`property run ${k + 1}`, events, opts.propertyMonths);
+      const failing = breaches.filter(gated);
+      if (breaches.length) warned++;
+      if (why || failing.length) bad.push(`- run ${k + 1}: ${why || failNote(failing)}; events ${JSON.stringify(events)}`);
       else ok++;
     }
     const pass = ok === opts.propertyRuns;
@@ -316,13 +326,52 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Property tests',
       '',
-      `${opts.propertyRuns} runs of ${opts.propertyMonths} months, each with 1 to 4 random lever events (values uniform within each lever's range, months 0 to 24; seed ${opts.seed}). Every variable and stock must stay finite and every accounting check must pass. Largest residual: ${e2(worstRes)}. ${ok}/${opts.propertyRuns} pass: ${verdict(pass)}.`,
+      `${opts.propertyRuns} runs of ${opts.propertyMonths} months, each with 1 to 4 random lever events (values uniform within each lever's range, months 0 to 24; seed ${opts.seed}). Every variable and stock must stay finite and every accounting check must pass. ${gateNote} (see Lever extremes for the checks); ${warned} run(s) had some. Largest residual: ${e2(worstRes)}. ${ok}/${opts.propertyRuns} pass: ${verdict(pass)}.`,
       '',
       ...bad.slice(0, 10),
       '',
     );
   }
-  // 6b. half-step sensitivity
+  // 6b. lever extremes
+  {
+    const t0 = performance.now();
+    const runs = leverExtremeRuns(m);
+    let ok = 0;
+    const bad: string[] = [];
+    const rows: string[] = [];
+    let nBreach = 0;
+    const affected = new Set<string>();
+    for (const x of runs) {
+      const setting = `${x.lever} = ${x.value}${x.mode ? `, ${x.mode}` : ''}`;
+      const { why, breaches } = inspect(`lever extreme ${setting}`, x.events, opts.extremeMonths);
+      const failing = breaches.filter(gated);
+      if (why || failing.length) bad.push(`- ${setting}: ${why || failNote(failing)}`);
+      else ok++;
+      nBreach += breaches.length;
+      for (const b of breaches) {
+        affected.add(`${b.kind}:${b.what}`);
+        rows.push(`| ${x.lever} | ${x.value} | ${x.mode || '–'} | ${b.what} ${b.rule} | ${b.first} | ${f(b.worst, 4)} | ${gated(b) ? 'FAIL' : 'warn'} |`);
+      }
+    }
+    const seconds = (performance.now() - t0) / 1000;
+    const pass = ok === runs.length;
+    pass6 &&= pass;
+    sum6.push(`extremes ${ok}/${runs.length} (${nBreach} breach(es))`);
+    const modes = def.stabiliserMode ? ', in each stabiliser mode' : '';
+    body6.push(
+      '### Lever extremes',
+      '',
+      `Every lever alone at its min and at its max (a choice: each option other than its default), from month 0 for ${opts.extremeMonths} months${modes}: ${runs.length} runs in ${f(seconds, 1)} s. Every variable and stock must stay finite and every accounting check must pass. Plausibility: ${bounds.length} bounds on variables (${[...new Set(bounds.map((b) => b.rule))].map((r) => `${bounds.filter((b) => b.rule === r).map((b) => `\`${b.id}\``).join(', ')} ${r}`).join('; ')}) and the sign of every position (a holder's asset at least −${SIGN_TOL.toExponential()}, an issuer’s liability at most +${SIGN_TOL.toExponential()}). ${gateNote}. ${ok}/${runs.length} pass: ${verdict(pass)}.`,
+      '',
+      ...bad.slice(0, 10),
+      '',
+      rows.length ? `${rows.length} breach(es) of ${affected.size} bound(s) or position(s):` : 'No implausible values.',
+      '',
+      ...(rows.length ? ['| Lever | Value | Mode | Breach | First month | Furthest value | Severity |', '|---|---|---|---|---|---|---|', ...rows] : []),
+      '',
+    );
+  }
+  // 6c. half-step sensitivity
   {
     const rows: string[] = [];
     let worstRel = 0,
@@ -381,7 +430,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       '',
     );
   }
-  // 6c. solver-tolerance sensitivity and 6d. determinism
+  // 6d. solver-tolerance sensitivity and 6e. determinism
   {
     let worstTol = 0;
     let deterministic = true;
@@ -432,7 +481,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       '',
     );
   }
-  // 6e. golden scenarios
+  // 6f. golden scenarios
   {
     const scen: HarnessScenario[] = [{ name: 'baseline', events: [], months: 24 }];
     for (const c of calib) scen.push({ name: `calibration-${c.id}`, events: c.scenario, months: c.months });
