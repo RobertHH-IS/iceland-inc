@@ -157,7 +157,7 @@ describe('showWhen and stabilisers (decision 0004)', () => {
   });
 
   test('Manual: a calling stabiliser marks its lever red with its suggestion; Automatic: a note on the offset', () => {
-    const s = { id: 'rule', label: 'Central bank’s rule', lever: 'fixed', offset: 'offset', suggested: 4.2713, calling: true, automatic: false };
+    const s = { id: 'rule', label: 'Central bank’s rule', lever: 'fixed', offset: 'offset', suggested: 4.2713, current: 3, calling: true, automatic: false };
     const manual = stabiliserMarks([s], byId);
     expect(manual.get('fixed')).toEqual({ kind: 'calling', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Central bank’s rule: 4.27%', suggested: 4.2713, apply: 4.25 });
     expect(manual.has('offset')).toBe(false);
@@ -166,7 +166,21 @@ describe('showWhen and stabilisers (decision 0004)', () => {
     expect(stabiliserMarks([{ ...s, calling: false }], byId).size).toBe(0);
     const auto = stabiliserMarks([{ ...s, calling: false, automatic: true }], byId);
     expect(auto.get('offset')).toEqual({ kind: 'acting', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Set by Central bank’s rule: 4.27%' });
-    const debt = stabiliserMarks([{ id: 'debt', label: 'Debt rule', lever: 'tax', offset: 'tax', suggested: 0.834, calling: true, automatic: false }], byId);
+    const debt = stabiliserMarks([{ id: 'debt', label: 'Debt rule', lever: 'tax', offset: 'tax', suggested: 0.834, current: 0, calling: true, automatic: false }], byId);
     expect(debt.get('tax')).toMatchObject({ text: 'Debt rule: +0.83 pp', apply: 1 });
+  });
+
+  test('a rule that wants more than the lever’s range: at the bound, no Apply and no red dot; short of it, Apply goes to the bound', () => {
+    const s = { id: 'rule', label: 'Central bank’s rule', lever: 'fixed', offset: 'offset', suggested: 17.2, current: 15, calling: true, automatic: false };
+    const atMax = stabiliserMarks([s], byId);
+    expect(atMax.get('fixed')).toEqual({ kind: 'beyond', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Central bank’s rule: 17.2% (beyond the lever’s range)', suggested: 17.2 });
+    expect(sectionCalling(bank, atMax, [0, 15, 0, 0], byId)).toBe(false);
+    const below = stabiliserMarks([{ ...s, current: 12 }], byId);
+    expect(below.get('fixed')).toMatchObject({ kind: 'calling', apply: 15 });
+    expect(sectionCalling(bank, below, [0, 12, 0, 0], byId)).toBe(true);
+    // The same at the lower bound.
+    expect(stabiliserMarks([{ ...s, suggested: -0.8, current: 0 }], byId).get('fixed')).toMatchObject({ kind: 'beyond' });
+    // Within half a step of where the lever is, Apply would not move it either.
+    expect(stabiliserMarks([{ ...s, suggested: 4.3, current: 4.25 }], byId).get('fixed')).toMatchObject({ kind: 'beyond', text: 'Central bank’s rule: 4.3% (the nearest step is where the lever is)' });
   });
 });

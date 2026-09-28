@@ -196,17 +196,22 @@ export function snapToStep(l: Pick<LeverInfo, 'step' | 'min' | 'max' | 'default'
 export type StabiliserMark =
   /** Manual: the stabiliser would move this lever. `text` is "<label>: <suggestion>". */
   | { kind: 'calling'; stabiliser: Id; label: string; text: string; suggested: number; apply: number }
+  /** Manual: the stabiliser calls, but "Apply" could not move the lever: the suggestion is beyond
+   *  the lever's range (or within half a step of where it is). A note, not a call: no Apply. */
+  | { kind: 'beyond'; stabiliser: Id; label: string; text: string; suggested: number }
   /** Automatic: the stabiliser acts on the policy this lever offsets. `text` is "Set by <label>: <value>". */
   | { kind: 'acting'; stabiliser: Id; label: string; text: string };
 
 /**
  * What the lever panel shows for each stabiliser, by the lever it belongs to:
  *   Manual, calling: a red mark on the stabiliser's lever, with its suggestion and "Apply";
+ *   Manual, calling but Apply would not move the lever: the suggestion as a note, without Apply;
  *   Automatic: a note on the lever that offsets the rule (the lever itself unless declared).
- * Values are in the stabiliser lever's units, to two decimals.
+ * Values are in the stabiliser lever's units, to two decimals. The engine's `calling` is left
+ * as it is (the feed still says the rule calls); only the panel's call depends on Apply.
  */
 export function stabiliserMarks(
-  states: readonly { id: Id; label: string; lever: Id; offset: Id; suggested: number; calling: boolean; automatic: boolean }[],
+  states: readonly { id: Id; label: string; lever: Id; offset: Id; suggested: number; current: number; calling: boolean; automatic: boolean }[],
   byId: ReadonlyMap<Id, LeverInfo>,
 ): Map<Id, StabiliserMark> {
   const out = new Map<Id, StabiliserMark>();
@@ -215,12 +220,19 @@ export function stabiliserMarks(
     if (!l || !Number.isFinite(s.suggested)) continue;
     const shown = leverValueLabel(l, Number(s.suggested.toFixed(2)));
     if (s.automatic) out.set(s.offset, { kind: 'acting', stabiliser: s.id, label: s.label, text: `Set by ${s.label}: ${shown}` });
-    else if (s.calling) out.set(s.lever, { kind: 'calling', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown}`, suggested: s.suggested, apply: snapToStep(l, s.suggested) });
+    else if (s.calling) {
+      const apply = snapToStep(l, s.suggested);
+      if (Math.abs(apply - s.current) >= 1e-12) out.set(s.lever, { kind: 'calling', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown}`, suggested: s.suggested, apply });
+      else {
+        const outside = (l.min !== undefined && s.suggested < l.min) || (l.max !== undefined && s.suggested > l.max);
+        out.set(s.lever, { kind: 'beyond', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown} (${outside ? 'beyond the lever’s range' : 'the nearest step is where the lever is'})`, suggested: s.suggested });
+      }
+    }
   }
   return out;
 }
 
-/** Does any shown lever of a section have a stabiliser calling (the red dot on its header)? */
+/** Does any shown lever of a section have a stabiliser calling that Apply would answer (the red dot on its header)? */
 export function sectionCalling(section: LeverSection, marks: ReadonlyMap<Id, StabiliserMark>, values: readonly number[], byId: ReadonlyMap<Id, ShowWhenLever>): boolean {
   return section.levers.some((l) => marks.get(l.id)?.kind === 'calling' && isShown(l, values, byId));
 }
