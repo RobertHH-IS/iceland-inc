@@ -16,12 +16,16 @@ const HOLDER = 1;
 
 type Setting = [lever: string, value: number];
 
-/** Every position with the wrong sign over `months`, as 'instrument/player'. */
+/** Every position with the wrong sign over `months`, as 'instrument/player'. A lever hidden in the
+ *  chosen mode has no effect there, so setting one is an error: the case would test nothing. */
 function wrongSigns(settings: Setting[], automatic: boolean, months = 240): string[] {
   const e = createEngine(model, { baseline: base.baselineData, dev: false });
   if (automatic) e.setLever('stabilisers', 1);
   for (const [id, v] of settings) {
-    if (model.levers.find((l) => l.id === id)!.kind === 'oneoff') e.fire(id, v);
+    const lever = model.levers.find((l) => l.id === id)!;
+    const shown = !lever.showWhen || [lever.showWhen.equals].flat().includes(automatic ? 1 : 0);
+    if (!shown) throw new Error(`lever '${id}' does nothing on ${automatic ? 'Automatic' : 'Manual'}`);
+    if (lever.kind === 'oneoff') e.fire(id, v);
     else e.setLever(id, v);
   }
   const bad = new Set<string>();
@@ -42,7 +46,7 @@ function wrongSigns(settings: Setting[], automatic: boolean, months = 240): stri
 // and the bond buyers with a large deficit), with what went wrong then.
 const WORST: [string, Setting[], boolean][] = [
   ['tourism −60: fisheries repaid more than they owed', [['tourism', -60]], false],
-  ['income tax +10 on Automatic: bonds bought back from banks that had none', [['incomeTax', 10]], true],
+  ['income-tax offset +10 on Automatic: bonds bought back from banks that had none', [['incomeTaxOffset', 10]], true],
   ['foreign allocation +20: funds overdrew deposits, then shorted bonds', [['pfForeign', 20]], false],
   ['foreign allocation +20 on Automatic', [['pfForeign', 20]], true],
   ['foreign allocation −20: banks shorted bonds, non-residents overdrew', [['pfForeign', -20]], true],
@@ -56,7 +60,7 @@ const WORST: [string, Setting[], boolean][] = [
   ['pension funds as sole buyers of a large deficit', [['bondBuyers', 3], ['health', 3], ['education', 3]], false],
   ['older households as sole buyers of a large deficit', [['bondBuyers', 4], ['health', 3], ['education', 3]], true],
   ['pension funds as sole buyers with the key rate at 15%', [['bondBuyers', 3], ['keyRateFixed', 15]], false],
-  ['central bank as buyer, surplus on Automatic', [['bondBuyers', 2], ['incomeTax', 10]], true],
+  ['central bank as buyer, surplus on Automatic (income-tax offset +10): reserves overdrawn', [['bondBuyers', 2], ['incomeTaxOffset', 10]], true],
 ];
 
 describe('Iceland model: balance sheets stay possible', () => {
@@ -65,12 +69,13 @@ describe('Iceland model: balance sheets stay possible', () => {
       expect(wrongSigns(settings, automatic)).toEqual([]);
     });
 
-  test('every lever alone at its min and at its max (every option of a choice), 20 years, both modes: only the known gap below', () => {
+  test('every lever alone at its min and at its max (every option of a choice), 20 years, in each mode where it acts: only the known gap below', () => {
     const found: string[] = [];
     for (const l of model.levers) {
       if (l.id === 'stabilisers') continue;
       const values = l.kind === 'choice' ? (l.options ?? []).map((o) => o.value).filter((v) => v !== l.default) : [l.min!, l.max!];
-      for (const v of values) for (const automatic of [false, true]) for (const pos of wrongSigns([[l.id, v]], automatic)) found.push(`${l.id}=${v} ${automatic ? 'Automatic' : 'Manual'}: ${pos}`);
+      const modes = [false, true].filter((automatic) => !l.showWhen || [l.showWhen.equals].flat().includes(automatic ? 1 : 0));
+      for (const v of values) for (const automatic of modes) for (const pos of wrongSigns([[l.id, v]], automatic)) found.push(`${l.id}=${v} ${automatic ? 'Automatic' : 'Manual'}: ${pos}`);
     }
     expect(found).toEqual(['incomeTax=10 Manual: reserves/B', 'incomeTax=10 Manual: reserves/CB', 'publicInvestment=-3 Manual: reserves/B', 'publicInvestment=-3 Manual: reserves/CB']);
   }, 30_000);
