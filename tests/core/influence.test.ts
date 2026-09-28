@@ -221,6 +221,44 @@ describe('what is at play on Manual and Automatic', () => {
       expect(held.value('keyRate')).toBeCloseTo(e.baseline('keyRate'), 12);
     }
   });
+
+  // The values on show were computed under the old mode until the next step, so they are
+  // compared with that mode's baseline, not with the one the lever now points to.
+  const quiet = (e: KernelEngine) => {
+    expect(e.ideasAtPlay()).toEqual([]);
+    expect(e.influences('keyRate').terms.map((t) => Math.abs(t.change) < 1e-12)).toEqual(e.influences('keyRate').terms.map(() => true));
+  };
+  test('in the month the mode switches, before the next step, nothing is at play', () => {
+    for (const make of [ice, ref]) {
+      for (const months of [0, 6]) {
+        const e = make();
+        const mode = e.model.stabiliserMode!;
+        e.step(months);
+        e.setLever(mode.lever, mode.automatic);
+        quiet(e);
+      }
+    }
+  });
+  test('seeking back to the month of the switch shows nothing at play', () => {
+    for (const make of [ice, ref]) {
+      const e = make();
+      const mode = e.model.stabiliserMode!;
+      e.step(6);
+      e.setLever(mode.lever, mode.automatic);
+      e.step(6);
+      quiet(e);
+      e.seek(6);
+      quiet(e);
+      e.seek(12); // a snapshot month, restored without a step
+      quiet(e);
+      e.seek(0);
+      e.setLever(mode.lever, mode.automatic);
+      e.seek(12);
+      quiet(e);
+      e.seek(0);
+      quiet(e);
+    }
+  });
 });
 
 describe('stabiliser shadows: declared and checked', () => {

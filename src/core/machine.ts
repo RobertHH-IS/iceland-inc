@@ -61,6 +61,10 @@ export class Machine {
   /** Baseline term values in each stabiliser mode, [Manual, Automatic], when the model has a
    *  stabiliser setting: `baseTerms` then follows the current mode at every evaluation. */
   baseTermsByMode: Float64Array[] | null = null;
+  /** Was the stabiliser setting Automatic in the last evaluate()? termVal and desired were
+   *  computed under this mode, so influences compare them with its baseline (true in a model
+   *  without a stabiliser setting). */
+  evalAutomatic = true;
   readonly termDisabled: Uint8Array;
   readonly ledger: Ledger;
   readonly pay: Payments;
@@ -244,10 +248,17 @@ export class Machine {
     return prev + k * (d - prev);
   }
 
+  /** Is the stabiliser setting Automatic at the current lever values? */
+  automaticNow(): boolean {
+    const mode = this.m.def.stabiliserMode;
+    return mode && this.m.modeLever >= 0 ? isAutomatic(mode, this.leverVal[this.m.modeLever]) : true;
+  }
+
   /** Evaluate the whole schedule for this step. */
   evaluate(): void {
     const { m, cur } = this;
-    if (this.baseTermsByMode && m.def.stabiliserMode && m.modeLever >= 0) this.baseTerms = this.baseTermsByMode[isAutomatic(m.def.stabiliserMode, this.leverVal[m.modeLever]) ? 1 : 0];
+    this.evalAutomatic = this.automaticNow();
+    if (this.baseTermsByMode) this.baseTerms = this.baseTermsByMode[this.evalAutomatic ? 1 : 0];
     let iters = 1;
     for (const b of m.blocks) {
       if (!b.simultaneous) {

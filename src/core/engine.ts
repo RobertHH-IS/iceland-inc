@@ -32,7 +32,7 @@ import type {
   ShockApi,
   StabiliserState,
 } from './types.ts';
-import { compile, isAutomatic, isCompiled, ROLE_ISSUER, type CLever, type KModel } from './compile.ts';
+import { compile, isCompiled, ROLE_ISSUER, type CLever, type KModel } from './compile.ts';
 import { Machine, type MachineState } from './machine.ts';
 import type { Ledger } from './ledger.ts';
 import { baselineReport, solveBaseline, type Baseline, type BaselineReport } from './steady.ts';
@@ -150,6 +150,8 @@ class KEngine implements KernelEngine {
   private hTerms: Float64Array[] = [];
   private hDesired: Float64Array[] = [];
   private hRegimes: (string | null)[][] = [];
+  /** Stabiliser mode each recorded month's term values were computed under. */
+  private hAuto: boolean[] = [];
   private hInd: Float64Array[] = [];
   private hPos: Float64Array[] = [];
   private hChecks: Float64Array[] = [];
@@ -221,8 +223,9 @@ class KEngine implements KernelEngine {
       if (ind.display === 'deviation-pct' && Math.abs(this.baseInd[i]) < 1e-12) this.warnings.push(`indicator '${ind.id}' shows % deviation but its baseline is 0; it falls back to the difference × 100`);
     });
     const self = this;
-    // baseline terms and desired values of the current stabiliser mode
-    const baseNow = () => (base.byMode ? base.byMode[self.automaticNow() ? 1 : 0] : base);
+    // baseline terms and desired values of the stabiliser mode that the current term values
+    // were computed under (not the lever as it is now: a mode switch shows at the next step)
+    const baseNow = () => (base.byMode ? base.byMode[M.evalAutomatic ? 1 : 0] : base);
     this.src = {
       m,
       get cur() {
@@ -248,7 +251,7 @@ class KEngine implements KernelEngine {
         return M.pEff;
       },
       get automatic() {
-        return self.automaticNow();
+        return M.evalAutomatic;
       },
       ctxOf: (r) => M.ctxOf(r),
       indicatorLevel: (i) => self.levelNow(i),
@@ -300,6 +303,7 @@ class KEngine implements KernelEngine {
     M.fillRing(M.cur);
     M.termVal.set(b.terms);
     M.desired.set(b.desired);
+    M.evalAutomatic = M.automaticNow();
     b.regimes.forEach((r, j) => (M.regimes[j] = r));
     this.script = [];
     this.snaps = new Map();
@@ -307,6 +311,7 @@ class KEngine implements KernelEngine {
     this.hTerms = [];
     this.hDesired = [];
     this.hRegimes = [];
+    this.hAuto = [];
     this.hInd = [];
     this.hPos = [];
     this.hChecks = [];
@@ -336,6 +341,7 @@ class KEngine implements KernelEngine {
     this.hTerms.push(new Float64Array(M.termVal));
     this.hDesired.push(new Float64Array(M.desired));
     this.hRegimes.push([...M.regimes]);
+    this.hAuto.push(M.evalAutomatic);
     const ind = new Float64Array(m.indicators.length);
     for (let i = 0; i < ind.length; i++) ind[i] = m.indicators[i].compute(this.ictx);
     this.hInd.push(ind);
@@ -512,12 +518,14 @@ class KEngine implements KernelEngine {
     this.hTerms.length = keep;
     this.hDesired.length = keep;
     this.hRegimes.length = keep;
+    this.hAuto.length = keep;
     this.hInd.length = keep;
     this.hPos.length = keep;
     this.hChecks.length = keep;
     this.M.termVal.set(this.hTerms[best]);
     this.M.desired.set(this.hDesired[best]);
     this.hRegimes[best].forEach((r, j) => (this.M.regimes[j] = r));
+    this.M.evalAutomatic = this.hAuto[best];
     this.checkBuf.set(this.hChecks[best]);
     this.feedLog = this.feedLog.filter((f) => f.t <= best);
     this.failures = this.failures.filter((f) => f.t <= best);
@@ -734,9 +742,7 @@ class KEngine implements KernelEngine {
 
   /** Is the stabiliser setting Automatic now? (A model without one counts as Automatic.) */
   private automaticNow(): boolean {
-    const m = this.model;
-    const mode = m.stabiliserMode;
-    return mode && m.modeLever >= 0 ? isAutomatic(mode, this.M.leverVal[m.modeLever]) : true;
+    return this.M.automaticNow();
   }
 
   stabilisers(): StabiliserState[] {

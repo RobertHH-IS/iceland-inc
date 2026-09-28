@@ -28,13 +28,15 @@ export interface InfluenceSource {
   cur: Float64Array;
   baseVars: Float64Array;
   termVal: Float64Array;
-  /** Baseline term and desired values in the current stabiliser mode. */
+  /** Baseline term and desired values in the stabiliser mode that termVal and desired were
+   *  computed under (the last evaluation, not the lever as it is now). */
   baseTerms: Float64Array;
   desired: Float64Array;
   baseDesired: Float64Array;
   regimes: (string | null)[];
   pEff: Float64Array;
-  /** The stabiliser setting is Automatic (true for a model without one). */
+  /** The stabiliser setting was Automatic when termVal and desired were computed (true for a
+   *  model without one). */
   automatic: boolean;
   /** A rule's context on the current state (for its `combine`). */
   ctxOf(rule: number): Ctx;
