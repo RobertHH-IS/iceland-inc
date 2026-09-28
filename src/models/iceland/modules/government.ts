@@ -13,7 +13,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth, automatic, STABILISERS } from '../util.ts';
+import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth, automatic, AUTOMATIC, MANUAL, STABILISERS } from '../util.ts';
 import { cashToSpend } from './banks.ts';
 
 type Channel = { id: string; label: string; level: Id; share: Id; lever: string; channel: string; what: string };
@@ -317,7 +317,7 @@ const rules: RuleDef[] = [
     regime: (c) => (automatic(c) ? null : 'Suggestion only (Manual)'),
     concepts: ['fiscal-rule'],
     explain: {
-      what: 'How far the debt rule would move the income-tax rate: added to the rate when stabilisers are Automatic, only suggested on the income-tax lever when they are Manual.',
+      what: 'How far the debt rule would move the income-tax rate: added to the rate (with your offset) when stabilisers are Automatic, only suggested on the income-tax lever when they are Manual.',
       rule: 'Moves toward {phiTau} × (debt ratio − {debtR0}) at speed {lamTau} a year, in both modes. Ten points more debt eventually means about 2.5 points more tax.',
     },
   },
@@ -338,17 +338,21 @@ const rules: RuleDef[] = [
     id: 'taxRate',
     target: 'taxRate',
     category: 'POLICY',
+    label: 'Income-tax rate: yours, or the rule’s plus your offset',
     inputs: ['taxRuleAdjustment'],
     params: ['tau0', 'incomeTaxShift'],
-    levers: [STABILISERS],
+    levers: [STABILISERS, 'incomeTaxOffset'],
+    // Each mode reads its own lever, as the key rate does: the engine applies a hidden lever's
+    // value, so a shift set with "Apply" on Manual must not also count as an offset on Automatic.
     terms: terms(
       ['normal', 'Baseline rate', undefined, (c) => c.p('tau0')],
-      ['lever', 'Income-tax lever', undefined, (c) => c.p('incomeTaxShift')],
+      ['lever', 'The shift you set (Manual)', undefined, (c) => (automatic(c) ? 0 : c.p('incomeTaxShift'))],
+      ['offset', 'Your offset to the rule (Automatic)', undefined, (c) => (automatic(c) ? c.lever('incomeTaxOffset') / 100 : 0)],
       ['debtRule', 'Debt rule (Automatic)', 'fiscal-rule', (c) => (automatic(c) ? c.v('taxRuleAdjustment') : 0)],
     ),
     explain: {
       what: 'The average tax rate on wages, benefits and pensions. At {tau0%} it also stands in for property taxes, other taxes on households and non-tax revenue.',
-      rule: 'Rate = {tau0%} + your income-tax lever. With stabilisers on Automatic, the debt rule’s adjustment is added as well; on Manual it is not, and the rate stays where you set it.',
+      rule: 'Who sets it depends on the Stabilisers setting. Manual (the default): rate = {tau0%} + the income-tax lever, and it stays where you set it; the debt rule only suggests a value beside the lever. Automatic: rate = {tau0%} + the debt rule’s adjustment + your offset lever.',
     },
   },
   ...AGES.map(
@@ -681,7 +685,27 @@ export const government: ModuleDef = {
     },
   ],
   levers: [
-    leverFor('incomeTax', 'Income-tax rate', 'incomeTaxShift', 'pp', -10, 10, 0.5, 'Changes the average tax rate on wages, benefits and pensions.', 'Level shift in the income-tax rate, in percentage points from its baseline, applied in the month it is set and persistent while set. Stabilisers on Manual: this is the whole change, and the debt rule only suggests a value beside the lever. On Automatic: the debt rule’s adjustment is added on top, leaning against the change in debt. Setting it back to 0 removes your shift.', ['automatic-stabilisers'], 0.01),
+    {
+      ...leverFor('incomeTax', 'Income-tax rate', 'incomeTaxShift', 'pp', -10, 10, 0.5, 'Changes the average tax rate on wages, benefits and pensions, held where you set it. The debt rule only suggests a value beside the lever.', 'Level shift in the income-tax rate, in percentage points from its baseline, applied in the month it is set and held there until you change it (stabilisers on Manual). This is the whole change: the debt rule only suggests a value beside the lever. Setting it back to 0 removes your shift. It has no effect while stabilisers are Automatic, when the debt rule and your offset set the rate.', ['automatic-stabilisers'], 0.01),
+      showWhen: { lever: STABILISERS, equals: MANUAL },
+    },
+    {
+      id: 'incomeTaxOffset',
+      label: 'Income tax: your offset to the rule',
+      group: 'Policy',
+      section: 'Government',
+      kind: 'setting',
+      unit: 'pp',
+      default: 0,
+      min: -10,
+      max: 10,
+      step: 0.5,
+      showWhen: { lever: STABILISERS, equals: AUTOMATIC },
+      description: 'Sets the income-tax rate this many points above (or below) where the debt rule puts it.',
+      definition:
+        'Level shift in the income-tax rate, in percentage points on top of the baseline rate and the debt rule’s adjustment, applied in the month it is set and persistent while set (stabilisers on Automatic). The debt rule keeps leaning against government debt underneath it. Setting it back to 0 leaves the rate to the rule. It has no effect while stabilisers are Manual.',
+      concepts: ['automatic-stabilisers', 'fiscal-rule'],
+    },
     leverFor('vat', 'VAT rate', 'vatShift', 'pp', -10, 10, 0.5, 'Changes the effective VAT rate on consumer spending; prices move at once.', 'Level shift in the effective VAT rate, in percentage points, applied at once and persistent while set. Consumer prices jump with it and indexed debts are revalued. Setting it back to 0 removes the shift (prices drop back).', ['cost-pass-through'], 0.01),
     leverFor('health', 'Health spending', 'gHealth', '% of GDP', -3, 3, 0.1, 'Real change in public health spending: staff pay and purchases.', 'Level shift in real health spending, % of baseline GDP a year, split between staff and purchases as at baseline; persistent while set. Nominal spending also rises with wages and prices. Setting it back to 0 returns spending to baseline; the debt built up meanwhile remains.', ['multiplier']),
     leverFor('education', 'Education spending', 'gEdu', '% of GDP', -3, 3, 0.1, 'Real change in public education spending.', 'Level shift in real education spending, % of baseline GDP a year, persistent while set, split between staff and purchases as at baseline. Setting it back to 0 returns spending to baseline.', ['multiplier']),
@@ -719,11 +743,12 @@ export const government: ModuleDef = {
       id: 'debtRule',
       label: 'Debt rule on income tax',
       lever: 'incomeTax',
+      offset: 'incomeTaxOffset',
       suggestion: 'taxRuleSuggestion',
       // Half the lever's half-point step: it calls exactly when "Apply" would move the lever.
       threshold: 0.25,
       description:
-        'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually. On Automatic it is added to the income-tax rate on top of your lever; on Manual it suggests a value for the lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step.',
+        'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually. On Automatic it sets the income-tax rate, and your offset lever adds to or subtracts from it; on Manual it suggests a value for the income-tax lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step.',
       concepts: ['fiscal-rule'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'incomeTaxRate' },
     },
