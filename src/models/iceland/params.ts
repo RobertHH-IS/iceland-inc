@@ -332,7 +332,10 @@ P('lamPia', 1.5, 'per year', 'BEHAVIOUR', 'How fast the remembered rate of infla
 
 /* ------------------------------------------------------------ policy rule */
 P('aPi', 1.3, 'fraction', 'POLICY', 'Key-rate response to expected inflation above target (points per point).', tuned());
-P('aY', 0.6, 'fraction', 'POLICY', 'Key-rate response to the output gap (points per % of output).', tuned());
+P('aY', 1, 'fraction', 'POLICY', 'Key-rate response to the output gap (points per % of output).', {
+  basis: 'calibrated',
+  note: 'Re-tuned from v1’s 0.6 after the consumption deflator stopped reading house-price moves as changes in real spending (audit H4, 29 September 2026). That removed a false early recovery after a rate rise, and the output trough moved to the last quarter of the 8-quarter rate-shock scenario (outside rate-output-timing’s 4–7). betaC and betaRI move the depth of the trough, not its timing. 1.0 is the output-gap weight of Taylor’s (1999) balanced rule, and keeps every check in range, also with the rate held 1 pp for four quarters as in the CBI QMM experiment.',
+});
 P('aPiA', 0.3, 'fraction', 'POLICY', 'Key-rate response to actual 12-month inflation above target.', tuned());
 P('lamPol', 3, 'per year', 'POLICY', 'How fast the key rate moves toward what its rule says (smoothing).', assumed());
 

@@ -4,8 +4,10 @@
  * Firms price at a markup on a smoothed unit cost, made of labour and imported inputs, and
  * capacity pressure pushes prices a little above it. Import prices in shops follow world prices
  * in krónur with a lag. The CPI weights domestic goods, imported goods and housing as in the
- * Statistics Iceland basket; VAT scales the first two. Expected inflation mixes the target (the
- * anchor) with a slowly updated memory of recent inflation.
+ * Statistics Iceland basket; VAT scales the first two. Household spending is turned into a volume
+ * with a consumption deflator that leaves out the housing part, which here follows house prices
+ * and is mostly owner-occupiers' imputed rent, never paid in cash (audit H4). Expected inflation
+ * mixes the target (the anchor) with a slowly updated memory of recent inflation.
  */
 import type { ModuleDef } from '../../../core/types.ts';
 import { ALL_PARAMS } from '../steady.ts';
@@ -24,6 +26,15 @@ export const prices: ModuleDef = {
     { id: 'unitCost', label: 'Unit cost (as firms see it)', unit: 'index', kind: 'price', scale: 'nominal', initial: 1 },
     { id: 'domesticPrice', label: 'Domestic prices', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Prices of goods and services made in Iceland, before VAT (1 at baseline).' },
     { id: 'cpi', label: 'Consumer price index', unit: 'index', kind: 'price', scale: 'nominal', initial: 1 },
+    {
+      id: 'consumptionDeflator',
+      label: 'Prices of what households pay for',
+      unit: 'index',
+      kind: 'price',
+      scale: 'nominal',
+      initial: 1,
+      description: 'The CPI without its housing part: domestic and imported goods and services with VAT (1 at baseline). It turns household spending into a volume.',
+    },
     { id: 'inflation', label: 'Inflation (this month, annualised)', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: 0 },
     { id: 'inflation12', label: 'Inflation (12 months)', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0 },
     { id: 'adaptiveInflation', label: 'Remembered inflation', unit: 'fraction/yr', kind: 'expectation', scale: 'none', initial: 0, description: 'A slowly updated average of recent inflation.' },
@@ -95,6 +106,22 @@ export const prices: ModuleDef = {
       explain: {
         what: 'The consumer price index (1 at baseline).',
         rule: 'CPI = VAT factor × ({omD%} × domestic prices + {omM%} × import prices) + {omH%} × housing costs, with the Statistics Iceland basket weights. The VAT factor is (1 + VAT rate) ÷ (1 + baseline VAT rate).',
+      },
+    },
+    {
+      id: 'consumptionDeflator',
+      target: 'consumptionDeflator',
+      category: 'IDENTITY',
+      label: 'Consumption deflator',
+      inputs: ['domesticPrice', 'importPrice', 'vatRate'],
+      params: ['omD', 'omM', 'vat0'],
+      terms: terms(
+        ['domestic', 'Domestic goods and services', 'markup-pricing', (c) => (vatFactor(c) * c.p('omD') * c.v('domesticPrice')) / (c.p('omD') + c.p('omM'))],
+        ['imported', 'Imported goods', 'exchange-rate-pass-through', (c) => (vatFactor(c) * c.p('omM') * c.v('importPrice')) / (c.p('omD') + c.p('omM'))],
+      ),
+      explain: {
+        what: 'The prices of the goods and services households pay for, with VAT (1 at baseline). Household spending ÷ this is real consumption.',
+        rule: 'Deflator = VAT factor × ({omD%} × domestic prices + {omM%} × import prices) ÷ ({omD%} + {omM%}): the CPI without its housing part. In the CPI, most of housing ({omH%}) is owner-occupiers’ imputed rent, what they would pay to rent their own homes; nobody pays it in cash, and here it follows house prices. Household spending is a cash flow that does not change when house prices do, so dividing it by the full CPI would count a rise in house prices as households buying less. Excluding housing avoids that, and the deflator still rises one for one with a general rise in prices. The full CPI still drives indexation, inflation, expectations, wages and the key rate.',
       },
     },
     {

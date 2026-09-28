@@ -422,13 +422,16 @@ export const firms: ModuleDef = {
       id: 'salesFC',
       target: 'salesFC',
       category: 'IDENTITY',
-      inputs: ['investmentReal', 'consumption', 'vat', 'cpi'],
+      inputs: ['investmentReal', 'consumption', 'vat', 'domesticPrice'],
       params: ['maintShare'],
       terms: terms(
         ['investment', 'Machines and buildings (business and public investment)', 'investment-accelerator', (c) => c.v('investmentReal')],
-        ['repairs', 'Home repairs, after VAT', 'consumption-function', (c) => (c.p('maintShare') * (c.v('consumption') - c.v('vat'))) / c.v('cpi')],
+        ['repairs', 'Home repairs, after VAT', 'consumption-function', (c) => (c.p('maintShare') * (c.v('consumption') - c.v('vat'))) / c.v('domesticPrice')],
       ),
-      explain: { what: 'What builders sell, at baseline prices.', rule: 'Sales = real business and public investment + home repairs ({maintShare%} of household spending, after VAT, ÷ CPI).' },
+      explain: {
+        what: 'What builders sell, at baseline prices.',
+        rule: 'Sales = real business and public investment + home repairs ({maintShare%} of household spending, after VAT, ÷ domestic prices: builders are domestic producers, and the value is already net of VAT).',
+      },
     },
     {
       id: 'constructionInputs',

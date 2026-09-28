@@ -111,3 +111,39 @@ describe('H5: purchasing-power parity is a slow anchor for world prices', () => 
     }
   });
 });
+
+describe('H4: consumption is deflated by prices households pay for, not by house prices', () => {
+  const pct = (e: KernelEngine, id: string) => 100 * (e.value(id) / e.baseline(id) - 1);
+  const lending = (lamHC: number) => {
+    const e = createEngine(model).fork({ params: { lamHC } });
+    e.setLever('lendingAppetite', 1);
+    e.step(6);
+    return e;
+  };
+
+  test('the deflator is the CPI without its housing part, and real consumption is spending ÷ it', () => {
+    const e = lending(1);
+    const w = (id: string) => e.influences('cpi').params.find((p) => p.id === id)!.value;
+    const exHousing = (e.value('cpi') - w('omH') * e.value('housingCost')) / (w('omD') + w('omM'));
+    expect(e.value('housingCost')).not.toBeCloseTo(e.value('consumptionDeflator'), 4);
+    expect(e.value('consumptionDeflator')).toBeCloseTo(exHousing, 12);
+    expect(e.value('realConsumption')).toBeCloseTo(e.value('consumption') / e.value('consumptionDeflator'), 12);
+  });
+
+  test('house prices reaching the CPI do not by themselves change real consumption (they did by about as much as the CPI moved)', () => {
+    // the same credit boom with and without the housing part of the CPI following house prices
+    const [a, b] = [lending(1), lending(0)];
+    const cpiGap = pct(a, 'cpi') - pct(b, 'cpi');
+    const realGap = pct(a, 'realConsumption') - pct(b, 'realConsumption');
+    expect(cpiGap).toBeGreaterThan(0.04);
+    expect(Math.abs(realGap)).toBeLessThan(0.2 * cpiGap);
+  });
+
+  test('a general rise in prices moves the deflator one for one, like the CPI', () => {
+    const e = createEngine(model);
+    e.fire('wageSettlement', 10);
+    e.step(240);
+    // prices have settled higher; the deflator and the CPI have risen by about the same
+    expect(Math.abs(pct(e, 'consumptionDeflator') / pct(e, 'cpi') - 1)).toBeLessThan(0.05);
+  });
+});
