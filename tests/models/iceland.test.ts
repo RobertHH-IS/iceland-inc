@@ -111,6 +111,10 @@ describe('Iceland model: the steady state matches engine v1', () => {
   });
 });
 
+// Shared CI runners are several times slower and noisier than a developer machine,
+// so timing budgets are loosened there; the local budget stays tight.
+const PERF_SLACK = process.env.CI ? 10 : 1;
+
 describe('Iceland model: speed', () => {
   test('a shocked month steps in well under 200 µs', () => {
     const e = createEngine(model, { dev: false });
@@ -120,6 +124,6 @@ describe('Iceland model: speed', () => {
     e.step(600);
     const us = ((performance.now() - t0) * 1000) / 600;
     console.log(`Iceland model: ${model.NV} variables, ${model.clegs.length} legs, block of ${Math.max(...model.schedule.map((b) => b.rules.length))} rules: ${us.toFixed(1)} µs per step`);
-    expect(us).toBeLessThan(200);
+    expect(us).toBeLessThan(200 * PERF_SLACK);
   });
 });
