@@ -18,7 +18,7 @@ import { describePosting } from '../../core/format.ts';
 import type { EngineClient, Frame } from '../engine-client.ts';
 import { chartRef, chartWindow } from '../model/charts.ts';
 import { fmtChange, fmtCompact, fmtCompactChange, fmtIndicator, fmtNum, fmtSigned, fmtValue, shortUnit, unitCaption } from '../model/format.ts';
-import { directMembers, isHidden, memberCount, nodePipes, pipeBetween } from '../model/hierarchy.ts';
+import { directMembers, memberCount, nodePipes, pipeBetween } from '../model/hierarchy.ts';
 import { nodeColor, nodeLabel, nodeMembers, varLabel, type ModelInfo } from '../model/info.ts';
 import { GROUP_NOUNS } from '../model/player-cards.ts';
 import { canBack, canForward, navCurrent, selectionKey, selectionLabel, type NavState } from '../model/navigation.ts';
@@ -103,12 +103,6 @@ function Intro({ info }: { info: ModelInfo }) {
   return (
     <div className="intro">
       <p className="lede">{info.description}</p>
-      <p>
-        Click any <strong>pipe</strong>, <strong>player</strong> or <strong>group</strong> on the map (a group opens to show its members), a <strong>chart</strong> or an <strong>idea</strong>. The inspector shows what is driving it right now: the rule behind it, its terms now against the baseline, the parameters and where they come from, and the economic ideas at play.
-      </p>
-      <p className="muted small">
-        {info.players.length} players · {info.flows.length} flows · {info.legs.length} legs · {info.rules.length} rules · {info.levers.length} levers · {info.indicators.length} charts
-      </p>
     </div>
   );
 }
@@ -354,7 +348,6 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
   const memberSet = new Set(members);
   const regimes = [...info.regimeOwners].filter(([, owners]) => owners.some((o) => memberSet.has(o)));
   const path = info.ancestorsOf.get(id) ?? [];
-  const hidden = isHidden(info, id, expanded);
   const inside = new Set(info.groupById.has(id) ? [id, ...info.groups.filter((g) => (info.ancestorsOf.get(g.id) ?? []).includes(id)).map((g) => g.id), ...members] : [id]);
   return (
     <div className="detail">
@@ -372,7 +365,6 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
               </NavLink>
             </span>
           ))}
-          {hidden && <span className="muted small">(closed on the map)</span>}
         </p>
       )}
       {player && <p className="inf-what">{player.description}</p>}
@@ -380,7 +372,7 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
       {group && (
         <>
           <h4 className="sub">
-            Members <span className="muted small">· {memberCount(info, id, GROUP_NOUNS[info.id])}</span>
+            Members
           </h4>
           <ul className="member-list">
             {directMembers(info, id).map((m) => {
@@ -399,7 +391,7 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
         </>
       )}
       <h4 className="sub">Balance sheet{group ? ' of all its players' : ''}</h4>
-      <p className="muted small">% of baseline annual GDP · now · baseline · change{group ? ' · claims between members are not netted' : ''}</p>
+      <p className="muted small">% of GDP · now · baseline · change{group ? ' · not netted between members' : ''}</p>
       <table className="bs">
         <tbody>
           <tr className="bs-head">

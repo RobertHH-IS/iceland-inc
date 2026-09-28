@@ -163,7 +163,7 @@ export function fmtClock(t: number): { month: number; year: number; monthOfYear:
   const m = Math.max(0, Math.round(t));
   const year = Math.floor(m / 12) + 1;
   const monthOfYear = (m % 12) + 1;
-  return { month: m, year, monthOfYear, label: `Year ${year} · month ${monthOfYear}`, short: `M${m}` };
+  return { month: m, year, monthOfYear, label: `Year ${year} · Month ${monthOfYear}`, short: `M${m}` };
 }
 
 /** Months as a duration: "5 months", "2 years", "2 yr 3 mo". */

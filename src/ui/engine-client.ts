@@ -134,6 +134,8 @@ class MainThreadClient implements EngineClient {
   private hist: number[][] = [];
   private frame!: Frame;
   private readonly regimeRules: { id: Id; target: Id }[];
+  /** Each rule's regime at the baseline: a badge only appears when the regime differs from it. */
+  private readonly baseRegimes: Record<Id, string | null> = {};
 
   constructor(source: ModelDef | KernelEngine, opts: ClientOptions = {}) {
     this.engine = 'baselineData' in source ? source : createEngine(source, opts.engine);
@@ -142,6 +144,16 @@ class MainThreadClient implements EngineClient {
     this.maxMonths = opts.maxMonths ?? MAX_MONTHS;
     this.tickMs = opts.tickMs ?? TICK_MS;
     this.regimeRules = this.info.rules.filter((r) => r.hasRegime).map((r) => ({ id: r.id, target: r.target }));
+    if (this.regimeRules.length) {
+      const base = createEngine(e.model.def, { dev: false });
+      for (const r of this.regimeRules) {
+        try {
+          this.baseRegimes[r.id] = base.influences(`var:${r.target}`).regime ?? null;
+        } catch {
+          this.baseRegimes[r.id] = null;
+        }
+      }
+    }
     this.horizon = e.t;
     this.rebuildHistory();
     this.publish(false);
@@ -176,7 +188,8 @@ class MainThreadClient implements EngineClient {
     const regimes: Record<Id, string | null> = {};
     for (const r of this.regimeRules) {
       try {
-        regimes[r.id] = e.influences(`var:${r.target}`).regime ?? null;
+        const now = e.influences(`var:${r.target}`).regime ?? null;
+        regimes[r.id] = now !== this.baseRegimes[r.id] ? now : null;
       } catch {
         regimes[r.id] = null;
       }

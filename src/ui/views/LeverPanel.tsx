@@ -37,9 +37,8 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
     <aside className="levers panel" aria-labelledby="levers-title">
       <div className="panel-head">
         <h2 id="levers-title">Levers</h2>
-        <span className="muted small">{total ? `${total} changed` : 'at baseline'}</span>
+        {total > 0 && <span className="muted small">{total} changed</span>}
       </div>
-      <p className="panel-lede">Pull a lever and the machine runs on while the change filters through the flows to a new resting point.</p>
       <div className="panel-body scroll">
         {sections.length === 0 && <p className="muted">This model has no levers.</p>}
         {sections.map((s) => {
@@ -56,7 +55,6 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
                       {n}
                     </span>
                   )}
-                  <span className="acc-meta muted small">{s.levers.length}</span>
                   <span className="acc-chev">
                     <Icon name="chevron" size={14} />
                   </span>
@@ -87,7 +85,7 @@ const LeverRow = memo(function LeverRow({ lever: l, value, fired, client }: { le
         <span className="lever-label" id={`lever-label-${l.id}`}>
           {l.label}
         </span>
-        {l.kind !== 'oneoff' && <span className="lever-value mono">{leverValueLabel(l, value)}</span>}
+        {l.kind === 'setting' && <span className="lever-value mono">{leverValueLabel(l, value)}</span>}
         {l.kind !== 'oneoff' && changed && (
           <button type="button" className="icon-btn tiny" onClick={() => client.setLever(l.id, l.default)} aria-label={`Set ${l.label} back to its baseline`} title="Back to baseline">
             <Icon name="undo" size={14} />

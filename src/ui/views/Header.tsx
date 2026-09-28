@@ -44,9 +44,6 @@ export const Header = memo(function Header(p: HeaderProps) {
         <h1 className="title">
           ICELAND <span className="accent">INC.</span>
         </h1>
-        <div className="model-name" title={info.description}>
-          {info.label}
-        </div>
       </div>
 
       <div className="transport" role="group" aria-label="Simulation clock">
@@ -68,19 +65,18 @@ export const Header = memo(function Header(p: HeaderProps) {
         </div>
       </div>
 
-      <div className="clock" aria-live="off">
-        <span className="clock-month mono" aria-label={`Month ${clock.month}`}>
-          {clock.short}
-        </span>
-        <span className="clock-year">{clock.label}</span>
+      <div className="clock mono" aria-live="off" aria-label={`Month ${clock.month}`}>
+        {clock.label}
       </div>
 
       <Timeline client={client} info={info} t={p.t} horizon={p.horizon} events={p.events} />
 
       <div className="status">
-        <span className={`books ${p.checks.ok ? 'ok' : 'bad'}`} title={p.checks.items.map((c) => `${c.label}: ${fmtResidual(c.residual)}`).join('\n') + `\nTolerance ${fmtResidual(p.checks.tolerance)}`} role="status">
-          {p.checks.ok ? 'Books balance ✓' : `Books off ✗ ${fmtResidual(p.checks.maxResidual)}`}
-        </span>
+        {!p.checks.ok && (
+          <span className="books bad" title={p.checks.items.map((c) => `${c.label}: ${fmtResidual(c.residual)}`).join('\n')} role="alert">
+            Accounts out of balance: {fmtResidual(p.checks.maxResidual)}
+          </span>
+        )}
         <label className="model-switch">
           <span className="sr-only">Model</span>
           <select value={p.modelId} onChange={(e) => p.onModelChange(e.target.value)} aria-label="Choose a model">
@@ -122,9 +118,6 @@ function Timeline({ client, info, t, horizon, events }: { client: EngineClient; 
           })}
         </div>
       </div>
-      <span className="timeline-label mono">
-        {t}/{horizon}
-      </span>
     </div>
   );
 }

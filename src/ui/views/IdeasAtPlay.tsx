@@ -34,7 +34,6 @@ export function IdeasAtPlay({ info, client, selection, pipe, onSelect }: IdeasPr
       <div className="panel-body scroll">
         {ideas.length === 0 ? (
           <div className="ideas-empty">
-            <p className="muted small">Nothing has moved from the baseline here yet, so no idea is doing any work. Pull a lever and watch the ideas change as the shock travels.</p>
             <StaticIdeas info={info} selection={selection} pipe={pipe} onSelect={onSelect} />
           </div>
         ) : (
@@ -78,7 +77,7 @@ function StaticIdeas({ info, selection, pipe, onSelect }: { info: ModelInfo; sel
   if (!ids.length) return null;
   return (
     <>
-      <p className="muted small">Ideas {selection ? 'this expresses' : 'the model is built on'}:</p>
+      <p className="muted small">{selection ? 'Ideas behind this' : 'Ideas in the model'}</p>
       <div className="chips">
         {ids.map((id) => (
           <ConceptChip key={id} info={info} id={id} onSelect={onSelect} dim />

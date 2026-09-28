@@ -12,12 +12,9 @@ export const Feed = memo(function Feed({ info, feed, onSelect }: { info: ModelIn
     <section className="feed panel" aria-labelledby="feed-title">
       <div className="panel-head">
         <h2 id="feed-title">What is happening</h2>
-        <span className="muted small">{feed.length ? `${feed.length}` : ''}</span>
       </div>
       <div className="panel-body scroll">
-        {feed.length === 0 ? (
-          <p className="muted small">Quiet: the economy is at rest. Messages appear here as indicators cross their thresholds.</p>
-        ) : (
+        {feed.length > 0 && (
           <ol className="feed-list" aria-live="polite">
             {feed.map((f, i) => (
               <li key={`${f.t}-${f.indicator}-${i}`} className="feed-item">

@@ -73,7 +73,7 @@ describe('units', () => {
 
 describe('clock and misc', () => {
   test('month 0 is year 1, month 1; month 14 is year 2, month 3', () => {
-    expect(fmtClock(0).label).toBe('Year 1 · month 1');
+    expect(fmtClock(0).label).toBe('Year 1 · Month 1');
     expect(fmtClock(14)).toMatchObject({ month: 14, year: 2, monthOfYear: 3, short: 'M14' });
   });
 

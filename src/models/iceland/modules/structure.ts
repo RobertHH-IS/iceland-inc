@@ -56,7 +56,7 @@ export const structure: ModuleDef = {
     {
       id: 'HY',
       label: 'Young households (18–34)',
-      short: 'Young',
+      short: 'Young 18–34',
       group: 'households',
       color: '#8FC3E8',
       description: 'People aged 18 to 34 and their children. They work, rent or buy their first home with a mortgage, and swing most in and out of jobs.',
@@ -66,7 +66,7 @@ export const structure: ModuleDef = {
     {
       id: 'HW',
       label: 'Working-age households (35–66)',
-      short: 'Working age',
+      short: 'Working age 35–66',
       group: 'households',
       color: '#3A87C8',
       description: 'People aged 35 to 66. They earn most of the wages, carry most of the mortgage debt, own most small businesses and build up pension rights.',
@@ -76,7 +76,7 @@ export const structure: ModuleDef = {
     {
       id: 'HO',
       label: 'Older households (67+)',
-      short: 'Older',
+      short: 'Older 67+',
       group: 'households',
       color: '#1B4B82',
       description: 'People aged 67 and over. They live on pensions and savings, own their homes outright and sell homes to younger people.',

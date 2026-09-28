@@ -29,9 +29,9 @@ export const LedgerView = memo(function LedgerView({ info, legs, columns, onSele
     <div className="ledger">
       <div className="ledger-cap">
         <span>
-          Transactions in % of baseline GDP a year. <strong>−</strong> pays or loses, <strong>+</strong> receives or gains. Small numbers are the change from baseline.
+          % of GDP a year. <strong>−</strong> pays, <strong>+</strong> receives; small numbers: change from baseline.
         </span>
-        <span className={`books ${table.allBalanced ? 'ok' : 'bad'}`}>{table.allBalanced ? 'Every row sums to 0 ✓' : 'A row does not balance ✗'}</span>
+        {!table.allBalanced && <span className="books bad">A row does not balance</span>}
       </div>
       <div className="ledger-scroll" tabIndex={0} role="region" aria-label="Transactions-flow matrix">
         <table className="godley">

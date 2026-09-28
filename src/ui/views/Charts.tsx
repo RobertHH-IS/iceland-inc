@@ -35,11 +35,10 @@ export function Charts({ info, client, t, events, tab, onTab, selected, onSelect
           {tabs.map((x) => (
             <button key={x.id} type="button" role="tab" id={`tab-${x.id}`} aria-selected={x === active} aria-controls="charts-grid" className={`tab ${x === active ? 'on' : ''}`} onClick={() => onTab(x.id)}>
               {x.label}
-              <span className="tab-n">{x.indicators.length}</span>
             </button>
           ))}
         </div>
-        <span className="muted small charts-note">vs baseline · last {CHART_SPAN} months</span>
+        <span className="muted small charts-note">change vs baseline</span>
       </div>
       <div className="panel-body scroll">
         {active ? (

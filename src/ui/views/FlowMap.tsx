@@ -553,7 +553,9 @@ const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, 
     ? `${n.label}, a group of ${count}. ${m1} ${v1}. ${m2 ? `${m2} ${v2}.` : ''}${regime ? ` ${regime}.` : ''} Open it to see its members.`
     : `${n.label}. ${m1} ${v1}. ${m2 ? `${m2} ${v2}.` : ''}${regime ? ` ${regime}.` : ''} Open its balance sheet.`;
   const maxChars = Math.floor((n.w - (group ? 40 : 22)) / 7.2);
-  const title = n.label.length > maxChars ? n.label.slice(0, maxChars - 1) + '…' : n.label;
+  // The full name when it fits, else the player's short name; never a cut-off label if avoidable.
+  const name = n.label.length <= maxChars ? n.label : n.short && n.short.length < n.label.length ? n.short : n.label;
+  const title = name.length > maxChars ? name.slice(0, maxChars - 1) + '…' : name;
   const compact = n.h - (group ? 16 : 0) < 56;
   const shift = group ? 16 : 0;
   const row = (y0: number, m: string, v: string, t: Tone) => (
@@ -578,7 +580,7 @@ const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, 
       onClick={open}
       onKeyDown={(e) => activate(e, open)}
     >
-      <title>{group ? `${n.label}: click to open` : n.label}</title>
+      <title>{group ? `Open ${n.label}` : n.label}</title>
       {group && (
         <>
           <rect className="node-stack s2" x={10} y={8} width={n.w - 20} height={n.h} rx={12} />
@@ -605,14 +607,6 @@ const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, 
       )}
       {m1 && row((compact ? 35 : 39) + shift, m1, v1, t1)}
       {m2 && !compact && row(55 + shift, m2, v2, t2)}
-      {group && (
-        <g className="open-hint" transform={`translate(${n.w / 2},${n.h + 20})`} aria-hidden="true">
-          <rect x={-44} y={-9} width={88} height={18} rx={9} />
-          <text textAnchor="middle" y={4}>
-            click to open
-          </text>
-        </g>
-      )}
       {regime && (
         <g className="regime-badge" transform={`translate(${n.w - 8},-8)`}>
           <title>{regime}</title>
@@ -634,7 +628,7 @@ function GhostCard({ node: n, at, gone }: { node: NodeBox; at: Pt; gone: boolean
       <rect className="node-card" width={n.w} height={n.h} rx={12} />
       <rect className="node-accent" x={0} y={10} width={3.5} height={n.h - 20} rx={1.75} style={{ fill: n.color }} />
       <text className="node-title" x={14} y={20}>
-        {n.label.length > 18 ? n.label.slice(0, 17) + '…' : n.label}
+        {n.label.length <= 18 ? n.label : n.short && n.short.length <= 18 ? n.short : n.label.slice(0, 17) + '…'}
       </text>
     </g>
   );
@@ -650,14 +644,7 @@ const Legend = memo(function Legend({ grouped }: { grouped: boolean }) {
           <line x1="2" y1="5" x2="32" y2="5" className="lg-body" />
           <line x1="2" y1="5" x2="32" y2="5" className="lg-dots" />
         </svg>
-        cash moving
-      </span>
-      <span className="lg">
-        <svg width="34" height="12" aria-hidden="true">
-          <line x1="2" y1="3" x2="32" y2="3" className="lg-body" strokeWidth="1.5" />
-          <line x1="2" y1="9" x2="32" y2="9" className="lg-body" strokeWidth="5" />
-        </svg>
-        thickness ∝ √size
+        money moving
       </span>
       <span className="lg">
         <svg width="34" height="10" aria-hidden="true">
@@ -675,18 +662,8 @@ const Legend = memo(function Legend({ grouped }: { grouped: boolean }) {
         <svg width="34" height="10" aria-hidden="true">
           <line x1="2" y1="5" x2="32" y2="5" className="lg-dashed" />
         </svg>
-        accrual, revaluation, write-off: no cash moves
+        value change, no money moves
       </span>
-      {grouped && (
-        <span className="lg">
-          <svg width="22" height="16" aria-hidden="true">
-            <rect x="5" y="5" width="15" height="10" rx="3" className="lg-stack" />
-            <rect x="2" y="2" width="15" height="10" rx="3" className="lg-card" />
-          </svg>
-          stacked card: a group, click to open
-        </span>
-      )}
-      <span className="lg muted">Click any pipe, player or group to see what drives it.</span>
     </div>
   );
 });

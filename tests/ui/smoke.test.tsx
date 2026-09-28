@@ -66,7 +66,7 @@ for (const def of all) {
         expect(count(map, /class="node[ "]/g)).toBe(tree.nodes.length);
         expect(count(map, /class="frame depth/g)).toBe(tree.frames.length);
         expect(count(map, /class="frame-tab[ "]/g)).toBe(tree.frames.length);
-        for (const n of tree.nodes) expect(map).toContain(`<title>${esc(n.kind === 'group' ? `${n.label}: click to open` : n.label)}</title>`);
+        for (const n of tree.nodes) expect(map).toContain(`<title>${esc(n.kind === 'group' ? `Open ${n.label}` : n.label)}</title>`);
         // every pipe joins two nodes that are on the map
         const ids = new Set(tree.nodes.map((n) => n.id));
         for (const p of pipes) expect(ids.has(p.from) && ids.has(p.to)).toBe(true);
@@ -135,8 +135,8 @@ for (const def of all) {
 test('a link can open one group of the hierarchy and leave the rest closed', () => {
   const html = renderToString(<App models={all} initialHash="#m=hierarchy&t=0&x=firms" />);
   expect(html).toContain('aria-label="Close Firms"');
-  expect(html).toContain('<title>Exporters: click to open</title>');
-  expect(html).toContain('<title>Households: click to open</title>');
+  expect(html).toContain('<title>Open Exporters</title>');
+  expect(html).toContain('<title>Open Households</title>');
   expect(html).not.toContain('<title>Fisheries</title>');
 });
 

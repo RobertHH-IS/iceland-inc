@@ -311,9 +311,6 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
               </button>
             </div>
           )}
-          <span className="stage-hint muted small">
-            {stage === 'ledger' ? 'Every flow is posted twice: each row sums to zero.' : expandable.length ? 'Money flows along the pipes, always. Click a group to open it, or a pipe or player.' : 'Money flows along the pipes, always. Click a pipe or a player.'}
-          </span>
         </div>
         {stage === 'map' ? (
           <FlowMap info={info} client={client} expanded={eff} pipes={viewPipes} legs={frame.legs} regimes={frame.regimes} seq={frame.seq} selection={selection} onSelect={onSelect} onOpenGroup={onOpenGroup} onCloseGroup={onCloseGroup} />
