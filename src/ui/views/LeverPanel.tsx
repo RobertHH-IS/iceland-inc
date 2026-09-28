@@ -7,7 +7,9 @@
  *
  * Stabilisers (decision 0004): the model's stabiliser setting sits at the top as Manual /
  * Automatic. On Manual, a lever whose stabiliser is calling for action turns red, says what the
- * rule would set it to and offers "Apply"; its section header gets a red dot. On Automatic, the
+ * rule would set it to and offers "Apply"; its section header gets a red dot. When Apply could
+ * not move the lever (the rule wants a value beyond its range), the suggestion is a plain note,
+ * without Apply or a red dot. On Automatic, the
  * lever that offsets a rule says what the rule sets. Switching mode puts the levers the new mode
  * hides back to their defaults.
  *
@@ -176,12 +178,12 @@ const LeverRow = memo(function LeverRow({ lever: l, value, fired, client, mark }
       {calling && (
         <div className="stab-call">
           <span>{calling.text}</span>
-          <button type="button" className="btn small stab-apply" onClick={() => client.setLever(l.id, calling.apply)} aria-label={`Apply: set ${l.label} to ${leverValueLabel(l, calling.apply)}`} title={`Set to ${leverValueLabel(l, calling.apply)}`}>
+          <button type="button" className="btn small stab-apply" onClick={() => calling.apply !== value && client.setLever(l.id, calling.apply)} aria-label={`Apply: set ${l.label} to ${leverValueLabel(l, calling.apply)}`} title={`Set to ${leverValueLabel(l, calling.apply)}`}>
             Apply
           </button>
         </div>
       )}
-      {mark?.kind === 'acting' && <div className="stab-note">{mark.text}</div>}
+      {(mark?.kind === 'acting' || mark?.kind === 'beyond') && <div className="stab-note">{mark.text}</div>}
       {showInfo && (
         <div className="lever-info" id={infoId}>
           <p>{l.description}</p>

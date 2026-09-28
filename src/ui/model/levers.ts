@@ -184,6 +184,65 @@ export function resetsWhenSetting(levers: readonly ShowWhenLever[], values: read
   return out;
 }
 
+/**
+ * The script with every hidden lever kept at its default, or null when it already is (decision
+ * 0004: a hidden lever never carries a setting the user cannot see). Playing straight on, the
+ * panel keeps this: switching mode first resets the levers the new mode hides, and a hidden lever
+ * cannot be set. After time travel, or in a hand-made link, a script can break it: a lever set
+ * before a later switch that hides it, or a lever set while a mode hides it (a switch made
+ * earlier, or the default mode). Walking the months in order and tracking lever values, at each
+ * month that has events:
+ *   - a setting that moves a lever off its default while the lever is hidden, both when it
+ *     applies and at the end of the month, is dropped: a straight run could not have made it;
+ *   - a lever then hidden and still off its default gets a reset to its default at that month,
+ *     after the month's events, as the panel adds at a mode switch.
+ * The result is what a straight run to the same months would have recorded. Lever values depend
+ * only on the events, so the walk needs no simulation. One-offs and events for unknown levers
+ * are kept as they are.
+ */
+export function keepHiddenAtDefault(levers: readonly ShowWhenLever[], events: readonly ScenarioEvent[]): ScenarioEvent[] | null {
+  const byId = new Map(levers.map((l) => [l.id, l]));
+  const setting = (e: ScenarioEvent) => (e.fire ? undefined : byId.get(e.lever));
+  const off = (l: ShowWhenLever, v: number) => Math.abs(v - l.default) > 1e-12;
+  const values: number[] = [];
+  for (const l of levers) values[l.index] = l.default;
+  const sorted = [...events].sort((a, b) => a.t - b.t);
+  const out: ScenarioEvent[] = [];
+  let changed = false;
+  for (let i = 0; i < sorted.length; ) {
+    const t = sorted[i].t;
+    let j = i;
+    while (j < sorted.length && sorted[j].t === t) j++;
+    const month = sorted.slice(i, j);
+    i = j;
+    // First pass: which settings apply to a hidden lever, and the values at the end of the month.
+    const end = [...values];
+    const hiddenWhenSet = month.map((e) => {
+      const l = setting(e);
+      if (!l) return false;
+      const hidden = !isShown(l, end, byId);
+      end[l.index] = e.value;
+      return hidden;
+    });
+    month.forEach((e, k) => {
+      const l = setting(e);
+      if (l && hiddenWhenSet[k] && off(l, e.value) && !isShown(l, end, byId)) {
+        changed = true;
+        return;
+      }
+      out.push(e);
+      if (l) values[l.index] = e.value;
+    });
+    for (const l of levers)
+      if (l.showWhen && !isShown(l, values, byId) && off(l, values[l.index])) {
+        out.push({ t, lever: l.id, value: l.default });
+        values[l.index] = l.default;
+        changed = true;
+      }
+  }
+  return changed ? out : null;
+}
+
 /** The value the "Apply" button sets: the nearest point of the lever's step grid (anchored at
  *  its default), clamped to its range and free of floating-point dust. */
 export function snapToStep(l: Pick<LeverInfo, 'step' | 'min' | 'max' | 'default'>, v: number): number {
@@ -196,17 +255,22 @@ export function snapToStep(l: Pick<LeverInfo, 'step' | 'min' | 'max' | 'default'
 export type StabiliserMark =
   /** Manual: the stabiliser would move this lever. `text` is "<label>: <suggestion>". */
   | { kind: 'calling'; stabiliser: Id; label: string; text: string; suggested: number; apply: number }
+  /** Manual: the stabiliser calls, but "Apply" could not move the lever: the suggestion is beyond
+   *  the lever's range (or within half a step of where it is). A note, not a call: no Apply. */
+  | { kind: 'beyond'; stabiliser: Id; label: string; text: string; suggested: number }
   /** Automatic: the stabiliser acts on the policy this lever offsets. `text` is "Set by <label>: <value>". */
   | { kind: 'acting'; stabiliser: Id; label: string; text: string };
 
 /**
  * What the lever panel shows for each stabiliser, by the lever it belongs to:
  *   Manual, calling: a red mark on the stabiliser's lever, with its suggestion and "Apply";
+ *   Manual, calling but Apply would not move the lever: the suggestion as a note, without Apply;
  *   Automatic: a note on the lever that offsets the rule (the lever itself unless declared).
- * Values are in the stabiliser lever's units, to two decimals.
+ * Values are in the stabiliser lever's units, to two decimals. The engine's `calling` is left
+ * as it is (the feed still says the rule calls); only the panel's call depends on Apply.
  */
 export function stabiliserMarks(
-  states: readonly { id: Id; label: string; lever: Id; offset: Id; suggested: number; calling: boolean; automatic: boolean }[],
+  states: readonly { id: Id; label: string; lever: Id; offset: Id; suggested: number; current: number; calling: boolean; automatic: boolean }[],
   byId: ReadonlyMap<Id, LeverInfo>,
 ): Map<Id, StabiliserMark> {
   const out = new Map<Id, StabiliserMark>();
@@ -215,12 +279,19 @@ export function stabiliserMarks(
     if (!l || !Number.isFinite(s.suggested)) continue;
     const shown = leverValueLabel(l, Number(s.suggested.toFixed(2)));
     if (s.automatic) out.set(s.offset, { kind: 'acting', stabiliser: s.id, label: s.label, text: `Set by ${s.label}: ${shown}` });
-    else if (s.calling) out.set(s.lever, { kind: 'calling', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown}`, suggested: s.suggested, apply: snapToStep(l, s.suggested) });
+    else if (s.calling) {
+      const apply = snapToStep(l, s.suggested);
+      if (Math.abs(apply - s.current) >= 1e-12) out.set(s.lever, { kind: 'calling', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown}`, suggested: s.suggested, apply });
+      else {
+        const outside = (l.min !== undefined && s.suggested < l.min) || (l.max !== undefined && s.suggested > l.max);
+        out.set(s.lever, { kind: 'beyond', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown} (${outside ? 'beyond the lever’s range' : 'the nearest step is where the lever is'})`, suggested: s.suggested });
+      }
+    }
   }
   return out;
 }
 
-/** Does any shown lever of a section have a stabiliser calling (the red dot on its header)? */
+/** Does any shown lever of a section have a stabiliser calling that Apply would answer (the red dot on its header)? */
 export function sectionCalling(section: LeverSection, marks: ReadonlyMap<Id, StabiliserMark>, values: readonly number[], byId: ReadonlyMap<Id, ShowWhenLever>): boolean {
   return section.levers.some((l) => marks.get(l.id)?.kind === 'calling' && isShown(l, values, byId));
 }

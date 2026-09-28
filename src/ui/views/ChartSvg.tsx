@@ -3,10 +3,9 @@
  */
 import { memo } from 'react';
 import type { ScenarioEvent } from '../../core/types.ts';
-import { areaPath, eventMarks, linePath, yAt, yTicks, type ChartWindow } from '../model/charts.ts';
+import { areaPath, eventMarkTitle, eventMarks, linePath, yAt, yTicks, type ChartWindow } from '../model/charts.ts';
 import { fmtNum } from '../model/format.ts';
 import type { ModelInfo } from '../model/info.ts';
-import { leverValueLabel } from '../model/levers.ts';
 
 interface SparkProps {
   win: ChartWindow;
@@ -42,14 +41,11 @@ export const ChartSvg = memo(function ChartSvg({ win, events, info, width = 160,
           </g>
         ))}
         {!axes && <line className="zero" x1={0} x2={W} y1={y0} y2={y0} vectorEffect="non-scaling-stroke" />}
-        {marks.map((m) => {
-          const l = info.leverById.get(m.lever);
-          return (
-            <line key={m.t} className="evmark" x1={m.x} x2={m.x} y1={0} y2={H} vectorEffect="non-scaling-stroke">
-              <title>{`Month ${m.t}: ${l?.label ?? m.lever} ${m.fire ? 'applied' : '→'} ${l ? leverValueLabel(l, m.value) : m.value}`}</title>
-            </line>
-          );
-        })}
+        {marks.map((m) => (
+          <line key={m.t} className="evmark" x1={m.x} x2={m.x} y1={0} y2={H} vectorEffect="non-scaling-stroke">
+            <title>{eventMarkTitle(m, info)}</title>
+          </line>
+        ))}
         <path className="area" d={areaPath(win, W, H)} />
         <path className="line" d={linePath(win, W, H)} vectorEffect="non-scaling-stroke" />
         {axes && (

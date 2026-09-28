@@ -239,12 +239,14 @@ function scopeSeeds(m: KModel, scope?: Id): Seeds | null {
   if (kind) throw new Error(`ideasAtPlay: '${id}' is not a ${kind} of model '${m.def.id}'`);
   const pipe = /^(.+?)->(.+?)(?::(\w+))?$/.exec(scope);
   if (pipe) {
-    // A pipe between two nodes at any level: a group end stands for all its players.
+    // A pipe between two nodes at any level: a group end stands for all its players. Between
+    // nested nodes, legs inside the inner node are its own pipe, as in the interface's pipeBetween.
     const [, a, b, flowKind] = pipe;
     const A = nodeMembers(m, a),
       B = nodeMembers(m, b);
     if (!A || !B) throw new Error(`ideasAtPlay: pipe scope '${scope}' names '${A ? b : a}', which is not a player or group`);
-    return legsWhere((from, to, fl) => A.has(from) && B.has(to) && (!flowKind || m.flows[fl].kind === flowKind));
+    const inBoth = (p: number) => A.has(p) && B.has(p);
+    return legsWhere((from, to, fl) => A.has(from) && B.has(to) && (a === b || !(inBoth(from) && inBoth(to))) && (!flowKind || m.flows[fl].kind === flowKind));
   }
   throw new Error(`ideasAtPlay: unknown scope '${scope}' (use a player, group, flow, variable, indicator or 'from->to[:kind]', optionally prefixed 'var:', 'flow:', 'indicator:', 'player:' or 'group:')`);
 }

@@ -38,14 +38,19 @@ export function fmtSigned(v: number, digits?: number): string {
   return '+' + s;
 }
 
-/** How a unit string should be displayed. */
-export type UnitKind = 'fraction' | 'index' | 'percent' | 'pp' | 'plain';
+/**
+ * How a unit string should be displayed. 'percentRate' is a rate held in percent ('%', '%/yr',
+ * '% a year'): a change in it is in percentage points, like a change in a fraction. 'percent'
+ * is any other unit starting with '%' ('% of GDP/yr'), whose changes keep the unit.
+ */
+export type UnitKind = 'fraction' | 'index' | 'percentRate' | 'percent' | 'pp' | 'plain';
 
 export function unitKind(unit: string): UnitKind {
   const u = unit.trim();
   if (/^fraction\b/.test(u) || u === 'rate') return 'fraction';
   if (u === 'index') return 'index';
   if (/^pp\b/.test(u)) return 'pp';
+  if (/^%\s*(\/\s*yr|a year|per year)?$/.test(u)) return 'percentRate';
   if (u.startsWith('%')) return 'percent';
   return 'plain';
 }
@@ -68,6 +73,7 @@ export function fmtValue(v: number, unit: string, digits?: number): string {
     }
     case 'index':
       return fmtNum(v, digits ?? 3);
+    case 'percentRate':
     case 'percent':
       return `${fmtNum(v, digits)}${unit.trim()}`;
     case 'pp':
@@ -78,8 +84,8 @@ export function fmtValue(v: number, unit: string, digits?: number): string {
 }
 
 /**
- * A change in a model value: pp for fractions ("+0.25 pp"), % of the baseline for indices
- * ("+1.2%"), the unit itself for money ("+0.4% of GDP/yr").
+ * A change in a model value: pp for fractions and rates held in percent ("+0.25 pp"), % of the
+ * baseline for indices ("+1.2%"), the unit itself for money ("+0.4% of GDP/yr").
  */
 export function fmtChange(d: number, unit: string, base?: number, digits?: number): string {
   switch (unitKind(unit)) {
@@ -90,6 +96,8 @@ export function fmtChange(d: number, unit: string, base?: number, digits?: numbe
     case 'index':
       if (base !== undefined && Math.abs(base) > DUST) return `${fmtSigned((d / Math.abs(base)) * 100, digits ?? 2)}%`;
       return fmtSigned(d, digits ?? 3);
+    case 'percentRate':
+      return `${fmtSigned(d, digits)} pp`;
     case 'percent':
       return `${fmtSigned(d, digits)}${unit.trim()}`;
     case 'pp':
@@ -111,11 +119,13 @@ export function fmtCompact(v: number, unit: string): string {
   }
 }
 
-/** A change for a tight space: "+0.25pp" for fractions, "+1.2%" for indices, "+0.4" otherwise. */
+/** A change for a tight space: "+0.25pp" for fractions and rates in percent, "+1.2%" for indices, "+0.4" otherwise. */
 export function fmtCompactChange(d: number, unit: string, base?: number): string {
   switch (unitKind(unit)) {
     case 'fraction':
       return `${fmtSigned(d * 100, 2)}pp`;
+    case 'percentRate':
+      return `${fmtSigned(d, 2)}pp`;
     case 'index':
       return base !== undefined && Math.abs(base) > DUST ? `${fmtSigned((d / Math.abs(base)) * 100, 1)}%` : fmtSigned(d, 3);
     default:
@@ -128,6 +138,8 @@ export function unitCaption(unit: string): string {
   switch (unitKind(unit)) {
     case 'fraction':
       return `%${fractionTail(unit)}, changes in pp`;
+    case 'percentRate':
+      return `${unit.trim()}, changes in pp`;
     case 'index':
       return 'index, 1 = baseline';
     default:

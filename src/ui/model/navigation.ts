@@ -20,7 +20,8 @@ export type Selection =
 
 export interface NavState {
   stack: Selection[];
-  /** Index of the current item in `stack`, or −1 when nothing is selected. */
+  /** Index of the current item in `stack`, or −1 when nothing is selected. With the inspector
+   *  closed, the item that was closed is the last one in `stack`, so Back reopens it. */
   index: number;
 }
 
@@ -38,33 +39,40 @@ export function navCurrent(n: NavState): Selection | null {
   return n.index >= 0 ? (n.stack[n.index] ?? null) : null;
 }
 
-/** Open a selection: drops any "forward" history, and does nothing if it is already current. */
+/** Open a selection: drops any "forward" history, and does nothing if it is already current.
+ *  After a close, the new selection is added after the one that was closed. */
 export function navPush(n: NavState, s: Selection, limit = 50): NavState {
   if (sameSelection(navCurrent(n), s)) return n;
-  const stack = [...n.stack.slice(0, n.index + 1), s];
+  // Reopening the item just closed goes back to it rather than adding it a second time.
+  if (n.index < 0 && n.stack.length && sameSelection(n.stack[n.stack.length - 1], s)) return { ...n, index: n.stack.length - 1 };
+  const keep = n.index < 0 ? n.stack.length : n.index + 1;
+  const stack = [...n.stack.slice(0, keep), s];
   const over = Math.max(0, stack.length - limit);
   return { stack: stack.slice(over), index: stack.length - 1 - over };
 }
 
+/** Back: the previous item, or, with the inspector closed, the item that was closed. */
 export function navBack(n: NavState): NavState {
+  if (n.index < 0) return n.stack.length ? { ...n, index: n.stack.length - 1 } : n;
   return n.index > 0 ? { ...n, index: n.index - 1 } : n;
 }
 
 export function navForward(n: NavState): NavState {
-  return n.index < n.stack.length - 1 ? { ...n, index: n.index + 1 } : n;
+  return canForward(n) ? { ...n, index: n.index + 1 } : n;
 }
 
 export function navGo(n: NavState, index: number): NavState {
   return index >= 0 && index < n.stack.length ? { ...n, index } : n;
 }
 
-/** Close the inspector (keeps history so Back returns to it). */
+/** Close the inspector. The history up to the closed item is kept, so Back reopens it. */
 export function navClear(n: NavState): NavState {
   return n.index < 0 ? n : { stack: [...n.stack.slice(0, n.index + 1)], index: -1 };
 }
 
-export const canBack = (n: NavState) => n.index > 0;
-export const canForward = (n: NavState) => n.index < n.stack.length - 1;
+export const canBack = (n: NavState) => n.index > 0 || (n.index < 0 && n.stack.length > 0);
+/** Nothing lies ahead of a closed inspector: the closed item was the last. */
+export const canForward = (n: NavState) => n.index >= 0 && n.index < n.stack.length - 1;
 
 /** The ideasAtPlay scope for a selection (undefined = the whole economy). Ids are prefixed
  *  with their kind, because a flow, an indicator and a variable may share one. */

@@ -97,7 +97,7 @@ for (const def of all) {
         for (const eff of [closed, open]) {
           const html = renderToString(<Inspector info={info} client={client} frame={frame} nav={nav} expanded={eff} onSelect={noop} onBack={noop} onForward={noop} onGo={noop} onClose={noop} />);
           expect(html).not.toContain('class="error"');
-          if (sel.kind === 'pipe' || sel.kind === 'var') expect(html).toMatch(/IDENTITY|CONTRACT|BEHAVIOUR|POLICY/);
+          if (sel.kind === 'pipe' || sel.kind === 'var') expect(html).toMatch(/class="chip cat cat-\w+"[^>]*>(Identity|Contract|Behaviour|Policy)</);
           if (sel.kind === 'group') {
             expect(html).toContain('Balance sheet');
             expect(html).toContain('Members');

@@ -11,6 +11,7 @@ import { stabiliserMarks } from '../../src/ui/model/levers.ts';
 const reference = models.find((m) => m.id === 'reference')!;
 const base = createEngine(reference);
 const fresh = (opts = {}) => createEngineClient(createEngine(base.model, { baseline: base.baselineData }), opts);
+const c0 = fresh();
 
 describe('engine client', () => {
   test('starts paused at month 0 with a plain-data model description', () => {
@@ -134,11 +135,129 @@ describe('engine client', () => {
   });
 
   test('a bad scenario leaves a clean baseline and reports why', () => {
-    const c = fresh();
+    const c = fresh({ maxMonths: 12 });
+    c.step(20);
+    expect(c.getFrame().ended).toBe(true);
     c.load({ modelId: 'reference', events: [{ t: 0, lever: 'missing', value: 1 }], months: 10 });
     const f = c.getFrame();
     expect(f.error).toContain('missing');
     expect(f.t).toBe(0);
+    // Back at month 0 the clock can run again: Play and Step are not left disabled.
+    expect(f.ended).toBe(false);
+    c.play();
+    expect(c.getFrame().playing).toBe(true);
+    c.dispose();
+  });
+
+  test('a lever changed before a later mode switch is reset at that switch, as in a straight run (decision 0004)', () => {
+    const mode = c0.info.stabiliserMode!;
+    const other = (v: number) => (v === mode.manual ? mode.automatic : mode.manual);
+    // The Manual key rate is shown on Manual and hidden on Automatic.
+    const run = (edit: (c: ReturnType<typeof fresh>) => void) => {
+      const c = fresh();
+      edit(c);
+      c.pause();
+      return c;
+    };
+    const def = c0.info.leverById.get('keyRateFixed')!.default;
+    const travelled = run((c) => {
+      if (c.getFrame().levers[c.info.leverById.get(mode.lever)!.index] !== mode.manual) c.setLever(mode.lever, mode.manual);
+      c.pause();
+      c.step(40);
+      c.setLever(mode.lever, mode.automatic); // the panel adds no reset: the Manual rate is at its default
+      c.pause();
+      c.step(30);
+      c.seek(30);
+      c.setLever('keyRateFixed', 5); // back in time, on Manual
+      c.pause();
+      c.seek(60);
+    });
+    const straight = run((c) => {
+      if (c.getFrame().levers[c.info.leverById.get(mode.lever)!.index] !== mode.manual) c.setLever(mode.lever, mode.manual);
+      c.pause();
+      c.step(30);
+      c.setLever('keyRateFixed', 5);
+      c.pause();
+      c.step(10);
+      c.setLever('keyRateFixed', def); // what the panel does when switching mode
+      c.setLever(mode.lever, mode.automatic);
+      c.pause();
+      c.step(20);
+    });
+    const at = (c: typeof travelled, id: string) => c.getFrame().levers[c.info.leverById.get(id)!.index];
+    expect(travelled.getFrame().t).toBe(60);
+    expect(at(travelled, 'keyRateFixed')).toBe(def);
+    expect(at(travelled, mode.lever)).toBe(mode.automatic);
+    const key = (c: typeof travelled) => c.scenario().events.map((e) => `${e.t}:${e.lever}=${e.value}`).sort();
+    expect(key(travelled)).toEqual(key(straight));
+    expect(travelled.value('keyRate')).toBe(straight.value('keyRate'));
+    expect(travelled.value('output')).toBe(straight.value('output'));
+    // Switching back to Manual later does not bring the old rate back.
+    travelled.setLever(mode.lever, other(mode.automatic));
+    expect(at(travelled, 'keyRateFixed')).toBe(def);
+    travelled.dispose();
+    straight.dispose();
+  });
+
+  test('a mode switch made back in time drops a later setting of the lever it hides (decision 0004)', () => {
+    const mode = c0.info.stabiliserMode!;
+    const def = c0.info.leverById.get('keyRateFixed')!.default;
+    const manual = (c: ReturnType<typeof fresh>) => {
+      if (c.getFrame().levers[c.info.leverById.get(mode.lever)!.index] !== mode.manual) c.setLever(mode.lever, mode.manual);
+      c.pause();
+    };
+    const travelled = fresh();
+    manual(travelled);
+    travelled.step(50);
+    travelled.setLever('keyRateFixed', 5); // a straight Manual run
+    travelled.pause();
+    travelled.step(20);
+    travelled.seek(30);
+    travelled.setLever(mode.lever, mode.automatic); // the panel adds no reset: the Manual rate is at its default at 30
+    travelled.pause();
+    travelled.seek(60);
+    const straight = fresh();
+    manual(straight);
+    straight.step(30);
+    straight.setLever(mode.lever, mode.automatic);
+    straight.pause();
+    straight.step(30);
+    const at = (c: typeof travelled, id: string) => c.getFrame().levers[c.info.leverById.get(id)!.index];
+    expect(travelled.getFrame().t).toBe(60);
+    expect(at(travelled, mode.lever)).toBe(mode.automatic);
+    expect(at(travelled, 'keyRateFixed')).toBe(def);
+    expect(travelled.scenario().events).toEqual(straight.scenario().events);
+    expect(travelled.value('keyRate')).toBe(straight.value('keyRate'));
+    expect(travelled.value('output')).toBe(straight.value('output'));
+    // Switching back to Manual does not bring 5 back from nowhere.
+    travelled.setLever(mode.lever, mode.manual);
+    expect(at(travelled, 'keyRateFixed')).toBe(def);
+    travelled.dispose();
+    straight.dispose();
+  });
+
+  test('a loaded scenario that sets a hidden lever with no mode event leaves it at its default', () => {
+    const mode = c0.info.stabiliserMode!;
+    const modeLever = c0.info.leverById.get(mode.lever)!;
+    const hidden = modeLever.default === mode.automatic ? 'keyRateFixed' : 'keyRateAddon';
+    const h = c0.info.leverById.get(hidden)!;
+    const c = fresh();
+    c.load({ modelId: 'reference', events: [{ t: 0, lever: hidden, value: h.default + 2 * (h.step ?? 0.25) }], months: 6 });
+    const f = c.getFrame();
+    expect(f.error).toBeNull();
+    expect(f.levers[h.index]).toBe(h.default);
+    expect(f.events).toEqual([]);
+    c.dispose();
+  });
+
+  test('a loaded scenario gets the resets it is missing at its mode switches', () => {
+    const mode = c0.info.stabiliserMode!;
+    const c = fresh();
+    c.load({ modelId: 'reference', events: [{ t: 0, lever: mode.lever, value: mode.manual }, { t: 2, lever: 'keyRateFixed', value: 6 }, { t: 5, lever: mode.lever, value: mode.automatic }], months: 8 });
+    const f = c.getFrame();
+    expect(f.error).toBeNull();
+    expect(f.levers[c.info.leverById.get('keyRateFixed')!.index]).toBe(3);
+    expect(f.events).toContainEqual({ t: 5, lever: 'keyRateFixed', value: 3 });
     c.dispose();
   });
 

@@ -176,9 +176,20 @@ export function viewTree(info: ModelInfo, eff: ReadonlySet<Id>): ViewTree {
 
 /* -------------------------------------------------------------- the pipes */
 
+/** A leg as the engine reports it, with its index in the model (LegInfo.index), so a view can
+ *  find the leg's own amount variable even when a flow has several legs between two players. */
+export interface ViewLeg extends LegSnapshot {
+  index: number;
+}
+
+/** A pipe whose legs carry their index. */
+export interface ViewPipe extends Pipe {
+  legs: ViewLeg[];
+}
+
 /** Legs as the engine reports them, from the model description and a frame's leg values. */
-export function legSnapshots(info: ModelInfo, legValues: ArrayLike<number>): LegSnapshot[] {
-  return info.legs.map((l) => ({ flow: l.flow, from: l.from, to: l.to, kind: l.kind, value: legValues[l.index] ?? 0, baseline: l.baseline }));
+export function legSnapshots(info: ModelInfo, legValues: ArrayLike<number>): ViewLeg[] {
+  return info.legs.map((l) => ({ flow: l.flow, from: l.from, to: l.to, kind: l.kind, value: legValues[l.index] ?? 0, baseline: l.baseline, index: l.index }));
 }
 
 /** Players a node stands for: the player, or every player of a group. */
@@ -190,18 +201,24 @@ export function membersOf(info: ModelInfo, id: Id): Id[] {
 /**
  * The pipe between two nodes, at any level and whatever is open on the map: every leg of
  * `kind` from a player of `from` to a player of `to`. Null when there is no such leg.
+ *
+ * When one end contains the other (a player and a closed group around it, or two nested
+ * groups), legs with both ends inside the inner node are left out: they are that node's own
+ * 'inside' pipe, which nodePipes lists separately. Groups are either nested or disjoint, so
+ * the pipe is then exactly the legs between the inner node and the rest of the outer one.
  */
-export function pipeBetween(info: ModelInfo, legValues: ArrayLike<number>, from: Id, to: Id, kind: FlowKind): Pipe | null {
+export function pipeBetween(info: ModelInfo, legValues: ArrayLike<number>, from: Id, to: Id, kind: FlowKind): ViewPipe | null {
   const A = new Set(membersOf(info, from)),
     B = new Set(membersOf(info, to));
-  const legs = legSnapshots(info, legValues).filter((l) => l.kind === kind && A.has(l.from) && B.has(l.to));
+  const both = from === to ? null : new Set([...A].filter((p) => B.has(p)));
+  const legs = legSnapshots(info, legValues).filter((l) => l.kind === kind && A.has(l.from) && B.has(l.to) && !(both?.has(l.from) && both.has(l.to)));
   if (!legs.length) return null;
   return { from, to, kind, value: legs.reduce((s, l) => s + l.value, 0), baseline: legs.reduce((s, l) => s + l.baseline, 0), legs };
 }
 
 /** Sum legs into pipes between nodes, by (from node, to node, kind), in leg order. */
-export function aggregatePipes(legs: LegSnapshot[], node: (player: Id) => Id): Pipe[] {
-  const map = new Map<string, Pipe>();
+export function aggregatePipes<L extends LegSnapshot>(legs: L[], node: (player: Id) => Id): (Pipe & { legs: L[] })[] {
+  const map = new Map<string, Pipe & { legs: L[] }>();
   for (const leg of legs) {
     const from = node(leg.from),
       to = node(leg.to);
@@ -223,7 +240,7 @@ export function aggregatePipes(legs: LegSnapshot[], node: (player: Id) => Id): P
  * (or both), the other end drawn as its visible node. A node that is hidden inside a closed
  * group still gets its own pipes, with itself as the end.
  */
-export function nodePipes(info: ModelInfo, legValues: ArrayLike<number>, eff: ReadonlySet<Id>, id: Id): Pipe[] {
+export function nodePipes(info: ModelInfo, legValues: ArrayLike<number>, eff: ReadonlySet<Id>, id: Id): ViewPipe[] {
   const members = new Set(membersOf(info, id));
   const hidden = isHidden(info, id, eff);
   const node = (p: Id) => (hidden && members.has(p) ? id : nodeOfPlayer(info, p, eff));

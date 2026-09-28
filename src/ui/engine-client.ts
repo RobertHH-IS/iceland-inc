@@ -12,10 +12,17 @@
  * setLever and fire start the clock when it is paused. seek moves anywhere between month 0 and
  * the furthest month simulated so far (the horizon); going back replays from the engine's
  * snapshots, so the numbers are identical to a straight run.
+ *
+ * A lever hidden by the stabiliser setting stays at its default (decision 0004). The panel adds
+ * those resets when the user switches mode. After going back in time, a change can break the rule
+ * later in the script (a lever set before a later switch that hides it, or a switch made before a
+ * later setting of a lever it hides), and so can a loaded scenario; the client then rewrites the
+ * script as a straight run would have recorded it (keepHiddenAtDefault).
  */
 import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
 import type { BalanceSheet, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent, StabiliserState } from '../core/types.ts';
 import { describeModel, type ModelInfo } from './model/info.ts';
+import { keepHiddenAtDefault } from './model/levers.ts';
 
 export type Speed = 1 | 3 | 6;
 export const SPEEDS: readonly Speed[] = [1, 3, 6];
@@ -345,8 +352,17 @@ class MainThreadClient implements EngineClient {
   setLever(id: Id, value: number): void {
     this.act(() => {
       this.engine.setLever(id, value);
+      this.keepHiddenAtDefault();
       if (!this.playing) this.start();
     });
+  }
+
+  /** Keep every hidden lever at its default through the script, replaying it to this month if it changes. */
+  private keepHiddenAtDefault(): void {
+    const events = keepHiddenAtDefault(this.info.levers, this.engine.events);
+    if (!events) return;
+    this.engine.load({ modelId: this.info.id, events, months: this.engine.t });
+    this.rebuildHistory();
   }
 
   fire(id: Id, size?: number): void {
@@ -366,10 +382,11 @@ class MainThreadClient implements EngineClient {
     this.halt();
     this.act(() => {
       try {
-        this.engine.load({ ...s, months: Math.min(s.months, this.maxMonths) });
+        this.engine.load({ ...s, events: keepHiddenAtDefault(this.info.levers, s.events) ?? s.events, months: Math.min(s.months, this.maxMonths) });
       } catch (err) {
         this.engine.reset();
         this.horizon = 0;
+        this.ended = false;
         this.rebuildHistory();
         throw err;
       }

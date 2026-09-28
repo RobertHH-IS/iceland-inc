@@ -6,7 +6,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createEngine } from '../../src/core/engine.ts';
 import type { Id, ModelDef } from '../../src/core/types.ts';
-import { CARD_FULL, GROUP_EXTRA_H, fitMap, frameBoxes, hintsOverlap, layoutView, nodeRect, spreadHints, viewFitItems, viewHints, viewLayoutHints, type NodeBox } from '../../src/ui/model/geometry.ts';
+import { CARD_FULL, GROUP_EXTRA_H, cardInForeignFrame, fitMap, frameBoxes, hintsOverlap, layoutView, nodeRect, spreadHints, viewFitItems, viewHints, viewLayoutHints, type NodeBox } from '../../src/ui/model/geometry.ts';
 import {
   aggregatePipes,
   cleanExpanded,
@@ -19,6 +19,7 @@ import {
   isHidden,
   legSnapshots,
   memberCount,
+  membersOf,
   nodeOfPlayer,
   nodePipes,
   pipeBetween,
@@ -268,6 +269,39 @@ describe('node placement', () => {
     }
   });
 
+  test('a card never sits inside the frame of a group it is not in (Pension funds inside Firms, L20)', () => {
+    // A card clear of the other cards can still sit in an empty corner of another group's frame.
+    const card = (x: number, y: number, frames: Id[] = []) => ({ x, y, h: 64, frames });
+    expect(cardInForeignFrame([card(0, 0, ['g']), card(400, 200, ['g']), card(40, 200)], 164)).toBe(true);
+    expect(cardInForeignFrame([card(0, 0, ['g']), card(400, 200, ['g']), card(400, 400)], 164)).toBe(false);
+    // Nested frames: a card of the outer group is not inside the inner frame's box.
+    expect(cardInForeignFrame([card(0, 0, ['g', 'h']), card(0, 100, ['g', 'h']), card(300, 0, ['g'])], 164)).toBe(false);
+    expect(cardInForeignFrame([card(0, 0, ['g', 'h']), card(0, 300, ['g', 'h']), card(60, 150, ['g'])], 164)).toBe(true);
+
+    // Every view of Iceland, drawn in a wide range of containers, including the short, wide one
+    // (800 × 300) where Pension funds used to sit in the corner of the open Firms frame.
+    const iceland = models.find((m) => m.id === 'iceland')!;
+    const e = createEngine(iceland);
+    const ice = describeModel(e.model, (id) => e.baseline(id));
+    const ex = expandableGroups(ice);
+    for (const [cw, ch] of [[800, 300], [1000, 640], [1400, 800], [700, 500], [380, 600], [1600, 400], [600, 900]])
+      for (let m = 0; m < 1 << ex.length; m++) {
+        const tree = viewTree(ice, effectiveExpanded(ice, ex.filter((_, i) => m & (1 << i))));
+        if (!tree.frames.length) continue;
+        const hints = viewLayoutHints(ice, tree, cw, ch);
+        const box = fitMap(viewFitItems(tree, hints), cw, ch);
+        const nodes = layoutView(ice, tree, hints, { width: box.w, height: box.h, cardW: box.card.w, cardH: box.card.h });
+        const frames = frameBoxes(tree, new Map(nodes.map((n) => [n.id, n])), box);
+        for (const f of frames)
+          for (const n of nodes) {
+            if (n.frames!.includes(f.id)) continue;
+            const r = nodeRect(n);
+            const inside = r.x < f.x + f.w && r.x + r.w > f.x && r.y < f.y + f.h && r.y + r.h > f.y;
+            expect(inside ? `${cw}x${ch}: ${n.id} inside ${f.id}` : '').toBe('');
+          }
+      }
+  });
+
   test('hints are spread to use the whole map, never closer together', () => {
     const h = spreadHints(
       new Map([
@@ -333,6 +367,86 @@ describe('pipes at mixed levels', () => {
     const open = nodePipes(info, legValues, e, 'firms');
     expect(open.some((p) => p.from === 'domestic' && p.to === 'exporters')).toBe(true);
     expect(open.some((p) => p.from === 'firms' || p.to === 'firms')).toBe(false);
+  });
+});
+
+describe('pipes in the inspector (M16, M17)', () => {
+  const allViews = () => {
+    const ex = expandableGroups(info);
+    const out: Set<Id>[] = [];
+    for (let m = 0; m < 1 << ex.length; m++) out.push(eff(ex.filter((_, i) => m & (1 << i))));
+    return out;
+  };
+  const legKeys = (p: { legs: { index: number }[] }) => p.legs.map((l) => l.index).sort((x, y) => x - y);
+
+  test('each row of a node’s pipes opens a pipe with the same legs and value, in every view', () => {
+    let nested = 0;
+    for (const e of allViews())
+      for (const id of [...info.players.map((p) => p.id), ...info.groups.map((g) => g.id)])
+        for (const row of nodePipes(info, legValues, e, id)) {
+          const opened = pipeBetween(info, legValues, row.from, row.to, row.kind)!;
+          expect(legKeys(opened)).toEqual(legKeys(row));
+          expect(opened.value).toBeCloseTo(row.value, 12);
+          expect(opened.baseline).toBeCloseTo(row.baseline, 12);
+          if (row.from !== row.to && (membersOf(info, row.from).includes(row.to) || membersOf(info, row.to).includes(row.from) || info.ancestorsOf.get(row.from)?.includes(row.to) || info.ancestorsOf.get(row.to)?.includes(row.from))) nested++;
+        }
+    expect(nested).toBeGreaterThan(0);
+  });
+
+  test('between nested nodes, the legs inside the inner node are its own pipe, not part of this one', () => {
+    // Exporters hidden in closed Firms: Retail → Fisheries and Retail → Aluminium, but not Fisheries → Aluminium.
+    const p = pipeBetween(info, legValues, 'firms', 'exporters', 'cash')!;
+    expect(p.legs.map((l) => `${l.from}->${l.to}`)).toEqual(['FR->FF', 'FR->FA']);
+    expect(pipeBetween(info, legValues, 'exporters', 'exporters', 'cash')!.legs.map((l) => `${l.from}->${l.to}`)).toEqual(['FF->FA']);
+    expect(pipeBetween(info, legValues, 'firms', 'FF', 'cash')!.legs.map((l) => l.from)).toEqual(['FR']);
+    // Disjoint ends are unchanged.
+    expect(pipeBetween(info, legValues, 'domestic', 'exporters', 'cash')!.legs).toHaveLength(2);
+  });
+
+  test('ideas at play for a pipe between nested nodes cover the same legs as its detail', () => {
+    // Tag the input rules with ideas of their own and move them: Retail's inputs to the
+    // exporters, and Fisheries' inputs to Aluminium, inside Exporters.
+    const def = hierarchyModel();
+    const economy = def.modules.find((m) => m.id === 'economy')!;
+    const tags: Record<string, string> = { inputs_FR_FF: 'into-exporters', inputs_FR_FA: 'into-exporters', inputs_FF_FA: 'within-exporters' };
+    economy.rules = economy.rules!.map((r) => (tags[r.id] ? { ...r, concepts: [tags[r.id]] } : r));
+    economy.levers = [
+      ...economy.levers!,
+      ...Object.keys(tags).map((id) => ({ id: `more_${id}`, label: `More ${id}`, group: 'Economy', kind: 'setting' as const, unit: '% of GDP', default: 0, min: -2, max: 2, binds: { param: `lvl_${id}`, mode: 'add' as const }, description: 'Test lever.', definition: 'Level shift, for the test.' })),
+    ];
+    const e = createEngine(def);
+    for (const id of Object.keys(tags)) e.setLever(`more_${id}`, 1);
+    e.step(2);
+    const ideas = (scope: string) => e.ideasAtPlay(scope).map((x) => x.concept);
+    const legRules = (a: Id, b: Id) => {
+      const ni = describeModel(e.model, (id) => e.baseline(id));
+      const p = pipeBetween(ni, Float64Array.from(e.legs().map((l) => l.value)), a, b, 'cash')!;
+      return [...new Set(p.legs.map((l) => tags[ni.legs[l.index].amount]).filter(Boolean))].sort();
+    };
+    expect(ideas('firms->exporters:cash')).toContain('into-exporters');
+    expect(ideas('firms->exporters:cash')).not.toContain('within-exporters');
+    expect(ideas('exporters->exporters:cash')).toContain('within-exporters');
+    expect(ideas('exporters->exporters:cash')).not.toContain('into-exporters');
+    // The same split as the pipe detail's legs.
+    for (const [a, b] of [['firms', 'exporters'], ['exporters', 'exporters'], ['firms', 'FA']] as const)
+      expect(ideas(`${a}->${b}:cash`).filter((c) => c.endsWith('-exporters')).sort()).toEqual(legRules(a, b));
+  });
+
+  test('every leg carries its index, so a flow with several legs between the same two players explains each one (Iceland imports)', () => {
+    const def = models.find((m) => m.id === 'iceland')!;
+    const e = createEngine(def);
+    const ice = describeModel(e.model, (id) => e.baseline(id));
+    const values = Float64Array.from(e.legs().map((l) => l.value));
+    const p = pipeBetween(ice, values, 'domestic', 'W', 'cash')!;
+    const imports = p.legs.filter((l) => l.flow === 'imports');
+    const amounts = imports.map((l) => ice.legs[l.index].amount);
+    expect(new Set(amounts).size).toBe(imports.length);
+    expect(amounts).toEqual(expect.arrayContaining(['importsConsumer', 'importsInputsFR', 'importsPublic', 'importsEquipment', 'importsInputsFC']));
+    for (const l of p.legs) {
+      const leg = ice.legs[l.index];
+      expect([leg.flow, leg.from, leg.to]).toEqual([l.flow, l.from, l.to]);
+      expect(l.value).toBe(values[l.index]);
+    }
   });
 });
 

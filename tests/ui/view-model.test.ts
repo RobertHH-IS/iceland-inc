@@ -11,7 +11,7 @@ import { inlineText, parseInline, parseMarkdown, safeHref } from '../../src/ui/m
 import { PLAYER_CARDS, resolveCardMetrics } from '../../src/ui/model/player-cards.ts';
 import { staticConcepts, topIdeas } from '../../src/ui/model/ideas.ts';
 import { changeBar, deviation, particleRate, pipeStyle, signTone, topChanged } from '../../src/ui/model/styling.ts';
-import { pickModel } from '../../src/ui/model/registry.ts';
+import { linkTarget, pickModel } from '../../src/ui/model/registry.ts';
 
 const reference = models.find((m) => m.id === 'reference')!;
 const engine = createEngine(reference);
@@ -47,6 +47,26 @@ describe('breadcrumb navigation', () => {
     const n = navClear(navPush(navPush(EMPTY_NAV, a), b));
     expect(navCurrent(n)).toBeNull();
     expect(n.stack).toEqual([a, b]);
+    expect(canBack(n)).toBe(true);
+    expect(navCurrent(navBack(n))).toEqual(b);
+    expect(navCurrent(navBack(navBack(n)))).toEqual(a);
+    // Nothing lies ahead of a closed inspector, so Forward is off and does nothing.
+    expect(canForward(n)).toBe(false);
+    expect(navForward(n)).toBe(n);
+    // Opening something after a close adds to the history instead of wiping it.
+    expect(navPush(n, c).stack).toEqual([a, b, c]);
+    expect(navCurrent(navBack(navPush(n, c)))).toEqual(b);
+    // Reopening the item just closed returns to it: no second copy, and Back goes to the one before.
+    const again = navPush(n, b);
+    expect(again.stack).toEqual([a, b]);
+    expect(navCurrent(again)).toEqual(b);
+    expect(navCurrent(navBack(again))).toEqual(a);
+    // Closing in the middle of the history drops what was ahead of the closed item.
+    const mid = navClear(navBack(navPush(navPush(navPush(EMPTY_NAV, a), b), c)));
+    expect(mid.stack).toEqual([a, b]);
+    expect(navCurrent(navBack(mid))).toEqual(b);
+    expect(canBack(EMPTY_NAV)).toBe(false);
+    expect(navBack(EMPTY_NAV)).toBe(EMPTY_NAV);
   });
 
   test('history is capped', () => {
@@ -186,5 +206,15 @@ describe('model choice', () => {
     expect(pickModel(['reference', 'iceland'], 'reference')).toBe('reference');
     expect(pickModel(['reference'], 'missing')).toBe('reference');
     expect(pickModel([])).toBeUndefined();
+  });
+
+  test('a pasted link for a model that is not available changes nothing; a link without a model is for the one open', () => {
+    const ids = ['reference', 'iceland'];
+    expect(linkTarget(ids, 'reference', 'missing')).toEqual({ kind: 'unavailable', modelId: 'missing' });
+    expect(linkTarget(ids, 'reference', 'iceland')).toEqual({ kind: 'switch', id: 'iceland' });
+    expect(linkTarget(ids, 'reference', 'reference')).toEqual({ kind: 'current', id: 'reference' });
+    // pickModel would choose 'iceland' here; the link is replayed on the model that is open.
+    expect(linkTarget(ids, 'reference')).toEqual({ kind: 'current', id: 'reference' });
+    expect(linkTarget(ids, 'reference', null)).toEqual({ kind: 'current', id: 'reference' });
   });
 });

@@ -16,6 +16,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { FlowKind, Id, Pipe } from '../../core/types.ts';
 import type { EngineClient } from '../engine-client.ts';
+import { labels } from '../labels.ts';
 import { fmtCompact, fmtCompactChange, fmtIndicator, fmtNum, fmtSigned } from '../model/format.ts';
 import { MAP_H, MAP_W, fitMap, frameBoxes, layoutView, nodeRect, pipeGeometry, pipeKey, pipeWidth, placeLabels, viewFitItems, viewLayoutHints, widthScale, type FrameBox, type NodeBox, type Pt, type PipeGeom } from '../model/geometry.ts';
 import { directMembers, memberCount, viewKey, viewTree, visibleNode, type ViewTree } from '../model/hierarchy.ts';
@@ -46,8 +47,6 @@ interface FlowMapProps {
   /** Close an open group. */
   onCloseGroup: (id: Id) => void;
 }
-
-const KIND_WORD: Record<string, string> = { cash: 'cash', accrual: 'accrual (no cash moves)', revaluation: 'revaluation (no cash moves)', writeoff: 'write-off (no cash moves)' };
 
 /** How long cards take to glide and pipes to crossfade when a group opens or closes. */
 export const ANIM_MS = 360;
@@ -373,7 +372,7 @@ const PipeView = memo(
     }, [rate, st.reverse, st.particles]);
     const flows = [...new Set(pipe.legs.map((l) => l.flow))].map((f) => info.flowById.get(f)?.label ?? f);
     const ends = pipe.from === pipe.to ? `Within ${nodeLabel(info, pipe.from)}` : `${nodeLabel(info, pipe.from)} to ${nodeLabel(info, pipe.to)}`;
-    const label = `${ends}, ${KIND_WORD[pipe.kind]}: ${flows.join(', ')}. ${fmtNum(pipe.value)} now, ${fmtNum(pipe.baseline)} at baseline (% of GDP a year).`;
+    const label = `${ends}, ${labels.flowKindPhrase[pipe.kind]}: ${flows.join(', ')}. ${fmtNum(pipe.value)} now, ${fmtNum(pipe.baseline)} at baseline (% of GDP a year).`;
     const open = () => onSelect({ kind: 'pipe', from: pipe.from, to: pipe.to, flowKind: pipe.kind });
     return (
       <g className={`pipe kind-${pipe.kind} tone-${st.tone}${selected ? ' selected' : ''}${related ? ' related' : ''}${entering ? ' enter' : ''}`} role="button" tabIndex={0} aria-label={label} onClick={open} onKeyDown={(e) => activate(e, open)}>

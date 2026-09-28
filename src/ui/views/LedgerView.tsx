@@ -1,15 +1,19 @@
 /**
  * LedgerView: a live Godley table. Flows are rows, players (or, as an option, the groups as the
  * flow map shows them) columns, grouped by account. Each cell shows the current value (minus for the side that pays or loses, plus for
- * the side that receives or gains) and its change from baseline; each row sums to zero; the
+ * the side that receives or gains) and its change from baseline. A cell whose legs all stay
+ * within its column (firms buying from firms) shows ±their total; a cell that also has legs to
+ * other columns shows its net value, with the within-column total as a note, so the cells of a
+ * row always add up to its Σ. Each row sums to zero; the
  * right-hand column is the row's effect on total net worth; the bottom row is each column's
  * change in net worth.
  */
 import { memo } from 'react';
 import type { EngineClient } from '../engine-client.ts';
+import { labels } from '../labels.ts';
 import { fmtNum, fmtSigned } from '../model/format.ts';
 import type { ModelInfo } from '../model/info.ts';
-import { buildLedger, type LedgerCell, type LedgerColumns } from '../model/ledger.ts';
+import { buildLedger, cellShows, type LedgerCell, type LedgerColumns } from '../model/ledger.ts';
 import { deviation } from '../model/styling.ts';
 import type { OnSelect } from './common.tsx';
 
@@ -69,7 +73,7 @@ export const LedgerView = memo(function LedgerView({ info, legs, columns, onSele
                     <button type="button" className="navlink" onClick={() => onSelect({ kind: 'flow', id: r.flow.id })} title={r.flow.explain.what}>
                       {r.flow.label}
                     </button>
-                    {r.flow.kind !== 'cash' && <span className="muted small"> · {r.flow.kind}</span>}
+                    {r.flow.kind !== 'cash' && <span className="muted small"> · {labels.flowKind[r.flow.kind]}</span>}
                   </th>
                   {r.cells.map((c, i) => (
                     <td key={i} className="num">
@@ -107,8 +111,17 @@ export const LedgerView = memo(function LedgerView({ info, legs, columns, onSele
 });
 
 function Cell({ c }: { c: LedgerCell }) {
-  if (c.both) return <Pair value={c.gross} baseline={c.grossBaseline} prefix="±" />;
-  return <Pair value={c.value} baseline={c.baseline} />;
+  if (cellShows(c) === 'gross') return <Pair value={c.gross} baseline={c.grossBaseline} prefix="±" />;
+  return (
+    <>
+      <Pair value={c.value} baseline={c.baseline} />
+      {c.both && (
+        <span className="muted small within" title="Paid and received within this column">
+          ±{fmtNum(c.gross)} within
+        </span>
+      )}
+    </>
+  );
 }
 
 function Pair({ value, baseline, prefix = '' }: { value: number; baseline: number; prefix?: string }) {

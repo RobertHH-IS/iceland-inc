@@ -13,3 +13,16 @@ export function pickModel(ids: Id[], requested?: Id | null): Id | undefined {
   for (const p of PREFERRED_MODELS) if (ids.includes(p)) return p;
   return ids[0];
 }
+
+/**
+ * What to do with a scenario link pasted while a model is open. A link for a model that is not
+ * available is refused (with a notice) and changes nothing: the current run stays as it is, and
+ * the link is never replayed on another model. A link that names no model is for the current one.
+ */
+export type LinkTarget = { kind: 'unavailable'; modelId: Id } | { kind: 'switch'; id: Id } | { kind: 'current'; id: Id };
+
+export function linkTarget(ids: Id[], current: Id, requested?: Id | null): LinkTarget {
+  if (!requested || requested === current) return { kind: 'current', id: current };
+  if (!ids.includes(requested)) return { kind: 'unavailable', modelId: requested };
+  return { kind: 'switch', id: requested };
+}
