@@ -563,7 +563,8 @@ export const external: ModuleDef = {
       step: 0.25,
       binds: { param: 'foreignRateShift', mode: 'add', scale: 0.01 },
       description: 'Interest rates abroad; a higher rate pulls carry money out of krónur.',
-      definition: 'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. It also changes the cash yield on pension funds’ foreign assets. Setting it back to 0 ends it.',
+      definition:
+        'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. It also changes the cash yield on pension funds’ foreign assets and on the central bank’s foreign reserves, and so the profit the central bank hands to the government. Setting it back to 0 ends it.',
       concepts: ['carry-trade'],
     },
     {

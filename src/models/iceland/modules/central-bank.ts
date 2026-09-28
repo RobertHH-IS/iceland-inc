@@ -16,7 +16,7 @@ export const centralBank: ModuleDef = {
   id: 'central-bank',
   label: 'Central bank',
   description: 'The key rate (set by you, or by a smoothed Taylor-type rule plus your offset), interest on reserves and the profit remitted to the government.',
-  requires: ['stabilisers', 'structure', 'prices', 'government'],
+  requires: ['stabilisers', 'structure', 'prices', 'government', 'external'],
   params: pickParams(ALL_PARAMS, ['i0', 'piT', 'aPi', 'aPiA', 'aY', 'lamPol', 'iFXR', 'potentialOutput', 'bondCB', 'fxr', 'eqCB']),
   vars: [
     { id: 'ruleRate', label: 'Key rate the rule calls for', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'The key rate the central bank’s inflation rule points to, before your offset. Computed in both stabiliser modes.' },
@@ -97,10 +97,17 @@ export const centralBank: ModuleDef = {
       id: 'fxReserveIncome',
       target: 'fxReserveIncome',
       category: 'BEHAVIOUR',
-      params: ['iFXR'],
+      inputs: ['foreignRate'],
+      params: ['iFXR', 'iF0'],
       stocks: [['fxReserves', 'CB']],
-      compute: (c) => c.p('iFXR') * c.stock('fxReserves', 'CB'),
-      explain: { what: 'Interest and dividends the central bank earns on its foreign reserves.', rule: 'Income = foreign yield {iFXR%} × the reserves’ value in krónur.' },
+      terms: terms(
+        ['normal', 'Normal yield on the reserves', undefined, (c) => c.p('iFXR') * c.stock('fxReserves', 'CB')],
+        ['foreignRate', 'Change in rates abroad', undefined, (c) => (c.v('foreignRate') - c.p('iF0')) * c.stock('fxReserves', 'CB')],
+      ),
+      explain: {
+        what: 'Interest and dividends the central bank earns on its foreign reserves.',
+        rule: 'Income = (normal reserve yield {iFXR%} + the change in the foreign interest rate since normal, {iF0%}) × the reserves’ value in krónur. Reserves are held in foreign bonds and deposits, so their yield follows rates abroad.',
+      },
     },
     {
       id: 'cbProfit',

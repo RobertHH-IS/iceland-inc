@@ -267,7 +267,7 @@ P('sBB', 0.01, 'fraction/yr', 'CONTRACT', 'Spread of bank (covered) bonds over t
 const IF0 = 0.02;
 P('iF0', IF0, 'fraction/yr', 'BEHAVIOUR', 'Normal foreign interest rate. Carry traders compare the key rate above its nominal neutral (i0 + piT) with the foreign rate above this.', assumed());
 P('iFnow', IF0, 'fraction/yr', 'POLICY', 'Foreign interest rate in force at the start, before the foreign-rate lever; also the cash yield on pension funds’ foreign assets.', derived('Equal to iF0 on the steady start. A start from today sets today’s foreign rate here, so the rate gap with abroad starts where it is (docs/design/start-from-today.md §4.6).'));
-P('iFXR', 0.02, 'fraction/yr', 'BEHAVIOUR', 'Yield on the central bank’s foreign reserves.', assumed());
+P('iFXR', 0.02, 'fraction/yr', 'BEHAVIOUR', 'Yield on the central bank’s foreign reserves at the normal foreign rate; it moves one for one with the foreign rate.', assumed());
 
 /* ------------------------------------ mortgage contracts and borrower-based rules */
 P('Tm', 25, 'years', 'CONTRACT', 'Average remaining term of mortgages: 1/Tm of the debt is repaid each year.', assumed());
