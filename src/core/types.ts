@@ -649,9 +649,10 @@ export interface Engine {
   /** Concepts weighted by how much their terms currently move things (for "ideas at play").
    *  The scope is the economy (default), a player, a group at any depth, a flow, a variable,
    *  an indicator, or a pipe 'from->to[:kind]' whose ends are players or groups at any level
-   *  (a group end stands for all its players). An unprefixed id is looked up as a variable,
-   *  flow, player or group, then indicator; prefix it with 'var:', 'flow:', 'indicator:',
-   *  'player:' or 'group:' when kinds share an id. */
+   *  (a group end stands for all its players). Between nested nodes, a pipe scope excludes
+   *  legs with both ends inside the inner node (its own pipe), as pipeBetween does. An
+   *  unprefixed id is looked up as a variable, flow, player or group, then indicator; prefix it
+   *  with 'var:', 'flow:', 'indicator:', 'player:' or 'group:' when kinds share an id. */
   ideasAtPlay(scope?: Id): { concept: Id; weight: number; via: Id[] }[];
   checks(): CheckReport;
   /** Narration: feed rules crossing their thresholds (marked with the rule's id), and (Manual

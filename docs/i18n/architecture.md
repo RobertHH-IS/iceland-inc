@@ -218,7 +218,7 @@ Changes needed in the views and view-models:
 | `charts.ts` `chartTabs` | `id` stays the English group; `label = ind.groupLabel ?? id` |
 | `player-cards.ts` `resolveCardMetrics`, `hierarchy.ts` `memberCount` | Look up by id only; for the reference model, whose group ids are English labels, that still works. Labels come from `cat.cards` and `cat.groupNouns` |
 | `format.ts` (UI) | Functions take a `Fmt` (or become methods of it); English defaults keep the current tests passing |
-| All views | Literals become `t('…')`; `KIND_WORD`, `CATEGORY_HELP`, `BASIS_LABEL`, `ACCOUNT_LABEL`, school and category chips become message keys |
+| All views | Literals become `t('…')`; `CATEGORY_HELP`, `BASIS_LABEL` and the label table in `src/ui/labels.ts` (categories, schools, flow kinds, `flowKindPhrase`, accounts, `accountSection`, selection kinds) become message keys |
 | `Inspector.tsx` `InfluenceView` | Rule text comes from `info.ruleByTarget` (localized), filled with `fillTemplate(text, id => the value in inf.params, fmt)`; term labels come from `info.termByKey`; regimes from `cat.rules[id].regimes[english] ?? english` |
 | `Inspector.tsx` `BsRow` | Instrument labels come from `info.instrumentById`, not from `client.balanceSheet()` |
 | `Feed.tsx` | Renders `cat.feed[item.rule]`, or the stabiliser's `raise`/`lower` template filled with `fmt.num(item.value)`, falling back to `item.message` |

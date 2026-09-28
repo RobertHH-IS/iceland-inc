@@ -14,7 +14,7 @@
  */
 import { memo, useEffect, useRef, type ReactNode } from 'react';
 import type { BalanceSheet, FlowKind, Id, Influence } from '../../core/types.ts';
-import { describePosting } from '../../core/format.ts';
+import { describePosting, postingLabels } from '../../core/format.ts';
 import type { EngineClient, Frame } from '../engine-client.ts';
 import { chartRef, chartWindow } from '../model/charts.ts';
 import { fmtChange, fmtCompact, fmtCompactChange, fmtIndicator, fmtNum, fmtSigned, fmtValue, shortUnit, unitCaption } from '../model/format.ts';
@@ -292,7 +292,7 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
               {flow && <span className="muted small"> · {labels.account[flow.account]}</span>}
             </h4>
             {flow && <p className="inf-what">{flow.explain.what}</p>}
-            {flow && <p className="muted small">{describePosting(flow.posting)}</p>}
+            {flow && <p className="muted small">{describePosting(flow.posting, postingLabels(info.instruments))}</p>}
             {flow && <ConceptChips info={info} ids={flow.concepts ?? []} onSelect={onSelect} />}
             {legs.map((leg) => {
               const amount = info.legs[leg.index]?.amount;
@@ -544,7 +544,7 @@ function FlowDetail({ info, client, id, onSelect }: { info: ModelInfo; client: E
       <h3 className="detail-title">{f.label}</h3>
       <p className="inf-what">{f.explain.what}</p>
       <p className="muted small">
-        {labels.flowKind[f.kind]} · {labels.account[f.account]} · {describePosting(f.posting)}
+        {labels.flowKind[f.kind]} · {labels.account[f.account]} · {describePosting(f.posting, postingLabels(info.instruments))}
       </p>
       <InfluenceView info={info} client={client} id={`flow:${id}`} onSelect={onSelect} compact />
     </div>
