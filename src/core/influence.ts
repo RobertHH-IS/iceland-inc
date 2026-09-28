@@ -23,7 +23,7 @@
  */
 import type { Ctx, Id, Influence } from './types.ts';
 import type { KModel } from './compile.ts';
-import { describePosting, fillTemplate, templateIds, unitScale } from './format.ts';
+import { describePosting, fillTemplate, postingLabels, templateIds, unitScale } from './format.ts';
 
 export interface InfluenceSource {
   m: KModel;
@@ -47,14 +47,6 @@ export interface InfluenceSource {
 }
 
 const uniq = <T>(xs: T[]): T[] => [...new Set(xs)];
-
-/** An instrument's label written inside a sentence ("Bank deposits" → "bank deposits"). */
-function instrumentLabel(m: KModel): (id: Id) => string | undefined {
-  return (id) => {
-    const l = m.instruments.find((x) => x.id === id)?.label;
-    return l && /^[A-Z][a-z]/.test(l) ? l[0].toLowerCase() + l.slice(1) : l;
-  };
-}
 
 /** Influence of a variable, flow or indicator. Ids are looked up in that order; prefix an id
  *  with 'var:', 'flow:' or 'indicator:' when kinds share an id (an indicator is often named
@@ -87,7 +79,7 @@ export function influenceOf(S: InfluenceSource, rawId: Id): Influence {
       label: flow.label,
       value,
       baseline,
-      rule: { id: flow.id, what: fillTemplate(flow.explain.what, paramLookup(S)), rule: describePosting(flow.posting, instrumentLabel(m)), source: 'flow' },
+      rule: { id: flow.id, what: fillTemplate(flow.explain.what, paramLookup(S)), rule: describePosting(flow.posting, postingLabels(m.instruments)), source: 'flow' },
       regime: null,
       terms,
       nonAdditive: false,

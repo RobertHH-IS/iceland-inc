@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 import { compile } from '../../src/core/compile.ts';
-import { describePosting, englishTemplateFormat, fillTemplate, knownRateUnit, templateIds, unitScale } from '../../src/core/format.ts';
+import { describePosting, englishTemplateFormat, fillTemplate, inSentence, knownRateUnit, postingLabels, templateIds, unitScale } from '../../src/core/format.ts';
 import type { VarDef } from '../../src/core/types.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 import { referenceModel } from '../../src/models/reference/index.ts';
@@ -75,5 +75,27 @@ describe('describePosting', () => {
     expect(describePosting({ type: 'issue', instrument: 'mortgagesN' }, label)).toContain('A new claim (non-indexed mortgages)');
     expect(describePosting({ type: 'purchase', realAsset: 'homes' }, label)).toContain('a real asset (homes)');
     expect(describePosting({ type: 'redeem', instrument: 'other' }, label)).toContain('A repayment of other');
+  });
+
+  test('reads with the plural labels most instruments have', () => {
+    const label = postingLabels([
+      { id: 'homes', label: 'Homes' },
+      { id: 'govBonds', label: 'Government bonds' },
+    ]);
+    expect(describePosting({ type: 'trade', instrument: 'homes' }, label)).toStartWith('Existing homes change hands for cash: the buyer pays the seller.');
+    expect(describePosting({ type: 'trade', instrument: 'govBonds' }, label)).toStartWith('Existing government bonds change hands');
+    expect(describePosting({ type: 'revalue', instrument: 'homes' }, label)).toStartWith('A change in the value of homes, or their reclassification between two holders:');
+  });
+
+  test('postingLabels writes labels inside a sentence and falls back to the id', () => {
+    const label = postingLabels([
+      { id: 'dep', label: 'Bank deposits' },
+      { id: 'vat', label: 'VAT receivable' },
+    ]);
+    expect(label('dep')).toBe('bank deposits');
+    expect(label('vat')).toBe('VAT receivable');
+    expect(label('nope')).toBeUndefined();
+    expect(inSentence('Mortgages, non-indexed')).toBe('mortgages, non-indexed');
+    expect(describePosting({ type: 'issue', instrument: 'dep' }, label)).toContain('A new claim (bank deposits)');
   });
 });

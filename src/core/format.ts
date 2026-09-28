@@ -102,8 +102,24 @@ export function knownRateUnit(unit: string): boolean {
   return ['fraction', 'fraction/yr', 'ratio', 'log points'].includes(u) || isPointUnit(u) || /GDP/i.test(u);
 }
 
+/** A label written inside a sentence: "Bank deposits" → "bank deposits"; "VAT" stays. */
+export function inSentence(label: string): string {
+  return /^[A-Z][a-z]/.test(label) ? label[0].toLowerCase() + label.slice(1) : label;
+}
+
+/** The `label` lookup for describePosting: instrument and real-asset labels, written inside a
+ *  sentence. Pass a model's instruments, e.g. `describePosting(flow.posting, postingLabels(info.instruments))`. */
+export function postingLabels(instruments: readonly { id: string; label?: string }[]): (id: string) => string | undefined {
+  const byId = new Map(instruments.map((i) => [i.id, i.label]));
+  return (id) => {
+    const l = byId.get(id);
+    return l ? inSentence(l) : undefined;
+  };
+}
+
 /** Plain-English description of a posting type, for the inspector. `label` names an instrument
- *  or real asset by its id; without it the ids are printed. */
+ *  or real asset by its id (see postingLabels); without it the ids are printed. Labels are
+ *  mostly plural ("homes", "government bonds"), so the sentences read with a plural. */
 export function describePosting(p: Posting, label: (id: string) => string | undefined = () => undefined): string {
   const name = (id: string) => label(id) ?? id;
   switch (p.type) {
@@ -116,11 +132,11 @@ export function describePosting(p: Posting, label: (id: string) => string | unde
     case 'redeem':
       return `A repayment of ${name(p.instrument)}: the borrower pays the lender and the claim shrinks on both sides. Repaying a bank destroys the deposit used.`;
     case 'trade':
-      return `An existing ${name(p.instrument)} changes hands for cash: the buyer pays the seller.`;
+      return `Existing ${name(p.instrument)} change hands for cash: the buyer pays the seller.`;
     case 'accrue':
       return `Interest or indexation added to ${name(p.instrument)}: the debtor owes more and the creditor holds more. No money moves.`;
     case 'revalue':
-      return `A change in the value of ${name(p.instrument)}, or a reclassification of it between two holders: no money moves and it is not income; it goes to the revaluation account.`;
+      return `A change in the value of ${name(p.instrument)}, or their reclassification between two holders: no money moves and it is not income; it goes to the revaluation account.`;
     case 'writeoff':
       return `A write-off of ${name(p.instrument)}: value is lost without any payment.`;
   }
