@@ -11,7 +11,7 @@ import { inlineText, parseInline, parseMarkdown, safeHref } from '../../src/ui/m
 import { PLAYER_CARDS, resolveCardMetrics } from '../../src/ui/model/player-cards.ts';
 import { staticConcepts, topIdeas } from '../../src/ui/model/ideas.ts';
 import { changeBar, deviation, particleRate, pipeStyle, signTone, topChanged } from '../../src/ui/model/styling.ts';
-import { pickModel } from '../../src/ui/model/registry.ts';
+import { linkTarget, pickModel } from '../../src/ui/model/registry.ts';
 
 const reference = models.find((m) => m.id === 'reference')!;
 const engine = createEngine(reference);
@@ -186,5 +186,15 @@ describe('model choice', () => {
     expect(pickModel(['reference', 'iceland'], 'reference')).toBe('reference');
     expect(pickModel(['reference'], 'missing')).toBe('reference');
     expect(pickModel([])).toBeUndefined();
+  });
+
+  test('a pasted link for a model that is not available changes nothing; a link without a model is for the one open', () => {
+    const ids = ['reference', 'iceland'];
+    expect(linkTarget(ids, 'reference', 'missing')).toEqual({ kind: 'unavailable', modelId: 'missing' });
+    expect(linkTarget(ids, 'reference', 'iceland')).toEqual({ kind: 'switch', id: 'iceland' });
+    expect(linkTarget(ids, 'reference', 'reference')).toEqual({ kind: 'current', id: 'reference' });
+    // pickModel would choose 'iceland' here; the link is replayed on the model that is open.
+    expect(linkTarget(ids, 'reference')).toEqual({ kind: 'current', id: 'reference' });
+    expect(linkTarget(ids, 'reference', null)).toEqual({ kind: 'current', id: 'reference' });
   });
 });

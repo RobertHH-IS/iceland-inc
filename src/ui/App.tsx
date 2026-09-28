@@ -12,7 +12,7 @@ import { models as registryModels } from '../models/index.ts';
 import { createEngineClient, type EngineClient } from './engine-client.ts';
 import { cleanExpanded, collapseGroup, effectiveExpanded, expandAll, expandGroup, expandableGroups, pipeBetween, reveal, viewKey } from './model/hierarchy.ts';
 import { EMPTY_NAV, navBack, navClear, navCurrent, navForward, navGo, navPush, selectionKey, type NavState, type Selection } from './model/navigation.ts';
-import { pickModel } from './model/registry.ts';
+import { linkTarget, pickModel } from './model/registry.ts';
 import { decodeScenarioHash, encodeScenarioHash, hasScenario, type HashState } from './model/scenario-url.ts';
 import { Charts } from './views/Charts.tsx';
 import { Feed } from './views/Feed.tsx';
@@ -117,13 +117,11 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
     const onHash = () => {
       const d = decodeScenarioHash(window.location.hash);
       if (!d.ok) return setNotice(`Could not read the scenario link: ${d.error}`);
-      const id = pickModel(pool.ids, d.state.modelId) ?? modelId;
-      if (d.state.modelId && d.state.modelId !== id) setNotice(`This link is for model '${d.state.modelId}', which is not available here.`);
-      if (id !== modelId) switchModel(id, d.state);
-      else {
-        if (hasScenario(d.state)) pool.get(id).client?.load({ modelId: id, events: d.state.events, months: d.state.months });
-        if (d.state.expanded) setLinkView((v) => ({ expanded: d.state.expanded, n: v.n + 1 }));
-      }
+      const target = linkTarget(pool.ids, modelId, d.state.modelId);
+      if (target.kind === 'unavailable') return setNotice(`This link is for model '${target.modelId}', which is not available here.`);
+      if (target.kind === 'switch') return switchModel(target.id, d.state);
+      if (hasScenario(d.state)) pool.get(modelId).client?.load({ modelId, events: d.state.events, months: d.state.months });
+      if (d.state.expanded) setLinkView((v) => ({ expanded: d.state.expanded, n: v.n + 1 }));
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
