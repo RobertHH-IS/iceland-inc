@@ -144,7 +144,12 @@ describe('Iceland model: the steady state matches engine v1', () => {
   // is 5.7% smaller than in v1, which moves the parameters solved from the wage bill (cEe, rr, nuY,
   // nuW, mRY, mRW) by up to 6%.
   const V1_UNCHANGED: Record<string, number> = { tauF: 0.0901, vat0: 0.3033, wsOther: 0.342 };
-  const V1_MOVED: Record<string, number> = { tau0: 0.3848, c0Y: 0.9612, c0W: 9.5947, c0O: 4.4101, payout: 0.1788, ageing: 0.1159, muD: 0.0267, cEe: 0.0465, rr: 0.3879, nuY: 0.0088, nuW: 0.016, mRY: 0.8906, mRW: 1.4206 };
+  // Old-age and disability transfers now come from TR's payments (audit L15), which moves the split of
+  // gross income by age, and with it the debt-to-income ratios mR* and the debt-service shares nu*.
+  // v1's debt-service cap was a share of gross income; it is now a share of income after income tax
+  // (Rules 1300/2025, audit M4), so nu × (1 − tau0) is what compares with v1's nu.
+  const V1_AFTER_TAX: Record<string, number> = { nuY: 0.0088, nuW: 0.016 };
+  const V1_MOVED: Record<string, number> = { tau0: 0.3848, c0Y: 0.9612, c0W: 9.5947, c0O: 4.4101, payout: 0.1788, ageing: 0.1159, muD: 0.0267, cEe: 0.0465, rr: 0.3879, mRY: 0.8906, mRW: 1.4206 };
   const e = createEngine(model);
   const solvedValue = (id: string) => e.baselineData.pBase[model.paramIndex.get(id)!];
 
@@ -152,7 +157,11 @@ describe('Iceland model: the steady state matches engine v1', () => {
     for (const [id, want] of Object.entries(V1_UNCHANGED)) expect(Math.abs(solvedValue(id) - want)).toBeLessThan(6e-5);
   });
 
-  test('those that balance dividend income and the current account stay within 8% of v1’s', () => {
+  test('the debt-service cap’s shares of income after tax stay within 8% of v1’s shares of gross income', () => {
+    for (const [id, want] of Object.entries(V1_AFTER_TAX)) expect(Math.abs((solvedValue(id) * (1 - solvedValue('tau0'))) / want - 1)).toBeLessThan(0.08);
+  });
+
+  test('those that balance dividend income, the current account and income by age stay within 8% of v1’s', () => {
     for (const [id, want] of Object.entries(V1_MOVED)) expect(Math.abs(solvedValue(id) / want - 1)).toBeLessThan(0.08);
   });
 

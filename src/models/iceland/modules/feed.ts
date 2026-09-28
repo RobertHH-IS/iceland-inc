@@ -28,7 +28,7 @@ export const feed: ModuleDef = {
     { id: 'housingDown', indicator: 'realHousePrice', below: -2, message: 'Real house prices fall', concept: 'credit-and-house-prices' },
     { id: 'debt', indicator: 'govDebt', above: 2, message: 'Government debt rises as a share of GDP', concept: 'fiscal-rule' },
     { id: 'realWageDown', indicator: 'realWage', below: -1, message: 'Real wages fall as prices outpace pay', concept: 'real-wages' },
-    { id: 'oldGain', indicator: 'rdiO', above: 0.5, message: 'Older savers gain from higher interest income', concept: 'borrowers-and-savers' },
+    { id: 'oldGain', indicator: 'rdiO', above: 0.5, message: 'Older households’ real incomes rise', concept: 'borrowers-and-savers' },
     { id: 'youngSqueeze', indicator: 'rdiY', below: -0.5, message: 'Young households’ budgets are squeezed', concept: 'borrowers-and-savers' },
     { id: 'money', indicator: 'broadMoney', above: 1, message: 'Broad money grows as new deposits are created', concept: 'endogenous-money' },
     // firm sectors (decision 0003)
@@ -37,6 +37,6 @@ export const feed: ModuleDef = {
     { id: 'buildersDown', indicator: 'jobsFC', below: -2, message: 'Builders lay off workers as investment falls', concept: 'investment-accelerator' },
     { id: 'fishRevenue', indicator: 'exportsXF', above: 5, message: 'Fisheries earn more krónur for the same catch', concept: 'exchange-rate-pass-through' },
     { id: 'profitsAbroad', indicator: 'dividendsAbroad', above: 0.1, message: 'More profit flows abroad to the smelters’ foreign owners', concept: 'current-account' },
-    { id: 'squeeze', indicator: 'profitsXT', below: -10, message: 'Tourism’s profits are squeezed: wages are most of its costs', concept: 'profit-squeeze' },
+    { id: 'squeeze', indicator: 'profitsXT', below: -10, message: 'Tourism’s profits fall: wages, most of its costs, do not fall with sales', concept: 'profit-squeeze' },
   ],
 };

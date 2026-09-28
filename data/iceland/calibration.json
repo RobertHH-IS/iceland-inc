@@ -603,6 +603,13 @@
       "source": "Tryggingastofnun (TR) annual report 2025, via Stjornarradid news 13 May 2026 (stjornarradid.is/.../Arsskyrsla-TR-86.000-einstaklingar...)",
       "note": "TR old-age pension payments 2025: 122.6 bn ISK (+10% y/y) / GDP 2025. Disability pension 85.3 bn (1.73%); all TR payments ~250 bn. COFOG 1020 old age (incl. services) = 2.84%. 2024 (LL sheet 2.2): 109.5 bn = 2.39%."
     },
+    "public_disability_pension_pct_gdp": {
+      "value": 1.73,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Tryggingastofnun (TR) annual report 2025, via Stjornarradid news 13 May 2026 (stjornarradid.is/.../Arsskyrsla-TR-86.000-einstaklingar...)",
+      "note": "TR disability pension payments 2025: 85.3 bn ISK / GDP 2025. With the old-age pension (122.6 bn) 207.9 bn = 4.21% of GDP; all TR payments ~250 bn (~5.06%)."
+    },
     "pf_assets_pct_gdp": {
       "value": 179.7,
       "unit": "% of GDP",

@@ -45,21 +45,29 @@ P('wsHealth', 0.55, 'fraction', 'POLICY', 'Share of health spending that is staf
 P('wsEdu', 0.7, 'fraction', 'POLICY', 'Share of education spending that is staff pay (compensation, as for health).', assumed());
 P('compG', d(eco + 'compensation_of_employees'), '% of GDP/yr', 'IDENTITY', 'Public compensation of employees; it fixes the pay share of other public services. Like private compensation it includes the employer pension contribution and the payroll tax (tryggingagjald), which the government pays to itself.', dataProv(eco + 'compensation_of_employees', 'Also includes accrued public pension obligations beyond the 11.5% employer rate, so public gross wages are still somewhat overstated (audit L11).'));
 {
-  const oa = d(eco + 'social_benefits') - d(sp + 'unemployment') - d(sp + 'family_children') - d(sp + 'housing');
+  // Old-age and disability transfers are TR's pension payments; family benefits are the rest of
+  // social benefits (THJ05143 item 27), so the three cash channels still add up to item 27.
+  const OA = 'pensions.public_old_age_pension_pct_gdp';
+  const DIS = 'pensions.public_disability_pension_pct_gdp';
+  const oldAge = d(OA);
+  const oa = oldAge + d(DIS);
+  const tr = { source: `${datum(OA).source} [calibration.json: ${OA}, ${DIS}]`, vintage: String(datum(OA).year) };
   P('trOA', oa, '% of GDP/yr', 'POLICY', 'Old-age and disability cash transfers (Social Insurance, TR), real.', {
-    ...dataProv(eco + 'social_benefits'),
-    note: 'Derived: social benefits − unemployment − family − housing (THJ05143/THJ05142).',
+    ...derived(`TR old-age pension ${oldAge} + disability pension ${d(DIS)}% of GDP (TR annual report 2025).`),
+    ...tr,
   });
-  P('oaShareO', d('pensions.public_old_age_pension_pct_gdp') / oa, 'fraction', 'POLICY', 'Share of old-age and disability transfers paid to older households: the public old-age pension.', {
-    ...dataProv('pensions.public_old_age_pension_pct_gdp'),
-    note: 'Public old-age pension ÷ old-age and disability transfers.',
+  P('oaShareO', oldAge / oa, 'fraction', 'POLICY', 'Share of old-age and disability transfers paid to older households: the public old-age pension.', {
+    ...derived(`TR old-age pension ÷ (old-age + disability pensions): ${oldAge} ÷ ${oa.toFixed(2)} (TR annual report 2025).`),
+    ...tr,
+  });
+  const fam = d(eco + 'social_benefits') - d(sp + 'unemployment') - oa;
+  P('trFam', fam, '% of GDP/yr', 'POLICY', 'Family, housing and other benefits, real: child benefits, parental leave, housing benefits and the rest of social benefits.', {
+    ...dataProv(eco + 'social_benefits'),
+    basis: 'derived',
+    note: `The rest of social benefits: item 27 (${d(eco + 'social_benefits')}) − unemployment (${d(sp + 'unemployment')}) − old-age and disability pensions (${oa.toFixed(2)}) (THJ05143/THJ05142, TR 2025). Besides child, parental-leave and housing benefits it holds other TR payments (rehabilitation pension, supplements), municipal assistance, and the non-cash part of the unemployment figure, which comes from a COFOG function that includes administration.`,
   });
 }
 P('oaShareY', 0.07, 'fraction', 'POLICY', 'Share of old-age and disability transfers (disability) paid to the young; the rest goes to working age.', assumed());
-P('trFam', d(sp + 'family_children') + d(sp + 'housing'), '% of GDP/yr', 'POLICY', 'Child, parental-leave and housing benefits, real.', {
-  ...dataProv(sp + 'family_children'),
-  note: 'COFOG family and children + housing (THJ05142).',
-});
 P('famShareY', 0.55, 'fraction', 'POLICY', 'Share of family and housing benefits paid to the young (parental leave, rent support).', assumed());
 P('ueTarget', d(sp + 'unemployment'), '% of GDP/yr', 'POLICY', 'Baseline unemployment benefits; they fix the replacement rate.', dataProv(sp + 'unemployment'));
 
@@ -154,7 +162,7 @@ P('xOther', d('exports_pct_gdp.other_goods') + d('exports_pct_gdp.other_services
 P('iFD0', 13, '% of GDP/yr', 'BEHAVIOUR', 'Baseline investment of domestic firms (construction and retail and services), before the split by sector.', placeholder());
 P('iFX0', 3, '% of GDP/yr', 'BEHAVIOUR', 'Baseline investment of the four exporters together, before the split by sector.', placeholder('Gross fixed capital formation of the export industries was about 4% of GDP in 2025 (calibration.json: firm_sectors.*.gfcf_pct_gdp); the v1 value is kept so aggregate results stay comparable.'));
 P('muC', pct('cpi_weights.imported_goods'), 'fraction', 'BEHAVIOUR', 'Import share of consumer spending (proxy: the CPI weight of imported goods).', dataProv('cpi_weights.imported_goods'));
-P('muG', 0.4, 'fraction', 'BEHAVIOUR', 'Import share of government purchases (medicines, equipment).', placeholder('Set within a plausible 0.3–0.4 range by the fiscal-multiplier check (v1).'));
+P('muG', 0.4, 'fraction', 'BEHAVIOUR', 'Import share of government purchases (medicines, equipment).', placeholder('Within the research report’s assumed import leakage of 0.35–0.45 of spending (dial table, "Import leakage", from the ~43% import ratio). v1 tuned it within 0.3–0.4 against its fiscal-multiplier check; that check now measures public investment, whose imports use muI, so it no longer tests this value.'));
 P('muI', pct('import_content.investment'), 'fraction', 'BEHAVIOUR', 'Import share of investment goods (TiVA import content of investment).', dataProv('import_content.investment'));
 P('muX', pct('import_content.exports'), 'fraction', 'BEHAVIOUR', 'Imported inputs per unit of exports, all exporters together (TiVA); what fisheries, aluminium and tourism do not use sets other exporters’ import share.', dataProv('import_content.exports'));
 P('epsM', 0.6, 'elasticity', 'BEHAVIOUR', 'Import volumes versus the real exchange rate.', assumed());
@@ -202,13 +210,19 @@ P('pfMortN', (205.6 / GDP_BN) * 100, '% of GDP', 'IDENTITY', 'Pension funds’ n
 }
 P('govDebt', d('money_credit.govt_debt_pct_gdp'), '% of GDP', 'IDENTITY', 'Gross government debt.', dataProv('money_credit.govt_debt_pct_gdp'));
 P('govIdxShare', 0.35, 'fraction', 'CONTRACT', 'CPI-indexed share of government debt (held by pension funds).', placeholder());
-P('pfGovShare', pct('pensions.pf_share_of_govt_bonds'), 'fraction', 'IDENTITY', 'Pension funds’ share of government bonds (applied to all government debt; indexed bonds first).', dataProv('pensions.pf_share_of_govt_bonds'));
+P('pfGovShare', pct('pensions.pf_share_of_govt_bonds'), 'fraction', 'IDENTITY', 'Pension funds’ share of government bonds (applied to all government debt; indexed bonds first).', dataProv('pensions.pf_share_of_govt_bonds', `The datum is a share of Treasury bonds (ISK 1,490.5 bn, about ${((1490.5 / GDP_BN) * 100).toFixed(1)}% of GDP), but the model applies it to all general-government debt (${d('money_credit.govt_debt_pct_gdp')}% of GDP, including loans and municipal debt). So the funds hold about ${(pct('pensions.pf_share_of_govt_bonds') * d('money_credit.govt_debt_pct_gdp')).toFixed(1)}% of GDP of government debt in the model against ${((873.8 / GDP_BN) * 100).toFixed(1)}% in Treasury bonds in the data.`));
 P('bondCB', 1, '% of GDP', 'IDENTITY', 'The central bank’s government bonds.', placeholder());
 P('bondO', 4, '% of GDP', 'IDENTITY', 'Older households’ government bonds.', placeholder());
-P('bondW', 0.072 * d('money_credit.govt_debt_pct_gdp'), '% of GDP', 'IDENTITY', 'Non-residents’ government bonds (carry trade).', {
-  ...dataProv('pensions.pf_share_of_govt_bonds'),
-  note: 'Foreign holders 7.2% of Treasury bonds (Lánamál ríkisins, 31 Dec 2025) × government debt.',
-});
+P(
+  'bondW',
+  0.072 * d('money_credit.govt_debt_pct_gdp'),
+  '% of GDP',
+  'IDENTITY',
+  'Non-residents’ government bonds (carry trade).',
+  derived(
+    `Foreign holders’ 7.2% share of Treasury bonds (Lánamál ríkisins, 31 Dec 2025; calibration.json: pensions.pf_share_of_govt_bonds, notes) × general-government debt (Hagstofa THJ05181). The share is applied to a broader aggregate than it was measured on: on Treasury bonds alone it would be ${((0.072 * 1490.5) / GDP_BN * 100).toFixed(2)}% of GDP.`,
+  ),
+);
 P('m3', d('money_credit.broad_money_m3_pct_gdp'), '% of GDP', 'IDENTITY', 'Broad money (M3). It fixes domestic firms’ deposits at the start; afterwards money is only ever a sum of deposits.', dataProv('money_credit.broad_money_m3_pct_gdp'));
 P('fxr', 18, '% of GDP', 'IDENTITY', 'Central-bank foreign-exchange reserves.', placeholder());
 P('tga', 5, '% of GDP', 'POLICY', 'Treasury account at the central bank: the government keeps it at this level by selling bonds.', placeholder());
@@ -224,9 +238,11 @@ P('pfEqFDshare', 0.7, 'fraction', 'IDENTITY', 'Share of domestic equity (pension
 P('divFDY', 0.05, 'fraction', 'IDENTITY', 'Share of domestic firms’ distributed profit (dividends and owners’ income) going to the young.', placeholder());
 P('divFDW', 0.67, 'fraction', 'IDENTITY', 'Share going to working-age owners and the self-employed.', placeholder());
 P('divFDO', 0.18, 'fraction', 'IDENTITY', 'Share going to older households; the rest (10%) goes to pension funds.', assumed('Capital income of the 67+ group, ISK 117.4 bn (Hagstofa THJ09001).'));
-P('fdiTarget', 0.33, '% of GDP/yr', 'IDENTITY', 'Baseline dividends to foreign owners of exporters (the smelters’ parents and others); it fixes the foreign share of other exporters’ dividends.', {
-  ...dataProv('export_sector.profits_to_foreign_owners_pct_gdp'),
-  note: 'Equity income only (dividends + reinvested earnings) on inward FDI, 2024: 0.33% of GDP (calibration notes).',
+P('fdiTarget', 0.33, '% of GDP/yr', 'IDENTITY', 'Baseline profits paid to foreign owners of exporters (the smelters’ parents and others), paid in the model as cash dividends; it fixes the foreign share of other exporters’ dividends.', {
+  basis: 'derived',
+  source: 'Eurostat bop_c6_a (BPM6, CBI source), income on inward direct investment, 2024: dividends ISK 11.9 bn + reinvested earnings 3.4 bn ÷ 2024 GDP [calibration.json: export_sector.profits_to_foreign_owners_pct_gdp, notes]',
+  vintage: '2024',
+  note: 'Equity income (dividends plus reinvested earnings), not the leaf’s value of 1.25, which also counts intercompany interest. The model pays all of it as cash dividends; reinvested earnings are never paid in cash, and dividends alone were about 0.26% of GDP. That lower value is not used because the smelters’ dividends alone are about as large, which would leave other exporters a negative foreign share.',
 });
 P('divXTW', 0.1, 'fraction', 'IDENTITY', 'Foreign owners’ share of tourism firms’ dividends (foreign-owned hotels and tour operators).', placeholder());
 P('divFXdomW', 0.55, 'fraction', 'IDENTITY', 'Working-age households’ weight in the domestic split of exporters’ dividends.', placeholder());
@@ -284,7 +300,12 @@ P('termN', 40, 'years', 'POLICY', 'Longest term allowed in the stress test for n
 P('floorI', 0.03, 'fraction/yr', 'POLICY', 'Stress-test real-rate floor for indexed loans.', { basis: 'data', source: 'Central Bank of Iceland Rules No. 1300/2025 (3%)', vintage: '2025' });
 P('termI', 25, 'years', 'POLICY', 'Longest term allowed in the stress test for indexed loans.', { basis: 'data', source: 'Central Bank of Iceland Rules No. 1300/2025 (25 years)', vintage: '2025' });
 P('capUse0', 0.6, 'fraction', 'BEHAVIOUR', 'Baseline new lending as a share of what the debt-service cap allows (slack under the cap).', assumed());
-P('ltvYExtra', 0.05, 'fraction', 'POLICY', 'Extra loan-to-value room for the young (first-time buyers) when the LTV cap is on.', assumed('v1: first-time buyers get 5 points more.'));
+P('ltvYExtra', 0.1, 'fraction', 'POLICY', 'Extra loan-to-value room for the young (first-time buyers) when the LTV cap is on.', {
+  basis: 'data',
+  source: 'Central Bank of Iceland Rules No. 1131/2025 on maximum loan-to-value ratios, art. 3: 80% in general and 90% for first-time buyers, in force 3 November 2025 (also CBI Financial Stability 2026/1)',
+  vintage: '2025',
+  note: 'The model treats every young buyer as a first-time buyer, an approximation. v1 used 5 points (the 85% limit of earlier rules).',
+});
 
 /* ------------------------------------------ households: spending and borrowing */
 P('aLY', 0.95, 'fraction', 'BEHAVIOUR', 'Young: share of labour and transfer income spent.', assumed());
@@ -336,7 +357,7 @@ P('lamPia', 1.5, 'per year', 'BEHAVIOUR', 'How fast the remembered rate of infla
 P('aPi', 1.3, 'fraction', 'POLICY', 'Key-rate response to expected inflation above target (points per point).', tuned());
 P('aY', 1, 'fraction', 'POLICY', 'Key-rate response to the output gap (points per % of output).', {
   basis: 'calibrated',
-  note: 'Re-tuned from v1’s 0.6 after the consumption deflator stopped reading house-price moves as changes in real spending (audit H4, 29 September 2026). That removed a false early recovery after a rate rise, and the output trough moved to the last quarter of the 8-quarter rate-shock scenario (outside rate-output-timing’s 4–7). betaC and betaRI move the depth of the trough, not its timing. 1.0 is the output-gap weight of Taylor’s (1999) balanced rule, and keeps every check in range, also with the rate held 1 pp for four quarters as in the CBI QMM experiment.',
+  note: 'Re-tuned from v1’s 0.6 after the consumption deflator stopped reading house-price moves as changes in real spending (audit H4, 29 September 2026). That removed a false early recovery after a rate rise, and under v1’s rate-shock scenario (a 1 pp offset on the rule for 8 quarters) the output trough moved to its last quarter, outside rate-output-timing’s 4–7. The rate checks now run the CBI QMM experiment instead (the rate held 1 pp for four quarters, then the rule; audit M12/M20), under which 0.6 and 1.0 both keep every check in range. 1.0 is kept: it is the output-gap weight of Taylor’s (1999) balanced rule.',
 });
 P('aPiA', 0.3, 'fraction', 'POLICY', 'Key-rate response to actual 12-month inflation above target.', tuned());
 P('lamPol', 3, 'per year', 'POLICY', 'How fast the key rate moves toward what its rule says (smoothing).', assumed());
