@@ -1,12 +1,16 @@
 /**
  * Iceland Inc.: the 20 calibration checks of engine v1 (legacy/v1-engine/tools/calibration_checks.js),
- * with the same scenarios and target ranges, three checks on the firm sectors (decision 0003) and
- * five on the stabiliser setting (decision 0004).
+ * three checks on the firm sectors (decision 0003) and five on the stabiliser setting (decision 0004).
+ * After the audit of 29 September 2026 (docs/audit/2026-09-29-audit.md: M12/M20, M13, M14/M21, L26)
+ * each check's scenario is the experiment its source describes, and its range is the source's where
+ * the source gives one. Where the model lies outside a cited range, the check keeps v1's wider band
+ * (v1 SPEC §7.3), says so in its label and source, and is listed in KNOWN_GAPS for a calibration
+ * decision.
  *
  * Every published response these checks compare with comes from an economy whose policy reacts:
  * the central bank follows its rule and the debt rule leans on income tax. So each of the 23
- * original scenarios first sets stabilisers to Automatic at month 0 (AUTO), which keeps their
- * results exactly as they were before Manual became the default. The Manual checks run with the
+ * original scenarios sets stabilisers to Automatic (AUTO), at month 0, or at month 12 in the rate
+ * experiment, which first holds the key rate as its source does. The Manual checks run with the
  * default setting.
  * They are CHECKS on whole-model responses, never equations. Each range's source is in `source`
  * (v1 SPEC §7.3, the research report docs/research/icelandic-economy-flow-simulation.md, and
@@ -30,18 +34,32 @@ const argmin = (a: number[], from: number, to: number) => argBest(a, (x, y) => x
 const argmax = (a: number[], from: number, to: number) => argBest(a, (x, y) => x > y, from, to);
 
 /* ----------------------------------------------------------------- scenarios */
+/** The key-rate stabiliser, its threshold and the key-rate lever's default (Manual level). */
+const RATE_RULE = centralBank.stabilisers!.find((s) => s.id === 'keyRateRule')!;
+const HELD_RATE = centralBank.levers!.find((l) => l.id === RATE_RULE.lever)!.default;
+
 /** Policy reacts: the central bank's rule and the debt rule act (stabilisers on Automatic). */
 const AUTO: ScenarioEvent = { t: 0, lever: 'stabilisers', value: 1 };
+/**
+ * CBI QMM's experiment: the key rate is held 1 pp above baseline for four quarters, then the rule
+ * takes over. The hold is a Manual key rate of baseline + 1 pp (relative to the lever's default, so
+ * it stays a rise if the start rate changes), which also keeps the slow debt rule off for that year.
+ */
 const RATE: ScenarioEvent[] = [
-  AUTO,
-  { t: 0, lever: 'keyRateAddon', value: 1 },
-  { t: 24, lever: 'keyRateAddon', value: 0 },
+  { t: 0, lever: 'keyRateFixed', value: HELD_RATE + 1 },
+  { t: 12, lever: 'stabilisers', value: 1 },
 ];
 const WAGE: ScenarioEvent[] = [AUTO, { t: 0, lever: 'wageSettlement', value: 10, fire: true }];
 const G_BANKS: ScenarioEvent[] = [
   AUTO,
   { t: 0, lever: 'bondBuyers', value: 1 },
   { t: 0, lever: 'otherServices', value: 1 },
+];
+/** The research report's fiscal experiment: the government buys 1% of GDP more from firms, bank-financed. */
+const G_PURCHASES: ScenarioEvent[] = [
+  AUTO,
+  { t: 0, lever: 'bondBuyers', value: 1 },
+  { t: 0, lever: 'publicInvestment', value: 1 },
 ];
 const G_FUNDS: ScenarioEvent[] = [
   AUTO,
@@ -64,12 +82,19 @@ const FIRMS = ['FC', 'FR', 'XF', 'XA', 'XT', 'XO'] as const;
 
 /* ------------------------------------------------------------------ sources */
 const SRC = {
-  rate: 'CBI QMM (Monetary Bulletin, QMM v2.1): 1 pp for four quarters lowers output about 0.4% and inflation about 0.24 pp at a trough near quarter 5, króna +0.7–1% (docs/research report, "The CBI raises the key rate"; v1 SPEC §7.3). https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf',
-  wage: 'Research report, "Wages +10%": CPI about +2% in year 1 rising toward +4% as pass-through completes (CBI MB 2026/2 Box 2), policy rate +1 to +1.5 pp at the peak (DYNIMO scaled), unemployment +0.5–1 pp (v1 SPEC §7.3). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
+  rate: 'CBI QMM v2.1 (Monetary Bulletin): the key rate raised 1 pp for four quarters, after which the rule takes over, lowers output about 0.41% and inflation about 0.24 pp at a trough in quarter 5 (research report, "Policy rate +1 pp"). The ranges are v1’s bands around those figures (v1 SPEC §7.3). The scenario is that experiment: the key rate is held 1 pp above baseline on Manual for 12 months, which also keeps the slow debt rule off, and the Automatic rule then takes over; because the rule’s own rate has kept reacting to the weaker economy, the key rate drops about 1.4 pp in month 13, to about 0.4 pp below baseline, rather than easing down. (v1 instead added a 1 pp offset to the Automatic rule for 8 quarters, a key rate only about 0.7 pp higher on average.) https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf',
+  rateKrona:
+    'CBI QMM v2.1 (Monetary Bulletin): the króna rises 0.67% on impact per 1 pp of interest-rate differential, with its real peak in quarter 4 (research report, "Policy rate +1 pp" and the dial table; the "+0.7–1%" once quoted here belongs to the wage experiment). The range is 0.6 to 1.5 times the QMM figure, the relative band v1 put around the output trough (0.25–0.6 around 0.41); v1’s own band was 0.3–1.5 (v1 SPEC §7.3). The model’s peak, about 0.45, is a third below the QMM figure: its króna is less sensitive to the rate gap. https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf',
+  wage: 'Research report, "Wages +10%": CPI about +2% in year 1 rising toward about +4% as pass-through completes (CBI MB 2026/2 Box 2); the ranges are v1’s bands around those figures (v1 SPEC §7.3). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
+  wageRate: 'Research report, "Wages +10%": policy rate +1 to +1.5 pp at the peak, in quarters 2–4 (CBI DYNIMO, +0.3 pp per 1 pp of wages above baseline for two years, scaled; CBI MB 2026/2). v1’s band was 0.8–2 (v1 SPEC §7.3); the range is now the cited one. https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
+  wageJobs:
+    'Research report, "Wages +10%": unemployment +0.5–1 pp at the peak (CBI DYNIMO: −0.7 pp of hours per +1 pp of wages, CBI MB 2026/2; the size of the cap on a 10% shock is the report’s assumption). KNOWN GAP: the model’s peak, about 0.47, is below the cited 0.5, as v1’s was (+0.42); the range is v1’s band of 0.3–1.2 (v1 SPEC §7.3), which gives no reason for the wider bounds, kept until a calibration decision (KNOWN_GAPS). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageBack: 'Research report, "Wages +10%", settles in years 3–6: real variables return to baseline because the wage share is anchored in the long run (CBI QMM v4.0 long-run homogeneity; v1 SPEC §7.3). https://cb.is/library/news-and-publications/publications/working-papers/WP82_net.pdf',
-  fiscal: 'Research report, fiscal expansion: output +0.3–0.6% for deficit-financed spending, inferred from the ~0.7 cross-country median multiplier and Iceland’s openness (IMF WP 2026/043); v1 SPEC §7.3. https://www.elibrary.imf.org/view/journals/001/2026/043/article-A001-en.xml',
+  fiscal:
+    'Research report, "Government spending +1% of GDP": the government buys 1% of GDP more from firms; output +0.3–0.6% in year 1 when deficit-financed, an inference from the ~0.7 cross-country median multiplier and Iceland’s openness (IMF WP 2026/043). Public investment is the lever that is only a purchase from firms, so the check uses it, with the cited range. (v1 used the other-services lever, about a third of which is public pay with no import leakage; that mixed multiplier is about 0.72, and v1 SPEC §7.3 widened the range to 0.8 for it.) https://www.elibrary.imf.org/view/journals/001/2026/043/article-A001-en.xml',
   money: 'Accounting mechanism: deficits add deposits when banks buy the bonds and move existing deposits when pension funds do (Bank of England 2014, "Money creation in the modern economy"; research report §1); v1 SPEC §7.3 requires a gap of at least 0.5 pp.',
-  krona: 'CBI WP85 exchange-rate pass-through: a 10% depreciation raises the CPI about 1.5 pp within a year and 2.3 pp in the long run (research report, "A 10% króna depreciation"; v1 SPEC §7.3). https://ideas.repec.org/p/ice/wpaper/wp85.html',
+  krona:
+    'Loose whole-model check, not like for like. CBI WP85 finds pass-through of 0.15 within the quarter and 0.23 in the long run per 1% of sustained depreciation, so a lasting 10% depreciation raises the CPI about 1.5 pp and then 2.3 pp; the IMF’s 0.4 at 36 months would give up to 4 pp (research report, "A 10% króna depreciation"). The scenario is instead a −10% sentiment shock that fades at 10% a year: the realised króna falls about 8% by month 3 and recovers about half within a year, as the carry and portfolio-balance terms pull it back. The range is v1’s band (v1 SPEC §7.3). KNOWN GAP: per point of realised depreciation the model passes through far more than WP85: holding the króna about 10% weaker raises the CPI about 3.3% in a year and 4.6% in two (tests/models, iceland-credit-and-checks), so the price block needs recalibrating before a sustained-depreciation check can use WP85’s figures. https://ideas.repec.org/p/ice/wpaper/wp85.html',
   credit: 'Credit-impulse definition (Biggs, Mayer & Pick 2010; Keen 2011): positive while new credit accelerates, negative when a temporary boost ends, near zero when a higher flow is merely held (research report, "Banks’ lending appetite rises"; v1 SPEC §7.3). https://www.bde.es/f/webpi/SES/seminars/2015/files/sie1515.pdf',
   tourism:
     'Reasoned from 2020: foreign visitor numbers fell by about three-quarters and the króna lost nearly 10% in trade-weighted terms over the year (euro 14.9% dearer), cushioned by pension funds pausing FX purchases and by central-bank FX sales (Íslandsbanki, Economic review 2020; Landsbankinn, 8 January 2021; CBI Monetary Bulletin 2020/4). Scaled to a 30% fall, about 4%; the model has no FX intervention, so up to 10%. Tourism is 13% of GDP of exports and the exporter most sensitive to the exchange rate, so its output must fall most (calibration.json: firm_sectors.tourism). https://www.landsbankinn.is/en/news/2021/01/08/the-icelandic-krona-depreciated-in-2020',
@@ -95,10 +120,6 @@ function largestChartMove(run: RunResult): number {
   for (const id of CHARTS) for (const x of run.series(id)) worst = Number.isFinite(x) ? Math.max(worst, Math.abs(x)) : Infinity;
   return worst;
 }
-
-/** The key-rate stabiliser, its threshold and the key-rate lever's default (Manual level). */
-const RATE_RULE = centralBank.stabilisers!.find((s) => s.id === 'keyRateRule')!;
-const HELD_RATE = centralBank.levers!.find((l) => l.id === RATE_RULE.lever)!.default;
 
 /* ------------------------------------- the bank- versus fund-financed money gap */
 
@@ -143,7 +164,7 @@ const wageBack = (id: string, label: string): CalibrationCheck => ({
 export const calibration: CalibrationCheck[] = [
   {
     id: 'rate-output-trough',
-    label: 'Key rate +1 pp for 8 quarters: output trough, % vs baseline',
+    label: 'Key rate held +1 pp for 4 quarters, then the rule: output trough, % vs baseline',
     scenario: RATE,
     months: 72,
     measure: (run) => {
@@ -155,7 +176,7 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'rate-output-timing',
-    label: 'Key rate +1 pp for 8 quarters: quarter of the output trough',
+    label: 'Key rate held +1 pp for 4 quarters, then the rule: quarter of the output trough',
     scenario: RATE,
     months: 72,
     measure: (run) => quarter(argmin(run.series('output'), 1, 48)),
@@ -164,7 +185,7 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'rate-inflation-trough',
-    label: 'Key rate +1 pp for 8 quarters: 12-month inflation trough, pp vs baseline',
+    label: 'Key rate held +1 pp for 4 quarters, then the rule: 12-month inflation trough, pp vs baseline',
     scenario: RATE,
     months: 72,
     measure: (run) => {
@@ -176,7 +197,7 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'rate-inflation-timing',
-    label: 'Key rate +1 pp for 8 quarters: quarter of the inflation trough',
+    label: 'Key rate held +1 pp for 4 quarters, then the rule: quarter of the inflation trough',
     scenario: RATE,
     months: 72,
     measure: (run) => quarter(argmin(run.series('inflation'), 1, 48)),
@@ -185,15 +206,15 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'rate-krona',
-    label: 'Key rate +1 pp for 8 quarters: króna appreciation, peak in the first 8 quarters, %',
+    label: 'Key rate held +1 pp for 4 quarters, then the rule: króna appreciation, peak in the first 8 quarters, %',
     scenario: RATE,
     months: 72,
     measure: (run) => {
       const a = run.series('krona');
       return a[argmax(a, 1, 24)];
     },
-    range: [0.3, 1.5],
-    source: SRC.rate,
+    range: [0.4, 1],
+    source: SRC.rateKrona,
   },
   {
     id: 'wage-inflation-peak',
@@ -225,12 +246,12 @@ export const calibration: CalibrationCheck[] = [
       const a = run.series('keyRate');
       return a[argmax(a, 1, 72)];
     },
-    range: [0.8, 2],
-    source: SRC.wage,
+    range: [1, 1.5],
+    source: SRC.wageRate,
   },
   {
     id: 'wage-unemployment-peak',
-    label: 'Wages +10% one-off: unemployment peak, pp vs baseline',
+    label: 'Wages +10% one-off: unemployment peak, pp vs baseline (known gap: below the cited +0.5–1 pp; v1’s band)',
     scenario: WAGE,
     months: 72,
     measure: (run) => {
@@ -238,7 +259,7 @@ export const calibration: CalibrationCheck[] = [
       return a[argmax(a, 1, 72)];
     },
     range: [0.3, 1.2],
-    source: SRC.wage,
+    source: SRC.wageJobs,
   },
   {
     id: 'wage-price-level-6y',
@@ -255,19 +276,19 @@ export const calibration: CalibrationCheck[] = [
   wageBack('consumption', 'consumption'),
   {
     id: 'fiscal-output-year1',
-    label: 'Government purchases +1% of GDP (bank-financed): output, year-1 average, % vs baseline',
-    scenario: G_BANKS,
+    label: 'Government purchases from firms +1% of GDP (public investment, bank-financed): output, year-1 average, % vs baseline',
+    scenario: G_PURCHASES,
     months: 72,
     measure: (run) => {
       const a = run.series('output');
       return a.slice(1, 13).reduce((s, x) => s + x, 0) / 12;
     },
-    range: [0.3, 0.8],
+    range: [0.3, 0.6],
     source: SRC.fiscal,
   },
   {
     id: 'fiscal-money-banks-vs-funds',
-    label: 'Government purchases +1% of GDP: broad money when banks buy the bonds minus when pension funds do, pp (smaller of months 12 and 24)',
+    label: 'Other public services +1% of GDP (about a third staff pay): broad money when banks buy the bonds minus when pension funds do, pp (smaller of months 12 and 24)',
     scenario: G_BANKS,
     months: 72,
     measure: (run) => {
@@ -280,7 +301,7 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'krona-price-level-8q',
-    label: 'Króna sentiment −10%: price level after 8 quarters, % vs baseline',
+    label: 'Króna sentiment −10% (the króna itself falls about 8% by month 3 and recovers about half within a year): price level after 8 quarters, % vs baseline (known gap: pass-through per point of depreciation is above WP85’s)',
     scenario: KRONA,
     months: 72,
     measure: (run) => run.series('priceLevel')[24],
@@ -411,3 +432,15 @@ export const calibration: CalibrationCheck[] = [
     source: SRC.drift,
   },
 ];
+
+/**
+ * Checks whose result lies outside the published estimate they cite: each keeps v1's wider band so
+ * the harness passes, says so in its label and source, and waits for a calibration decision
+ * (docs/audit/2026-09-29-audit.md, L26). tests/models checks that each is still outside its cited
+ * range; when calibration closes a gap, that test fails as a reminder to narrow the check's range to
+ * the cited one and remove the entry. The króna check's gap is in a different experiment (a held
+ * depreciation), so its tripwire is its own test.
+ */
+export const KNOWN_GAPS: Record<string, { cited: [number, number]; why: string }> = {
+  'wage-unemployment-peak': { cited: [0.5, 1], why: 'Unemployment rises less than the research report’s +0.5–1 pp: the migration buffer and labour hoarding absorb more of the job loss.' },
+};

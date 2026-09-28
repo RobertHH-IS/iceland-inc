@@ -5,6 +5,8 @@
 import { describe, expect, test } from 'bun:test';
 import { compile } from '../../src/core/compile.ts';
 import { createEngine } from '../../src/core/engine.ts';
+import { runScenario } from '../../src/core/scenario.ts';
+import { calibration, KNOWN_GAPS } from '../../src/models/iceland/calibration.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 import { withConcepts } from '../../src/models/index.ts';
 
@@ -160,5 +162,70 @@ describe('Iceland transfers: old-age and disability pensions are TR’s payments
   test('family and other benefits are the rest of social benefits, so the cash channels still add up to item 27', () => {
     expect(v('trOA') + v('trFam') + v('ueTarget')).toBeCloseTo(7.28, 9);
     expect(model.params.find((p) => p.id === 'trFam')!.provenance.basis).toBe('derived');
+  });
+});
+
+describe('Iceland calibration: each check runs the experiment its source describes (audit M12/M20, M13, M14/M21, L26)', () => {
+  const check = (id: string) => calibration.find((c) => c.id === id)!;
+  const run = (id: string) => runScenario(fresh(), check(id).scenario, check(id).months);
+
+  test('the rate checks hold the key rate 1 pp above baseline for four quarters, then the rule takes over', () => {
+    const r = run('rate-output-trough');
+    const rate = r.series('keyRate');
+    for (let m = 1; m <= 12; m++) expect(rate[m]).toBeCloseTo(1, 12);
+    expect(r.value('keyRate', 13)).toBeCloseTo(r.value('ruleRate', 13), 12); // the rule's rate from month 13
+    for (const id of ['rate-output-trough', 'rate-output-timing', 'rate-inflation-trough', 'rate-inflation-timing', 'rate-krona']) expect(check(id).label).toMatch(/^Key rate held \+1 pp for 4 quarters, then the rule/);
+  });
+
+  test('the fiscal multiplier is measured on purchases from firms only: public pay does not move', () => {
+    const r = run('fiscal-output-year1');
+    expect(r.value('publicEmployment', 12)).toBeCloseTo(r.value('publicEmployment', 0), 12);
+    expect(check('fiscal-output-year1').range).toEqual([0.3, 0.6]);
+    expect(check('fiscal-output-year1').source).toMatch(/0\.3–0\.6%/);
+  });
+
+  test('ranges quoted by a source are the source’s: wage key-rate peak +1 to +1.5 pp, króna within 0.6–1.5 × QMM’s 0.67%', () => {
+    expect(check('wage-key-rate-peak').range).toEqual([1, 1.5]);
+    expect(check('rate-krona').range).toEqual([0.4, 1]);
+    expect(check('rate-krona').source).toMatch(/0\.67% on impact/);
+  });
+
+  test('known gaps are real: each check passes its v1 band but lies outside the range its source cites', () => {
+    expect(Object.keys(KNOWN_GAPS).length).toBeGreaterThan(0);
+    for (const [id, gap] of Object.entries(KNOWN_GAPS)) {
+      const c = check(id);
+      const v = c.measure(run(id));
+      expect(v).toBeGreaterThanOrEqual(c.range[0]);
+      expect(v).toBeLessThanOrEqual(c.range[1]);
+      // if this fails, calibration has closed the gap: narrow the check's range to `cited` and remove the entry
+      expect(v < gap.cited[0] || v > gap.cited[1]).toBe(true);
+      expect(c.label).toMatch(/known gap/);
+      expect(c.source).toMatch(/KNOWN GAP/);
+    }
+  });
+
+  test('known gap: a króna held about 10% weaker passes through to the CPI far more than CBI WP85’s 0.15 in a year and 0.23 in the long run', () => {
+    // hold the realised depreciation near 10% by topping up the sentiment shock every month (Automatic, as in the check)
+    const e = fresh();
+    e.setLever('stabilisers', 1);
+    const krona: number[] = [];
+    const cpi: number[] = [];
+    for (let m = 0; m < 24; m++) {
+      const now = e.indicator('krona');
+      e.fire('kronaShock', m === 0 ? -10 : 100 * (0.9 / (1 + now / 100) - 1));
+      e.step(1);
+      krona.push(e.indicator('krona'));
+      cpi.push(e.indicator('priceLevel'));
+    }
+    // krónur per unit of foreign currency, % above baseline, averaged over the months so far
+    const dearer = (m: number) => krona.slice(0, m).reduce((s, k) => s + 100 * (1 / (1 + k / 100) - 1), 0) / m;
+    const pass12 = cpi[11] / dearer(12);
+    const pass24 = cpi[23] / dearer(24);
+    expect(dearer(24)).toBeGreaterThan(9);
+    // if these fail, the price block has been recalibrated: give krona-price-level-8q a held-depreciation
+    // scenario with WP85's ranges and drop the known-gap note
+    expect(pass12).toBeGreaterThan(0.23);
+    expect(pass24).toBeGreaterThan(0.4);
+    expect(check('krona-price-level-8q').source).toMatch(/KNOWN GAP/);
   });
 });
