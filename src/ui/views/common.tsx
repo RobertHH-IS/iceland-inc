@@ -3,6 +3,7 @@
  */
 import { memo, useId, useState, type ReactNode } from 'react';
 import type { Category, Id, Provenance } from '../../core/types.ts';
+import { labels } from '../labels.ts';
 import type { ModelInfo } from '../model/info.ts';
 import type { Selection } from '../model/navigation.ts';
 import { parseMarkdown, type Inline } from '../model/markdown.ts';
@@ -69,7 +70,7 @@ export function CategoryChip({ category }: { category?: Category }) {
   if (!category) return null;
   return (
     <span className={`chip cat cat-${category.toLowerCase()}`} title={CATEGORY_HELP[category]}>
-      {category}
+      {labels.category[category]}
     </span>
   );
 }

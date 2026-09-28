@@ -21,6 +21,7 @@ import { fmtChange, fmtCompact, fmtCompactChange, fmtIndicator, fmtNum, fmtSigne
 import { directMembers, memberCount, nodePipes, pipeBetween, type ViewLeg } from '../model/hierarchy.ts';
 import { nodeColor, nodeLabel, nodeMembers, varLabel, type ModelInfo } from '../model/info.ts';
 import { GROUP_NOUNS } from '../model/player-cards.ts';
+import { labels } from '../labels.ts';
 import { canBack, canForward, navCurrent, selectionKey, selectionLabel, type NavState } from '../model/navigation.ts';
 import { changeBar, deviation, signTone } from '../model/styling.ts';
 import { ChartSvg } from './ChartSvg.tsx';
@@ -78,7 +79,7 @@ export function Inspector({ info, client, frame, nav, expanded, onSelect, onBack
               return (
                 <li key={i}>
                   <button type="button" className={`crumb ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} onClick={() => onGo(i)}>
-                    <span className="crumb-kind">{s.kind === 'var' ? 'variable' : s.kind}</span> {selectionLabel(s, info)}
+                    <span className="crumb-kind">{labels.selectionKind[s.kind]}</span> {selectionLabel(s, info)}
                   </button>
                 </li>
               );
@@ -278,7 +279,7 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
         <span className="mono big">{fmtNum(pipe.value)}</span>
         <span className="muted small">% of GDP a year · baseline {fmtNum(pipe.baseline)}</span>
         <Delta text={dev.tone === 'flat' ? 'at baseline' : fmtSigned(pipe.value - pipe.baseline)} tone={dev.tone} />
-        <span className={`chip kind kind-${pipe.kind}`}>{pipe.kind === 'cash' ? 'CASH' : pipe.kind.toUpperCase()}</span>
+        <span className={`chip kind kind-${pipe.kind}`}>{labels.flowKind[pipe.kind]}</span>
       </div>
       {[...byFlow].map(([flowId, legs]) => {
         const flow = info.flowById.get(flowId);
@@ -288,7 +289,7 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
               <NavLink selection={{ kind: 'flow', id: flowId }} onSelect={onSelect}>
                 {flow?.label ?? flowId}
               </NavLink>
-              <span className="muted small"> · {flow?.account} account</span>
+              {flow && <span className="muted small"> · {labels.account[flow.account]}</span>}
             </h4>
             {flow && <p className="inf-what">{flow.explain.what}</p>}
             {flow && <p className="muted small">{describePosting(flow.posting)}</p>}
@@ -543,7 +544,7 @@ function FlowDetail({ info, client, id, onSelect }: { info: ModelInfo; client: E
       <h3 className="detail-title">{f.label}</h3>
       <p className="inf-what">{f.explain.what}</p>
       <p className="muted small">
-        {f.kind} · {f.account} account · {describePosting(f.posting)}
+        {labels.flowKind[f.kind]} · {labels.account[f.account]} · {describePosting(f.posting)}
       </p>
       <InfluenceView info={info} client={client} id={`flow:${id}`} onSelect={onSelect} compact />
     </div>
@@ -612,7 +613,7 @@ const ConceptDetail = memo(function ConceptDetail({ info, id, onSelect }: { info
     <article className="detail concept-card">
       <h3 className="detail-title">{c.title}</h3>
       <p className="school">
-        <span className="chip quiet">{c.school.replace('-', ' ')}</span>
+        <span className="chip quiet">{labels.school[c.school]}</span>
       </p>
       <p className="lede">{c.oneLiner}</p>
       <Markdown source={c.body} />
