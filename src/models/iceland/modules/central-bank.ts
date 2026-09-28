@@ -91,7 +91,10 @@ export const centralBank: ModuleDef = {
       stocks: [['reserves', 'B']],
       compute: (c) => c.v('keyRate') * c.stock('reserves', 'B'),
       concepts: ['reserves-and-payments'],
-      explain: { what: 'Interest the central bank pays on banks’ reserves. It creates new reserves.', rule: 'Interest = key rate × reserves.' },
+      explain: {
+        what: 'Interest the central bank pays on banks’ reserves. It creates new reserves.',
+        rule: 'Interest = key rate × reserves. If reserves are below zero, the banks are borrowing them from the central bank and pay it the key rate instead (the real lending facility charges a little more).',
+      },
     },
     {
       id: 'fxReserveIncome',

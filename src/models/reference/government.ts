@@ -6,8 +6,12 @@
  * proceeds, deficits add to the money households and firms hold. A debt rule sets the tax rate
  * when stabilisers are Automatic (the default here), and only suggests on Manual (decision 0004).
  */
-import type { ModuleDef, ParamDef } from '../../core/types.ts';
+import type { Ctx, ModuleDef, ParamDef } from '../../core/types.ts';
 import { automatic } from './stabilisers.ts';
+
+/** The largest buyback this month (a negative issue): the bank's bonds, less what it sells the
+ *  central bank this month, over one month. */
+const buybackLimit = (c: Ctx) => c.v('openMarket') - c.stock('bonds', 'B') / c.dt;
 
 const params: ParamDef[] = [
   {
@@ -190,17 +194,24 @@ export const government: ModuleDef = {
       id: 'bondIssue',
       target: 'bondIssue',
       category: 'POLICY',
-      inputs: ['deficit'],
-      stocks: [['treasuryAccount', 'G']],
+      inputs: ['deficit', 'openMarket'],
+      stocks: [
+        ['treasuryAccount', 'G'],
+        ['bonds', 'B'],
+      ],
       params: ['treasuryTarget', 'treasuryTopUp'],
       terms: [
         { id: 'deficit', label: 'Deficit to finance', concept: 'deficits-and-money', compute: (c) => c.v('deficit') },
         { id: 'topUp', label: 'Refill the treasury account', compute: (c) => c.p('treasuryTopUp') * (c.p('treasuryTarget') - c.stock('treasuryAccount', 'G')) },
       ],
+      // Not additive when negative: a buyback takes at most the bonds the bank has left after
+      // this month's sales to the central bank; the rest of a surplus stays in the treasury account.
+      combine: (t, c) => Math.max(buybackLimit(c), t.deficit + t.topUp),
+      regime: (c, _v, t) => (t.deficit + t.topUp < buybackLimit(c) ? 'Buyback limited by the bank’s bonds' : null),
       concepts: ['deficits-and-money'],
       explain: {
-        what: 'Bonds the government sells to the bank to pay its way.',
-        rule: 'Bonds sold = the deficit + {treasuryTopUp} × a year of any shortfall of the treasury account below {treasuryTarget}% of GDP.',
+        what: 'Bonds the government sells to the bank to pay its way (negative: buys back from it).',
+        rule: 'Bonds sold = the deficit + {treasuryTopUp} × a year of any shortfall of the treasury account below {treasuryTarget}% of GDP. A surplus buys bonds back, but never more than the bank still holds: the rest of the surplus stays in the treasury account.',
       },
     },
   ],

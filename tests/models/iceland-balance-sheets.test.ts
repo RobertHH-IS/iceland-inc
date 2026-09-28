@@ -17,9 +17,11 @@ const HOLDER = 1;
 
 type Setting = [lever: string, value: number];
 
-/** Every position with the wrong sign over `months`, as 'instrument/player'. A lever hidden in the
- *  chosen mode has no effect there, so setting one is an error: the case would test nothing. */
-function wrongSigns(settings: Setting[], automatic: boolean, months = 240): string[] {
+/** Every position with the wrong sign over `months`, as 'instrument/player'. Positions the model
+ *  declares free to take either sign (decision 0005: banks' reserves) are left out, as the kernel's
+ *  diagnostic and the harness leave them out, unless `exempt` asks for only those. A lever hidden
+ *  in the chosen mode has no effect there, so setting one is an error: the case would test nothing. */
+function wrongSigns(settings: Setting[], automatic: boolean, months = 240, exempt = false): string[] {
   const e = createEngine(model, { baseline: base.baselineData, dev: false });
   if (automatic) e.setLever('stabilisers', 1);
   for (const [id, v] of settings) {
@@ -35,7 +37,7 @@ function wrongSigns(settings: Setting[], automatic: boolean, months = 240): stri
     const pos = e.positionsAt(m);
     for (let k = 0; k < pos.length; k++) {
       const role = model.role[k];
-      if (!role) continue;
+      if (!role || Boolean(model.signExempt[k]) !== exempt) continue;
       const breach = role === HOLDER ? -pos[k] : pos[k];
       if (!(breach <= TOL)) bad.add(`${model.instruments[Math.floor(k / model.NP)].id}/${model.players[k % model.NP].id}`);
     }
@@ -85,30 +87,52 @@ describe('Iceland model: balance sheets stay possible', () => {
       expect(wrongSigns(settings, automatic)).toEqual([]);
     });
 
-  test('every lever alone at its min and at its max (every option of a choice), 20 years, in each mode where it acts: only the known gap below', () => {
+  test('every lever alone at its min and at its max (every option of a choice), 20 years, in each mode where it acts: none, and banks borrow reserves only in the two documented cases', () => {
     const found: string[] = [];
+    const borrowed: string[] = [];
     for (const l of model.levers) {
       if (l.id === 'stabilisers') continue;
       const values = l.kind === 'choice' ? (l.options ?? []).map((o) => o.value).filter((v) => v !== l.default) : [l.min!, l.max!];
       const modes = [false, true].filter((automatic) => !l.showWhen || [l.showWhen.equals].flat().includes(automatic ? 1 : 0));
-      for (const v of values) for (const automatic of modes) for (const pos of wrongSigns([[l.id, v]], automatic)) found.push(`${l.id}=${v} ${automatic ? 'Automatic' : 'Manual'}: ${pos}`);
+      for (const v of values)
+        for (const automatic of modes) {
+          const setting = `${l.id}=${v} ${automatic ? 'Automatic' : 'Manual'}`;
+          for (const pos of wrongSigns([[l.id, v]], automatic)) found.push(`${setting}: ${pos}`);
+          if (wrongSigns([[l.id, v]], automatic, 240, true).length) borrowed.push(setting);
+        }
     }
-    expect(found).toEqual(['incomeTax=10 Manual: reserves/B', 'incomeTax=10 Manual: reserves/CB', 'publicInvestment=-3 Manual: reserves/B', 'publicInvestment=-3 Manual: reserves/CB']);
-  }, 30_000);
+    expect(found).toEqual([]);
+    expect(borrowed).toEqual(['incomeTax=10 Manual', 'publicInvestment=-3 Manual']);
+  }, 60_000);
 
-  test('known gap: a surplus held on Manual after every bond is repaid overdraws banks’ reserves at the central bank, and nothing else', () => {
-    // decision 0002 §6: the treasury account keeps the surplus, which drains reserves one for one.
-    expect(wrongSigns([['incomeTax', 10]], false)).toEqual(['reserves/B', 'reserves/CB']);
+  test('the one declared exemption: banks’ reserves, which go below zero when they borrow from the central bank', () => {
+    const exempt = model.instruments.filter((i) => i.mayGoNegative).map((i) => `${i.id}: ${i.mayGoNegative!.players?.join(', ')}`);
+    expect(exempt).toEqual(['reserves: B, CB']);
   });
 
-  test('pension funds let bank bonds run off once foreign sales cannot raise the cash: no overdraft beside the known reserves gap', () => {
+  test('a surplus held on Manual after every bond is repaid makes banks borrow reserves from the central bank, and nothing else goes wrong', () => {
+    // decision 0002 §6 and 0005: the treasury account keeps the surplus, which drains reserves
+    // one for one; below zero the banks borrow them and pay the key rate.
+    expect(wrongSigns([['incomeTax', 10]], false)).toEqual([]);
+    expect(wrongSigns([['incomeTax', 10]], false, 240, true)).toEqual(['reserves/B', 'reserves/CB']);
+    const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    e.setLever('incomeTax', 10);
+    e.step(240);
+    expect(e.stock('reserves', 'B')).toBeLessThan(-1);
+    // The banks pay the central bank interest on what they borrow (reserve interest turns negative).
+    expect(e.value('reserveInterest')).toBeLessThan(0);
+    // Only a sliver of bonds is left (non-residents'), and the treasury account holds the surplus.
+    expect(e.stock('govBonds', 'G')).toBeLessThan(0.1);
+    expect(e.stock('treasuryAccount', 'G')).toBeGreaterThan(20);
+  });
+
+  test('pension funds let bank bonds run off once foreign sales cannot raise the cash: no overdraft', () => {
     // Each of these used to overdraw the funds' deposits by 0.9–4.2% of GDP with bank bonds left.
-    const gap = ['reserves/B', 'reserves/CB'];
-    expect(wrongSigns([['incomeTax', 10], ['aluminiumPrice', -40], ['pfForeign', 20]], false)).toEqual(gap);
-    expect(wrongSigns([['foreignRate', 5], ['pfForeign', 20], ['education', -3]], false)).toEqual(gap);
+    expect(wrongSigns([['incomeTax', 10], ['aluminiumPrice', -40], ['pfForeign', 20]], false)).toEqual([]);
+    expect(wrongSigns([['foreignRate', 5], ['pfForeign', 20], ['education', -3]], false)).toEqual([]);
     // With the consumption deflator and the recalibrated rule (audit H4), VAT +10 with income tax
     // +10 now also reaches the collapse gap below in month 238, after the bank bonds are gone.
-    expect(wrongSigns([['vat', 10], ['incomeTax', 10]], false)).toEqual(['deposits/PF', ...gap]);
+    expect(wrongSigns([['vat', 10], ['incomeTax', 10]], false)).toEqual(['deposits/PF']);
     // What the run-off fixed still holds in every case: the funds never overdraw while bank bonds remain.
     for (const settings of [
       [['incomeTax', 10], ['aluminiumPrice', -40], ['pfForeign', 20]],
@@ -144,7 +168,7 @@ describe('Iceland model: balance sheets stay possible', () => {
 
   test('known gap: when the economy collapses, the funds run through every asset they can sell and overdraw deposits', () => {
     // decision 0002 §6: shares and mortgages are never sold, and pensions are paid in full.
-    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false)).toEqual(['deposits/PF', 'deposits/W', 'reserves/B', 'reserves/CB']);
+    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false)).toEqual(['deposits/PF', 'deposits/W']);
   });
 
   test('the floors do not bind at the baseline, in either mode', () => {

@@ -121,13 +121,19 @@ export const centralBank: ModuleDef = {
       stocks: [
         ['deposits', 'B'],
         ['reserves', 'B'],
+        ['bonds', 'B'],
+        ['bonds', 'CB'],
       ],
       params: ['reserveRatio', 'reserveSpeed'],
-      compute: (c) => c.p('reserveSpeed') * (c.p('reserveRatio') * c.stock('deposits', 'B') - c.stock('reserves', 'B')),
+      terms: [{ id: 'reserveGap', label: 'Reserves below target', concept: 'reserves-and-payments', compute: (c) => c.p('reserveSpeed') * (c.p('reserveRatio') * c.stock('deposits', 'B') - c.stock('reserves', 'B')) }],
+      // Not additive at the ends: nobody sells bonds it does not have.
+      combine: (t, c) => Math.min(c.stock('bonds', 'B') / c.dt, Math.max(-c.stock('bonds', 'CB') / c.dt, t.reserveGap)),
+      regime: (c, _v, t) =>
+        t.reserveGap > c.stock('bonds', 'B') / c.dt ? 'Limited by the bank’s bonds' : t.reserveGap < -c.stock('bonds', 'CB') / c.dt ? 'Limited by the central bank’s bonds' : null,
       concepts: ['reserves-and-payments'],
       explain: {
         what: 'Bonds the central bank buys from the bank (negative: sells), paying in reserves.',
-        rule: 'Purchases = {reserveSpeed} × a year of the gap between the reserve target ({reserveRatio} × deposits) and reserves.',
+        rule: 'Purchases = {reserveSpeed} × a year of the gap between the reserve target ({reserveRatio} × deposits) and reserves. The central bank cannot buy more bonds in a month than the bank holds, nor sell more than it holds itself.',
       },
     },
     {

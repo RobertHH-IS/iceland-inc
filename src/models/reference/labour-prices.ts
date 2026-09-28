@@ -1,17 +1,30 @@
 /**
  * Reference economy: jobs, wages and prices.
  *
- * Firms hire in line with output (Okun's law), wages grow with expected inflation and with how
- * tight the labour market is (a wage Phillips curve), and prices are a markup over the normal
- * labour cost of each unit of output (markup pricing). Expectations adapt to recent inflation.
+ * Firms hire in line with output (Okun's law), up to the size of the labour force; wages grow
+ * with expected inflation and with how tight the labour market is (a wage Phillips curve), and
+ * prices are a markup over the normal labour cost of each unit of output (markup pricing).
+ * Expectations adapt to recent inflation.
  */
-import type { ModuleDef, ParamDef } from '../../core/types.ts';
+import type { Ctx, ModuleDef, ParamDef } from '../../core/types.ts';
 
 const assumed = { basis: 'assumed' as const, note: 'Teaching value, chosen to give readable dynamics.' };
+
+/** The most jobs there can be, as a jobs index: everyone in the labour force but those between
+ *  jobs. The baseline (index 1) employs 1 − natural unemployment of the labour force. */
+const maxJobs = (c: Ctx) => (1 - c.p('minUnemployment')) / (1 - c.p('naturalUnemployment'));
 
 const params: ParamDef[] = [
   { id: 'potentialOutput', value: 100, unit: '% of GDP/yr', category: 'BEHAVIOUR', description: 'What the economy can produce at normal capacity. The baseline runs at capacity, so baseline GDP = 100.', provenance: { basis: 'assumed', note: 'The unit of the model: baseline annual GDP = 100.' } },
   { id: 'naturalUnemployment', value: 0.05, unit: 'fraction', category: 'BEHAVIOUR', description: 'Unemployment at which wages grow only with expected inflation.', provenance: assumed },
+  {
+    id: 'minUnemployment',
+    value: 0.02,
+    unit: 'fraction',
+    category: 'BEHAVIOUR',
+    description: 'Unemployment in the tightest labour market: people between jobs, whom firms cannot hire however much they need workers.',
+    provenance: { basis: 'assumed', note: 'Teaching value for frictional unemployment; the lowest rates seen in Nordic and US data are about 1–3%.' },
+  },
   { id: 'okunCoefficient', value: 0.5, unit: 'fraction', category: 'BEHAVIOUR', description: 'Percent more jobs for each percent of output above capacity.', provenance: assumed },
   { id: 'hiringSpeed', value: 4, unit: 'per year', category: 'BEHAVIOUR', description: 'How fast firms close the gap between the jobs they have and the jobs they need.', provenance: assumed },
   { id: 'markup', value: 0.5, unit: 'fraction', category: 'BEHAVIOUR', description: 'Price over normal labour cost: 0.5 means prices are 50% above what the labour in a product costs.', provenance: assumed },
@@ -46,16 +59,19 @@ export const labourPrices: ModuleDef = {
       category: 'BEHAVIOUR',
       label: 'Hiring',
       inputs: ['output'],
-      params: ['okunCoefficient', 'potentialOutput'],
+      params: ['okunCoefficient', 'potentialOutput', 'naturalUnemployment', 'minUnemployment'],
       adjust: { speed: 'hiringSpeed' },
       terms: [
         { id: 'normal', label: 'Normal number of jobs', compute: () => 1 },
         { id: 'outputGap', label: 'Output above capacity', concept: 'okun-law', compute: (c) => c.p('okunCoefficient') * (c.v('output') / c.p('potentialOutput') - 1) },
       ],
+      // Not additive at the top: firms cannot hire people who are not there.
+      combine: (t, c) => Math.min(maxJobs(c), t.normal + t.outputGap),
+      regime: (c, _v, t) => (t.normal + t.outputGap > maxJobs(c) ? 'No one left to hire' : null),
       concepts: ['okun-law', 'capacity-utilisation'],
       explain: {
         what: 'How many people have jobs, as an index where 1 is the baseline.',
-        rule: 'Firms move toward the jobs they need at speed {hiringSpeed} a year. They need {okunCoefficient}% more jobs for each 1% of output above capacity (Okun’s law).',
+        rule: 'Firms move toward the jobs they need at speed {hiringSpeed} a year. They need {okunCoefficient}% more jobs for each 1% of output above capacity (Okun’s law). They can never aim for more jobs than there are workers: at most everyone but the {minUnemployment%} who are between jobs, however hard the economy runs.',
       },
     },
     {

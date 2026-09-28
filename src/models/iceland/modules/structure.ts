@@ -212,8 +212,14 @@ export const structure: ModuleDef = {
       issuers: ['CB'],
       holders: ['B'],
       valuation: 'nominal',
-      description: 'Banks’ accounts at the central bank. Every payment between the private sector and the state moves reserves.',
+      description: 'Banks’ accounts at the central bank. Every payment between the private sector and the state moves reserves. Below zero, the banks are borrowing reserves from the central bank.',
       concepts: ['reserves-and-payments'],
+      // Decision 0005: the one declared exemption in the Iceland model.
+      mayGoNegative: {
+        reason:
+          'The reserve account is the banks’ net position at the central bank. When a long surplus has repaid every bond that can be bought back, the treasury account keeps the rest and drains reserves; the central bank then lends banks the reserves they need against collateral (its standing lending facility), which the model records as a negative balance charged at the key rate.',
+        players: ['B', 'CB'],
+      },
     },
     {
       id: 'treasuryAccount',
