@@ -5,6 +5,7 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { createEngine, type KernelEngine } from '../../src/core/engine.ts';
 import { compile } from '../../src/core/compile.ts';
+import { Machine } from '../../src/core/machine.ts';
 import type { ModuleDef, ScenarioEvent } from '../../src/core/types.ts';
 import { referenceModel } from '../../src/models/reference/index.ts';
 import { param, rule, tinyModel, variable } from './fixtures.ts';
@@ -307,6 +308,41 @@ describe('runtime guards', () => {
     expect(rep.failures!.map((f) => f.id)).toContain('stock-reconciliation');
     const strict = createEngine(model, { baseline: base.baselineData, testHooks: tamper, onCheckFailure: 'throw' });
     expect(() => strict.step(5)).toThrow(/accounting check failed at month 3/);
+  });
+});
+
+describe('lag history', () => {
+  const lags: ModuleDef = {
+    id: 'lags',
+    label: 'x',
+    description: 'x',
+    vars: [variable('long', 10), variable('past', 10)],
+    rules: [
+      rule({ id: 'long', target: 'long', lagInputs: ['spend'], compute: (c) => c.lag('spend', 40) }),
+      rule({ id: 'past', target: 'past', lagInputs: ['spend'], compute: (c) => c.lag('spend', 3) }),
+    ],
+  };
+
+  test('EngineOptions.lagWindow reaches the baseline solver too', () => {
+    const e = createEngine(tinyModel([lags]), { lagWindow: 48 });
+    expect(e.baseline('long')).toBe(10);
+    e.step(40);
+    expect(e.value('long')).toBe(10);
+    // without it, the solver's error names the real cause
+    expect(() => createEngine(tinyModel([lags]))).toThrow(/first step from the initial guess failed \(lag\(spend, 40\): k must be a whole number from 1 to 25\)/);
+  });
+
+  test('initHistory: month 0 is lag 1, the history lag 2 onwards, and older slots keep its oldest value', () => {
+    const m = compile(tinyModel([lags]), {});
+    const M = new Machine(m, { lagWindow: 48 });
+    const spend = m.varIndex.get('spend')!;
+    const now = new Float64Array(m.NV).fill(7);
+    M.initHistory(now, new Map([[spend, [6, 5, 4]]]));
+    expect([1, 2, 3, 4, 5, 48].map((k) => M.lagValue(spend, k))).toEqual([7, 6, 5, 4, 4, 4]);
+    const tax = m.varIndex.get('tax')!;
+    expect([1, 2, 48].map((k) => M.lagValue(tax, k))).toEqual([7, 7, 7]); // no history: flat
+    expect(() => M.initHistory(now, new Map([[spend, new Array(48).fill(1)]]))).toThrow(/reaches back only 47 months/);
+    expect(() => M.initHistory(now, new Map([[spend, [1, NaN]]]))).toThrow(/'spend' at month -2 is not a finite number/);
   });
 });
 

@@ -26,6 +26,8 @@ export interface BaselineOptions {
   tol?: number;
   maxIter?: number;
   dev?: boolean;
+  /** Steps lag() can reach back (EngineOptions.lagWindow; default two years of steps). */
+  lagWindow?: number;
 }
 
 export interface Baseline {
@@ -101,7 +103,7 @@ export function solveBaseline(m: KModel, opts: BaselineOptions = {}): Baseline {
   const tol = opts.tol ?? 1e-11;
   const maxIter = opts.maxIter ?? 60;
   const warnings: string[] = [];
-  const M = new Machine(m, { dev: opts.dev ?? true, tol: 1e-13, maxIter: 500 });
+  const M = new Machine(m, { dev: opts.dev ?? true, tol: 1e-13, maxIter: 500, lagWindow: opts.lagWindow });
 
   // parameters (with variant overrides)
   for (const [id, v] of Object.entries(opts.params ?? {})) {
@@ -192,17 +194,20 @@ export function solveBaseline(m: KModel, opts: BaselineOptions = {}): Baseline {
       pos[d.j] = -s;
     }
     for (let i = 0; i < nS; i++) M.cur[state[i]] = zz[nF + nP + i];
-    M.fillRing(M.cur);
+    M.initHistory(M.cur);
     M.baseVars = new Float64Array(M.cur);
     M.t = 0;
   };
+  /** The first error a step from z threw, for the message if the very first step fails. */
+  let firstError: unknown = null;
   /** One step from z; residuals into out. Returns false if the step failed. */
   const evalF = (zz: Float64Array, out: Float64Array): boolean => {
     load(zz);
     try {
       M.evaluate();
       M.post();
-    } catch {
+    } catch (e) {
+      firstError ??= e;
       out.fill(Infinity);
       return false;
     }
@@ -224,7 +229,10 @@ export function solveBaseline(m: KModel, opts: BaselineOptions = {}): Baseline {
   const F = new Float64Array(nEq);
   const Fn = new Float64Array(nEq);
   const Fk = new Float64Array(nEq);
-  if (!evalF(z, F)) throw new Error(`model '${m.def.id}': the first step from the initial guess failed; check initialStocks and initialVars`);
+  if (!evalF(z, F)) {
+    const why = firstError instanceof Error ? firstError.message : String(firstError);
+    throw new Error(`model '${m.def.id}': the first step from the initial guess failed (${why}); check initialStocks and initialVars`);
+  }
   guess.set(after);
   let iterations = 0;
   let norm = maxAbs(F);

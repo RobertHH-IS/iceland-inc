@@ -167,7 +167,7 @@ class KEngine implements KernelEngine {
     const m = model;
     this.tol = opts.tolerance ?? DEFAULT_TOLERANCE;
     this.every = Math.max(1, Math.round(opts.snapshotEvery ?? 12));
-    const base = opts.baseline ?? solveBaseline(m, { params: opts.params, dev: opts.dev });
+    const base = opts.baseline ?? solveBaseline(m, { params: opts.params, dev: opts.dev, lagWindow: opts.lagWindow });
     this.baselineData = base;
     this.warnings = [...m.warnings, ...base.warnings];
     const M = new Machine(m, { dev: opts.dev, tol: opts.solverTol, maxIter: opts.maxIter, lagWindow: opts.lagWindow });
@@ -286,7 +286,7 @@ class KEngine implements KernelEngine {
     M.ledger.begin();
     M.cur.set(b.vars);
     M.initLevers();
-    M.fillRing(M.cur);
+    M.initHistory(M.cur);
     M.termVal.set(b.terms);
     M.desired.set(b.desired);
     b.regimes.forEach((r, j) => (M.regimes[j] = r));

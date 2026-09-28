@@ -142,9 +142,28 @@ export class Machine {
     this.ring.set(this.cur, this.head * this.NV);
   }
 
-  /** Fill the whole history with one set of values (a steady state has no past to speak of). */
-  fillRing(values: Float64Array): void {
-    for (let s = 0; s < this.K; s++) this.ring.set(values, s * this.NV);
+  /**
+   * Set the lag history before the first step. `now` holds every variable's month-0 value, which
+   * the first step reads as lag 1. `history` optionally gives earlier months for some variables,
+   * by variable index: [month −1, month −2, …], read as lag 2, lag 3, …; slots older than the
+   * history given keep its oldest value. Without a history every slot holds `now`, which is
+   * exactly right for a steady state (it has no past to speak of) and what a start from data
+   * extends (docs/design/start-from-today.md §2.5).
+   */
+  initHistory(now: Float64Array, history?: ReadonlyMap<number, ArrayLike<number>>): void {
+    const { K, NV, ring } = this;
+    this.head = 0;
+    for (let s = 0; s < K; s++) ring.set(now, s * NV);
+    if (!history) return;
+    for (const [v, past] of history) {
+      const id = this.m.vars[v]?.id;
+      if (id === undefined) throw new Error(`initHistory: unknown variable index ${v}`);
+      if (past.length > K - 1) throw new Error(`initHistory: '${id}' has ${past.length} months of history, but lag() reaches back only ${K - 1} months before month 0`);
+      for (let k = 0; k < past.length; k++) if (!Number.isFinite(past[k])) throw new Error(`initHistory: '${id}' at month ${-(k + 1)} is not a finite number`);
+      if (!past.length) continue;
+      // slot of month −k is head − k (mod K); the head (month 0) holds `now`
+      for (let k = 1; k < K; k++) ring[((K - k) % K) * NV + v] = past[Math.min(k, past.length) - 1];
+    }
   }
 
   /* ------------------------------------------------------------ context */
