@@ -1,9 +1,10 @@
 /**
  * Iceland Inc.: the rest of the world (v1 equations E7–E9, E12, E14, E22, E39 and E44).
  *
- * The króna moves toward a level set by relative prices (purchasing-power parity in the long
- * run), the interest-rate gap with abroad (carry), how many krónur non-residents already hold
- * (portfolio balance) and sentiment. Each exporter sells one export line (decision 0003): fish
+ * The króna moves toward a level set by relative prices (purchasing-power parity), the
+ * interest-rate gap with abroad (carry), how many krónur non-residents already hold (portfolio
+ * balance) and sentiment. Parity is a slow anchor: the target follows domestic prices at once, but
+ * world prices only as a slowly moving anchor absorbs them, over years. Each exporter sells one export line (decision 0003): fish
  * and aluminium are priced in foreign currency at their own world prices, tourism and other
  * exports in krónur. Volumes react to the real exchange rate, tourism most and aluminium least:
  * for tourism and other exports because a weaker króna makes them cheaper abroad, for fish and
@@ -97,6 +98,7 @@ const vars: VarDef[] = [
   { id: 'foreignRate', label: 'Foreign interest rate', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('foreignRate') },
   { id: 'kronaSentiment', label: 'Króna sentiment', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'A shift in what investors think the króna is worth; positive means a weaker króna.' },
   { id: 'sentimentShock', label: 'Króna sentiment shock this month', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'A one-off change in sentiment; zero in every month without one.' },
+  { id: 'worldPriceAnchor', label: 'World prices the króna has adjusted to (log)', unit: 'log points', kind: 'state', scale: 'none', initial: 0, description: 'The level of world prices that purchasing-power parity has so far built into the króna’s target, in logs (0 at baseline). It catches up with world prices over years.' },
   { id: 'logExchangeRate', label: 'Exchange rate (log)', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0 },
   { id: 'exchangeRate', label: 'Exchange rate', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Krónur per unit of foreign currency (1 at baseline); up means a weaker króna.' },
   { id: 'realExchangeRate', label: 'Real exchange rate (as trade sees it)', unit: 'index', kind: 'price', scale: 'none', initial: 1, description: 'Foreign prices in krónur ÷ domestic prices, smoothed; up means Iceland is cheaper.' },
@@ -128,7 +130,7 @@ export const external: ModuleDef = {
   requires: ['structure', 'prices', 'central-bank', 'firms', 'government', 'households', 'pensions'],
   params: pickParams(ALL_PARAMS, [
     'xFish', 'xAlu', 'xTour', 'xOther', 'eFish', 'eAlu', 'eTour', 'eOther', 'lamRer', 'muX', 'muC', 'muD', 'muI', 'muG', 'epsM',
-    'betaI', 'betaH', 'lamFX', 'lamSent', 'psiB', 'lamBW', 'iF0', 'iFnow', 'krona0', 'bW0', 'worldPrice0', 'fishPrice0', 'aluminiumPrice0',
+    'betaI', 'betaH', 'lamFX', 'lamPPP', 'lamSent', 'psiB', 'lamBW', 'iF0', 'iFnow', 'krona0', 'bW0', 'worldPrice0', 'fishPrice0', 'aluminiumPrice0',
     'foreignDemandShift', 'tourismShift', 'foreignRateShift', 'worldPriceShift', 'fishPriceShift', 'aluminiumPriceShift', 'fdWeightFish', 'bondW', 'depW', 'eqW',
     'gvaXF', 'gvaXA', 'gvaXT', 'gvaXO', 'mXF', 'mXA', 'mXT', 'mXO', 'dXF', 'dXA', 'dXT', 'dXO',
   ]),
@@ -201,11 +203,25 @@ export const external: ModuleDef = {
       explain: { what: 'A one-off change in króna sentiment, in log points.', rule: 'Zero in every month without a shock; the króna-shock lever sets it for the month it is fired.' },
     },
     {
+      id: 'worldPriceAnchor',
+      target: 'worldPriceAnchor',
+      category: 'BEHAVIOUR',
+      label: 'Purchasing-power parity, a slow anchor',
+      inputs: ['worldPrice'],
+      adjust: { speed: 'lamPPP', form: 'exponential' },
+      terms: terms(['worldPrice', 'World prices (log)', 'purchasing-power-parity', (c) => Math.log(c.v('worldPrice'))]),
+      concepts: ['purchasing-power-parity'],
+      explain: {
+        what: 'The level of world prices the króna’s target has adjusted to, in logs (0 at baseline).',
+        rule: 'Moves toward the log of world prices at speed {lamPPP} a year, so half of any change is absorbed in about three and a half years. Purchasing-power parity pulls the króna, but slowly: the evidence puts the half-life of deviations at three to five years.',
+      },
+    },
+    {
       id: 'logExchangeRate',
       target: 'logExchangeRate',
       category: 'BEHAVIOUR',
       label: 'The króna',
-      inputs: ['kronaSentiment', 'keyRate', 'foreignRate', 'worldPrice'],
+      inputs: ['kronaSentiment', 'keyRate', 'foreignRate', 'worldPriceAnchor'],
       lagInputs: ['domesticPrice'],
       params: ['betaI', 'betaH', 'i0', 'piT', 'iF0', 'krona0'],
       stocks: [
@@ -214,7 +230,7 @@ export const external: ModuleDef = {
       ],
       adjust: { speed: 'lamFX', form: 'exponential' },
       terms: terms(
-        ['ppp', 'Relative prices (purchasing-power parity)', 'purchasing-power-parity', (c) => Math.log(lastMonth(c, 'domesticPrice') / c.v('worldPrice'))],
+        ['ppp', 'Relative prices (purchasing-power parity)', 'purchasing-power-parity', (c) => Math.log(lastMonth(c, 'domesticPrice')) - c.v('worldPriceAnchor')],
         ['sentiment', 'Sentiment', 'floating-exchange-rate', (c) => c.v('kronaSentiment')],
         ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => -c.p('betaI') * (c.v('keyRate') - (c.p('i0') + c.p('piT')) - (c.v('foreignRate') - c.p('iF0')))],
         [
@@ -227,7 +243,7 @@ export const external: ModuleDef = {
       concepts: ['floating-exchange-rate', 'purchasing-power-parity'],
       explain: {
         what: 'The exchange rate in logs: krónur per unit of foreign currency. Up means a weaker króna.',
-        rule: 'Moves toward a target at speed {lamFX} a year. Target = log(domestic ÷ world prices) (in the long run the króna keeps Icelandic goods as dear as before) + sentiment − {betaI} × the rate gap with abroad (carry traders buy krónur for higher rates). The rate gap is the key rate above its normal nominal level (the neutral real rate {i0%} + the inflation target {piT%}) minus the foreign rate above its normal {iF0%} + {betaH} × log of non-residents’ real króna holdings relative to normal (they want paying to hold more).',
+        rule: 'Moves toward a target at speed {lamFX} a year. Target = log of domestic prices − the world prices the króna has adjusted to (purchasing-power parity: in the long run the króna keeps Icelandic goods as dear as before; it follows domestic prices at once, so domestic inflation does not change the real exchange rate for long, but absorbs a change in world prices only over years, at {lamPPP} a year) + sentiment − {betaI} × the rate gap with abroad (carry traders buy krónur for higher rates). The rate gap is the key rate above its normal nominal level (the neutral real rate {i0%} + the inflation target {piT%}) minus the foreign rate above its normal {iF0%} + {betaH} × log of non-residents’ real króna holdings relative to normal (they want paying to hold more).',
       },
     },
     {
@@ -589,7 +605,8 @@ export const external: ModuleDef = {
       step: 1,
       binds: { param: 'worldPriceShift', mode: 'add', scale: 0.01 },
       description: 'Foreign-currency prices of imports and of fish and aluminium.',
-      definition: 'Level shift in world prices, in percent, applied at once and persistent while set. Import prices in shops follow gradually; fish and aluminium revenue jumps at once. Setting it back to 0 ends it.',
+      definition:
+        'Level shift in world prices in foreign currency, in percent, applied at once and persistent while set. Fish and aluminium revenue in krónur jumps at once and import prices in shops follow within a year or two. The króna strengthens only slowly, over several years, as purchasing-power parity absorbs the new world prices, which takes back part of the rise in krónur. Setting it back to 0 ends it.',
       concepts: ['exchange-rate-pass-through'],
     },
     {

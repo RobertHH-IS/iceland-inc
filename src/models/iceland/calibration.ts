@@ -1,12 +1,12 @@
 /**
  * Iceland Inc.: the 20 calibration checks of engine v1 (legacy/v1-engine/tools/calibration_checks.js),
- * with the same scenarios and target ranges, three checks on the firm sectors (decision 0003) and
- * five on the stabiliser setting (decision 0004).
+ * with the same scenarios and target ranges, three checks on the firm sectors (decision 0003),
+ * one on the world-prices lever (audit H5) and five on the stabiliser setting (decision 0004).
  *
  * Every published response these checks compare with comes from an economy whose policy reacts:
- * the central bank follows its rule and the debt rule leans on income tax. So each of the 23
- * original scenarios first sets stabilisers to Automatic at month 0 (AUTO), which keeps their
- * results exactly as they were before Manual became the default. The Manual checks run with the
+ * the central bank follows its rule and the debt rule leans on income tax. So each of these 24
+ * scenarios first sets stabilisers to Automatic at month 0 (AUTO), which keeps the results of the
+ * 23 that predate it exactly as they were before Manual became the default. The Manual checks run with the
  * default setting.
  * They are CHECKS on whole-model responses, never equations. Each range's source is in `source`
  * (v1 SPEC §7.3, the research report docs/research/icelandic-economy-flow-simulation.md, and
@@ -57,6 +57,7 @@ const LEND_12: ScenarioEvent[] = [
 const LEND_HELD: ScenarioEvent[] = [AUTO, { t: 0, lever: 'lendingAppetite', value: 1 }];
 const TOURISM: ScenarioEvent[] = [AUTO, { t: 0, lever: 'tourism', value: -30 }];
 const ALUMINIUM: ScenarioEvent[] = [AUTO, { t: 0, lever: 'aluminiumPrice', value: 20 }];
+const WORLD: ScenarioEvent[] = [AUTO, { t: 0, lever: 'importPrices', value: 10 }];
 /** Stabilisers on Manual (the default): policy levers stay where they are set. */
 const M_TAX: ScenarioEvent[] = [{ t: 0, lever: 'incomeTax', value: 1 }];
 const M_WAGE: ScenarioEvent[] = [{ t: 0, lever: 'wageSettlement', value: 10, fire: true }];
@@ -75,6 +76,8 @@ const SRC = {
     'Reasoned from 2020: foreign visitor numbers fell by about three-quarters and the króna lost nearly 10% in trade-weighted terms over the year (euro 14.9% dearer), cushioned by pension funds pausing FX purchases and by central-bank FX sales (Íslandsbanki, Economic review 2020; Landsbankinn, 8 January 2021; CBI Monetary Bulletin 2020/4). Scaled to a 30% fall, about 4%; the model has no FX intervention, so up to 10%. Tourism is 13% of GDP of exports and the exporter most sensitive to the exchange rate, so its output must fall most (calibration.json: firm_sectors.tourism). https://www.landsbankinn.is/en/news/2021/01/08/the-icelandic-krona-depreciated-in-2020',
   aluminium:
     'Reasoned from ownership and tax: the three smelters are wholly foreign-owned (Rio Tinto, Alcoa, Century), so every króna of profit they do not reinvest is paid abroad; corporate tax takes about 9% of profit (effective rate from Hagstofa THJ05132); inward-FDI equity income was 78% dividends and 22% reinvested earnings in 2024 (Eurostat bop_c6_a). So 60–95% of a windfall should leave within two years (calibration.json: firm_sectors.aluminium).',
+  world:
+    'Purchasing-power parity is a slow anchor: Sarno and Taylor (2002) report half-lives of three to five years for deviations from PPP, so parity alone absorbs 13–21% of a lasting rise in world prices within a year, about 2% of a 10% rise. With policy reacting, the higher key rate adds a carry appreciation (0.3–1.5% per point, the rate-krona range above; the rule raises the rate by up to about 2 points). So after a year the króna should have strengthened by well under half the shock: 0–5%. Fish revenue in krónur must still be up by at least half the shock after 6 months (audit H5, 29 September 2026). https://doi.org/10.1017/CBO9780511754920',
   manualHeld: 'Design of the stabiliser setting (decision 0004): on Manual no policy lever moves unless the user moves it, so the key rate is the level of its lever, exactly, whatever else happens.',
   manualTax:
     'Reasoned: +1 pp on a tax base of about 65% of GDP raises revenue by about 0.65% of GDP. Tax multipliers are at or below spending multipliers (cross-country median spending multiplier about 0.7, IMF WP 2026/043, smaller in open economies), and with the key rate held there is no monetary offset: a year-2 multiplier of 0.25–1.2 gives output −0.15% to −0.8%. https://www.elibrary.imf.org/view/journals/001/2026/043/article-A001-en.xml',
@@ -346,6 +349,15 @@ export const calibration: CalibrationCheck[] = [
     },
     range: [0.6, 0.95],
     source: SRC.aluminium,
+  },
+  {
+    id: 'world-prices-krona-year1',
+    label: 'World prices +10% held: króna value at month 12, % vs baseline (+ stronger); fish revenue in krónur must be up at least 5% at month 6 (otherwise not a number)',
+    scenario: WORLD,
+    months: 72,
+    measure: (run) => (pctOf(run, 'exportsFish', 6) >= 5 ? run.series('krona')[12] : NaN),
+    range: [0, 5],
+    source: SRC.world,
   },
   {
     id: 'wage-squeeze-labour-intensive',

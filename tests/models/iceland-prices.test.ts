@@ -6,7 +6,9 @@
 import { describe, expect, test } from 'bun:test';
 import { compile } from '../../src/core/compile.ts';
 import { createEngine, type KernelEngine } from '../../src/core/engine.ts';
+import { runScenario } from '../../src/core/scenario.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
+import { calibration } from '../../src/models/iceland/calibration.ts';
 import { withConcepts } from '../../src/models/index.ts';
 
 const model = compile(withConcepts(icelandModel));
@@ -71,5 +73,41 @@ describe('L12: fish and aluminium are price takers', () => {
       expect(rule(`exportVolume${k}`).terms!.find((t) => t.id === 'competitiveness')!.label).toStartWith('Profitability');
     }
     for (const k of ['Tourism', 'Other']) expect(rule(`exportVolume${k}`).explain!.rule).toContain('cheaper abroad');
+  });
+});
+
+describe('H5: purchasing-power parity is a slow anchor for world prices', () => {
+  const check = calibration.find((c) => c.id === 'world-prices-krona-year1')!;
+  const pct = (e: KernelEngine, id: string) => 100 * (e.value(id) / e.baseline(id) - 1);
+
+  test('world prices +10% held: the króna barely moves in a quarter, so fish revenue and import prices in krónur rise', () => {
+    const e = createEngine(model);
+    e.setLever('stabilisers', 1);
+    e.setLever('importPrices', 10);
+    e.step(3);
+    expect(Math.abs(pct(e, 'exchangeRate'))).toBeLessThan(2);
+    e.step(3);
+    expect(pct(e, 'exportsFish')).toBeGreaterThan(8);
+    e.step(6);
+    expect(pct(e, 'importPrice')).toBeGreaterThan(5);
+    // the anchor has absorbed a fifth or less of the shock after a year
+    expect(e.value('worldPriceAnchor') / Math.log(1.1)).toBeLessThan(0.2);
+  });
+
+  test('the calibration check fails the old behaviour, where parity read world prices in the fast target', () => {
+    const inRange = (x: number) => x >= check.range[0] && x <= check.range[1];
+    expect(inRange(check.measure(runScenario(createEngine(model), check.scenario, check.months)))).toBe(true);
+    const fast = createEngine(model).fork({ params: { lamPPP: 1e4 } });
+    expect(inRange(check.measure(runScenario(fast, check.scenario, check.months)))).toBe(false);
+  });
+
+  test('while world prices are unchanged the anchor is exactly zero, so the króna follows domestic prices as before', () => {
+    const e = createEngine(model);
+    e.fire('kronaShock', -10);
+    e.fire('wageSettlement', 10);
+    for (let m = 0; m < 36; m++) {
+      e.step(1);
+      expect(e.value('worldPriceAnchor')).toBe(0);
+    }
   });
 });

@@ -340,6 +340,7 @@ P('lamPol', 3, 'per year', 'POLICY', 'How fast the key rate moves toward what it
 P('betaI', 0.55, 'fraction', 'BEHAVIOUR', 'Króna response to the interest-rate gap with abroad (log points per unit of rate): carry demand.', tuned());
 P('betaH', 0.3, 'elasticity', 'BEHAVIOUR', 'Króna response to non-residents’ real króna holdings (portfolio balance).', assumed());
 P('lamFX', 12, 'per year', 'BEHAVIOUR', 'How fast the exchange rate moves toward its target.', assumed());
+P('lamPPP', 0.2, 'per year', 'BEHAVIOUR', 'How fast the króna’s long-run anchor absorbs a change in world prices (purchasing-power parity): 0.2 a year is a half-life of about 3.5 years.', assumed('Sarno and Taylor (2002) report a consensus half-life of deviations from PPP of three to five years (the purchasing-power-parity concept page); 0.2 a year sits inside it. Audit H5, 29 September 2026.'));
 P('lamSent', 0.1, 'per year', 'BEHAVIOUR', 'How fast a króna sentiment shock fades (about 10% of it a year).', tuned());
 P('psiB', 5, 'fraction', 'BEHAVIOUR', 'Non-residents’ bond demand versus the interest-rate gap (share per unit of rate).', assumed());
 P('lamBW', 2, 'per year', 'BEHAVIOUR', 'How fast non-residents move their bond holdings toward what they want.', assumed());
