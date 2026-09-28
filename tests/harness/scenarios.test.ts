@@ -100,11 +100,7 @@ describe('timingShock without a one-off lever', () => {
  * one stabiliser mode: dropping its event must move some indicator.
  */
 /** Levers that may still be inert at their all-levers setting, each for a known model reason. */
-const KNOWN_INERT: Record<string, string> = {
-  // Audit M3: the loan-to-value cap tests each group's whole stock (loan-to-value about 38%),
-  // so 50% never binds. Remove once the cap applies to new lending.
-  ltvCap: 'M3',
-};
+const KNOWN_INERT: Record<string, string> = {};
 
 test('Iceland: every lever changes an all-levers golden path', () => {
   const m = compiled.find((x) => x.def.id === 'iceland')!;
