@@ -8,6 +8,7 @@ import { compile } from '../../src/core/compile.ts';
 import { createEngine } from '../../src/core/engine.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 import { withConcepts } from '../../src/models/index.ts';
+import type { Ctx, RuleDef } from '../../src/core/types.ts';
 
 const model = compile(withConcepts(icelandModel));
 const base = createEngine(model);
@@ -93,6 +94,23 @@ describe('Iceland model: balance sheets stay possible', () => {
       const rules = ['investmentXA', 'borrowingXA', 'bondIssue', 'bondIssuePF', 'bondIssueHO', 'foreignAssetPurchases', 'bankBondPurchases', 'bondPurchasesPF', 'bondPurchasesHO', 'bondPurchasesW', 'consumptionW', 'consumptionO', 'depositRate'];
       for (const id of rules) expect(`${id}: ${e.influences(id).regime ?? 'none'}`).toBe(`${id}: none`);
     }
+  });
+
+  test('a purchase capped by both cash and banks’ holdings is labelled by the cap that binds', () => {
+    // Non-residents want 5 a year, banks can sell them 0.2 ÷ one month = 2.4, and their cash allows
+    // far less: the cash limit binds, whichever cap the rule checks first.
+    const rule = icelandModel.modules.flatMap((m) => m.rules ?? []).find((r) => r.id === 'bondPurchasesW') as RuleDef;
+    const stocks: Record<string, number> = { 'deposits/W': 0.01, 'govBonds/W': 1, 'govBonds/B': 0.2 };
+    const values: Record<string, number> = { nominalGDP: 100, foreignAssetPurchases: 0, currentAccount: 0, bondIssueB: 0, bondPurchasesPF: 0, bondPurchasesHO: 0 };
+    const params = Object.fromEntries(icelandModel.modules.flatMap((m) => m.params ?? []).map((p) => [p.id, p.value]));
+    const c = { v: (id: string) => values[id], p: (id: string) => params[id], stock: (i: string, p: string) => stocks[`${i}/${p}`], dt: 1 / 12, t: 0 } as unknown as Ctx;
+    const t = { normal: 5, carry: 0, liquidity: 0 };
+    const v = rule.combine!(t, c);
+    expect(v).toBeLessThan(0.1);
+    expect(rule.regime!(c, v, t)).toBe('Purchases limited by cash in hand');
+    stocks['deposits/W'] = 10; // now banks' holdings bind
+    expect(rule.combine!(t, c)).toBeCloseTo(2.4, 9);
+    expect(rule.regime!(c, 2.4, t)).toBe('Limited by the bonds banks hold');
   });
 
   test('households spend no more cash than they have: working-age deposits run down toward zero, never below, under income tax +10 held on Manual', () => {

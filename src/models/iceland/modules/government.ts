@@ -145,8 +145,8 @@ const buybackShare = (c: Ctx, h: Buyer) => {
 };
 /** New bonds a pension fund or older household can pay for this month: pension funds may use their
  *  cash in hand (bondPurchasesPF and their other purchases take what is left), older households
- *  half of it (the other half is for their spending, households.ts). */
-const buyerCash = (c: Ctx, h: 'PF' | 'HO') => (h === 'PF' ? 1 : 0.5) * cashToSpend(c, h);
+ *  the share hoBondCashShare of it (the rest is for their spending, households.ts). */
+const buyerCash = (c: Ctx, h: 'PF' | 'HO') => (h === 'PF' ? 1 : c.p('hoBondCashShare')) * cashToSpend(c, h);
 
 const TAXES_H = AGES.map((g) => `incomeTax${g}`);
 const SPEND: Id[] = CHANNELS.map((ch) => `spending${ch.id[0].toUpperCase()}${ch.id.slice(1)}`);
@@ -484,7 +484,7 @@ const rules: RuleDef[] = [
       target: `bondIssue${h}`,
       category: 'POLICY',
       inputs: ['bondIssue', ...(h === 'B' ? ['bondIssuePF', 'bondIssueHO'] : [])],
-      params: ['bondMixBankShare', ...(nonBank ? ['liquiditySpeed'] : [])],
+      params: ['bondMixBankShare', ...(nonBank ? ['liquiditySpeed'] : []), ...(h === 'HO' ? ['hoBondCashShare'] : [])],
       levers: ['bondBuyers'],
       stocks: [...BOND_STOCKS, ...(nonBank ? [['deposits', h] as [Id, Id]] : [])],
       terms: terms(
@@ -502,7 +502,7 @@ const rules: RuleDef[] = [
       explain: {
         what: `New government bonds bought by ${who} (negative: bonds the government buys back from them). ${h === 'B' || h === 'CB' ? 'They pay with newly created money.' : 'They pay with deposits that already exist.'}`,
         rule: `Their share of new bonds under the bond-buyer lever: mix ({bondMixBankShare%} banks, the rest pension funds), or all to banks, the central bank, pension funds or older households.${
-          nonBank ? ` They buy only what they can pay for from their deposits this month (${h === 'PF' ? 'at most' : 'half of'} 1 − e^(−{liquiditySpeed} × one month) of them); banks take the rest.` : h === 'B' ? ' Banks also take whatever pension funds or older households cannot pay for.' : ''
+          nonBank ? ` They buy only what they can pay for from their deposits this month (${h === 'PF' ? 'at most' : '{hoBondCashShare%} of'} 1 − e^(−{liquiditySpeed} × one month) of them); banks take the rest.` : h === 'B' ? ' Banks also take whatever pension funds or older households cannot pay for.' : ''
         } When the government buys bonds back, it buys from every holder in proportion to what they hold.`,
       },
     };

@@ -61,11 +61,11 @@ const homeInputs = (g: Age): Id[] => (g === 'Y' ? ['homePurchasesY'] : g === 'W'
 /**
  * The most a group can spend this month: its cash income after home purchases (or plus home sales)
  * and new mortgage borrowing, plus what it can draw from its deposits (banks.ts, `cashToSpend`;
- * older households keep the other half of that for their bond purchases). Nobody spends deposits
- * they do not have.
+ * older households keep the share hoBondCashShare of that for their bond purchases). Nobody spends
+ * deposits they do not have.
  */
 const cashLimit = (c: Ctx, g: Age, nli: Id, pi: Id, nml: Id) =>
-  c.v(nli) + c.v(pi) + homeTrade(c, g) + (g !== 'O' ? c.v(nml) : 0) + (g === 'O' ? 0.5 : 1) * cashToSpend(c, HH[g]);
+  c.v(nli) + c.v(pi) + homeTrade(c, g) + (g !== 'O' ? c.v(nml) : 0) + (g === 'O' ? 1 - c.p('hoBondCashShare') : 1) * cashToSpend(c, HH[g]);
 
 function consumptionRule(g: Age): RuleDef {
   const aL = `aL${g}`,
@@ -92,7 +92,7 @@ function consumptionRule(g: Age): RuleDef {
     label: 'Consumption function with habit',
     inputs: [`netLabourIncome${g}`, `propertyIncome${g}`, 'keyRate', 'cpi', 'realHousePrice', ...homeInputs(g), ...(g !== 'O' ? [`netMortgageLending${g}`] : [])],
     lagInputs: ['expectedInflation', `consumption${g}`],
-    params: [aL, 'aK', 'betaC', 'i0', c0, aW, `LW0${g}`, aH, `H0${g}`, ...(g !== 'O' ? ['aNL'] : []), 'lamC', 'liquiditySpeed'],
+    params: [aL, 'aK', 'betaC', 'i0', c0, aW, `LW0${g}`, aH, `H0${g}`, ...(g !== 'O' ? ['aNL'] : []), 'lamC', 'liquiditySpeed', ...(g === 'O' ? ['hoBondCashShare'] : [])],
     stocks: liquidStocks(g),
     adjust: { speed: 'lamC', form: 'exponential' },
     terms: terms(
@@ -112,13 +112,14 @@ function consumptionRule(g: Age): RuleDef {
     concepts: ['consumption-function', 'habit-persistence', 'borrowers-and-savers'],
     explain: {
       what: `What the ${AGE_LABEL[g]} spend on goods and services, including VAT (% of baseline GDP a year).`,
-      rule: `Target = [{${aL}} × (net labour income ${g === 'O' ? '+ home sales' : '− home purchases'}) + {aK} × (interest and dividends − expected inflation × savings)] × (1 − {betaC} × (real key rate − neutral)) + {${c0}} × CPI + {${aW}} × savings above normal${g !== 'O' ? ' + {aNL} × net new mortgage borrowing' : ''} + {${aH}} × housing wealth × (real house price − 1). Spending moves toward the target at speed {lamC} a year (a habit), but never beyond their cash: income after tax, mortgage interest${g !== 'O' ? ', home purchases and new borrowing' : ' and home sales'} plus ${g === 'O' ? 'half of ' : ''}1 − e^(−{liquiditySpeed} × one month) of their deposits${g === 'O' ? ' (the other half is for their bond purchases)' : ''}, so their deposits never go negative.`,
+      rule: `Target = [{${aL}} × (net labour income ${g === 'O' ? '+ home sales' : '− home purchases'}) + {aK} × (interest and dividends − expected inflation × savings)] × (1 − {betaC} × (real key rate − neutral)) + {${c0}} × CPI + {${aW}} × savings above normal${g !== 'O' ? ' + {aNL} × net new mortgage borrowing' : ''} + {${aH}} × housing wealth × (real house price − 1). Spending moves toward the target at speed {lamC} a year (a habit), but never beyond their cash: income after tax, mortgage interest${g !== 'O' ? ', home purchases and new borrowing' : ' and home sales'} plus 1 − e^(−{liquiditySpeed} × one month) of their deposits${g === 'O' ? ' (less the {hoBondCashShare%} of that they keep for buying bonds)' : ''}, so their deposits never go negative.`,
     },
   };
 }
 
-/** Older households' bond budget this month: half their cash in hand, less new bonds bought from the government. */
-const hoCash = (c: Ctx) => Math.max(0, 0.5 * cashToSpend(c, 'HO') - Math.max(0, c.v('bondIssueHO')));
+/** Older households' bond budget this month: the share hoBondCashShare of their cash in hand, less
+ *  new bonds bought from the government. */
+const hoCash = (c: Ctx) => Math.max(0, c.p('hoBondCashShare') * cashToSpend(c, 'HO') - Math.max(0, c.v('bondIssueHO')));
 /** Bonds banks can still sell them, after the buyback and pension funds' purchases. */
 const hoFromBanks = (c: Ctx) => Math.max(0, bondsBanksCanSell(c) - Math.max(0, c.v('bondPurchasesPF')));
 /** Bonds they can still sell, after the government's buyback of theirs. */
@@ -194,7 +195,7 @@ export const households: ModuleDef = {
   description: 'Income, taxes and spending of young, working-age and older households; their property income; older savers’ bond holdings.',
   requires: ['structure', 'labour-and-wages', 'government', 'banks', 'firms', 'pensions', 'mortgages', 'housing'],
   params: pickParams(ALL_PARAMS, [
-    'aLY', 'aLW', 'aLO', 'aK', 'betaC', 'aWY', 'aWW', 'aWO', 'aNL', 'aHY', 'aHW', 'aHO', 'lamC', 'c0Y', 'c0W', 'c0O', 'boSh0', 'hhDep', 'depShY', 'depShW', 'depShO', 'eqHY', 'eqHW', 'eqHO', 'bondO',
+    'aLY', 'aLW', 'aLO', 'aK', 'betaC', 'aWY', 'aWW', 'aWO', 'aNL', 'aHY', 'aHW', 'aHO', 'lamC', 'c0Y', 'c0W', 'c0O', 'boSh0', 'hhDep', 'depShY', 'depShW', 'depShO', 'eqHY', 'eqHW', 'eqHO', 'bondO', 'hoBondCashShare',
     ...AGES.flatMap((g) => [`LW0${g}`, `H0${g}`]),
   ]),
   vars,
@@ -250,25 +251,25 @@ export const households: ModuleDef = {
       target: 'bondPurchasesHO',
       category: 'BEHAVIOUR',
       inputs: ['bondIssueHO', 'bondIssueB', 'bondPurchasesPF'],
-      params: ['boSh0', 'lamReb', 'liquiditySpeed'],
+      params: ['boSh0', 'lamReb', 'liquiditySpeed', 'hoBondCashShare'],
       stocks: [
         ['deposits', 'HO'],
         ['govBonds', 'HO'],
         ['govBonds', 'B'],
       ],
       terms: terms(['mix', 'Toward their usual mix of deposits and bonds', 'bond-buyers', (c) => gapRate(c.p('lamReb'), c.dt) * (c.p('boSh0') * (c.stock('deposits', 'HO') + c.stock('govBonds', 'HO')) - c.stock('govBonds', 'HO'))]),
-      // Buy only with their half of cash in hand, left after new bonds, and only bonds banks still
+      // Buy only with their share of cash in hand, left after new bonds, and only bonds banks still
       // hold after pension funds' purchases; sell only bonds they hold after this month's buyback.
       combine: (t, c) => (t.mix > 0 ? Math.min(t.mix, hoCash(c), hoFromBanks(c)) : Math.max(t.mix, -hoBondsToSell(c))),
       regime: (c, _v, t) => {
-        if (t.mix > hoFromBanks(c)) return 'Limited by the bonds banks hold';
-        if (t.mix > hoCash(c)) return 'Purchases limited by cash in hand';
+        const [cash, fromBanks] = [hoCash(c), hoFromBanks(c)];
+        if (t.mix > Math.min(cash, fromBanks)) return fromBanks <= cash ? 'Limited by the bonds banks hold' : 'Purchases limited by cash in hand';
         return t.mix < -hoBondsToSell(c) ? 'Sales limited by holdings' : null;
       },
       concepts: ['bond-buyers'],
       explain: {
         what: 'Government bonds older households buy from banks (negative: sell) to keep their usual mix of deposits and bonds.',
-        rule: 'They aim to hold {boSh0} of their savings in bonds and close the gap at speed {lamReb} a year. They buy with at most half of 1 − e^(−{liquiditySpeed} × one month) of their deposits, less any new bonds they buy from the government, and only bonds banks hold; they sell only bonds they hold.',
+        rule: 'They aim to hold {boSh0} of their savings in bonds and close the gap at speed {lamReb} a year. They buy with at most {hoBondCashShare%} of 1 − e^(−{liquiditySpeed} × one month) of their deposits, less any new bonds they buy from the government, and only bonds banks hold; they sell only bonds they hold.',
       },
     },
   ],
