@@ -191,6 +191,7 @@ export const centralBank: ModuleDef = {
       lever: 'keyRateFixed',
       offset: 'keyRateAddon',
       suggestion: 'keyRateSuggestion',
+      shadow: ['ruleRate'],
       // Half the lever's quarter-point step: it calls exactly when "Apply" would move the lever.
       threshold: 0.125,
       description:

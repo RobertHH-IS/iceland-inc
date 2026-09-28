@@ -69,7 +69,8 @@ export interface CTerm {
   key: string; // 'ruleId.termId'
   rule: number;
   def: TermDef;
-  /** Variables the term read during the compile-time dry run (for navigation). */
+  /** Variables the term read during the compile-time dry run (for navigation): the union over
+   *  every option of the choice levers its rule declares, including both stabiliser modes. */
   reads: Id[];
 }
 
@@ -172,6 +173,8 @@ export interface CStabiliser {
   lever: number;
   offset: number;
   suggestion: number;
+  /** Variables (by index) that only feed the suggestion on Manual (StabiliserDef.shadow). */
+  shadow: number[];
   /** Module that declared it (for messages). */
   module: Id;
 }
@@ -801,7 +804,14 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
       if (!s.feed.raise || !s.feed.lower) err(`${where} feed needs both a 'raise' and a 'lower' message`);
       if (!indicatorIndex.has(s.feed.indicator)) err(`${where} feed opens unknown indicator '${s.feed.indicator}'`);
     }
-    return { lever, offset, suggestion, module };
+    const shadow: number[] = [];
+    for (const id of s.shadow ?? []) {
+      const k = varIndex.get(id);
+      if (k === undefined) err(`${where} declares unknown shadow variable '${id}'`);
+      else if (k === suggestion) err(`${where} lists its suggestion '${id}' as a shadow; the suggestion is always left out of ideas at play`);
+      else shadow.push(k);
+    }
+    return { lever, offset, suggestion, shadow, module };
   });
 
   /* 9. indicators, feed, steady state, calibration ------------------------ */
@@ -847,6 +857,13 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   const probeStocks = new Map<string, number>();
   for (const [ins, pl, v] of ss?.initialStocks ?? []) probeStocks.set(sk(ins, pl), v);
   const undeclared = new Set<string>();
+  // A term may read a variable only under some lever settings (the Taylor rule's rate only on
+  // Automatic), so each rule is run once per combination of the choice levers it declares,
+  // with the stabiliser setting at both modes, and a term's reads are the union of all passes.
+  const MAX_PASSES = 16;
+  const leverOverride = new Map<number, number>();
+  /** Per rule: the variables its value (terms, combine or compute) reads on Manual. */
+  const manualReads: Set<Id>[] = [];
   crules.forEach((cr) => {
     const r = cr.def;
     const where = `rule '${r.id}' (module '${cr.module}')`;
@@ -903,7 +920,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
           return 0;
         }
         if (!cr.leverMap.has(id)) note(`reads lever('${id}') without declaring it in levers`);
-        return levers[k].def.default;
+        return leverOverride.get(k) ?? levers[k].def.default;
       },
       base(id) {
         const k = varIndex.get(id);
@@ -916,25 +933,71 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
       t: 0,
       dt: def.dt,
     };
-    const guard = (what: string, fn: () => void) => {
-      try {
-        fn();
-      } catch (e) {
-        warn(`${where}: ${what} threw during the compile-time dry run: ${(e as Error).message}`);
-      }
-    };
-    const termValues: Record<Id, number> = {};
-    for (let j = 0; j < cr.termCount; j++) {
-      const t = cterms[cr.termStart + j];
-      reads = [];
-      guard(`term '${t.def.id}'`, () => {
-        termValues[t.def.id] = t.def.compute(ctx);
-      });
-      t.reads = [...new Set(reads)];
+    // lever settings to try: the defaults first, then every combination of the declared choice
+    // levers' options (one lever at a time when there are too many combinations)
+    const axes: { k: number; values: number[] }[] = [];
+    for (const k of cr.leverMap.values()) {
+      const l = levers[k].def;
+      const values = k === modeLever && sm ? [sm.manual, sm.automatic] : l.kind === 'choice' ? (l.options ?? []).map((o) => o.value) : [];
+      const alt = [...new Set(values)].filter((x) => x !== l.default);
+      if (alt.length) axes.push({ k, values: [l.default, ...alt] });
     }
-    if (r.combine) guard('combine', () => void r.combine!(termValues, ctx));
-    if (r.compute) guard('compute', () => void r.compute!(ctx));
-    if (r.regime) guard('regime', () => void r.regime!(ctx, 1, termValues));
+    let passes: Map<number, number>[] = [new Map()];
+    if (axes.reduce((n, a) => n * a.values.length, 1) <= MAX_PASSES)
+      for (const a of axes) passes = passes.flatMap((p) => a.values.map((x) => new Map(p).set(a.k, x)));
+    else for (const a of axes) for (const x of a.values.slice(1)) passes.push(new Map([[a.k, x]]));
+    // a rule that does not read the stabiliser setting behaves the same in both modes
+    const readsMode = !!sm && modeLever >= 0 && cr.leverMap.has(sm.lever);
+    const isManual = (pass: Map<number, number>) => !readsMode || !isAutomatic(sm!, pass.get(modeLever) ?? levers[modeLever].def.default);
+    const termReads = Array.from({ length: cr.termCount }, () => new Set<Id>());
+    const manual = new Set<Id>();
+    passes.forEach((pass, n) => {
+      leverOverride.clear();
+      for (const [k, x] of pass) leverOverride.set(k, x);
+      // only the default pass reports a throw; the others only add reads
+      const guard = (what: string, fn: () => void) => {
+        try {
+          fn();
+        } catch (e) {
+          if (n === 0) warn(`${where}: ${what} threw during the compile-time dry run: ${(e as Error).message}`);
+        }
+      };
+      const onManual = isManual(pass);
+      const termValues: Record<Id, number> = {};
+      for (let j = 0; j < cr.termCount; j++) {
+        const t = cterms[cr.termStart + j];
+        reads = [];
+        guard(`term '${t.def.id}'`, () => {
+          termValues[t.def.id] = t.def.compute(ctx);
+        });
+        for (const id of reads) {
+          termReads[j].add(id);
+          if (onManual) manual.add(id);
+        }
+      }
+      reads = [];
+      if (r.combine) guard('combine', () => void r.combine!(termValues, ctx));
+      if (r.compute) guard('compute', () => void r.compute!(ctx));
+      if (onManual) for (const id of reads) manual.add(id);
+      if (r.regime && n === 0) guard('regime', () => void r.regime!(ctx, 1, termValues));
+    });
+    leverOverride.clear();
+    for (let j = 0; j < cr.termCount; j++) cterms[cr.termStart + j].reads = [...termReads[j]];
+    manualReads[cr.idx] = manual;
+  });
+  // a stabiliser's shadow variables may feed only its suggestion (or other shadows) on Manual
+  const inert = new Set<number>();
+  cstabilisers.forEach((cs) => {
+    if (cs.suggestion >= 0) inert.add(cs.suggestion);
+    for (const k of cs.shadow) inert.add(k);
+  });
+  cstabilisers.forEach((cs, j) => {
+    const where = `stabiliser '${stabilisers[j].def.id}' (module '${cs.module}')`;
+    for (const k of cs.shadow) {
+      const id = vars[k].def.id;
+      for (const cr of crules) if (!inert.has(cr.target) && manualReads[cr.idx]?.has(id)) err(`${where} declares '${id}' a shadow, but rule '${cr.def.id}' reads it on Manual`);
+      for (const { def: f } of flows) if ((f.legs ?? []).some((l) => l.amount === id)) err(`${where} declares '${id}' a shadow, but flow '${f.id}' pays it`);
+    }
   });
   const readByIndicators = new Set<Id>();
   indicators.forEach(({ def: ind, module }) => {

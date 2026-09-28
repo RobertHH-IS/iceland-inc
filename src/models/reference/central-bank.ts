@@ -213,6 +213,7 @@ export const centralBank: ModuleDef = {
       lever: 'keyRateFixed',
       offset: 'keyRateAddon',
       suggestion: 'keyRateSuggestion',
+      shadow: ['ruleRate'],
       threshold: 0.125, // half the lever's quarter-point step: calls when Apply would move the lever
       description:
         'The central bank’s Taylor rule: the key rate it would set from inflation and the output gap, reached gradually. On Automatic it sets the key rate (your offset shifts its target); on Manual it suggests a rate, and the key-rate lever turns red when applying it would move the lever.',

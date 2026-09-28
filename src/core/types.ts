@@ -300,6 +300,10 @@ export interface StabiliserDef {
    *  is above the lever, `lower` when below. `{value}` is the suggestion and `{change}` the size of
    *  the gap, in lever units. `indicator` is the chart the message opens. */
   feed?: { raise: string; lower: string; indicator: Id };
+  /** Variables that only feed the suggestion while the stabiliser is Manual, such as the rate a
+   *  Taylor rule calls for: on Manual they drive nothing, so ideas at play leaves them out. The
+   *  compiler checks that no other rule reads them on Manual. */
+  shadow?: Id[];
 }
 
 /** A stabiliser now (Engine.stabilisers()). `gap` = suggested − current, in lever units. */

@@ -678,6 +678,7 @@ export const government: ModuleDef = {
       label: 'Debt rule on income tax',
       lever: 'incomeTax',
       suggestion: 'taxRuleSuggestion',
+      shadow: ['taxRuleAdjustment'],
       // Half the lever's half-point step: it calls exactly when "Apply" would move the lever.
       threshold: 0.25,
       description:

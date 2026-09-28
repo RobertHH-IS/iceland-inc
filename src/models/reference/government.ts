@@ -291,6 +291,7 @@ export const government: ModuleDef = {
       label: 'Debt rule',
       lever: 'taxRate',
       suggestion: 'taxRuleSuggestion',
+      shadow: ['debtRuleRate'],
       threshold: 0.25, // half the lever's half-point step: calls when Apply would move the lever
       description:
         'The government’s debt rule: about 3 points more income tax for 10 points more debt, reached gradually. On Automatic it sets the tax rate and your lever adds to it; on Manual it suggests a shift for the tax lever, which turns red when applying it would move the lever.',
