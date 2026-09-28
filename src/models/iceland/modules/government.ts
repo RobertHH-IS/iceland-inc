@@ -14,6 +14,7 @@
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
 import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth, automatic, STABILISERS } from '../util.ts';
+import { cashToSpend } from './banks.ts';
 
 type Channel = { id: string; label: string; level: Id; share: Id; lever: string; channel: string; what: string };
 const CHANNELS: Channel[] = [
@@ -126,12 +127,26 @@ const BUYERS = [
   ['HO', 'older households', 4],
 ] as const;
 
+type Buyer = (typeof BUYERS)[number][0];
 /** Share of new bonds each buyer takes, by the bond-buyer lever (0 mix, 1 banks, 2 CB, 3 PF, 4 older households). */
-function buyerShare(c: Ctx, who: 'B' | 'CB' | 'PF' | 'HO'): number {
+function buyerShare(c: Ctx, who: Buyer): number {
   const choice = Math.min(4, Math.max(0, Math.round(c.lever('bondBuyers'))));
   if (choice === 0) return who === 'B' ? c.p('bondMixBankShare') : who === 'PF' ? 1 - c.p('bondMixBankShare') : 0;
   return BUYERS.find(([k]) => k === who)![2] === choice ? 1 : 0;
 }
+/** Nominal government bonds the government can buy back: all but non-residents', who trade theirs
+ *  with banks. Indexed bonds are never redeemed here. */
+const bondsHeld = (c: Ctx) => BUYERS.reduce((s, [h]) => s + c.stock('govBonds', h), 0);
+const BOND_STOCKS = BUYERS.map(([h]): [Id, Id] => ['govBonds', h]);
+/** A holder's share of a buyback: in proportion to what it holds at the start of the month. */
+const buybackShare = (c: Ctx, h: Buyer) => {
+  const all = bondsHeld(c);
+  return all > 0 ? c.stock('govBonds', h) / all : 0;
+};
+/** New bonds a pension fund or older household can pay for this month: pension funds may use their
+ *  cash in hand (bondPurchasesPF and their other purchases take what is left), older households
+ *  half of it (the other half is for their spending, households.ts). */
+const buyerCash = (c: Ctx, h: 'PF' | 'HO') => (h === 'PF' ? 1 : 0.5) * cashToSpend(c, h);
 
 const TAXES_H = AGES.map((g) => `incomeTax${g}`);
 const SPEND: Id[] = CHANNELS.map((ch) => `spending${ch.id[0].toUpperCase()}${ch.id.slice(1)}`);
@@ -276,13 +291,18 @@ const rules: RuleDef[] = [
     target: 'debtRatio',
     category: 'IDENTITY',
     lagInputs: ['nominalGDP'],
+    params: ['tga'],
     stocks: [
       ['govBonds', 'G'],
       ['indexedBonds', 'G'],
+      ['treasuryAccount', 'G'],
     ],
-    compute: (c) => (c.stock('govBonds', 'G') + c.stock('indexedBonds', 'G')) / lastMonth(c, 'nominalGDP'),
+    compute: (c) => (c.stock('govBonds', 'G') + c.stock('indexedBonds', 'G') - (c.stock('treasuryAccount', 'G') - c.p('tga'))) / lastMonth(c, 'nominalGDP'),
     concepts: ['fiscal-rule'],
-    explain: { what: 'Government debt as a share of a year’s GDP (as a ratio: 0.567 is 56.7%).', rule: 'Debt ratio = (nominal + indexed bonds at the start of the month) ÷ last month’s annual GDP.' },
+    explain: {
+      what: 'Government debt as a share of a year’s GDP (as a ratio: 0.567 is 56.7%), net of any cash the treasury holds above its usual balance.',
+      rule: 'Debt ratio = (nominal + indexed bonds − treasury account above its target {tga}% of GDP, at the start of the month) ÷ last month’s annual GDP. The treasury account is normally at its target; it rises above it only once every bond that can be bought back has been.',
+    },
   },
   {
     id: 'taxRuleAdjustment',
@@ -434,33 +454,55 @@ const rules: RuleDef[] = [
     category: 'POLICY',
     inputs: ['deficit'],
     params: ['tga', 'treasuryTopUp'],
-    stocks: [['treasuryAccount', 'G']],
+    stocks: [['treasuryAccount', 'G'], ...BOND_STOCKS],
     terms: terms(
       ['deficit', 'Deficit to finance', 'deficits-and-money', (c) => c.v('deficit')],
       ['topUp', 'Refill the treasury account', 'reserves-and-payments', (c) => c.p('treasuryTopUp') * (c.p('tga') - c.stock('treasuryAccount', 'G'))],
     ),
+    // The government cannot buy back more bonds than there are: a surplus beyond that stays in
+    // its treasury account (and is spent down first when a deficit returns).
+    combine: (t, c) => Math.max(-bondsHeld(c) / c.dt, t.deficit + t.topUp),
+    regime: (c, _v, t) => (t.deficit + t.topUp < -bondsHeld(c) / c.dt ? 'Buyback limited by holdings: the surplus stays in the treasury account' : null),
     concepts: ['deficits-and-money'],
     explain: {
       what: 'New government bonds sold this month (a yearly rate; negative means buying bonds back).',
-      rule: 'Bonds sold = the cash deficit + {treasuryTopUp} × a year of any shortfall of the treasury account below {tga}% of GDP, so the account stays at its target.',
+      rule: 'Bonds sold = the cash deficit + {treasuryTopUp} × a year of any shortfall of the treasury account below {tga}% of GDP, so the account stays at its target. The government never buys back more than the bonds banks, the central bank, pension funds and older households hold; once they are all repaid, a surplus builds up in the treasury account.',
     },
   },
-  ...BUYERS.map(
-    ([h, who]): RuleDef => ({
+  ...BUYERS.map(([h, who]): RuleDef => {
+    const nonBank = h === 'PF' || h === 'HO';
+    const sale = (c: Ctx) => Math.max(0, c.v('bondIssue')) * buyerShare(c, h);
+    const buyback = (c: Ctx) => Math.min(0, c.v('bondIssue')) * buybackShare(c, h);
+    // What pension funds and older households were due to buy but could not pay for.
+    const overflow = (c: Ctx, k: 'PF' | 'HO') => Math.max(0, c.v('bondIssue')) * buyerShare(c, k) - Math.max(0, c.v(`bondIssue${k}`));
+    return {
       id: `bondIssue${h}`,
       target: `bondIssue${h}`,
       category: 'POLICY',
-      inputs: ['bondIssue'],
-      params: ['bondMixBankShare'],
+      inputs: ['bondIssue', ...(h === 'B' ? ['bondIssuePF', 'bondIssueHO'] : [])],
+      params: ['bondMixBankShare', ...(nonBank ? ['liquiditySpeed'] : [])],
       levers: ['bondBuyers'],
-      compute: (c) => buyerShare(c, h) * c.v('bondIssue'),
+      stocks: [...BOND_STOCKS, ...(nonBank ? [['deposits', h] as [Id, Id]] : [])],
+      terms: terms(
+        ['sale', 'Their share of new bonds (bond-buyer lever)', 'bond-buyers', sale],
+        ...(h === 'B' ? ([['overflow', 'New bonds other buyers could not pay for', 'endogenous-money', (c: Ctx) => overflow(c, 'PF') + overflow(c, 'HO')]] as [string, string, string, (c: Ctx) => number][]) : []),
+        ['buyback', 'Bonds bought back, in proportion to holdings', 'deficits-and-money', buyback],
+      ),
+      ...(nonBank
+        ? {
+            combine: (t: Record<Id, number>, c: Ctx) => Math.min(t.sale, buyerCash(c, h)) + t.buyback,
+            regime: (c: Ctx, _v: number, t: Record<Id, number>) => (t.sale > buyerCash(c, h) ? 'Limited by cash in hand: banks take the rest' : null),
+          }
+        : {}),
       concepts: ['bond-buyers', h === 'B' || h === 'CB' ? 'endogenous-money' : 'deficits-and-money'],
       explain: {
-        what: `New government bonds bought by ${who}. ${h === 'B' || h === 'CB' ? 'They pay with newly created money.' : 'They pay with deposits that already exist.'}`,
-        rule: 'Their share of new bonds under the bond-buyer lever: mix ({bondMixBankShare%} banks, the rest pension funds), or all to banks, the central bank, pension funds or older households.',
+        what: `New government bonds bought by ${who} (negative: bonds the government buys back from them). ${h === 'B' || h === 'CB' ? 'They pay with newly created money.' : 'They pay with deposits that already exist.'}`,
+        rule: `Their share of new bonds under the bond-buyer lever: mix ({bondMixBankShare%} banks, the rest pension funds), or all to banks, the central bank, pension funds or older households.${
+          nonBank ? ` They buy only what they can pay for from their deposits this month (${h === 'PF' ? 'at most' : 'half of'} 1 − e^(−{liquiditySpeed} × one month) of them); banks take the rest.` : h === 'B' ? ' Banks also take whatever pension funds or older households cannot pay for.' : ''
+        } When the government buys bonds back, it buys from every holder in proportion to what they hold.`,
       },
-    }),
-  ),
+    };
+  }),
   {
     id: 'govBalance',
     target: 'govBalance',
@@ -668,7 +710,7 @@ export const government: ModuleDef = {
       ],
       description: 'Banks and the central bank pay with newly created money; pension funds and households pay with existing deposits.',
       definition:
-        'Choice, persistent while set: every new bond sold (or bought back) from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares.',
+        'Choice, persistent while set: every new bond sold from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Pension funds and older households buy only what their deposits can pay for that month; banks take the rest. When the budget is in surplus the government buys bonds back from every holder in proportion to what they hold, whatever the choice. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares.',
       concepts: ['bond-buyers', 'deficits-and-money', 'endogenous-money'],
     },
   ],
@@ -719,6 +761,58 @@ export const government: ModuleDef = {
           out.push(`${who} +${gain(who).toFixed(3)}`);
         }
         return { pass, detail: `after one month of spending +1% of GDP, the chosen buyer's bonds: ${out.join(', ')}` };
+      },
+    },
+    {
+      id: 'buyback-by-holdings',
+      label: 'In a surplus the government buys bonds back from every holder in proportion to its holdings, never more than there are; the rest of the surplus stays in the treasury account',
+      run: (e) => {
+        const ke = e as unknown as { stock(i: string, p: string): number };
+        e.setLever('bondBuyers', 2); // the central bank buys new bonds, but buybacks come from everyone
+        e.setLever('incomeTax', 10);
+        const held = BUYERS.map(([h]) => ke.stock('govBonds', h)); // at the start of the month
+        e.step(1);
+        const all = held.reduce((a, b) => a + b, 0);
+        const shares = BUYERS.map(([h], k) => Math.abs(e.value(`bondIssue${h}`) / e.value('bondIssue') - held[k] / all));
+        let lowest = Infinity,
+          capped = 0;
+        for (let t = 1; t < 240; t++) {
+          e.step(1);
+          lowest = Math.min(lowest, ...HOLDERS.map(([h]) => ke.stock('govBonds', h)));
+          if (e.influences('bondIssue').regime) capped++;
+        }
+        const tga = ke.stock('treasuryAccount', 'G');
+        return {
+          pass: Math.max(...shares) < 1e-12 && lowest >= -1e-9 && ke.stock('govBonds', 'G') >= -1e-9 && capped > 0 && tga > 5,
+          detail: `buyback shares differ from holding shares by at most ${Math.max(...shares).toExponential(1)}; lowest holding ${lowest.toExponential(2)}; buyback capped for ${capped} months; treasury account ${tga.toFixed(2)}% of GDP`,
+        };
+      },
+    },
+    {
+      id: 'non-bank-buyers-pay-with-cash-they-have',
+      label: 'When pension funds or older households are the sole buyers of a large deficit, they buy only what their deposits pay for and banks take the rest',
+      run: (e) => {
+        const ke = e as unknown as { stock(i: string, p: string): number };
+        const out: string[] = [];
+        let pass = true;
+        for (const [choice, who] of [
+          [3, 'PF'],
+          [4, 'HO'],
+        ] as const) {
+          const f = e.fork() as unknown as typeof e & typeof ke;
+          f.setLever('bondBuyers', choice);
+          for (const l of ['health', 'education', 'otherServices', 'publicInvestment']) f.setLever(l, 3);
+          let lowest = Infinity,
+            banksTook = 0;
+          for (let t = 0; t < 240; t++) {
+            f.step(1);
+            lowest = Math.min(lowest, f.stock('deposits', who));
+            if (f.value('bondIssueB') > 0) banksTook++;
+          }
+          pass &&= lowest >= 0 && banksTook > 0;
+          out.push(`${who}: lowest deposits ${lowest.toFixed(3)}, banks took the rest in ${banksTook} months`);
+        }
+        return { pass, detail: out.join('; ') };
       },
     },
     {

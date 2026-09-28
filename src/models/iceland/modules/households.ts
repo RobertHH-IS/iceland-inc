@@ -13,6 +13,7 @@ import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts
 import { ALL_PARAMS, base } from '../steady.ts';
 import { AGE_LABEL, AGES, FIRM_NAME, gapRate, HH, pickParams, terms, type Age, lastMonth } from '../util.ts';
 import { dividendsTo } from './firms.ts';
+import { bondsBanksCanSell, cashToSpend } from './banks.ts';
 
 /** Wages of the group (private and public), transfers and pensions: the taxable income. */
 function grossIncomeRule(g: Age): RuleDef {
@@ -39,6 +40,7 @@ function grossIncomeRule(g: Age): RuleDef {
   };
 }
 
+const sumTerms = (t: Record<Id, number>) => Object.values(t).reduce((a, b) => a + b, 0);
 const mortgageInterest = (g: Age): Id[] => (g === 'O' ? [] : [`mortgageInterest_${HH[g]}_B`, `mortgageInterest_${HH[g]}_PF`]);
 
 function propertyIncomeIds(g: Age): Id[] {
@@ -56,6 +58,15 @@ const liquidStocks = (g: Age): [Id, Id][] => (g === 'O' ? [['deposits', 'HO'], [
 const homeTrade = (c: Ctx, g: Age) => (g === 'Y' ? -c.v('homePurchasesY') : g === 'W' ? -c.v('homePurchasesW') : c.v('homePurchasesY') + c.v('homePurchasesW'));
 const homeInputs = (g: Age): Id[] => (g === 'Y' ? ['homePurchasesY'] : g === 'W' ? ['homePurchasesW'] : ['homePurchasesY', 'homePurchasesW']);
 
+/**
+ * The most a group can spend this month: its cash income after home purchases (or plus home sales)
+ * and new mortgage borrowing, plus what it can draw from its deposits (banks.ts, `cashToSpend`;
+ * older households keep the other half of that for their bond purchases). Nobody spends deposits
+ * they do not have.
+ */
+const cashLimit = (c: Ctx, g: Age, nli: Id, pi: Id, nml: Id) =>
+  c.v(nli) + c.v(pi) + homeTrade(c, g) + (g !== 'O' ? c.v(nml) : 0) + (g === 'O' ? 0.5 : 1) * cashToSpend(c, HH[g]);
+
 function consumptionRule(g: Age): RuleDef {
   const aL = `aL${g}`,
     aW = `aW${g}`,
@@ -69,14 +80,19 @@ function consumptionRule(g: Age): RuleDef {
   const labour = (c: Ctx) => c.p(aL) * (c.v(nli) + homeTrade(c, g));
   const property = (c: Ctx) => c.p('aK') * (c.v(pi) - lastMonth(c, 'expectedInflation') * liquid(c, g));
   const realGap = (c: Ctx) => c.v('keyRate') - lastMonth(c, 'expectedInflation') - c.p('i0');
+  const self = `consumption${g}`;
+  const spendingCap = (c: Ctx) => {
+    const k = 1 - Math.exp(-c.p('lamC') * c.dt);
+    return c.lag(self) + (cashLimit(c, g, nli, pi, nml) - c.lag(self)) / k;
+  };
   return {
     id: `consumption${g}`,
     target: `consumption${g}`,
     category: 'BEHAVIOUR',
     label: 'Consumption function with habit',
     inputs: [`netLabourIncome${g}`, `propertyIncome${g}`, 'keyRate', 'cpi', 'realHousePrice', ...homeInputs(g), ...(g !== 'O' ? [`netMortgageLending${g}`] : [])],
-    lagInputs: ['expectedInflation'],
-    params: [aL, 'aK', 'betaC', 'i0', c0, aW, `LW0${g}`, aH, `H0${g}`, ...(g !== 'O' ? ['aNL'] : [])],
+    lagInputs: ['expectedInflation', `consumption${g}`],
+    params: [aL, 'aK', 'betaC', 'i0', c0, aW, `LW0${g}`, aH, `H0${g}`, ...(g !== 'O' ? ['aNL'] : []), 'lamC', 'liquiditySpeed'],
     stocks: liquidStocks(g),
     adjust: { speed: 'lamC', form: 'exponential' },
     terms: terms(
@@ -88,13 +104,25 @@ function consumptionRule(g: Age): RuleDef {
       ...(g !== 'O' ? ([['borrowing', 'New mortgage borrowing', 'credit-impulse', (c: Ctx) => c.p('aNL') * c.v(nml)]] as [string, string, string, (c: Ctx) => number][]) : []),
       ['housing', 'Housing wealth', 'housing-wealth-effect', (c) => c.p(aH) * c.p(h0) * (c.v('realHousePrice') - 1) * c.v('cpi')],
     ),
+    // Liquidity constraint: spending moves toward the target by the habit (the kernel's
+    // exponential `adjust`, which closes k = 1 − e^(−lamC × dt) of the gap), but never above the
+    // cash limit. Capping the target at last month + (limit − last month) ÷ k caps the spending.
+    combine: (t, c) => Math.min(sumTerms(t), spendingCap(c)),
+    regime: (c, _v, t) => (sumTerms(t) > spendingCap(c) ? 'Spending limited by cash in hand' : null),
     concepts: ['consumption-function', 'habit-persistence', 'borrowers-and-savers'],
     explain: {
       what: `What the ${AGE_LABEL[g]} spend on goods and services, including VAT (% of baseline GDP a year).`,
-      rule: `Target = [{${aL}} × (net labour income ${g === 'O' ? '+ home sales' : '− home purchases'}) + {aK} × (interest and dividends − expected inflation × savings)] × (1 − {betaC} × (real key rate − neutral)) + {${c0}} × CPI + {${aW}} × savings above normal${g !== 'O' ? ' + {aNL} × net new mortgage borrowing' : ''} + {${aH}} × housing wealth × (real house price − 1). Spending moves toward the target at speed {lamC} a year (a habit).`,
+      rule: `Target = [{${aL}} × (net labour income ${g === 'O' ? '+ home sales' : '− home purchases'}) + {aK} × (interest and dividends − expected inflation × savings)] × (1 − {betaC} × (real key rate − neutral)) + {${c0}} × CPI + {${aW}} × savings above normal${g !== 'O' ? ' + {aNL} × net new mortgage borrowing' : ''} + {${aH}} × housing wealth × (real house price − 1). Spending moves toward the target at speed {lamC} a year (a habit), but never beyond their cash: income after tax, mortgage interest${g !== 'O' ? ', home purchases and new borrowing' : ' and home sales'} plus ${g === 'O' ? 'half of ' : ''}1 − e^(−{liquiditySpeed} × one month) of their deposits${g === 'O' ? ' (the other half is for their bond purchases)' : ''}, so their deposits never go negative.`,
     },
   };
 }
+
+/** Older households' bond budget this month: half their cash in hand, less new bonds bought from the government. */
+const hoCash = (c: Ctx) => Math.max(0, 0.5 * cashToSpend(c, 'HO') - Math.max(0, c.v('bondIssueHO')));
+/** Bonds banks can still sell them, after the buyback and pension funds' purchases. */
+const hoFromBanks = (c: Ctx) => Math.max(0, bondsBanksCanSell(c) - Math.max(0, c.v('bondPurchasesPF')));
+/** Bonds they can still sell, after the government's buyback of theirs. */
+const hoBondsToSell = (c: Ctx) => Math.max(0, c.stock('govBonds', 'HO') / c.dt + Math.min(0, c.v('bondIssueHO')));
 
 const perGroup: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
   const [gross, tax] = [`grossIncome${g}`, `incomeTax${g}`];
@@ -221,15 +249,26 @@ export const households: ModuleDef = {
       id: 'bondPurchasesHO',
       target: 'bondPurchasesHO',
       category: 'BEHAVIOUR',
-      params: ['boSh0', 'lamReb'],
+      inputs: ['bondIssueHO', 'bondIssueB', 'bondPurchasesPF'],
+      params: ['boSh0', 'lamReb', 'liquiditySpeed'],
       stocks: [
         ['deposits', 'HO'],
         ['govBonds', 'HO'],
+        ['govBonds', 'B'],
       ],
-      compute: (c) => gapRate(c.p('lamReb'), c.dt) * (c.p('boSh0') * (c.stock('deposits', 'HO') + c.stock('govBonds', 'HO')) - c.stock('govBonds', 'HO')),
+      terms: terms(['mix', 'Toward their usual mix of deposits and bonds', 'bond-buyers', (c) => gapRate(c.p('lamReb'), c.dt) * (c.p('boSh0') * (c.stock('deposits', 'HO') + c.stock('govBonds', 'HO')) - c.stock('govBonds', 'HO'))]),
+      // Buy only with their half of cash in hand, left after new bonds, and only bonds banks still
+      // hold after pension funds' purchases; sell only bonds they hold after this month's buyback.
+      combine: (t, c) => (t.mix > 0 ? Math.min(t.mix, hoCash(c), hoFromBanks(c)) : Math.max(t.mix, -hoBondsToSell(c))),
+      regime: (c, _v, t) => {
+        if (t.mix > hoFromBanks(c)) return 'Limited by the bonds banks hold';
+        if (t.mix > hoCash(c)) return 'Purchases limited by cash in hand';
+        return t.mix < -hoBondsToSell(c) ? 'Sales limited by holdings' : null;
+      },
+      concepts: ['bond-buyers'],
       explain: {
         what: 'Government bonds older households buy from banks (negative: sell) to keep their usual mix of deposits and bonds.',
-        rule: 'They aim to hold {boSh0} of their savings in bonds and close the gap at speed {lamReb} a year.',
+        rule: 'They aim to hold {boSh0} of their savings in bonds and close the gap at speed {lamReb} a year. They buy with at most half of 1 − e^(−{liquiditySpeed} × one month) of their deposits, less any new bonds they buy from the government, and only bonds banks hold; they sell only bonds they hold.',
       },
     },
   ],

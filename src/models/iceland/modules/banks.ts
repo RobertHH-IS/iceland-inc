@@ -6,9 +6,30 @@
  * are paid interest from deposits (money destroyed). They pay out smoothed profit as dividends,
  * less what they need to rebuild capital.
  */
-import type { Id, ModuleDef, RuleDef } from '../../../core/types.ts';
+import type { Ctx, Id, ModuleDef, ParamDef, RuleDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { FIRMS, FIRM_NAME, pickParams, terms, lastMonth } from '../util.ts';
+import { assumed, FIRMS, FIRM_NAME, gapRate, pickParams, terms, lastMonth } from '../util.ts';
+
+/**
+ * Nobody pays with money they do not have. A player that buys assets (or, for households, spends
+ * beyond its income) from its deposits can use at most the share 1 − e^(−liquiditySpeed × dt) of
+ * them in a month: 63% at the default, which keeps the rest for the month's other bills.
+ */
+const LIQUIDITY: ParamDef = {
+  id: 'liquiditySpeed',
+  value: 12,
+  unit: 'per year',
+  category: 'BEHAVIOUR',
+  description:
+    'How fast pension funds, households and non-residents can draw down their deposits to buy assets, or households to spend beyond their income: at 12 a year, at most 63% of their deposits in a month.',
+  provenance: assumed('New in the port (audit H1): a liquidity limit so that no one pays with deposits they do not have. It binds only far from the baseline.'),
+};
+/** Deposits a player can spend this month beyond its income (a yearly rate). Declare
+ *  params ['liquiditySpeed'] and stocks [['deposits', player]]. */
+export const cashToSpend = (c: Ctx, player: Id): number => gapRate(c.p('liquiditySpeed'), c.dt) * Math.max(0, c.stock('deposits', player));
+/** Government bonds banks can still sell this month, after the government has bought back its
+ *  share of theirs (a yearly rate). Declare inputs ['bondIssueB'] and stocks [['govBonds', 'B']]. */
+export const bondsBanksCanSell = (c: Ctx): number => Math.max(0, c.stock('govBonds', 'B') / c.dt + Math.min(0, c.v('bondIssueB')));
 
 const DEPOSITORS = ['HY', 'HW', 'HO', ...FIRMS, 'PF', 'W'] as const;
 const DEP_LABEL: Record<(typeof DEPOSITORS)[number], string> = {
@@ -61,7 +82,7 @@ export const banks: ModuleDef = {
   label: 'Banks',
   description: 'Deposit, loan and mortgage rates; the capital premium; interest paid and received; profit, dividends and the lending-appetite lever.',
   requires: ['structure', 'central-bank', 'government', 'households'],
-  params: pickParams(ALL_PARAMS, ['kapT', 'kapMin', 'rwM', 'rwL', 'sCap', 'lamEq', 'lamDivB', 'divBshG', 'divBshPF', 'divBshW', 'mD', 'sL', 'sMN', 'rMI0', 'psiIdx', 'sBB', 'lendingAppetite', 'm3']),
+  params: [...pickParams(ALL_PARAMS, ['kapT', 'kapMin', 'rwM', 'rwL', 'sCap', 'lamEq', 'lamDivB', 'divBshG', 'divBshPF', 'divBshW', 'mD', 'sL', 'sMN', 'rMI0', 'psiIdx', 'sBB', 'lendingAppetite', 'm3']), LIQUIDITY],
   vars: [
     { id: 'bankEquity', label: 'Bank equity', unit: '% of GDP', kind: 'state', scale: 'nominal', initial: base('bankEquity') },
     { id: 'riskWeightedAssets', label: 'Risk-weighted assets', unit: '% of GDP', kind: 'state', scale: 'nominal', initial: base('riskWeightedAssets') },
