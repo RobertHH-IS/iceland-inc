@@ -11,7 +11,7 @@
  * a year; speeds (lam*) per year, so the mean lag is 1/lam years.
  */
 import type { Category, Id, ParamDef, Provenance } from '../../core/types.ts';
-import { assumed, dataProv, datum, GDP_BN, placeholder, tuned } from './util.ts';
+import { assumed, dataProv, datum, derived, GDP_BN, placeholder, tuned } from './util.ts';
 
 const list: ParamDef[] = [];
 function P(id: Id, value: number, unit: string, category: Category, description: string, provenance: Provenance, range?: { min?: number; max?: number }): void {
@@ -254,7 +254,7 @@ P('divBshPF', 0.35, 'fraction', 'IDENTITY', 'Share of bank dividends paid to pen
 P('divBshW', 0.2, 'fraction', 'IDENTITY', 'Share of bank dividends paid to working-age households (the rest to older households).', placeholder());
 
 /* ----------------------------------------------------------------- rates */
-P('i0', 0.03, 'fraction/yr', 'POLICY', 'Neutral key rate (real, as the baseline has zero inflation).', assumed());
+P('i0', 0.03, 'fraction/yr', 'POLICY', 'Neutral real key rate. The nominal neutral rate, which the key rate is compared with, is i0 + piT.', assumed());
 P('piT', 0, 'fraction/yr', 'POLICY', 'Inflation target of the model. Iceland targets 2.5%; the zero-inflation baseline uses 0, so only deviations show.', assumed());
 P('mD', 0.01, 'fraction/yr', 'BEHAVIOUR', 'Deposit margin below the key rate.', assumed());
 P('sB', 0.005, 'fraction/yr', 'CONTRACT', 'Spread of the floating government-bond rate over the key rate.', assumed());
@@ -264,7 +264,9 @@ P('rMI0', 0.025, 'fraction/yr', 'BEHAVIOUR', 'Real rate on indexed mortgages at 
 P('psiIdx', 0.4, 'fraction', 'BEHAVIOUR', 'Pass-through of the key rate to the real rate on indexed mortgages.', assumed());
 P('rBI0', 0.02, 'fraction/yr', 'CONTRACT', 'Real coupon on indexed government bonds.', assumed());
 P('sBB', 0.01, 'fraction/yr', 'CONTRACT', 'Spread of bank (covered) bonds over the key rate.', assumed());
-P('iF0', 0.02, 'fraction/yr', 'BEHAVIOUR', 'Foreign interest rate at baseline, which is also the cash yield on pension funds’ foreign assets.', assumed());
+const IF0 = 0.02;
+P('iF0', IF0, 'fraction/yr', 'BEHAVIOUR', 'Normal foreign interest rate. Carry traders compare the key rate above its nominal neutral (i0 + piT) with the foreign rate above this.', assumed());
+P('iFnow', IF0, 'fraction/yr', 'POLICY', 'Foreign interest rate in force at the start, before the foreign-rate lever; also the cash yield on pension funds’ foreign assets.', derived('Equal to iF0 on the steady start. A start from today sets today’s foreign rate here, so the rate gap with abroad starts where it is (docs/design/start-from-today.md §4.6).'));
 P('iFXR', 0.02, 'fraction/yr', 'BEHAVIOUR', 'Yield on the central bank’s foreign reserves.', assumed());
 
 /* ------------------------------------ mortgage contracts and borrower-based rules */
@@ -351,6 +353,12 @@ P('lamPFinc', 1, 'per year', 'BEHAVIOUR', 'Smoothing of the fund income credited
 /* ------------------------------------------------ government financing */
 P('treasuryTopUp', 12, 'per year', 'POLICY', 'How fast bond sales restore the treasury account to its target (12: within about a month, as in v1).', assumed('v1 closed the gap every month.'));
 P('bondMixBankShare', 0.4, 'fraction', 'POLICY', 'Banks’ share of new government bonds in the default mix; pension funds buy the rest.', assumed('v1 default: 40% banks, 60% pension funds.'));
+
+/* ------------------------------------------------ world prices at the start */
+const startLevel = (what: string) => derived(`1 on the steady start (${what} at their 2025 level). A start from today sets today’s level relative to 2025 here (docs/design/start-from-today.md §4.6).`);
+P('worldPrice0', 1, 'index', 'BEHAVIOUR', 'Foreign-currency level of world prices at the start, before the world-prices lever.', startLevel('world prices'));
+P('fishPrice0', 1, 'index', 'BEHAVIOUR', 'Foreign-currency level of marine-product prices at the start, before the fish-price lever.', startLevel('fish prices'));
+P('aluminiumPrice0', 1, 'index', 'BEHAVIOUR', 'Foreign-currency level of the aluminium price at the start, before the aluminium-price lever.', startLevel('aluminium prices'));
 
 /* ------------------------------------------------ lever settings (baseline 0) */
 const lev = (note: string): Provenance => ({ basis: 'assumed', note: `Zero at baseline; ${note}` });

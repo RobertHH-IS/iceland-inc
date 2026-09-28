@@ -36,7 +36,7 @@ export const centralBank: ModuleDef = {
       params: ['i0', 'piT', 'aPi', 'aPiA', 'aY', 'potentialOutput'],
       adjust: { speed: 'lamPol', form: 'exponential' },
       terms: terms(
-        ['neutral', 'Neutral rate', 'taylor-rule', (c) => c.p('i0')],
+        ['neutral', 'Neutral rate (real neutral + inflation target)', 'taylor-rule', (c) => c.p('i0') + c.p('piT')],
         ['expectedInflation', 'Expected inflation above target', 'anchored-expectations', (c) => c.p('aPi') * (lastMonth(c, 'expectedInflation') - c.p('piT'))],
         ['actualInflation', 'Inflation over the past year above target', 'taylor-rule', (c) => c.p('aPiA') * (lastMonth(c, 'inflation12') - c.p('piT'))],
         ['outputGap', 'Output above capacity', 'capacity-utilisation', (c) => c.p('aY') * (lastMonth(c, 'output') / c.p('potentialOutput') - 1)],
@@ -44,7 +44,7 @@ export const centralBank: ModuleDef = {
       concepts: ['taylor-rule', 'policy-lags'],
       explain: {
         what: 'The key interest rate the central bank’s inflation rule points to. With stabilisers on Automatic it sets the key rate; on Manual it is only a suggestion shown beside the key-rate lever. The rule moves gradually rather than jumping.',
-        rule: 'Target = neutral rate {i0%} + {aPi} × (expected inflation − target) + {aPiA} × (inflation over the past year − target) + {aY} × the output gap (last month’s output ÷ capacity − 1). The rate closes the gap to that target at speed {lamPol} a year (about a quarter of it each month). It is worked out every month in both modes.',
+        rule: 'Target = neutral nominal rate (the neutral real rate {i0%} + the inflation target {piT%}) + {aPi} × (expected inflation − target) + {aPiA} × (inflation over the past year − target) + {aY} × the output gap (last month’s output ÷ capacity − 1). The rate closes the gap to that target at speed {lamPol} a year (about a quarter of it each month). It is worked out every month in both modes.',
       },
     },
     {
@@ -202,9 +202,10 @@ export const centralBank: ModuleDef = {
   tests: [
     {
       id: 'neutral-at-baseline',
-      label: 'At baseline the key rate equals the neutral rate',
+      label: 'At baseline the key rate equals the neutral nominal rate (real neutral + inflation target)',
       run: (e) => {
-        const n = e.influences('ruleRate').params.find((p) => p.id === 'i0')!.value;
+        const ps = e.influences('ruleRate').params;
+        const n = ps.find((p) => p.id === 'i0')!.value + ps.find((p) => p.id === 'piT')!.value;
         const k = e.baseline('keyRate');
         return { pass: Math.abs(k - n) < 1e-12, detail: `key rate ${k} vs neutral ${n}` };
       },
@@ -222,7 +223,8 @@ export const centralBank: ModuleDef = {
       id: 'manual-holds-the-key-rate',
       label: 'Manual: the key rate stays at the lever’s level while the rule’s suggestion moves; the default is the neutral rate',
       run: (e) => {
-        const n = e.influences('ruleRate').params.find((p) => p.id === 'i0')!.value;
+        const ps = e.influences('ruleRate').params;
+        const n = ps.find((p) => p.id === 'i0')!.value + ps.find((p) => p.id === 'piT')!.value;
         const lever = e.model.levers.find((l) => l.id === 'keyRateFixed')!;
         e.setLever('keyRateFixed', 7);
         e.fire('wageSettlement', 10);

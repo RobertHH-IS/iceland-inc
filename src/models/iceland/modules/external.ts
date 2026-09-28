@@ -119,7 +119,7 @@ export const external: ModuleDef = {
   requires: ['structure', 'prices', 'central-bank', 'firms', 'government', 'households', 'pensions'],
   params: pickParams(ALL_PARAMS, [
     'xFish', 'xAlu', 'xTour', 'xOther', 'eFish', 'eAlu', 'eTour', 'eOther', 'lamRer', 'muX', 'muC', 'muD', 'muI', 'muG', 'epsM',
-    'betaI', 'betaH', 'lamFX', 'lamSent', 'psiB', 'lamBW', 'iF0', 'krona0', 'bW0',
+    'betaI', 'betaH', 'lamFX', 'lamSent', 'psiB', 'lamBW', 'iF0', 'iFnow', 'krona0', 'bW0', 'worldPrice0', 'fishPrice0', 'aluminiumPrice0',
     'foreignDemandShift', 'tourismShift', 'foreignRateShift', 'worldPriceShift', 'fishPriceShift', 'aluminiumPriceShift', 'fdWeightFish', 'bondW', 'depW', 'eqW',
     'gvaXF', 'gvaXA', 'gvaXT', 'gvaXO', 'mXF', 'mXA', 'mXT', 'mXO', 'dXF', 'dXA', 'dXT', 'dXO',
   ]),
@@ -129,35 +129,44 @@ export const external: ModuleDef = {
       id: 'worldPrice',
       target: 'worldPrice',
       category: 'BEHAVIOUR',
-      params: ['worldPriceShift'],
-      terms: terms(['normal', 'Baseline', undefined, () => 1], ['shift', 'World-prices lever', 'exchange-rate-pass-through', (c) => c.p('worldPriceShift')]),
-      explain: { what: 'Foreign-currency prices of what Iceland imports and of fish and aluminium.', rule: 'World prices = 1 + the world-prices lever.' },
+      params: ['worldPrice0', 'worldPriceShift'],
+      terms: terms(['normal', 'Level at the start', undefined, (c) => c.p('worldPrice0')], ['shift', 'World-prices lever', 'exchange-rate-pass-through', (c) => c.p('worldPrice0') * c.p('worldPriceShift')]),
+      explain: { what: 'Foreign-currency prices of what Iceland imports and of fish and aluminium.', rule: 'World prices = their level at the start {worldPrice0} × (1 + the world-prices lever).' },
     },
     {
       id: 'fishPrice',
       target: 'fishPrice',
       category: 'BEHAVIOUR',
       inputs: ['worldPrice'],
-      params: ['fishPriceShift'],
-      terms: terms(['world', 'World prices', 'exchange-rate-pass-through', (c) => c.v('worldPrice')], ['fishMarket', 'Fish-price lever', 'export-sectors', (c) => c.v('worldPrice') * c.p('fishPriceShift')]),
-      explain: { what: 'What foreign buyers pay for Icelandic fish, in foreign currency (1 at baseline).', rule: 'Fish prices = world prices × (1 + the fish-price lever).' },
+      params: ['fishPrice0', 'worldPrice0', 'fishPriceShift'],
+      terms: terms(
+        ['world', 'World prices', 'exchange-rate-pass-through', (c) => (c.p('fishPrice0') * c.v('worldPrice')) / c.p('worldPrice0')],
+        ['fishMarket', 'Fish-price lever', 'export-sectors', (c) => ((c.p('fishPrice0') * c.v('worldPrice')) / c.p('worldPrice0')) * c.p('fishPriceShift')],
+      ),
+      explain: { what: 'What foreign buyers pay for Icelandic fish, in foreign currency (1 at baseline).', rule: 'Fish prices = their level at the start {fishPrice0} × (world prices ÷ their level at the start) × (1 + the fish-price lever).' },
     },
     {
       id: 'aluminiumPrice',
       target: 'aluminiumPrice',
       category: 'BEHAVIOUR',
       inputs: ['worldPrice'],
-      params: ['aluminiumPriceShift'],
-      terms: terms(['world', 'World prices', 'exchange-rate-pass-through', (c) => c.v('worldPrice')], ['metalMarket', 'Aluminium-price lever', 'export-sectors', (c) => c.v('worldPrice') * c.p('aluminiumPriceShift')]),
-      explain: { what: 'The world aluminium price in foreign currency (1 at baseline), set on the London Metal Exchange.', rule: 'Aluminium price = world prices × (1 + the aluminium-price lever).' },
+      params: ['aluminiumPrice0', 'worldPrice0', 'aluminiumPriceShift'],
+      terms: terms(
+        ['world', 'World prices', 'exchange-rate-pass-through', (c) => (c.p('aluminiumPrice0') * c.v('worldPrice')) / c.p('worldPrice0')],
+        ['metalMarket', 'Aluminium-price lever', 'export-sectors', (c) => ((c.p('aluminiumPrice0') * c.v('worldPrice')) / c.p('worldPrice0')) * c.p('aluminiumPriceShift')],
+      ),
+      explain: {
+        what: 'The world aluminium price in foreign currency (1 at baseline), set on the London Metal Exchange.',
+        rule: 'Aluminium price = its level at the start {aluminiumPrice0} × (world prices ÷ their level at the start) × (1 + the aluminium-price lever).',
+      },
     },
     {
       id: 'foreignRate',
       target: 'foreignRate',
       category: 'POLICY',
-      params: ['iF0', 'foreignRateShift'],
-      terms: terms(['normal', 'Baseline foreign rate', undefined, (c) => c.p('iF0')], ['shift', 'Foreign-rate lever', 'carry-trade', (c) => c.p('foreignRateShift')]),
-      explain: { what: 'Interest rates abroad, set by foreign central banks. It is also the cash yield on pension funds’ foreign assets.', rule: 'Foreign rate = {iF0%} + the foreign-rate lever.' },
+      params: ['iFnow', 'foreignRateShift'],
+      terms: terms(['normal', 'Foreign rate at the start', undefined, (c) => c.p('iFnow')], ['shift', 'Foreign-rate lever', 'carry-trade', (c) => c.p('foreignRateShift')]),
+      explain: { what: 'Interest rates abroad, set by foreign central banks. It is also the cash yield on pension funds’ foreign assets.', rule: 'Foreign rate = the rate at the start {iFnow%} + the foreign-rate lever.' },
     },
     {
       id: 'kronaSentiment',
@@ -189,7 +198,7 @@ export const external: ModuleDef = {
       label: 'The króna',
       inputs: ['kronaSentiment', 'keyRate', 'foreignRate', 'worldPrice'],
       lagInputs: ['domesticPrice'],
-      params: ['betaI', 'betaH', 'i0', 'iF0', 'krona0'],
+      params: ['betaI', 'betaH', 'i0', 'piT', 'iF0', 'krona0'],
       stocks: [
         ['deposits', 'W'],
         ['govBonds', 'W'],
@@ -198,7 +207,7 @@ export const external: ModuleDef = {
       terms: terms(
         ['ppp', 'Relative prices (purchasing-power parity)', 'purchasing-power-parity', (c) => Math.log(lastMonth(c, 'domesticPrice') / c.v('worldPrice'))],
         ['sentiment', 'Sentiment', 'floating-exchange-rate', (c) => c.v('kronaSentiment')],
-        ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => -c.p('betaI') * (c.v('keyRate') - c.p('i0') - (c.v('foreignRate') - c.p('iF0')))],
+        ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => -c.p('betaI') * (c.v('keyRate') - (c.p('i0') + c.p('piT')) - (c.v('foreignRate') - c.p('iF0')))],
         [
           'portfolio',
           'Non-residents’ króna holdings',
@@ -209,7 +218,7 @@ export const external: ModuleDef = {
       concepts: ['floating-exchange-rate', 'purchasing-power-parity'],
       explain: {
         what: 'The exchange rate in logs: krónur per unit of foreign currency. Up means a weaker króna.',
-        rule: 'Moves toward a target at speed {lamFX} a year. Target = log(domestic ÷ world prices) (in the long run the króna keeps Icelandic goods as dear as before) + sentiment − {betaI} × (key rate − foreign rate, relative to normal) (carry traders buy krónur for higher rates) + {betaH} × log of non-residents’ real króna holdings relative to normal (they want paying to hold more).',
+        rule: 'Moves toward a target at speed {lamFX} a year. Target = log(domestic ÷ world prices) (in the long run the króna keeps Icelandic goods as dear as before) + sentiment − {betaI} × the rate gap with abroad (carry traders buy krónur for higher rates). The rate gap is the key rate above its normal nominal level (the neutral real rate {i0%} + the inflation target {piT%}) minus the foreign rate above its normal {iF0%} + {betaH} × log of non-residents’ real króna holdings relative to normal (they want paying to hold more).',
       },
     },
     {
@@ -389,16 +398,16 @@ export const external: ModuleDef = {
       category: 'BEHAVIOUR',
       label: 'Carry trade',
       inputs: ['nominalGDP', 'keyRate', 'foreignRate'],
-      params: ['bW0', 'psiB', 'lamBW', 'i0', 'iF0'],
+      params: ['bW0', 'psiB', 'lamBW', 'i0', 'piT', 'iF0'],
       stocks: [['govBonds', 'W']],
       terms: terms(
         ['normal', 'Toward normal holdings', undefined, (c) => gapRate(c.p('lamBW'), c.dt) * (c.p('bW0') * c.v('nominalGDP') - c.stock('govBonds', 'W'))],
-        ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => gapRate(c.p('lamBW'), c.dt) * c.p('bW0') * c.v('nominalGDP') * c.p('psiB') * (c.v('keyRate') - c.p('i0') - (c.v('foreignRate') - c.p('iF0')))],
+        ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => gapRate(c.p('lamBW'), c.dt) * c.p('bW0') * c.v('nominalGDP') * c.p('psiB') * (c.v('keyRate') - (c.p('i0') + c.p('piT')) - (c.v('foreignRate') - c.p('iF0')))],
       ),
       concepts: ['carry-trade'],
       explain: {
         what: 'Government bonds non-residents buy from banks (negative: sell), paying with their króna deposits.',
-        rule: 'They want bonds worth {bW0} of GDP × (1 + {psiB} × the rate gap with abroad relative to normal), and close the gap to their holdings at speed {lamBW} a year.',
+        rule: 'They want bonds worth {bW0} of GDP × (1 + {psiB} × the rate gap with abroad), and close the gap to their holdings at speed {lamBW} a year. The rate gap is the key rate above its normal nominal level ({i0%} + the inflation target {piT%}) minus the foreign rate above its normal {iF0%}.',
       },
     },
     {
