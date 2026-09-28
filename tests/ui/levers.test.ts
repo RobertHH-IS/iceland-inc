@@ -10,6 +10,7 @@ import {
   leverSections,
   leverStep,
   leverValueLabel,
+  missingModeResets,
   niceStep,
   resetsWhenSetting,
   sectionCalling,
@@ -146,6 +147,26 @@ describe('showWhen and stabilisers (decision 0004)', () => {
     expect(resetsWhenSetting(all, [1, 3, 1.25, 1], 'mode', 0)).toEqual([{ id: 'offset', value: 0 }]);
     expect(resetsWhenSetting(all, [1, 3, 0, 1], 'mode', 0)).toEqual([]);
     expect(resetsWhenSetting(all, [0, 4.5, 0, 1], 'tax', 2)).toEqual([]);
+  });
+
+  test('resets a script is missing at later mode switches, for the values in force then', () => {
+    // Set the Manual rate at 30, before a switch to Automatic at 40 that was recorded without a reset.
+    expect(missingModeResets(all, [{ t: 40, lever: 'mode', value: 1 }, { t: 30, lever: 'fixed', value: 5 }])).toEqual([{ t: 40, lever: 'fixed', value: 3 }]);
+    // Chained: Automatic at 40, Manual at 50, Automatic at 70, the Manual rate set at 55.
+    const chain = [
+      { t: 40, lever: 'mode', value: 1 },
+      { t: 50, lever: 'mode', value: 0 },
+      { t: 55, lever: 'fixed', value: 4 },
+      { t: 70, lever: 'mode', value: 1 },
+    ];
+    expect(missingModeResets(all, chain)).toEqual([{ t: 70, lever: 'fixed', value: 3 }]);
+    // An offset set on Automatic is reset when switching to Manual.
+    expect(missingModeResets(all, [{ t: 0, lever: 'mode', value: 1 }, { t: 10, lever: 'offset', value: 1.5 }, { t: 20, lever: 'mode', value: 0 }])).toEqual([{ t: 20, lever: 'offset', value: 0 }]);
+    // Nothing missing: the reset is there already (the panel's), or nothing is hidden off its default.
+    expect(missingModeResets(all, [...chain, { t: 70, lever: 'fixed', value: 3 }])).toEqual([]);
+    expect(missingModeResets(all, [{ t: 5, lever: 'tax', value: 2 }, { t: 9, lever: 'mode', value: 1 }])).toEqual([]);
+    // One-offs and unknown levers are ignored.
+    expect(missingModeResets(all, [{ t: 1, lever: 'nope', value: 1 }, { t: 2, lever: 'fixed', value: 7, fire: true }, { t: 3, lever: 'mode', value: 1 }])).toEqual([]);
   });
 
   test('Apply rounds the suggestion to the lever’s step grid, within its range', () => {
