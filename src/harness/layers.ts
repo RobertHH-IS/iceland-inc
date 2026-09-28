@@ -1,0 +1,468 @@
+/**
+ * The six test layers of architecture §6, run for one model:
+ *
+ *   1. compilation      ids, one rule per variable, references, schedule, warnings
+ *   2. module tests     each module's own tests, on a fresh engine at the baseline
+ *   3. accounting       the four checks across every scenario the harness runs
+ *   4. baseline         240 months without a shock: drift of every variable and stock
+ *   5. calibration      the model's CalibrationChecks, PASS/FAIL against their ranges
+ *   6. robustness       property tests, half-step and tolerance sensitivity, determinism,
+ *                       golden scenarios
+ */
+import type { ModelDef, RunResult, ScenarioEvent } from '../core/types.ts';
+import { compile, CompileError, type KModel } from '../core/compile.ts';
+import { createEngine, type KernelEngine } from '../core/engine.ts';
+import { runScenario } from '../core/scenario.ts';
+import { CHECKS, DEFAULT_TOLERANCE } from '../core/checks.ts';
+import { baselineReport, type BaselineReport } from '../core/steady.ts';
+import { compareGolden, readGolden, writeGolden, GOLDEN_ABS, GOLDEN_REL, type GoldenFile } from './golden.ts';
+import { rng } from './rng.ts';
+
+export interface HarnessOptions {
+  updateGolden: boolean;
+  goldenDir: string;
+  propertyRuns: number;
+  propertyMonths: number;
+  seed: number;
+}
+
+export interface LayerResult {
+  n: number;
+  title: string;
+  pass: boolean;
+  /** One line for the summary. */
+  summary: string;
+  /** Markdown for the report. */
+  body: string[];
+}
+
+export interface HarnessResult {
+  modelId: string;
+  label: string;
+  pass: boolean;
+  layers: LayerResult[];
+  microsPerStep: number;
+  baseline?: BaselineReport;
+  model?: KModel;
+}
+
+export const DRIFT_TOL = 1e-9;
+export const HALF_STEP_TOL = 0.2; // relative change of each calibration measure
+export const SOLVER_TOL_TOL = 1e-6; // indicator change when the solver tolerance is loosened
+
+const e2 = (x: number) => (Number.isFinite(x) ? x.toExponential(2) : String(x));
+const f = (x: number, d = 3) => (Number.isFinite(x) ? x.toFixed(d) : String(x));
+const verdict = (ok: boolean) => (ok ? 'PASS' : 'FAIL');
+
+interface Tracked {
+  name: string;
+  months: number;
+  residuals: { id: string; residual: number }[];
+  failures: number;
+}
+
+export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
+  const layers: LayerResult[] = [];
+  const out: HarnessResult = { modelId: def.id, label: def.label, pass: false, layers, microsPerStep: 0 };
+  const notRun = (n: number, title: string, why: string): LayerResult => ({ n, title, pass: false, summary: `not run: ${why}`, body: [`Not run: ${why}.`] });
+
+  /* ---------------------------------------------------------- 1. compile */
+  let m: KModel;
+  try {
+    m = compile(def);
+  } catch (e) {
+    const errs = e instanceof CompileError ? e.errors : [(e as Error).message];
+    layers.push({ n: 1, title: 'Compilation', pass: false, summary: `${errs.length} error(s)`, body: ['Errors:', '', ...errs.map((x) => `- ${x}`)] });
+    for (const [n, t] of [[2, 'Module tests'], [3, 'Accounting'], [4, 'Baseline'], [5, 'Calibration'], [6, 'Robustness']] as const) layers.push(notRun(n, t, 'the model does not compile'));
+    return out;
+  }
+  out.model = m;
+  const blocks = m.schedule.filter((b) => b.simultaneous);
+  const counts = `${m.players.length} players, ${m.instruments.length} instruments, ${m.vars.length} variables, ${m.params.length} parameters, ${m.rules.length} rules, ${m.flows.length} flows (${m.clegs.length} legs), ${m.levers.length} levers, ${m.indicators.length} indicators, ${m.concepts.length} concepts`;
+  layers.push({
+    n: 1,
+    title: 'Compilation',
+    pass: true,
+    summary: `${m.vars.length} variables, ${blocks.length} simultaneous block(s), ${m.warnings.length} warning(s)`,
+    body: [
+      `Compiled: ${counts}.`,
+      '',
+      `Schedule: ${m.schedule.length} blocks, ${blocks.length} simultaneous${blocks.length ? ': ' + blocks.map((b) => `[${b.rules.join(', ')}]`).join('; ') : ''}.`,
+      '',
+      m.warnings.length ? `Warnings (${m.warnings.length}):` : 'Warnings: none.',
+      '',
+      ...m.warnings.map((w) => `- ${w}`),
+    ],
+  });
+
+  /* ---------------------------------------------- baseline and tracking */
+  let engine: KernelEngine;
+  try {
+    engine = createEngine(m);
+  } catch (e) {
+    layers.push(notRun(2, 'Module tests', 'the baseline could not be solved'));
+    layers.push(notRun(3, 'Accounting', 'the baseline could not be solved'));
+    layers.push({ n: 4, title: 'Baseline', pass: false, summary: 'baseline solve failed', body: [`The baseline could not be solved: ${(e as Error).message}`] });
+    layers.push(notRun(5, 'Calibration', 'the baseline could not be solved'));
+    layers.push(notRun(6, 'Robustness', 'the baseline could not be solved'));
+    return out;
+  }
+  out.baseline = baselineReport(m, engine.baselineData);
+  const tracked: Tracked[] = [];
+  const track = (name: string, e: KernelEngine) => tracked.push({ name, months: e.t, residuals: e.maxResiduals(), failures: e.checks().failures!.length });
+  const run = (name: string, events: ScenarioEvent[], months: number, eng: KernelEngine = engine) => {
+    const r = runScenario(eng, events, months);
+    track(name, r.engine);
+    return r;
+  };
+
+  /* ----------------------------------------------------- 2. module tests */
+  {
+    const rows: string[] = [];
+    let n = 0,
+      ok = 0;
+    for (const mod of def.modules)
+      for (const t of mod.tests ?? []) {
+        n++;
+        let pass = false,
+          detail = '';
+        const fresh = createEngine(m, { baseline: engine.baselineData });
+        try {
+          const r = t.run(fresh);
+          pass = r.pass;
+          detail = r.detail;
+        } catch (e) {
+          detail = `threw: ${(e as Error).message}`;
+        }
+        if (pass) ok++;
+        track(`module test ${mod.id}/${t.id}`, fresh);
+        rows.push(`| ${mod.id} | ${t.label} | ${verdict(pass)} | ${detail.replace(/\|/g, '/')} |`);
+      }
+    layers.push({
+      n: 2,
+      title: 'Module tests',
+      pass: ok === n,
+      summary: `${ok}/${n} pass`,
+      body: n ? ['| Module | Test | Result | Detail |', '|---|---|---|---|', ...rows] : ['The model has no module tests.'],
+    });
+  }
+
+  /* ------------------------------------------------ 4. baseline (drift) */
+  let layer4: LayerResult;
+  {
+    const e = createEngine(m, { baseline: engine.baselineData });
+    const months = 240;
+    e.step(months);
+    track('baseline, 240 months', e);
+    const drift: { id: string; d: number }[] = [];
+    for (const v of m.vars) {
+      let d = 0;
+      for (let t = 0; t <= months; t++) d = Math.max(d, Math.abs(e.valueAt(v.id, t) - e.baseline(v.id)));
+      drift.push({ id: `variable ${v.id}`, d: Number.isNaN(d) ? Infinity : d });
+    }
+    const p0 = e.positionsAt(0);
+    m.instruments.forEach((ins, i) =>
+      m.players.forEach((pl, p) => {
+        const j = i * m.NP + p;
+        if (!m.role[j]) return;
+        let d = 0;
+        for (let t = 0; t <= months; t++) d = Math.max(d, Math.abs(e.positionsAt(t)[j] - p0[j]));
+        drift.push({ id: `stock ${ins.id} / ${pl.id}`, d: Number.isNaN(d) ? Infinity : d });
+      }),
+    );
+    drift.sort((a, b) => b.d - a.d);
+    const worst = drift[0]?.d ?? 0;
+    const b = out.baseline!;
+    const ok = worst < DRIFT_TOL && b.residual < 1e-9;
+    layer4 = {
+      n: 4,
+      title: 'Baseline',
+      pass: ok,
+      summary: `drift ${e2(worst)} over ${months} months (solver residual ${e2(b.residual)})`,
+      body: [
+        `Solver: ${b.method}, ${b.iterations} iteration(s), ${b.unknowns} unknowns, largest residual ${e2(b.residual)}.`,
+        '',
+        `Solved parameters: ${Object.entries(b.solved).map(([k, v]) => `${k} = ${f(v, 6)}`).join(', ') || 'none'}.`,
+        '',
+        `Targets: ${b.targets.map((t) => `${t.describe} (residual ${e2(t.residual)})`).join('; ') || 'none'}.`,
+        '',
+        `No-shock run of ${months} months: largest drift of ${m.vars.length} variables and ${drift.length - m.vars.length} stock positions is ${e2(worst)} (limit ${e2(DRIFT_TOL)}): ${verdict(ok)}.`,
+        '',
+        '| Largest drifts | Max abs change |',
+        '|---|---|',
+        ...drift.slice(0, 5).map((x) => `| ${x.id} | ${e2(x.d)} |`),
+      ],
+    };
+  }
+
+  /* ----------------------------------------------------- 5. calibration */
+  const calib = def.calibration ?? [];
+  const measures: number[] = [];
+  let layer5: LayerResult;
+  {
+    const rows: string[] = [];
+    let ok = 0;
+    for (const c of calib) {
+      let v = NaN,
+        pass = false,
+        note = '';
+      try {
+        const r = run(`calibration ${c.id}`, c.scenario, c.months);
+        v = c.measure(r);
+        pass = v >= c.range[0] && v <= c.range[1];
+      } catch (e) {
+        note = ` (threw: ${(e as Error).message})`;
+      }
+      measures.push(v);
+      if (pass) ok++;
+      rows.push(`| ${c.id} | ${c.label} | ${f(v)}${note} | ${c.range[0]} to ${c.range[1]} | ${c.source ?? ''} | ${verdict(pass)} |`);
+    }
+    layer5 = {
+      n: 5,
+      title: 'Calibration',
+      pass: ok === calib.length,
+      summary: `${ok}/${calib.length} pass`,
+      body: calib.length ? ['| Check | Scenario and measure | Result | Range | Source | Verdict |', '|---|---|---|---|---|---|', ...rows] : ['The model has no calibration checks.'],
+    };
+  }
+
+  /* ------------------------------------------------------ 6. robustness */
+  const body6: string[] = [];
+  let pass6 = true;
+  const sum6: string[] = [];
+  const levers = m.levers;
+  // 6a. property tests
+  {
+    const rand = rng(opts.seed);
+    let ok = 0;
+    let worstRes = 0;
+    const bad: string[] = [];
+    for (let k = 0; k < opts.propertyRuns; k++) {
+      const nEv = 1 + Math.floor(rand() * 4);
+      const events: ScenarioEvent[] = [];
+      for (let j = 0; j < nEv; j++) {
+        const l = levers[Math.floor(rand() * levers.length)];
+        const lo = l.min ?? l.default - 1,
+          hi = l.max ?? l.default + 1;
+        const value = Math.round((lo + rand() * (hi - lo)) * 1000) / 1000;
+        events.push(l.kind === 'oneoff' ? { t: Math.floor(rand() * 25), lever: l.id, value, fire: true } : { t: Math.floor(rand() * 25), lever: l.id, value });
+      }
+      events.sort((a, b) => a.t - b.t);
+      let why = '';
+      try {
+        const r = run(`property run ${k + 1}`, events, opts.propertyMonths);
+        const e = r.engine;
+        for (let t = 0; t <= e.t && !why; t++) {
+          for (const v of m.vars)
+            if (!Number.isFinite(e.valueAt(v.id, t))) {
+              why = `${v.id} is not finite at month ${t}`;
+              break;
+            }
+          if (!why && !e.positionsAt(t).every(Number.isFinite)) why = `a stock is not finite at month ${t}`;
+        }
+        const fails = e.checks().failures!.length;
+        if (!why && fails) why = `${fails} accounting failure(s)`;
+        for (const x of e.maxResiduals()) worstRes = Math.max(worstRes, x.residual);
+      } catch (err) {
+        why = `threw: ${(err as Error).message}`;
+      }
+      if (why) bad.push(`- run ${k + 1}: ${why}; events ${JSON.stringify(events)}`);
+      else ok++;
+    }
+    const pass = ok === opts.propertyRuns;
+    pass6 &&= pass;
+    sum6.push(`property ${ok}/${opts.propertyRuns}`);
+    body6.push(
+      '### Property tests',
+      '',
+      `${opts.propertyRuns} runs of ${opts.propertyMonths} months, each with 1 to 4 random lever events (values uniform within each lever's range, months 0 to 24; seed ${opts.seed}). Every variable and stock must stay finite and every accounting check must pass. Largest residual: ${e2(worstRes)}. ${ok}/${opts.propertyRuns} pass: ${verdict(pass)}.`,
+      '',
+      ...bad.slice(0, 10),
+      '',
+    );
+  }
+  // 6b. half-step sensitivity
+  {
+    const rows: string[] = [];
+    let worst = 0;
+    let ok = true;
+    try {
+      const half = createEngine({ ...def, dt: def.dt / 2 });
+      calib.forEach((c, j) => {
+        const events = c.scenario.map((e) => ({ ...e, t: e.t * 2 }));
+        const r = run(`half-step ${c.id}`, events, c.months * 2, half);
+        const sub: RunResult = {
+          months: c.months,
+          series: (id) => r.series(id).filter((_, t) => t % 2 === 0),
+          value: (id, month) => r.value(id, month * 2),
+        };
+        const vh = c.measure(sub),
+          v = measures[j];
+        const rel = Math.abs(vh - v) / Math.max(Math.abs(v), 1e-9);
+        worst = Math.max(worst, rel);
+        const pass = rel <= HALF_STEP_TOL;
+        ok &&= pass;
+        rows.push(`| ${c.id} | ${f(v)} | ${f(vh)} | ${f(100 * rel, 1)}% | ${verdict(pass)} |`);
+      });
+    } catch (err) {
+      ok = false;
+      rows.push(`| (half-step model) | | | threw: ${(err as Error).message} | FAIL |`);
+    }
+    pass6 &&= ok;
+    sum6.push(`half-step ${f(100 * worst, 1)}%`);
+    body6.push(
+      '### Half-step sensitivity',
+      '',
+      `Each calibration scenario rerun with half the time step (dt = ${def.dt / 2}); the measure may change by at most ${100 * HALF_STEP_TOL}%. ${verdict(ok)}.`,
+      '',
+      '| Check | dt | dt / 2 | Change | Verdict |',
+      '|---|---|---|---|---|',
+      ...rows,
+      '',
+    );
+  }
+  // 6c. solver-tolerance sensitivity and 6d. determinism
+  {
+    let worstTol = 0;
+    let deterministic = true;
+    const notes: string[] = [];
+    const scen: { id: string; events: ScenarioEvent[]; months: number }[] = calib.length ? calib.map((c) => ({ id: c.id, events: c.scenario, months: c.months })) : [{ id: 'baseline', events: [], months: 60 }];
+    for (const s of scen) {
+      const a = run(`tolerance ref ${s.id}`, s.events, s.months);
+      const loose = run(`tolerance 1e-9 ${s.id}`, s.events, s.months, createEngine(m, { baseline: engine.baselineData, solverTol: 1e-9 }));
+      for (const ind of m.indicators) {
+        const x = a.series(ind.id),
+          y = loose.series(ind.id);
+        for (let t = 0; t < x.length; t++) worstTol = Math.max(worstTol, Math.abs(x[t] - y[t]));
+      }
+      // determinism: a completely fresh model, compiled and solved again
+      const b = run(`determinism ${s.id}`, s.events, s.months, createEngine(compile(def)));
+      for (let t = 0; t <= s.months && deterministic; t++)
+        for (const v of m.vars)
+          if (!Object.is(a.value(v.id, t), b.value(v.id, t))) {
+            deterministic = false;
+            notes.push(`- ${s.id}: ${v.id} differs at month ${t}`);
+            break;
+          }
+    }
+    // seek equals a straight run
+    const s0 = scen[0];
+    const straight = run('seek reference', s0.events, s0.months);
+    const sk = createEngine(m, { baseline: engine.baselineData });
+    sk.load({ modelId: m.def.id, events: s0.events, months: s0.months });
+    const mid = Math.floor(s0.months / 2) + 1;
+    sk.seek(mid);
+    let seekOk = m.vars.every((v) => Object.is(sk.value(v.id), straight.value(v.id, mid)));
+    sk.seek(s0.months);
+    seekOk &&= m.vars.every((v) => Object.is(sk.value(v.id), straight.value(v.id, s0.months)));
+    track('seek replay', sk);
+    const tolOk = worstTol < SOLVER_TOL_TOL;
+    pass6 &&= tolOk && deterministic && seekOk;
+    sum6.push(`tolerance ${e2(worstTol)}`, deterministic && seekOk ? 'deterministic' : 'NOT deterministic');
+    body6.push(
+      '### Solver tolerance',
+      '',
+      `Loosening the Gauss–Seidel tolerance from 1e-12 to 1e-9 moves any indicator by at most ${e2(worstTol)} (limit ${e2(SOLVER_TOL_TOL)}): ${verdict(tolOk)}.`,
+      '',
+      '### Determinism',
+      '',
+      `Each scenario run twice from independently compiled and solved models gives bit-identical variables: ${verdict(deterministic)}. Seeking back to month ${mid} and forward again reproduces the straight run exactly: ${verdict(seekOk)}.`,
+      '',
+      ...notes,
+      '',
+    );
+  }
+  // 6e. golden scenarios
+  {
+    const scen: { name: string; events: ScenarioEvent[]; months: number }[] = [{ name: 'baseline', events: [], months: 24 }];
+    for (const c of calib) scen.push({ name: `calibration-${c.id}`, events: c.scenario, months: c.months });
+    const all: ScenarioEvent[] = [];
+    levers.forEach((l, j) => {
+      const t = 3 * j;
+      if (l.kind === 'oneoff') all.push({ t, lever: l.id, value: l.default, fire: true });
+      else {
+        const hi = l.max ?? l.default + 1;
+        all.push({ t, lever: l.id, value: Math.round((l.default + (hi - l.default) / 2) * 1000) / 1000 });
+      }
+    });
+    scen.push({ name: 'all-levers', events: all, months: 60 });
+    const rows: string[] = [];
+    let ok = 0;
+    for (const s of scen) {
+      const r = run(`golden ${s.name}`, s.events, s.months);
+      const g: GoldenFile = { format: 'iceland-inc/golden@1', modelId: m.def.id, scenario: s.name, months: s.months, events: s.events, indicators: {} };
+      for (const ind of m.indicators) g.indicators[ind.id] = r.series(ind.id);
+      if (opts.updateGolden) {
+        writeGolden(opts.goldenDir, g);
+        ok++;
+        rows.push(`| ${s.name} | written | | PASS |`);
+        continue;
+      }
+      const stored = readGolden(opts.goldenDir, m.def.id, s.name);
+      if (!stored) {
+        rows.push(`| ${s.name} | missing (run \`bun run harness --update-golden\`) | | FAIL |`);
+        continue;
+      }
+      const c = compareGolden(stored, g);
+      if (c.pass) ok++;
+      rows.push(`| ${s.name} | ${e2(c.maxDiff)} | ${c.where} | ${verdict(c.pass)} |`);
+    }
+    const pass = ok === scen.length;
+    pass6 &&= pass;
+    sum6.push(`golden ${ok}/${scen.length}${opts.updateGolden ? ' (updated)' : ''}`);
+    body6.push(
+      '### Golden scenarios',
+      '',
+      `Stored indicator paths in \`tests/golden/${m.def.id}/\`, compared with tolerance ${GOLDEN_ABS} + ${GOLDEN_REL} × |value|. ${opts.updateGolden ? 'Updated in this run.' : ''}`,
+      '',
+      '| Scenario | Largest difference | Where | Verdict |',
+      '|---|---|---|---|',
+      ...rows,
+      '',
+    );
+  }
+  const layer6: LayerResult = { n: 6, title: 'Robustness', pass: pass6, summary: sum6.join(', '), body: body6 };
+
+  /* ------------------------------------------------------ 3. accounting */
+  {
+    const worst: Record<string, number> = {};
+    for (const c of CHECKS) worst[c.id] = 0;
+    let failures = 0;
+    let steps = 0;
+    for (const t of tracked) {
+      steps += t.months;
+      failures += t.failures;
+      for (const r of t.residuals) worst[r.id] = Math.max(worst[r.id], r.residual);
+    }
+    const max = Math.max(...Object.values(worst));
+    const ok = failures === 0 && max <= DEFAULT_TOLERANCE;
+    layers.push({
+      n: 3,
+      title: 'Accounting',
+      pass: ok,
+      summary: `max residual ${e2(max)} over ${tracked.length} runs (${steps} months)`,
+      body: [
+        `All four checks after every step of every run in this report: ${tracked.length} runs, ${steps} months in total. Tolerance ${DEFAULT_TOLERANCE}. Failed steps: ${failures}. ${verdict(ok)}.`,
+        '',
+        '| Check | Largest residual |',
+        '|---|---|',
+        ...CHECKS.map((c) => `| ${c.label} | ${e2(worst[c.id])} |`),
+      ],
+    });
+  }
+  layers.push(layer4, layer5, layer6);
+  layers.sort((a, b) => a.n - b.n);
+
+  // timing: a long shocked run
+  {
+    const e = createEngine(m, { baseline: engine.baselineData });
+    const setting = levers.find((l) => l.kind !== 'oneoff');
+    if (setting) e.setLever(setting.id, setting.max ?? setting.default + 1);
+    e.step(100);
+    const t0 = performance.now();
+    e.step(1200);
+    out.microsPerStep = ((performance.now() - t0) * 1000) / 1200;
+  }
+  out.pass = layers.every((l) => l.pass);
+  return out;
+}

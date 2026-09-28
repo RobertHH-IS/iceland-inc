@@ -1,10 +1,15 @@
 {
   "name": "iceland-inc",
   "version": "0.1.0",
-  "private": true,
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7.0.2"
+  },
   "description": "An explorable, stock-flow-consistent economy of Iceland: money flowing between balance sheets, with every rule explained.",
-  "type": "module",
   "license": "MIT",
+  "private": true,
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
@@ -12,11 +17,9 @@
     "dev": "bun src/ui/index.html",
     "build": "bun build src/ui/index.html --outdir dist --minify"
   },
+  "type": "module",
   "dependencies": {
-    "preact": "^10.29.8"
-  },
-  "devDependencies": {
-    "@types/bun": "^1.4.2",
-    "typescript": "^7.0.2"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   }
 }

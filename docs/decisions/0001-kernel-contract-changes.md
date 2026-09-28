@@ -1,0 +1,38 @@
+# 0001. Kernel contract changes
+
+Status: accepted, with the first kernel implementation (September 2026).
+
+Implementing `src/core/` against `src/core/types.ts` showed a few gaps. Each change below is minimal and backwards compatible: new fields are optional, and the rest are doc comments that pin down behaviour the contract left open.
+
+## Changes to `src/core/types.ts`
+
+| # | Where | Change | Why |
+|---|---|---|---|
+| 1 | `LeverDef.binds` | Added optional `scale` (default 1): `add` gives base + scale·value, `replace` gives scale·value. | Levers are shown in user units (a tax change in pp) while parameters hold model units (a fraction). Without a scale, every such lever needed a rule to read it instead of a binding. |
+| 2 | `CheckReport` | Added optional `tolerance` and `failures` (every check that exceeded the tolerance since the last reset: month, check id, residual). | The engine records failures by default instead of throwing. The latest step's residuals alone would hide a failure a few months back. |
+| 3 | `LegDef` doc | A real asset has no issuer, so its `revalue` / `writeoff` is one-sided: set `from = to =` the holder. A negative amount reverses the posting. | "From loses, to gains" needs two sides; depreciation and house-price gains have only one. The flow-balance check skips such flows. |
+| 4 | `ShockApi` doc | `get` returns the latest value; `setLagged` accepts only variables some rule reads with `lag()` or adjusts gradually, and rejects instrument positions. | Makes "one-offs touch only non-stock state" enforceable, and turns a shock that could have no effect into an error. |
+| 5 | `Ctx.lag` doc | `k` runs from 1 to the lag window (two years of steps by default); before month 0 the value is the baseline; write "a year ago" as `Math.round(1 / c.dt)`. | The contract did not say how far back lags reach or what they return before the start. The `dt` form keeps rules correct in the half-step test. |
+| 6 | `Ctx.base` doc | While the baseline is being solved, `base()` returns the current guess. | A gap measured against `base()` is zero by construction during the solve, so it cannot pin the steady state; use a parameter for that. |
+| 7 | `IndicatorDef.display` doc | Spelled out the transforms: `deviation-pct` (level/base − 1)·100, `deviation-pp` (level − base)·100 for levels held as fractions, `deviation` level − base, `level`. | "pp" was ambiguous between fractions and levels already in percent. |
+| 8 | `SteadyStateSpec.initialStocks` doc | Values use the `Ctx.stock` sign convention (liabilities positive too). A financial instrument's single issuer, or else single holder, may be left out and is filled in so the instrument balances. | The sign convention was unstated, and listing both sides of every claim invited mistakes. |
+| 9 | `ScenarioEvent.t` doc | The step index (= month at dt 1/12) at which the event applies, before that step runs. | Needed for the half-step test, where one month is two steps. |
+| 10 | `RunResult.series` doc | Returns `months + 1` values; index 0 is the baseline. | Calibration measures index months directly. |
+| 11 | `Engine.series` doc | Also accepts a variable id, returning raw values. | Tests and charts often want a raw variable path. |
+| 12 | `Engine.fork` doc | The fork replays this engine's events from the baseline under its own options. `disableTerms` (`ruleId.termId` or `varId.termId`) holds those terms at their baseline values; `params` override parameters without re-solving the baseline. | "Independent copy" left open what disabling a term means and whether the baseline is re-solved. Holding a term at its baseline keeps the unshocked run of the variant at the steady state, so shocked − unshocked isolates the shock, as §3 requires. |
+
+## Interpretations where the contract was silent
+
+These are kernel behaviours, not type changes, recorded so model authors and the interface can rely on them.
+
+- **Compile-time dry run.** The compiler runs every rule, term, `combine`, `regime` and indicator once against a recording context. Reading an id that was not declared (`inputs`, `lagInputs`, `params`, `stocks`, `levers`) or does not exist is a compile error. In dev mode (the default) the engine also throws on an undeclared read at run time, which catches branches the dry run did not take. The dry run also records which variables each term reads (`Influence.terms[].inputs`).
+- **One consolidated bank, central bank and treasury.** A player may settle as `bank`, `central-bank` or `treasury` only if it is the one named in `paymentSystem`. A player cannot both hold and issue the same instrument.
+- **Postings.** A flow's `kind` must match its posting (`accrue` ↔ accrual, `revalue` ↔ revaluation, `writeoff` ↔ writeoff, the rest ↔ cash); a mismatch is an error. An `account` that does not suit the posting is a warning. A `purchase` moves no net worth for the buyer and books the sale as the seller's income; a `from = to` purchase (firms buying from firms) moves no cash.
+- **Net-worth check.** "Saving" is the income minus spending booked by `transfer`, the seller's side of `purchase` and `accrue`; revaluations and write-offs are other changes in net worth. Residuals are absolute, in model units.
+- **Events and time travel.** Events at month t are applied on arrival at t, after that month's snapshot. `setLever`/`fire` at month t insert an event into the scenario (keeping any later ones) and drop snapshots after t. `seek` back truncates history to the target month; the scenario's later events replay when stepping forward again. `load(scenario)` runs to `scenario.months`.
+- **Simultaneous blocks.** Gauss–Seidel starts from last month's values, iterates until the largest relative change is below 1e-12 (200 iterations at most), and otherwise restarts from those values with damped Newton on a finite-difference Jacobian. A self-referencing rule is a one-rule simultaneous block.
+- **Baseline solver.** The unknowns are the free parameters, every independent position (one position per financial instrument is derived so the instrument balances) and every state variable (read with `lag()` or adjusted). The equations are (position after one step − before) / dt, (state after − before) and the target residuals. Newton is used when the Jacobian is regular; directions the equations do not pin down fall back to Levenberg–Marquardt, which keeps the initial guess there.
+- **Influences.** `influences(id)` looks up a variable, then a flow, then an indicator. Prefix the id with `var:`, `flow:` or `indicator:` when kinds share an id. A flow's terms are its legs.
+- **Ideas at play.** Changes are compared in common units before summing: 1 pp of GDP for money, 1 pp for rates and ratios, 1% of baseline for prices and indices. Concepts on a rule are weighted by the change in its desired value; concepts on a flow by the change in the flow. The scope may be the economy (default), a player, a group, a flow, a variable, an indicator or a pipe `from->to[:kind]`, and includes everything upstream of it.
+- **Pipes.** Legs keep their declared direction; a negative value is not flipped into the opposite pipe. The two directions between two nodes are separate pipes, as are different kinds.
+- **Concepts.** `compile(def, { extraConcepts })` adds concepts defined outside the model; concepts defined by a module win. The model registry adds the shared library as a module named `concepts`. A concept id that nothing defines is a warning, not an error.

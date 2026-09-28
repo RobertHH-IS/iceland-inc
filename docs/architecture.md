@@ -23,7 +23,7 @@ The economy is **money flowing between the balance sheets of players**: househol
 9. **Modules compose the economy.** Players, instruments, flows, rules, levers, indicators, concepts and tests arrive together in modules. A more detailed module replaces a simpler one explicitly (`replaces`), so growth is additive and reviewable.
 10. **Provenance everywhere.** Every parameter says whether it is data (with source and vintage), calibrated, derived, assumed or a placeholder. The interface shows this next to each rule.
 11. **The interface is generic.** The flow map, levers, charts, ledger, balance sheets and inspector are all generated from the compiled model. A new module appears in the interface without interface code, with optional layout hints.
-12. **Few dependencies, pinned by age.** TypeScript on Bun, Preact for the interface, and nothing else in the kernel. Packages must be at least 7 days old (`bunfig.toml`, `.npmrc`).
+12. **Few dependencies, pinned by age.** TypeScript on Bun, React for the interface, and nothing else in the kernel. Packages must be at least 7 days old (`bunfig.toml`, `.npmrc`).
 
 ## 3. The model language
 
@@ -187,7 +187,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 
 | # | Decision | Why |
 |---|---|---|
-| 1 | TypeScript on Bun, Preact for the interface | Types make the model language self-documenting; Bun runs TypeScript, tests and bundles with no extra tooling; Preact is small and stable |
+| 1 | TypeScript on Bun, React for the interface | Types make the model language self-documenting; Bun runs TypeScript, tests and bundles with no extra tooling; React is the most familiar interface library for contributors. Preact's smaller size was considered and does not matter here, because the engine, not rendering, does the heavy work |
 | 2 | Legs with their own amounts | Exact pipes and a navigable influence graph |
 | 3 | One rule per variable, with categories | Prevents double-counting; separates accounting from assumptions |
 | 4 | Additive terms, with non-additivity flagged | Exact, honest within-rule influences |

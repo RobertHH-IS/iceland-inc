@@ -102,7 +102,9 @@ export interface VarDef {
 export interface Ctx {
   /** Same-step value of a variable. Must be declared in `inputs`. */
   v(id: Id): number;
-  /** Value k steps ago (default 1). Must be declared in `lagInputs`. */
+  /** Value k steps ago (default 1). Must be declared in `lagInputs`. k runs from 1 to the
+   *  engine's lag window (two years of steps by default); use Math.round(n / c.dt) for
+   *  "n years ago" so the rule survives a change of step. Before t = 0 it is the baseline. */
   lag(id: Id, k?: number): number;
   /** Parameter value, after any lever that binds to it. Must be declared in `params`. */
   p(id: Id): number;
@@ -111,7 +113,9 @@ export interface Ctx {
   stock(instrument: Id, player: Id): number;
   /** Current value of a lever setting. Declare in `levers`. */
   lever(id: Id): number;
-  /** Baseline (steady-state) value of a variable. Allowed without declaration. */
+  /** Baseline (steady-state) value of a variable. Allowed without declaration.
+   *  While the baseline is being solved it returns the current guess, so a rule that
+   *  measures a gap against base() cannot pin the steady state; use a parameter for that. */
   base(id: Id): number;
   readonly t: number; // years since start
   readonly dt: number; // years per step
@@ -190,6 +194,9 @@ export type Posting =
  *   trade:   from = buyer (pays cash, gains the asset), to = seller.
  *   accrue:  from = debtor (owes more), to = creditor (claim grows).
  *   revalue / writeoff: from = the side that loses value, to = the side that gains.
+ *   A REAL asset has no issuer, so its revalue / writeoff is one-sided: set from = to = the
+ *   holder. The holder's asset changes by +amount (revalue) or −amount (writeoff).
+ * A negative amount reverses the posting (a negative issue is a repayment).
  * Pipes on the flow map are drawn from `from` to `to`; particles move with the cash.
  */
 export interface LegDef {
@@ -224,8 +231,10 @@ export interface LeverDef {
   max?: number;
   step?: number;
   options?: { value: number; label: string }[]; // for 'choice'
-  /** Settings bind to a parameter (replace or add) or to an exogenous variable. */
-  binds?: { param: Id; mode: 'replace' | 'add' } | { variable: Id; mode: 'replace' | 'add' };
+  /** Settings bind to a parameter (replace or add) or to an exogenous variable.
+   *  `scale` converts lever units to model units (default 1), e.g. 0.01 for a lever in pp
+   *  bound to a rate held as a fraction: add → base + scale·value; replace → scale·value. */
+  binds?: { param: Id; mode: 'replace' | 'add'; scale?: number } | { variable: Id; mode: 'replace' | 'add'; scale?: number };
   /** One-off shocks may only change NON-stock state (a wage level, expectations, sentiment).
    *  The kernel rejects writes to instrument positions, so accounting cannot break. */
   fire?: (s: ShockApi, size: number) => void;
@@ -236,8 +245,11 @@ export interface LeverDef {
 }
 
 export interface ShockApi {
+  /** Latest value of a variable (its previous-step value as the next step will see it). */
   get(varId: Id): number;
-  /** Set the previous-step value of a state variable (the shock is then felt this step). */
+  /** Set the previous-step value of a state variable (the shock is then felt this step).
+   *  Only variables some rule reads with lag() (or adjusts gradually) can be shocked;
+   *  anything else, and every instrument position, is rejected. */
   setLagged(varId: Id, value: number): void;
 }
 
@@ -257,7 +269,11 @@ export interface IndicatorDef {
   /** Display unit after the transform, e.g. '% vs baseline', 'pp vs baseline'. */
   unit: string;
   compute: (c: IndicatorCtx) => number; // the LEVEL
-  /** How the chart shows it: deviation from baseline in % or pp, or the raw level. */
+  /** How the chart shows it:
+   *   'deviation-pct': (level / baseline − 1) × 100   (e.g. output, % vs baseline)
+   *   'deviation-pp':  (level − baseline) × 100       (for levels held as fractions: rates, shares)
+   *   'deviation':     level − baseline               (levels already in display units, e.g. % of GDP)
+   *   'level':         level                                                                   */
   display: 'deviation-pct' | 'deviation-pp' | 'deviation' | 'level';
   description: string;
   /** The variable(s) behind it, so the inspector can open their rules. */
@@ -339,7 +355,10 @@ export interface SteadyStateSpec {
   /** Parameters the solver may move to hit the targets (same count as targets). */
   free: Id[];
   targets: { id: Id; describe: string; residual: (c: IndicatorCtx) => number }[];
-  /** Initial stock positions [instrument, player, value] and variable guesses. */
+  /** Initial stock positions [instrument, player, value] and variable guesses.
+   *  Values use the Ctx.stock sign convention (holders' assets and issuers' liabilities are
+   *  both positive). A financial instrument's single issuer (or else single holder) may be
+   *  left out: the kernel fills it so the instrument balances. */
   initialStocks: [Id, Id, number][];
   initialVars?: Record<Id, number>;
   /** Optional closed-form solver; if present the kernel uses it before Newton polishing. */
@@ -367,7 +386,7 @@ export interface ModelDef {
 /* ------------------------------------------------------------------ runtime */
 
 export interface ScenarioEvent {
-  t: number; // month index at which it applies
+  t: number; // step index at which it applies (= month index at the standard dt of 1/12), before that step runs
   lever: Id;
   value: number; // new setting, or size for a one-off
   fire?: boolean; // true for one-offs
@@ -381,7 +400,7 @@ export interface Scenario {
 
 export interface RunResult {
   months: number;
-  series(indicatorId: Id): number[]; // per month, in display units
+  series(indicatorId: Id): number[]; // per month, in display units; months + 1 entries (index 0 = baseline)
   value(varId: Id, month: number): number;
 }
 
@@ -438,6 +457,10 @@ export interface CheckReport {
   t: number;
   maxResidual: number;
   items: { id: Id; label: string; residual: number }[];
+  /** Tolerance the residuals are compared with (1e-9 by default). */
+  tolerance?: number;
+  /** Every check that exceeded the tolerance since the last reset, oldest first. */
+  failures?: { t: number; id: Id; residual: number }[];
 }
 
 export interface Engine {
@@ -455,7 +478,7 @@ export interface Engine {
   value(varId: Id): number;
   baseline(varId: Id): number;
   indicator(id: Id): number; // current, in display units
-  series(id: Id): { t: number; v: number }[]; // display units, full history
+  series(id: Id): { t: number; v: number }[]; // indicator in display units (or a variable's raw values), full history
   legs(): LegSnapshot[];
   pipes(level: 'player' | 'group'): Pipe[];
   balanceSheet(player: Id): BalanceSheet;
@@ -464,7 +487,11 @@ export interface Engine {
   ideasAtPlay(scope?: Id): { concept: Id; weight: number; via: Id[] }[];
   checks(): CheckReport;
   feed(): { t: number; message: string; indicator: Id; concept?: Id }[];
-  /** Independent copy for counterfactuals: compare shock vs no-shock within the SAME variant. */
+  /** Independent copy for counterfactuals: compare shock vs no-shock within the SAME variant.
+   *  The fork replays this engine's events from the baseline under its own options.
+   *  disableTerms ('ruleId.termId' or 'varId.termId') holds those terms at their baseline
+   *  values ("without this channel"); params override parameter values without re-solving
+   *  the baseline. */
   fork(opts?: { disableTerms?: Id[]; params?: Record<Id, number> }): Engine;
 }
 
