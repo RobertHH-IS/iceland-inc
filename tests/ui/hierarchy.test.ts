@@ -403,6 +403,35 @@ describe('pipes in the inspector (M16, M17)', () => {
     expect(pipeBetween(info, legValues, 'domestic', 'exporters', 'cash')!.legs).toHaveLength(2);
   });
 
+  test('ideas at play for a pipe between nested nodes cover the same legs as its detail', () => {
+    // Tag the input rules with ideas of their own and move them: Retail's inputs to the
+    // exporters, and Fisheries' inputs to Aluminium, inside Exporters.
+    const def = hierarchyModel();
+    const economy = def.modules.find((m) => m.id === 'economy')!;
+    const tags: Record<string, string> = { inputs_FR_FF: 'into-exporters', inputs_FR_FA: 'into-exporters', inputs_FF_FA: 'within-exporters' };
+    economy.rules = economy.rules!.map((r) => (tags[r.id] ? { ...r, concepts: [tags[r.id]] } : r));
+    economy.levers = [
+      ...economy.levers!,
+      ...Object.keys(tags).map((id) => ({ id: `more_${id}`, label: `More ${id}`, group: 'Economy', kind: 'setting' as const, unit: '% of GDP', default: 0, min: -2, max: 2, binds: { param: `lvl_${id}`, mode: 'add' as const }, description: 'Test lever.', definition: 'Level shift, for the test.' })),
+    ];
+    const e = createEngine(def);
+    for (const id of Object.keys(tags)) e.setLever(`more_${id}`, 1);
+    e.step(2);
+    const ideas = (scope: string) => e.ideasAtPlay(scope).map((x) => x.concept);
+    const legRules = (a: Id, b: Id) => {
+      const ni = describeModel(e.model, (id) => e.baseline(id));
+      const p = pipeBetween(ni, Float64Array.from(e.legs().map((l) => l.value)), a, b, 'cash')!;
+      return [...new Set(p.legs.map((l) => tags[ni.legs[l.index].amount]).filter(Boolean))].sort();
+    };
+    expect(ideas('firms->exporters:cash')).toContain('into-exporters');
+    expect(ideas('firms->exporters:cash')).not.toContain('within-exporters');
+    expect(ideas('exporters->exporters:cash')).toContain('within-exporters');
+    expect(ideas('exporters->exporters:cash')).not.toContain('into-exporters');
+    // The same split as the pipe detail's legs.
+    for (const [a, b] of [['firms', 'exporters'], ['exporters', 'exporters'], ['firms', 'FA']] as const)
+      expect(ideas(`${a}->${b}:cash`).filter((c) => c.endsWith('-exporters')).sort()).toEqual(legRules(a, b));
+  });
+
   test('every leg carries its index, so a flow with several legs between the same two players explains each one (Iceland imports)', () => {
     const def = models.find((m) => m.id === 'iceland')!;
     const e = createEngine(def);
