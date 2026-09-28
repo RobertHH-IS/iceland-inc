@@ -288,7 +288,12 @@ P('termN', 40, 'years', 'POLICY', 'Longest term allowed in the stress test for n
 P('floorI', 0.03, 'fraction/yr', 'POLICY', 'Stress-test real-rate floor for indexed loans.', { basis: 'data', source: 'Central Bank of Iceland Rules No. 1300/2025 (3%)', vintage: '2025' });
 P('termI', 25, 'years', 'POLICY', 'Longest term allowed in the stress test for indexed loans.', { basis: 'data', source: 'Central Bank of Iceland Rules No. 1300/2025 (25 years)', vintage: '2025' });
 P('capUse0', 0.6, 'fraction', 'BEHAVIOUR', 'Baseline new lending as a share of what the debt-service cap allows (slack under the cap).', assumed());
-P('ltvYExtra', 0.05, 'fraction', 'POLICY', 'Extra loan-to-value room for the young (first-time buyers) when the LTV cap is on.', assumed('v1: first-time buyers get 5 points more.'));
+P('ltvYExtra', 0.1, 'fraction', 'POLICY', 'Extra loan-to-value room for the young (first-time buyers) when the LTV cap is on.', {
+  basis: 'data',
+  source: 'Central Bank of Iceland Rules No. 1131/2025 on maximum loan-to-value ratios, art. 3: 80% in general and 90% for first-time buyers, in force 3 November 2025 (also CBI Financial Stability 2026/1)',
+  vintage: '2025',
+  note: 'The model treats every young buyer as a first-time buyer, an approximation. v1 used 5 points (the 85% limit of earlier rules).',
+});
 
 /* ------------------------------------------ households: spending and borrowing */
 P('aLY', 0.95, 'fraction', 'BEHAVIOUR', 'Young: share of labour and transfer income spent.', assumed());

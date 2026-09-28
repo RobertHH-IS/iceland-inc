@@ -5,7 +5,8 @@
  * real mortgage rates are high and more when real house prices are high. New lending replaces
  * what is repaid and closes part of the gap to that wish, plus any extra banks push. It is
  * capped by the Central Bank's debt-service rule (payments at stressed rates may take at most
- * 35% of income, 40% for first-time buyers) and, when switched on, by a loan-to-value cap.
+ * 35% of income, 40% for first-time buyers) and, when switched on, by a loan-to-value cap on the
+ * homes bought this year (80%, 90% for first-time buyers, under Rules 1131/2025).
  * 65% of loans are CPI-indexed: their borrowers pay a low real rate in cash, and inflation is
  * added to the loan instead (an accrual, so no money moves). Banks and pension funds lend in
  * their historical proportions: a bank loan creates a deposit, a pension-fund loan moves one.
@@ -103,23 +104,18 @@ function groupRules(g: B): RuleDef[] {
       target: `ltvCap${g}`,
       category: 'POLICY',
       label: 'Loan-to-value cap',
-      inputs: [`mortgageRepayment${g}`, `mortgageDemand${g}`],
+      inputs: [`mortgageRepayment${g}`, `mortgageDemand${g}`, `homePurchases${g}`],
       params: ['ltvLimit', ...(g === 'Y' ? ['ltvYExtra'] : [])],
-      stocks: [
-        ['mortgagesN', pl],
-        ['mortgagesI', pl],
-        ['homes', pl],
-      ],
       compute: (c) => {
         if (!(c.p('ltvLimit') > 0)) return c.v(`mortgageDemand${g}`); // off: never binds
         const limit = c.p('ltvLimit') + (g === 'Y' ? c.p('ltvYExtra') : 0);
-        return c.v(`mortgageRepayment${g}`) + Math.max(0, limit * c.stock('homes', pl) - debt(c, 'mortgagesN', g) - debt(c, 'mortgagesI', g));
+        return c.v(`mortgageRepayment${g}`) + limit * c.v(`homePurchases${g}`);
       },
       regime: (c) => (c.p('ltvLimit') > 0 ? null : 'Cap switched off'),
       concepts: ['loan-to-value', 'macroprudential-policy'],
       explain: {
         what: `The most new lending a loan-to-value cap allows the ${who} this year.`,
-        rule: `When the lever sets a cap: cap = repayments + room left under {ltvLimit%} of the value of their homes${g === 'Y' ? ' (5 points more for first-time buyers)' : ''}. When it is off, the cap equals demand and never binds.`,
+        rule: `When the lever sets a cap: cap = repayments + {ltvLimit%}${g === 'Y' ? ' (plus {ltvYExtra%} for first-time buyers)' : ''} of the value of the homes they buy this year. Loans that replace what is repaid are always allowed; new debt on top of that may pay for at most that share of the homes bought, and loans already made are never tested. How many homes each group buys a year is a placeholder, so the point where the cap starts to bite is approximate. When the cap is off, it equals demand and never binds.`,
       },
     },
     {
@@ -426,8 +422,9 @@ export const mortgages: ModuleDef = {
       max: 100,
       step: 5,
       binds: { param: 'ltvLimit', mode: 'replace', scale: 0.01 },
-      description: '0 = off. Otherwise caps each group’s mortgage debt at this share of the value of its homes (first-time buyers 5 points more).',
-      definition: 'Level of the loan-to-value cap in percent, applied to new lending at once and persistent while set; 0 switches it off. Existing loans above the cap are not called in, but new lending is then limited to replacing repayments.',
+      description: `0 = off. Otherwise new mortgages may pay for at most this share of the value of the homes bought this year (first-time buyers ${Math.round(100 * ALL_PARAMS.ltvYExtra.value)} points more).`,
+      definition:
+        'Level of the loan-to-value cap in percent, applied to new lending at once and persistent while set; 0 switches it off. It is the largest ratio of new mortgage debt to the market value of the homes a group buys this year, over and above loans that replace repayments. The existing stock of loans is never tested, so loans already made are unaffected.',
       concepts: ['loan-to-value', 'macroprudential-policy'],
     },
   ],
@@ -462,6 +459,30 @@ export const mortgages: ModuleDef = {
         const out = (['Y', 'W'] as const).map((g) => ({ g, regime: e.influences(`mortgageLending${g}`).regime, lending: e.value(`mortgageLending${g}`), cap: e.value(`dstiCap${g}`), demand: e.value(`mortgageDemand${g}`) }));
         const ok = out.every((x) => x.regime === 'Debt-service cap binds' && Math.abs(x.lending - x.cap) < 1e-12 && x.demand > x.cap);
         return { pass: ok, detail: out.map((x) => `${x.g}: ${x.regime}, lending ${x.lending.toFixed(4)} = cap ${x.cap.toFixed(4)} < demand ${x.demand.toFixed(4)}`).join('; ') };
+      },
+    },
+    {
+      id: 'ltv-cap-binds-on-purchases',
+      label: 'An 80% loan-to-value cap on the homes bought this year binds for working-age households when banks push 2% of GDP more; 75% lends less; at baseline it is slack',
+      run: (e) => {
+        const at = (limit: number, appetite: number) => {
+          const f = e.fork();
+          f.setLever('ltvCap', limit);
+          f.setLever('lendingAppetite', appetite);
+          f.step(1);
+          return { regime: f.influences('mortgageLendingW').regime, lending: f.value('mortgageLendingW'), cap: f.value('ltvCapW'), demand: f.value('mortgageDemandW'), want: f.value('mortgageRepaymentW') + (limit / 100) * f.value('homePurchasesW') };
+        };
+        const calm = at(80, 0),
+          push = at(80, 2),
+          tighter = at(75, 2);
+        const ok =
+          calm.regime === null &&
+          Math.abs(push.cap - push.want) < 1e-12 &&
+          push.regime === 'Loan-to-value cap binds' &&
+          Math.abs(push.lending - push.cap) < 1e-12 &&
+          push.demand > push.cap &&
+          tighter.lending < push.lending;
+        return { pass: ok, detail: `80%, no push: ${calm.regime ?? 'demand'}; 80% with +2: ${push.regime}, lending ${push.lending.toFixed(3)} = cap ${push.cap.toFixed(3)} < demand ${push.demand.toFixed(3)}; 75%: lending ${tighter.lending.toFixed(3)}` };
       },
     },
     {

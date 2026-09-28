@@ -105,3 +105,25 @@ describe('Iceland charts: one GDP base for every "% of GDP" chart (design L2/L3,
     expect(e.value('debtRatio')).toBeCloseTo(debtStart / trailingLast, 12);
   });
 });
+
+describe('Iceland mortgages: the loan-to-value cap applies to the homes bought this year (audit M3)', () => {
+  test('first-time buyers get 10 points more, from Rules 1131/2025, and the lever says so from the parameter', () => {
+    const p = model.params.find((x) => x.id === 'ltvYExtra')!;
+    expect(p.value).toBe(0.1);
+    expect(p.provenance.basis).toBe('data');
+    expect(p.provenance.source).toMatch(/1131\/2025/);
+    expect(model.levers.find((l) => l.id === 'ltvCap')!.description).toMatch(/10 points more/);
+  });
+
+  test('the cap is repayments plus the limit times this year’s purchases, and does not read the stock of homes', () => {
+    const e = fresh();
+    e.setLever('ltvCap', 80);
+    e.setLever('lendingAppetite', 3);
+    e.step(6);
+    for (const [g, limit] of [['Y', 0.9], ['W', 0.8]] as const) {
+      expect(e.value(`ltvCap${g}`)).toBeCloseTo(e.value(`mortgageRepayment${g}`) + limit * e.value(`homePurchases${g}`), 12);
+      const rule = icelandModel.modules.flatMap((m) => m.rules ?? []).find((r) => r.id === `ltvCap${g}`)!;
+      expect(rule.stocks ?? []).toEqual([]);
+    }
+  });
+});
