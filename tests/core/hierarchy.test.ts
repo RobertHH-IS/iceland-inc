@@ -61,7 +61,8 @@ describe('the group tree', () => {
     const e = createEngine(model);
     e.step(24);
     for (const v of model.vars) expect(Math.abs(e.value(v.id) - e.baseline(v.id))).toBeLessThan(1e-12);
-    expect(e.checks().maxResidual).toBeLessThan(1e-9);
+    expect(e.checks().failures).toEqual([]); // every step, not only the last
+    expect(Math.max(...e.maxResiduals().map((r) => r.residual))).toBeLessThan(1e-9);
   });
 });
 

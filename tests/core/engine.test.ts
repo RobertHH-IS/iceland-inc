@@ -36,7 +36,9 @@ describe('baseline', () => {
       p0 = e.positionsAt(0);
     for (let j = 0; j < pos.length; j++) worst = Math.max(worst, Math.abs(pos[j] - p0[j]));
     expect(worst).toBeLessThan(1e-9);
-    expect(e.checks().maxResidual).toBeLessThan(1e-9);
+    // every step, not only the last: failures are cumulative
+    expect(e.checks().failures).toEqual([]);
+    expect(Math.max(...e.maxResiduals().map((r) => r.residual))).toBeLessThan(1e-9);
   });
 
   test('the baseline report publishes every variable, stock and leg', () => {
