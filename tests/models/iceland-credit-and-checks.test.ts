@@ -159,6 +159,16 @@ describe('Iceland transfers: old-age and disability pensions are TR’s payments
     expect(v('oaShareO')).toBeCloseTo(2.48 / 4.21, 9);
   });
 
+  test('both are derived from two TR leaves, so their provenance is not a single datum’s (audit L16)', () => {
+    for (const id of ['trOA', 'oaShareO']) {
+      const p = model.params.find((q) => q.id === id)!.provenance;
+      expect(p.basis).toBe('derived');
+      expect(p.source).toMatch(/pensions\.public_old_age_pension_pct_gdp/);
+      expect(p.source).toMatch(/pensions\.public_disability_pension_pct_gdp/);
+      expect(p.note).toMatch(/2\.48/);
+    }
+  });
+
   test('family and other benefits are the rest of social benefits, so the cash channels still add up to item 27', () => {
     expect(v('trOA') + v('trFam') + v('ueTarget')).toBeCloseTo(7.28, 9);
     expect(model.params.find((p) => p.id === 'trFam')!.provenance.basis).toBe('derived');

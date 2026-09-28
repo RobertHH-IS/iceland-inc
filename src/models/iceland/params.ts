@@ -47,15 +47,18 @@ P('compG', d(eco + 'compensation_of_employees'), '% of GDP/yr', 'IDENTITY', 'Pub
 {
   // Old-age and disability transfers are TR's pension payments; family benefits are the rest of
   // social benefits (THJ05143 item 27), so the three cash channels still add up to item 27.
-  const oldAge = d('pensions.public_old_age_pension_pct_gdp');
-  const oa = oldAge + d('pensions.public_disability_pension_pct_gdp');
+  const OA = 'pensions.public_old_age_pension_pct_gdp';
+  const DIS = 'pensions.public_disability_pension_pct_gdp';
+  const oldAge = d(OA);
+  const oa = oldAge + d(DIS);
+  const tr = { source: `${datum(OA).source} [calibration.json: ${OA}, ${DIS}]`, vintage: String(datum(OA).year) };
   P('trOA', oa, '% of GDP/yr', 'POLICY', 'Old-age and disability cash transfers (Social Insurance, TR), real.', {
-    ...dataProv('pensions.public_old_age_pension_pct_gdp'),
-    note: `TR old-age pension ${oldAge} + disability pension ${d('pensions.public_disability_pension_pct_gdp')}% of GDP (TR annual report 2025) [calibration.json: pensions.public_disability_pension_pct_gdp].`,
+    ...derived(`TR old-age pension ${oldAge} + disability pension ${d(DIS)}% of GDP (TR annual report 2025).`),
+    ...tr,
   });
   P('oaShareO', oldAge / oa, 'fraction', 'POLICY', 'Share of old-age and disability transfers paid to older households: the public old-age pension.', {
-    ...dataProv('pensions.public_old_age_pension_pct_gdp'),
-    note: 'Public old-age pension ÷ old-age and disability pensions.',
+    ...derived(`TR old-age pension ÷ (old-age + disability pensions): ${oldAge} ÷ ${oa.toFixed(2)} (TR annual report 2025).`),
+    ...tr,
   });
   const fam = d(eco + 'social_benefits') - d(sp + 'unemployment') - oa;
   P('trFam', fam, '% of GDP/yr', 'POLICY', 'Family, housing and other benefits, real: child benefits, parental leave, housing benefits and the rest of social benefits.', {
