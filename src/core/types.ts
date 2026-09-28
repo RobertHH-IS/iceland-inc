@@ -550,6 +550,25 @@ export interface CheckReport {
   failures?: { t: number; id: Id; residual: number }[];
 }
 
+/** A feed message (Engine.feed()). `message` is the finished English sentence; the other
+ *  fields let an interface build it in another language. */
+export interface FeedEntry {
+  t: number;
+  message: string;
+  indicator: Id;
+  concept?: Id;
+  /** A threshold message: the FeedRule's id. */
+  rule?: Id;
+  /** A stabiliser message: the stabiliser's id (Manual mode, it started calling for action). */
+  stabiliser?: Id;
+  /** Stabiliser messages: +1 when the rule would raise the lever (its `raise` text), −1 lower. */
+  dir?: 1 | -1;
+  /** Stabiliser messages: the suggestion ({value}) and the size of the gap ({change}), in the
+   *  lever's units, rounded to two decimals exactly as the message shows them. */
+  value?: number;
+  change?: number;
+}
+
 export interface Engine {
   readonly model: CompiledModel;
   readonly t: number; // months since start
@@ -585,9 +604,10 @@ export interface Engine {
    *  (a group end stands for all its players). */
   ideasAtPlay(scope?: Id): { concept: Id; weight: number; via: Id[] }[];
   checks(): CheckReport;
-  /** Narration: feed rules crossing their thresholds, and (Manual mode) stabilisers that start
-   *  calling for action, marked with the stabiliser's id. */
-  feed(): { t: number; message: string; indicator: Id; concept?: Id; stabiliser?: Id }[];
+  /** Narration: feed rules crossing their thresholds (marked with the rule's id), and (Manual
+   *  mode) stabilisers that start calling for action (marked with the stabiliser's id, the
+   *  direction and the numbers in the message). */
+  feed(): FeedEntry[];
   /** Every declared stabiliser now, in declaration order: what it suggests, and whether it acts
    *  (Automatic) or calls for action (Manual, gap above its threshold). */
   stabilisers(): StabiliserState[];

@@ -420,6 +420,15 @@ describe('views', () => {
     expect(bs.netWorth).toBeCloseTo(e.value('bankEquity'), 9);
   });
 
+  test('feed messages carry the id of the feed rule behind them', () => {
+    const e = fresh();
+    e.setLever('keyRateAddon', 1);
+    e.step(6);
+    const up = e.feed().find((f) => f.message === 'The central bank raises its key rate');
+    expect(up).toMatchObject({ rule: 'rateUp', indicator: 'keyRate', concept: 'taylor-rule' });
+    expect(up!.stabiliser).toBeUndefined();
+  });
+
   test('indicators are shown as deviations from baseline', () => {
     const e = fresh();
     expect(e.indicator('output')).toBe(0);

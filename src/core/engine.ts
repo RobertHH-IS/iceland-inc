@@ -19,6 +19,7 @@ import type {
   CheckReport,
   ConceptDef,
   Engine,
+  FeedEntry,
   Id,
   Influence,
   IndicatorCtx,
@@ -112,8 +113,6 @@ interface StabiliserFeedState {
   lastDir: Int8Array;
 }
 
-type FeedEntry = { t: number; message: string; indicator: Id; concept?: Id; stabiliser?: Id };
-
 interface Snapshot {
   machine: MachineState;
   feedPrev: Uint8Array;
@@ -128,8 +127,10 @@ const cloneStabFeed = (s: StabiliserFeedState): StabiliserFeedState => ({
   lastDir: new Int8Array(s.lastDir),
 });
 
-/** A number in a stabiliser's feed message: at most two decimals, no trailing zeros. */
-const feedNumber = (x: number) => String(Number(x.toFixed(2))).replace('-', '−');
+/** A number in a stabiliser's feed message: rounded to two decimals ... */
+const feedRound = (x: number) => Number(x.toFixed(2));
+/** ... and written with no trailing zeros and a true minus sign. */
+const feedNumber = (x: number) => String(x).replace('-', '−');
 
 class KEngine implements KernelEngine {
   readonly model: KModel;
@@ -342,7 +343,7 @@ class KEngine implements KernelEngine {
       const i = m.indicatorIndex.get(f.indicator)!;
       const v = toDisplay(m.indicators[i].display, ind[i], this.baseInd[i]);
       const on = (f.above !== undefined && v > f.above) || (f.below !== undefined && v < f.below) ? 1 : 0;
-      if (log && on && !this.feedPrev[j]) this.feedLog.push({ t, message: f.message, indicator: f.indicator, concept: f.concept });
+      if (log && on && !this.feedPrev[j]) this.feedLog.push({ t, message: f.message, indicator: f.indicator, concept: f.concept, rule: f.id });
       this.feedPrev[j] = on;
     });
     if (m.stabilisers.length) this.updateStabiliserFeed(log);
@@ -366,8 +367,10 @@ class KEngine implements KernelEngine {
       const touched = !Object.is(lv, sf.lever[j]) || !Object.is(modeVal, sf.mode[j]);
       const dir = s.gap > 0 ? 1 : -1;
       if (log && def.feed && s.calling && !sf.prev[j] && !touched && !(sf.lastDir[j] === dir && t - sf.lastT[j] < year)) {
-        const message = (dir > 0 ? def.feed.raise : def.feed.lower).replace(/\{value\}/g, feedNumber(s.suggested)).replace(/\{change\}/g, feedNumber(Math.abs(s.gap)));
-        this.feedLog.push({ t, message, indicator: def.feed.indicator, concept: def.concepts?.[0], stabiliser: def.id });
+        const value = feedRound(s.suggested),
+          change = feedRound(Math.abs(s.gap));
+        const message = (dir > 0 ? def.feed.raise : def.feed.lower).replace(/\{value\}/g, feedNumber(value)).replace(/\{change\}/g, feedNumber(change));
+        this.feedLog.push({ t, message, indicator: def.feed.indicator, concept: def.concepts?.[0], stabiliser: def.id, dir, value, change });
         sf.lastT[j] = t;
         sf.lastDir[j] = dir;
       }
