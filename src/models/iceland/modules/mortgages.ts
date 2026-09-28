@@ -5,7 +5,7 @@
  * real mortgage rates are high and more when real house prices are high. New lending replaces
  * what is repaid and closes part of the gap to that wish, plus any extra banks push. It is
  * capped by the Central Bank's debt-service rule (payments at stressed rates may take at most
- * 35% of income, 40% for first-time buyers) and, when switched on, by a loan-to-value cap on the
+ * 35% of income after tax, 40% for first-time buyers) and, when switched on, by a loan-to-value cap on the
  * homes bought this year (80%, 90% for first-time buyers, under Rules 1131/2025).
  * 65% of loans are CPI-indexed: their borrowers pay a low real rate in cash, and inflation is
  * added to the loan instead (an accrual, so no money moves). Banks and pension funds lend in
@@ -90,13 +90,13 @@ function groupRules(g: B): RuleDef[] {
       category: 'POLICY',
       label: 'Debt-service cap',
       inputs: ['stressTestPayment'],
-      lagInputs: [`grossIncome${g}`],
+      lagInputs: [`grossIncome${g}`, `incomeTax${g}`],
       params: [`nu${g}`, dsti, 'dstiShift'],
-      compute: (c) => (c.p(`nu${g}`) * lastMonth(c, `grossIncome${g}`) * (c.p(dsti) + c.p('dstiShift'))) / c.v('stressTestPayment'),
+      compute: (c) => (c.p(`nu${g}`) * (lastMonth(c, `grossIncome${g}`) - lastMonth(c, `incomeTax${g}`)) * (c.p(dsti) + c.p('dstiShift'))) / c.v('stressTestPayment'),
       concepts: ['debt-service-constraint', 'macroprudential-policy'],
       explain: {
         what: `The most new lending the debt-service rule allows the ${who} this year.`,
-        rule: `Cap = the income of new borrowers ({nu${g}} of the group’s gross income) × the payment cap {${dsti}%} (plus the lever) ÷ the stressed yearly payment per króna of loan. New borrowers may spend at most that share of income on payments tested at stressed rates.`,
+        rule: `Cap = the income of new borrowers ({nu${g}} of the group’s income after income tax, last month) × the payment cap {${dsti}%} (plus the lever) ÷ the stressed yearly payment per króna of loan. New borrowers may spend at most that share of their disposable income, as Rules 1300/2025 define it, on payments tested at stressed rates, so a tax rise tightens the cap.`,
       },
     },
     {
@@ -442,7 +442,7 @@ export const mortgages: ModuleDef = {
         // at baseline the non-indexed rate (4%) is below its 5.5% floor and the indexed (2.5%) below 3%: both floors bind
         const floorsBind = rN < 0.055 && rI < 0.03;
         const cap = e.value('dstiCapY');
-        const inc = e.baseline('grossIncomeY');
+        const inc = e.baseline('grossIncomeY') - e.baseline('incomeTaxY'); // income after income tax
         const nu = e.influences('dstiCapY').params.find((p) => p.id === 'nuY')!.value;
         const capWant = (nu * inc * 0.4) / want;
         const ok = Math.abs(got - want) < 1e-12 && floorsBind && ps.termN === 40 && ps.termI === 25 && Math.abs(cap - capWant) < 1e-9;

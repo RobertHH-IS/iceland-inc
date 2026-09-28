@@ -127,3 +127,24 @@ describe('Iceland mortgages: the loan-to-value cap applies to the homes bought t
     }
   });
 });
+
+describe('Iceland mortgages: the debt-service cap is a share of income after tax (audit M4)', () => {
+  test('the baseline cap is unchanged: new lending uses 60% of it', () => {
+    const e = fresh();
+    for (const g of ['Y', 'W']) expect(e.baseline(`mortgageLending${g}`) / e.baseline(`dstiCap${g}`)).toBeCloseTo(0.6, 12);
+  });
+
+  test('an income-tax rise of 5 pp tightens the cap as much as it cuts borrowers’ income after tax', () => {
+    const e = fresh();
+    e.setLever('incomeTax', 5);
+    e.step(2); // the cap reads last month's income
+    for (const g of ['Y', 'W']) {
+      const afterTax = (m: number) => e.valueAt(`grossIncome${g}`, m) - e.valueAt(`incomeTax${g}`, m);
+      const capMove = e.value(`dstiCap${g}`) / e.baseline(`dstiCap${g}`) - 1;
+      const paymentMove = e.baseline('stressTestPayment') / e.value('stressTestPayment') - 1;
+      const incomeMove = afterTax(1) / (e.baseline(`grossIncome${g}`) - e.baseline(`incomeTax${g}`)) - 1;
+      expect((1 + capMove) / (1 + paymentMove) - 1).toBeCloseTo(incomeMove, 12);
+      expect(incomeMove).toBeLessThan(-0.07); // about −8%: most of it is the tax itself
+    }
+  });
+});

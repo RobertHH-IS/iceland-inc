@@ -262,8 +262,9 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   const annT = th * annuity(Math.max(rmi, p.floorI), p.termI) + (1 - th) * annuity(Math.max(imn, p.floorN), p.termN);
   o.mRY = M[0] / gross[0];
   o.mRW = M[1] / gross[1];
-  o.nuY = M[0] / p.Tm / ((p.capUse0 * gross[0] * p.dstiY) / annT);
-  o.nuW = M[1] / p.Tm / ((p.capUse0 * gross[1] * p.dstiW) / annT);
+  // the debt-service cap is set on income after income tax (Rules 1300/2025: disposable income)
+  o.nuY = M[0] / p.Tm / ((p.capUse0 * gross[0] * (1 - o.tau0) * p.dstiY) / annT);
+  o.nuW = M[1] / p.Tm / ((p.capUse0 * gross[1] * (1 - o.tau0) * p.dstiW) / annT);
   o.rmR0 = rmR;
   o.lendShY = M[0] / p.mortTot;
   o.lendShW = M[1] / p.mortTot;
@@ -452,7 +453,7 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     v[`mortgageDemand${g}`] = M[h] / p.Tm;
     v[`mortgageLending${g}`] = M[h] / p.Tm;
     v[`netMortgageLending${g}`] = 0;
-    v[`dstiCap${g}`] = (o[`nu${g}`] * gross[h] * (g === 'Y' ? p.dstiY : p.dstiW)) / annT;
+    v[`dstiCap${g}`] = (o[`nu${g}`] * gross[h] * (1 - o.tau0) * (g === 'Y' ? p.dstiY : p.dstiW)) / annT;
   }
 
   const targets = {
@@ -498,8 +499,8 @@ const meta: [Id, string, ParamDef['category'], string, Provenance][] = [
   ['c0O', '% of GDP/yr', 'BEHAVIOUR', 'Older: spending not tied to current income (at baseline prices).', solved('zero saving at baseline.')],
   ['payout', 'per year', 'CONTRACT', 'Pension payout rate on pensioners’ rights.', solved('pensioners’ rights stay constant (payouts = contributions + fund income).')],
   ['ageing', 'per year', 'IDENTITY', 'Share of working-age members’ rights that moves to pensioners each year as members retire.', solved('working-age rights stay constant.')],
-  ['nuY', 'fraction', 'POLICY', 'Young: share of the group’s income that belongs to new borrowers, for the debt-service cap.', solved('baseline lending uses 60% of the cap (capUse0).')],
-  ['nuW', 'fraction', 'POLICY', 'Working age: share of the group’s income that belongs to new borrowers.', solved('baseline lending uses 60% of the cap.')],
+  ['nuY', 'fraction', 'POLICY', 'Young: share of the group’s income after income tax that belongs to new borrowers, for the debt-service cap.', solved('baseline lending uses 60% of the cap (capUse0).')],
+  ['nuW', 'fraction', 'POLICY', 'Working age: share of the group’s income after income tax that belongs to new borrowers.', solved('baseline lending uses 60% of the cap.')],
   ['mRY', 'ratio', 'BEHAVIOUR', 'Young: desired mortgage debt per króna of gross income.', solved('desired debt equals actual debt at baseline.')],
   ['mRW', 'ratio', 'BEHAVIOUR', 'Working age: desired mortgage debt per króna of gross income.', solved('desired debt equals actual debt at baseline.')],
   ['potentialOutput', '% of GDP/yr', 'IDENTITY', 'Real output at baseline: the benchmark for the output gap.', derived('Baseline real output C + G + I + X − IM (100 by construction).')],
