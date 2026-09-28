@@ -148,3 +148,17 @@ describe('Iceland mortgages: the debt-service cap is a share of income after tax
     }
   });
 });
+
+describe('Iceland transfers: old-age and disability pensions are TR’s payments (audit L15)', () => {
+  const v = (id: string) => model.params.find((p) => p.id === id)!.value;
+
+  test('TR old-age plus disability pensions, 4.21% of GDP; older households get the old-age part', () => {
+    expect(v('trOA')).toBeCloseTo(2.48 + 1.73, 9);
+    expect(v('oaShareO')).toBeCloseTo(2.48 / 4.21, 9);
+  });
+
+  test('family and other benefits are the rest of social benefits, so the cash channels still add up to item 27', () => {
+    expect(v('trOA') + v('trFam') + v('ueTarget')).toBeCloseTo(7.28, 9);
+    expect(model.params.find((p) => p.id === 'trFam')!.provenance.basis).toBe('derived');
+  });
+});
