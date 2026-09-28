@@ -35,8 +35,12 @@ export const ACCOUNT_LABEL: Record<Account, string> = {
 export interface LedgerCell {
   value: number;
   baseline: number;
-  /** Paid and received by the same column (e.g. firms buying from firms): shown as ±gross. */
+  /** Some legs are paid and received by the same column (e.g. firms buying from firms). */
   both: boolean;
+  /** Some legs go to or come from another column, or change this column alone (one-sided). */
+  external: boolean;
+  /** The within-column legs' total. A cell whose legs all stay within the column nets to zero
+   *  and is shown as ±gross; otherwise it shows its net value, with the gross as a note. */
   gross: number;
   grossBaseline: number;
   /** This row's effect on the column's net worth. */
@@ -98,6 +102,15 @@ export function legEffects(l: Pick<LegInfo, 'posting' | 'oneSided'>, v: number):
   }
 }
 
+/**
+ * What a cell shows: 'gross' (±the within-column total) when every leg in it stays within the
+ * column, so it nets to zero; otherwise 'net', its signed value, so a row's cells add up to its
+ * Σ. A mixed cell that nets to zero by coincidence still shows its net value.
+ */
+export function cellShows(c: Pick<LedgerCell, 'both' | 'external'>): 'gross' | 'net' {
+  return c.both && !c.external ? 'gross' : 'net';
+}
+
 /** Build the table for the given leg values (by leg index, as engine.legs() returns them). */
 export function buildLedger(info: ModelInfo, legValues: ArrayLike<number>, level: LedgerColumns = 'player', tol = 1e-9): LedgerTable {
   const eff = typeof level === 'object' ? effectiveExpanded(info, level.expanded) : null;
@@ -119,7 +132,7 @@ export function buildLedger(info: ModelInfo, legValues: ArrayLike<number>, level
   for (const flow of info.flows) {
     const legs = byFlow.get(flow.id) ?? [];
     const cells: (LedgerCell | null)[] = colIds.map(() => null);
-    const cell = (c: number) => (cells[c] ??= { value: 0, baseline: 0, both: false, gross: 0, grossBaseline: 0, nw: 0, nwBaseline: 0 });
+    const cell = (c: number) => (cells[c] ??= { value: 0, baseline: 0, both: false, external: false, gross: 0, grossBaseline: 0, nw: 0, nwBaseline: 0 });
     let oneSided = false,
       nwEffect = 0,
       nwEffectBaseline = 0;
@@ -136,7 +149,8 @@ export function buildLedger(info: ModelInfo, legValues: ArrayLike<number>, level
       A.baseline += base.cellFrom;
       A.nw += now.nwFrom;
       A.nwBaseline += base.nwFrom;
-      if (!l.oneSided) {
+      if (l.oneSided) A.external = true;
+      else {
         const B = cell(ct);
         B.value += now.cellTo;
         B.baseline += base.cellTo;
@@ -146,6 +160,9 @@ export function buildLedger(info: ModelInfo, legValues: ArrayLike<number>, level
           B.both = true;
           B.gross += Math.abs(v);
           B.grossBaseline += Math.abs(b);
+        } else {
+          A.external = true;
+          B.external = true;
         }
       }
       nwEffect += now.nwFrom + now.nwTo;

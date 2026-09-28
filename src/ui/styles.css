@@ -1364,6 +1364,10 @@ button.chip {
   align-items: flex-end;
   line-height: 1.2;
 }
+.godley .within {
+  display: block;
+  white-space: nowrap;
+}
 
 /* ---------------------------------------------------------------- inspector */
 

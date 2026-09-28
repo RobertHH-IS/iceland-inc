@@ -2,7 +2,9 @@ import { describe, expect, test } from 'bun:test';
 import { models } from '../../src/models/index.ts';
 import { createEngine } from '../../src/core/engine.ts';
 import { describeModel } from '../../src/ui/model/info.ts';
-import { buildLedger, legEffects } from '../../src/ui/model/ledger.ts';
+import { buildLedger, cellShows, legEffects } from '../../src/ui/model/ledger.ts';
+import { expandableGroups } from '../../src/ui/model/hierarchy.ts';
+import { hierarchyModel } from '../fixtures/hierarchy.ts';
 
 describe('leg effects', () => {
   test('payments move net worth; claims only change its composition; purchases add the asset', () => {
@@ -14,7 +16,7 @@ describe('leg effects', () => {
   });
 });
 
-for (const def of models)
+for (const def of [...models, hierarchyModel()])
   describe(`ledger for '${def.id}'`, () => {
     const engine = createEngine(def);
     const info = describeModel(engine.model, (id) => engine.baseline(id));
@@ -55,8 +57,46 @@ for (const def of models)
       info.players.forEach((_, i) => expect(t.netWorth[i].value * info.dt).toBeCloseTo(after[i] - before[i], 9));
     });
 
+    test('the cells a row shows add up to its Σ: ±gross only for a cell whose legs all stay in its column', () => {
+      const e = engine.fork();
+      const lever = info.levers.find((l) => l.kind === 'setting' && l.max !== undefined && l.max > l.default);
+      if (lever) e.setLever(lever.id, lever.max!);
+      e.step(6);
+      const legs = Float64Array.from(e.legs().map((l) => l.value));
+      const ex = expandableGroups(info);
+      const views: Parameters<typeof buildLedger>[2][] = ['player', 'group'];
+      for (let m = 0; m < 1 << Math.min(ex.length, 8); m++) views.push({ expanded: new Set(ex.filter((_, i) => m & (1 << i))) });
+      for (const view of views)
+        for (const s of buildLedger(info, legs, view).sections)
+          for (const r of s.rows) {
+            let shown = 0;
+            for (const c of r.cells) {
+              if (!c) continue;
+              if (cellShows(c) === 'gross') expect(Math.abs(c.value)).toBeLessThan(1e-9 * Math.max(1, c.gross));
+              else shown += c.value;
+            }
+            expect(shown).toBeCloseTo(r.sum, 9);
+            if (!r.oneSided) expect(Math.abs(shown)).toBeLessThan(1e-9 * Math.max(1, ...r.cells.map((c) => (c ? Math.abs(c.value) : 0))));
+          }
+    });
+
     test('at the baseline the economy is at rest: no player’s net worth changes', () => {
       const t = buildLedger(info, legValues());
       for (const n of t.netWorth) expect(Math.abs(n.baseline)).toBeLessThan(1e-9);
     });
   });
+
+test('a cell with legs inside its column and to other columns shows its net value (Iceland investment, firms in construction)', () => {
+  const def = models.find((m) => m.id === 'iceland')!;
+  const engine = createEngine(def);
+  const info = describeModel(engine.model, (id) => engine.baseline(id));
+  const t = buildLedger(info, Float64Array.from(engine.legs().map((l) => l.value)));
+  const row = t.sections.flatMap((s) => s.rows).find((r) => r.flow.id === 'investment')!;
+  const fc = row.cells[t.columns.findIndex((c) => c.id === 'FC')]!;
+  expect(fc.both && fc.external).toBe(true);
+  expect(cellShows(fc)).toBe('net');
+  // The ±gross within the column (about 1 % of GDP) used to hide the net receipts (about 15).
+  expect(fc.value).toBeGreaterThan(10 * fc.gross);
+  expect(cellShows({ both: true, external: false })).toBe('gross');
+  expect(cellShows({ both: false, external: true })).toBe('net');
+});
