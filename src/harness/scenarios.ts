@@ -1,9 +1,11 @@
 /**
- * Scenarios the harness builds from a model's levers: the all-levers golden scenarios. Kept apart
- * from layers.ts so that tests can check which events they contain without running the harness.
+ * Scenarios the harness builds from a model's levers: the all-levers golden scenarios and the
+ * shock used to time a step. Kept apart from layers.ts so that tests can check which events they
+ * contain without running the harness.
  */
 import type { LeverDef, ScenarioEvent } from '../core/types.ts';
 import type { KModel } from '../core/compile.ts';
+import type { KernelEngine } from '../core/engine.ts';
 
 export interface HarnessScenario {
   name: string;
@@ -57,4 +59,20 @@ export function allLeversScenarios(m: KModel): HarnessScenario[] {
     events: event ? [event, ...seq] : seq,
     months,
   }));
+}
+
+/**
+ * The shock the step timing runs under: the first one-off lever, fired at its default size (or
+ * its max when the default is 0); without one, the first setting (not a choice, and never the
+ * stabiliser setting, which is a mode switch rather than a shock) whose max differs from its default.
+ */
+export function timingShock(m: KModel): { describe: string; apply(e: KernelEngine): void } | null {
+  const shock = m.levers.find((l) => l.kind === 'oneoff');
+  if (shock) {
+    const size = shock.default || (shock.max ?? 1);
+    return { describe: `${shock.id} fired at ${size}`, apply: (e) => e.fire(shock.id, size) };
+  }
+  const s = shockLevers(m).find((l) => l.kind === 'setting' && l.max !== undefined && l.max !== l.default);
+  if (s) return { describe: `${s.id} set to ${s.max}`, apply: (e) => e.setLever(s.id, s.max!) };
+  return null;
 }

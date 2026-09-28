@@ -16,7 +16,7 @@ import { runScenario } from '../core/scenario.ts';
 import { CHECKS, DEFAULT_TOLERANCE } from '../core/checks.ts';
 import { baselineReport, type BaselineReport } from '../core/steady.ts';
 import { compareGolden, nonFiniteValues, readGolden, writeGolden, GOLDEN_ABS, GOLDEN_REL, type GoldenFile } from './golden.ts';
-import { allLeversScenarios, type HarnessScenario } from './scenarios.ts';
+import { allLeversScenarios, timingShock, type HarnessScenario } from './scenarios.ts';
 import { rng } from './rng.ts';
 
 export interface HarnessOptions {
@@ -43,7 +43,11 @@ export interface HarnessResult {
   pass: boolean;
   layers: LayerResult[];
   microsPerStep: number;
+  /** What the step timing ran: the shock, how many fresh runs of how many months, and the most
+   *  solver iterations in a month (above 1 shows the shock kept the simultaneous block working). */
+  timing?: { shock: string; runs: number; months: number; maxIterations: number };
   baseline?: BaselineReport;
+
   model?: KModel;
 }
 
@@ -511,15 +515,28 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   layers.push(layer4, layer5, layer6);
   layers.sort((a, b) => a.n - b.n);
 
-  // timing: a long shocked run
+  // timing: fresh runs under a shock, timed through its transient, after one run to warm up the JIT
   {
-    const e = createEngine(m, { baseline: engine.baselineData });
-    const setting = levers.find((l) => l.kind !== 'oneoff');
-    if (setting) e.setLever(setting.id, setting.max ?? setting.default + 1);
-    e.step(100);
-    const t0 = performance.now();
-    e.step(1200);
-    out.microsPerStep = ((performance.now() - t0) * 1000) / 1200;
+    const shock = timingShock(m);
+    const runs = 10,
+      months = 120;
+    const shocked = () => {
+      const e = createEngine(m, { baseline: engine.baselineData });
+      shock?.apply(e);
+      return e;
+    };
+    shocked().step(months);
+    let ms = 0,
+      maxIterations = 0;
+    for (let k = 0; k < runs; k++) {
+      const e = shocked();
+      const t0 = performance.now();
+      e.step(months);
+      ms += performance.now() - t0;
+      maxIterations = Math.max(maxIterations, e.stats().maxIterations);
+    }
+    out.microsPerStep = (ms * 1000) / (runs * months);
+    out.timing = { shock: shock?.describe ?? 'no shock (the model has no lever to shock it with)', runs, months, maxIterations };
   }
   out.pass = layers.every((l) => l.pass);
   return out;

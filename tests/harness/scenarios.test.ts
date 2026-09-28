@@ -1,13 +1,14 @@
 /**
- * The scenarios the harness builds from the levers: the all-levers goldens (audit M19).
+ * The scenarios the harness builds from the levers: the all-levers goldens (audit M19) and the
+ * shock the step timing runs under (L31).
  */
 import { describe, expect, test } from 'bun:test';
-import { compile } from '../../src/core/compile.ts';
+import { compile, type KModel } from '../../src/core/compile.ts';
 import { createEngine } from '../../src/core/engine.ts';
 import { runScenario } from '../../src/core/scenario.ts';
 import type { ScenarioEvent } from '../../src/core/types.ts';
 import { models } from '../../src/models/index.ts';
-import { ALL_LEVERS_TAIL, allLeversScenarios } from '../../src/harness/scenarios.ts';
+import { ALL_LEVERS_TAIL, allLeversScenarios, timingShock } from '../../src/harness/scenarios.ts';
 
 const compiled = models.map((def) => compile(def));
 
@@ -38,6 +39,31 @@ describe.each(compiled.map((m) => [m.def.id, m] as const))('%s', (_, m) => {
         expect(l.options!.map((o) => o.value)).toContain(e.value);
         expect(e.value).not.toBe(l.default);
       }
+  });
+
+  test('timing: a real shock, never the stabiliser setting', () => {
+    const s = timingShock(m)!;
+    expect(s).not.toBeNull();
+    expect(s.describe).not.toContain(mode.lever);
+    const e = createEngine(m);
+    s.apply(e);
+    e.step(12);
+    expect(e.stats().maxIterations).toBeGreaterThan(1);
+  });
+});
+
+describe('timingShock without a one-off lever', () => {
+  test('picks the first setting that can move, never a choice', () => {
+    const fake = {
+      def: { stabiliserMode: { lever: 'mode', manual: 0, automatic: 1 } },
+      levers: [
+        { id: 'mode', kind: 'choice', default: 0, min: 0, max: 1 },
+        { id: 'pick', kind: 'choice', default: 0, min: 0, max: 4 },
+        { id: 'stuck', kind: 'setting', default: 3, max: 3 },
+        { id: 'tax', kind: 'setting', default: 0, max: 5 },
+      ],
+    } as unknown as KModel;
+    expect(timingShock(fake)!.describe).toBe('tax set to 5');
   });
 });
 

@@ -69,6 +69,7 @@ describe('runHarness on the reference model', () => {
   test('passes', () => {
     const r = runHarness(reference, opts);
     expect(r.layers.filter((l) => !l.pass).map((l) => l.title)).toEqual([]);
+    expect(r.timing!.maxIterations).toBeGreaterThan(1);
   });
 
   test('L29: runs a module test makes on forks, and on forks of forks, reach the accounting layer', () => {
