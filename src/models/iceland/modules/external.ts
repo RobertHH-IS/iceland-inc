@@ -5,7 +5,9 @@
  * run), the interest-rate gap with abroad (carry), how many krónur non-residents already hold
  * (portfolio balance) and sentiment. Each exporter sells one export line (decision 0003): fish
  * and aluminium are priced in foreign currency at their own world prices, tourism and other
- * exports in krónur; volumes react to the real exchange rate, tourism most and aluminium least.
+ * exports in krónur. Volumes react to the real exchange rate, tourism most and aluminium least:
+ * for tourism and other exports because a weaker króna makes them cheaper abroad, for fish and
+ * aluminium, which sell at world prices, because it makes them more profitable in krónur.
  * Imports are split by what they are for and who pays for them, and each exporter buys domestic
  * inputs from retail and service firms. Foreign assets are revalued when the króna moves, and
  * non-resident carry traders buy or sell government bonds as the rate gap changes.
@@ -40,13 +42,20 @@ const exportRules: RuleDef[] = EXPORTS.flatMap(([k, seller, base0, elas, what, p
     terms: terms(
       ['normal', 'Baseline volume', undefined, (c) => c.p(base0)],
       ['demand', DEMAND[k].label, 'export-sectors', DEMAND[k].f],
-      ['competitiveness', 'Real exchange rate', 'real-exchange-rate', (c) => Math.pow(Math.max(1e-6, c.v('realExchangeRate')), c.p(elas))],
+      [
+        'competitiveness',
+        price ? 'Profitability: world prices in krónur ÷ domestic prices' : 'Real exchange rate',
+        'real-exchange-rate',
+        (c) => Math.pow(Math.max(1e-6, c.v('realExchangeRate')), c.p(elas)),
+      ],
     ),
     combine: (t) => t.normal * Math.max(0, t.demand) * t.competitiveness,
     concepts: ['export-sectors', 'real-exchange-rate'],
     explain: {
       what: `Volume of ${what} exports, sold by ${FIRM_NAME[seller]}, at baseline prices.`,
-      rule: `Volume = baseline {${base0}}${DEMAND[k].rule} × (real exchange rate)^{${elas}}. A weaker real króna makes Icelandic ${what} cheaper abroad; ${DEMAND[k].why}.`,
+      rule: price
+        ? `Volume = baseline {${base0}}${DEMAND[k].rule} × (real exchange rate)^{${elas}}. ${FIRM_NAME[seller][0].toUpperCase() + FIRM_NAME[seller].slice(1)} sell at world prices in foreign currency, so a weaker real króna does not make their ${what} cheaper abroad; it raises what they earn in krónur compared with their costs at home, which lifts volume a little. ${DEMAND[k].why[0].toUpperCase() + DEMAND[k].why.slice(1)}.`
+        : `Volume = baseline {${base0}}${DEMAND[k].rule} × (real exchange rate)^{${elas}}. A weaker real króna makes Icelandic ${what} cheaper abroad; ${DEMAND[k].why}.`,
     },
   },
   {

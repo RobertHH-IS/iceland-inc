@@ -61,3 +61,15 @@ describe('L13: the central bank’s reserves earn the foreign rate', () => {
     expect(e.value('cbProfit') - e.baseline('cbProfit')).toBeGreaterThan(0.009 * reserves);
   });
 });
+
+describe('L12: fish and aluminium are price takers', () => {
+  test('their volume rules explain a supply response, not goods becoming cheaper abroad; tourism and other exports keep the demand reading', () => {
+    const rule = (id: string) => model.rules.find((r) => r.id === id)!;
+    for (const k of ['Fish', 'Aluminium']) {
+      expect(rule(`exportVolume${k}`).explain!.rule).toContain('does not make');
+      expect(rule(`exportVolume${k}`).explain!.rule).toContain('earn in krónur');
+      expect(rule(`exportVolume${k}`).terms!.find((t) => t.id === 'competitiveness')!.label).toStartWith('Profitability');
+    }
+    for (const k of ['Tourism', 'Other']) expect(rule(`exportVolume${k}`).explain!.rule).toContain('cheaper abroad');
+  });
+});

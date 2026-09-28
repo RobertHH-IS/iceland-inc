@@ -156,8 +156,8 @@ P('muG', 0.4, 'fraction', 'BEHAVIOUR', 'Import share of government purchases (me
 P('muI', pct('import_content.investment'), 'fraction', 'BEHAVIOUR', 'Import share of investment goods (TiVA import content of investment).', dataProv('import_content.investment'));
 P('muX', pct('import_content.exports'), 'fraction', 'BEHAVIOUR', 'Imported inputs per unit of exports, all exporters together (TiVA); what fisheries, aluminium and tourism do not use sets other exporters’ import share.', dataProv('import_content.exports'));
 P('epsM', 0.6, 'elasticity', 'BEHAVIOUR', 'Import volumes versus the real exchange rate.', assumed());
-P('eFish', 0.2, 'elasticity', 'BEHAVIOUR', 'Marine export volume versus the real exchange rate (quota-bound).', assumed());
-P('eAlu', 0.05, 'elasticity', 'BEHAVIOUR', 'Aluminium export volume versus the real exchange rate (capacity-bound).', assumed());
+P('eFish', 0.2, 'elasticity', 'BEHAVIOUR', 'Marine export volume versus the real exchange rate: a supply response, since fish sells at world prices and a weaker króna makes it more profitable (small: catches are quota-bound).', assumed());
+P('eAlu', 0.05, 'elasticity', 'BEHAVIOUR', 'Aluminium export volume versus the real exchange rate: a supply response, since aluminium sells at a dollar price (tiny: the smelters run at capacity).', assumed());
 P('eTour', 1, 'elasticity', 'BEHAVIOUR', 'Tourism volume versus the real exchange rate.', assumed());
 P('eOther', 0.8, 'elasticity', 'BEHAVIOUR', 'Other export volume versus the real exchange rate.', assumed());
 P('lamRer', 1, 'per year', 'BEHAVIOUR', 'How fast trade volumes react to the real exchange rate.', assumed());
