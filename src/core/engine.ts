@@ -181,6 +181,7 @@ class KEngine implements KernelEngine {
     M.exoBase.set(base.exoBase);
     M.baseVars = base.vars;
     M.baseTerms = base.terms;
+    if (base.byMode) M.baseTermsByMode = base.byMode.map((x) => x.terms);
     for (const key of opts.disableTerms ?? []) {
       const j = m.termKeyIndex.get(key);
       if (j === undefined) throw new Error(`fork: unknown term '${key}' (use 'ruleId.termId' or 'varId.termId')`);
@@ -220,6 +221,8 @@ class KEngine implements KernelEngine {
       if (ind.display === 'deviation-pct' && Math.abs(this.baseInd[i]) < 1e-12) this.warnings.push(`indicator '${ind.id}' shows % deviation but its baseline is 0; it falls back to the difference × 100`);
     });
     const self = this;
+    // baseline terms and desired values of the current stabiliser mode
+    const baseNow = () => (base.byMode ? base.byMode[self.automaticNow() ? 1 : 0] : base);
     this.src = {
       m,
       get cur() {
@@ -229,17 +232,25 @@ class KEngine implements KernelEngine {
       get termVal() {
         return M.termVal;
       },
-      baseTerms: base.terms,
+      get baseTerms() {
+        return baseNow().terms;
+      },
       get desired() {
         return M.desired;
       },
-      baseDesired: base.desired,
+      get baseDesired() {
+        return baseNow().desired;
+      },
       get regimes() {
         return M.regimes;
       },
       get pEff() {
         return M.pEff;
       },
+      get automatic() {
+        return self.automaticNow();
+      },
+      ctxOf: (r) => M.ctxOf(r),
       indicatorLevel: (i) => self.levelNow(i),
       indicatorBase: (i) => self.baseInd[i],
     };
@@ -721,10 +732,16 @@ class KEngine implements KernelEngine {
     return this.feedLog.map((f) => ({ ...f }));
   }
 
-  stabilisers(): StabiliserState[] {
+  /** Is the stabiliser setting Automatic now? (A model without one counts as Automatic.) */
+  private automaticNow(): boolean {
     const m = this.model;
     const mode = m.stabiliserMode;
-    const automatic = mode && m.modeLever >= 0 ? isAutomatic(mode, this.M.leverVal[m.modeLever]) : true;
+    return mode && m.modeLever >= 0 ? isAutomatic(mode, this.M.leverVal[m.modeLever]) : true;
+  }
+
+  stabilisers(): StabiliserState[] {
+    const m = this.model;
+    const automatic = this.automaticNow();
     return m.stabilisers.map((s, j) => {
       const cs = m.cstabilisers[j];
       const suggested = this.M.cur[cs.suggestion];

@@ -6,7 +6,7 @@
  * State: parameters, lever settings, the current value of every variable, a ring buffer of
  * past values (for lag()), and the ledger's positions.
  */
-import type { CRule, KModel } from './compile.ts';
+import { isAutomatic, type CRule, type KModel } from './compile.ts';
 import type { Ctx, Id } from './types.ts';
 import { Ledger, postLeg } from './ledger.ts';
 import type { Payments } from './payments.ts';
@@ -58,6 +58,9 @@ export class Machine {
   /** Baseline values: base() in rules, and the value a disabled term is held at. */
   baseVars: Float64Array;
   baseTerms: Float64Array;
+  /** Baseline term values in each stabiliser mode, [Manual, Automatic], when the model has a
+   *  stabiliser setting: `baseTerms` then follows the current mode at every evaluation. */
+  baseTermsByMode: Float64Array[] | null = null;
   readonly termDisabled: Uint8Array;
   readonly ledger: Ledger;
   readonly pay: Payments;
@@ -244,6 +247,7 @@ export class Machine {
   /** Evaluate the whole schedule for this step. */
   evaluate(): void {
     const { m, cur } = this;
+    if (this.baseTermsByMode && m.def.stabiliserMode && m.modeLever >= 0) this.baseTerms = this.baseTermsByMode[isAutomatic(m.def.stabiliserMode, this.leverVal[m.modeLever]) ? 1 : 0];
     let iters = 1;
     for (const b of m.blocks) {
       if (!b.simultaneous) {
