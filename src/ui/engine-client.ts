@@ -14,7 +14,7 @@
  * snapshots, so the numbers are identical to a straight run.
  */
 import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
-import type { BalanceSheet, Id, Influence, ModelDef, Pipe, Scenario, ScenarioEvent } from '../core/types.ts';
+import type { BalanceSheet, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent } from '../core/types.ts';
 import { describeModel, type ModelInfo } from './model/info.ts';
 
 export type Speed = 1 | 3 | 6;
@@ -94,7 +94,10 @@ export interface EngineClient {
   /* details, on demand */
   influences(id: Id): Influence;
   ideasAtPlay(scope?: Id): IdeaWeight[];
-  balanceSheet(player: Id): BalanceSheet;
+  /** A player's balance sheet, or a group's (the sum of its players'). */
+  balanceSheet(playerOrGroup: Id): BalanceSheet;
+  /** Pipes now, at a level of the player hierarchy or for the groups open on the map. */
+  pipes(view: 'player' | 'group' | PipeView): Pipe[];
   /** An indicator in display units, months 0..t. */
   series(indicatorId: Id): readonly number[];
   /** A variable's raw values for months from..to (inclusive, clamped to 0..t). */
@@ -368,8 +371,12 @@ class MainThreadClient implements EngineClient {
     }
   }
 
-  balanceSheet(player: Id): BalanceSheet {
-    return this.engine.balanceSheet(player);
+  balanceSheet(playerOrGroup: Id): BalanceSheet {
+    return this.engine.balanceSheet(playerOrGroup);
+  }
+
+  pipes(view: 'player' | 'group' | PipeView): Pipe[] {
+    return this.engine.pipes(view);
   }
 
   series(indicatorId: Id): readonly number[] {

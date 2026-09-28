@@ -64,7 +64,7 @@ export function staticConcepts(info: ModelInfo, s: Selection | null, pipe?: Pipe
     const ind = info.indicatorById.get(s.id);
     (ind?.concepts ?? []).forEach((c) => out.add(c));
   } else if (s.kind === 'player' || s.kind === 'group') {
-    const members = new Set(s.kind === 'player' ? [s.id] : (info.groupById.get(s.id)?.players ?? []));
+    const members = new Set(s.kind === 'player' ? [s.id] : (info.groupById.get(s.id)?.allPlayers ?? []));
     for (const ins of info.instruments) if ([...ins.holders, ...ins.issuers].some((p) => members.has(p))) (ins.concepts ?? []).forEach((c) => out.add(c));
   } else if (s.kind === 'concept') (info.conceptById.get(s.id)?.related ?? []).forEach((c) => out.add(c));
   return [...out].filter((c) => info.conceptById.has(c));

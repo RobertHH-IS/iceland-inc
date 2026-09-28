@@ -11,10 +11,13 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, gapRate, HH, pickParams, terms, type Age, lastMonth } from '../util.ts';
+import { AGE_LABEL, AGES, FIRM_NAME, gapRate, HH, pickParams, terms, type Age, lastMonth } from '../util.ts';
+import { dividendsTo } from './firms.ts';
 
 /** Wages of the group (private and public), transfers and pensions: the taxable income. */
 function grossIncomeRule(g: Age): RuleDef {
+  // ids built once, not on every evaluation (these rules sit in the income–spending block)
+  const [emp, ub, oa, fam] = [`employment${g}`, `unemploymentBenefits${g}`, `oldAgeTransfers${g}`, `familyBenefits${g}`];
   return {
     id: `grossIncome${g}`,
     target: `grossIncome${g}`,
@@ -22,11 +25,11 @@ function grossIncomeRule(g: Age): RuleDef {
     inputs: ['wage', `employment${g}`, `unemploymentBenefits${g}`, `oldAgeTransfers${g}`, ...(g !== 'O' ? [`familyBenefits${g}`] : ['pensionPayouts'])],
     params: ['cEe'],
     terms: terms(
-      ['wages', 'Wages after the employee pension contribution', 'real-wages', (c) => (1 - c.p('cEe')) * c.v('wage') * c.v(`employment${g}`)],
-      ['unemploymentBenefits', 'Unemployment benefits', 'automatic-stabilisers', (c) => c.v(`unemploymentBenefits${g}`)],
-      ['oldAge', 'Old-age and disability transfers', undefined, (c) => c.v(`oldAgeTransfers${g}`)],
+      ['wages', 'Wages after the employee pension contribution', 'real-wages', (c) => (1 - c.p('cEe')) * c.v('wage') * c.v(emp)],
+      ['unemploymentBenefits', 'Unemployment benefits', 'automatic-stabilisers', (c) => c.v(ub)],
+      ['oldAge', 'Old-age and disability transfers', undefined, (c) => c.v(oa)],
       ...(g !== 'O'
-        ? ([['family', 'Family and housing benefits', undefined, (c: Ctx) => c.v(`familyBenefits${g}`)]] as [string, string, undefined, (c: Ctx) => number][])
+        ? ([['family', 'Family and housing benefits', undefined, (c: Ctx) => c.v(fam)]] as [string, string, undefined, (c: Ctx) => number][])
         : ([['pensions', 'Pension-fund pensions', 'funded-pensions', (c: Ctx) => c.v('pensionPayouts')]] as [string, string, string, (c: Ctx) => number][])),
     ),
     explain: {
@@ -40,13 +43,13 @@ const mortgageInterest = (g: Age): Id[] => (g === 'O' ? [] : [`mortgageInterest_
 
 function propertyIncomeIds(g: Age): Id[] {
   const pl = HH[g];
-  if (g === 'Y') return [`depositInterest${pl}`, 'dividendsFD_HY'];
-  if (g === 'W') return [`depositInterest${pl}`, 'dividendsFD_HW', 'dividendsFX_HW', 'bankDividendsHW'];
-  return [`depositInterest${pl}`, 'bondInterestHO', 'dividendsFD_HO', 'dividendsFX_HO', 'bankDividendsHO'];
+  if (g === 'Y') return [`depositInterest${pl}`, ...dividendsTo('HY')];
+  if (g === 'W') return [`depositInterest${pl}`, ...dividendsTo('HW'), 'bankDividendsHW'];
+  return [`depositInterest${pl}`, 'bondInterestHO', ...dividendsTo('HO'), 'bankDividendsHO'];
 }
 
 /** Liquid savings at the start of the month: deposits, plus bonds for older households. */
-const liquid = (c: Ctx, g: Age) => c.stock('deposits', HH[g]) + (g === 'O' ? c.stock('govBonds', 'HO') : 0);
+const liquid = (c: Ctx, g: Age) => (g === 'O' ? c.stock('deposits', 'HO') + c.stock('govBonds', 'HO') : c.stock('deposits', g === 'Y' ? 'HY' : 'HW'));
 const liquidStocks = (g: Age): [Id, Id][] => (g === 'O' ? [['deposits', 'HO'], ['govBonds', 'HO']] : [['deposits', HH[g]]]);
 
 /** Home purchases (−) or sales (+) this month. */
@@ -57,9 +60,14 @@ function consumptionRule(g: Age): RuleDef {
   const aL = `aL${g}`,
     aW = `aW${g}`,
     aH = `aH${g}`,
-    c0 = `c0${g}`;
-  const labour = (c: Ctx) => c.p(aL) * (c.v(`netLabourIncome${g}`) + homeTrade(c, g));
-  const property = (c: Ctx) => c.p('aK') * (c.v(`propertyIncome${g}`) - lastMonth(c, 'expectedInflation') * liquid(c, g));
+    c0 = `c0${g}`,
+    lw0 = `LW0${g}`,
+    h0 = `H0${g}`,
+    nli = `netLabourIncome${g}`,
+    pi = `propertyIncome${g}`,
+    nml = `netMortgageLending${g}`;
+  const labour = (c: Ctx) => c.p(aL) * (c.v(nli) + homeTrade(c, g));
+  const property = (c: Ctx) => c.p('aK') * (c.v(pi) - lastMonth(c, 'expectedInflation') * liquid(c, g));
   const realGap = (c: Ctx) => c.v('keyRate') - lastMonth(c, 'expectedInflation') - c.p('i0');
   return {
     id: `consumption${g}`,
@@ -76,9 +84,9 @@ function consumptionRule(g: Age): RuleDef {
       ['propertyIncome', 'Spending out of real interest and dividends', 'interest-distribution', property],
       ['realRate', 'Reward for saving (real key rate above neutral)', 'paradox-of-thrift', (c) => -c.p('betaC') * realGap(c) * (labour(c) + property(c))],
       ['autonomous', 'Spending not tied to this month’s income', undefined, (c) => c.p(c0) * c.v('cpi')],
-      ['wealth', 'Savings above normal', 'stock-flow-consistency', (c) => c.p(aW) * (liquid(c, g) - c.v('cpi') * c.p(`LW0${g}`))],
-      ...(g !== 'O' ? ([['borrowing', 'New mortgage borrowing', 'credit-impulse', (c: Ctx) => c.p('aNL') * c.v(`netMortgageLending${g}`)]] as [string, string, string, (c: Ctx) => number][]) : []),
-      ['housing', 'Housing wealth', 'housing-wealth-effect', (c) => c.p(aH) * c.p(`H0${g}`) * (c.v('realHousePrice') - 1) * c.v('cpi')],
+      ['wealth', 'Savings above normal', 'stock-flow-consistency', (c) => c.p(aW) * (liquid(c, g) - c.v('cpi') * c.p(lw0))],
+      ...(g !== 'O' ? ([['borrowing', 'New mortgage borrowing', 'credit-impulse', (c: Ctx) => c.p('aNL') * c.v(nml)]] as [string, string, string, (c: Ctx) => number][]) : []),
+      ['housing', 'Housing wealth', 'housing-wealth-effect', (c) => c.p(aH) * c.p(h0) * (c.v('realHousePrice') - 1) * c.v('cpi')],
     ),
     concepts: ['consumption-function', 'habit-persistence', 'borrowers-and-savers'],
     explain: {
@@ -88,47 +96,51 @@ function consumptionRule(g: Age): RuleDef {
   };
 }
 
-const perGroup: RuleDef[] = AGES.flatMap((g): RuleDef[] => [
-  grossIncomeRule(g),
-  {
-    id: `netLabourIncome${g}`,
-    target: `netLabourIncome${g}`,
-    category: 'IDENTITY',
-    inputs: [`grossIncome${g}`, `incomeTax${g}`, ...mortgageInterest(g)],
-    terms: terms(
-      ['gross', 'Gross income', undefined, (c) => c.v(`grossIncome${g}`)],
-      ['tax', 'Income tax', 'automatic-stabilisers', (c) => -c.v(`incomeTax${g}`)],
-      ...(g !== 'O' ? ([['mortgage', 'Mortgage interest paid in cash', 'interest-distribution', (c: Ctx) => -mortgageInterest(g).reduce((s, id) => s + c.v(id), 0)]] as [string, string, string, (c: Ctx) => number][]) : []),
-    ),
-    explain: {
-      what: `Income of the ${AGE_LABEL[g]} from work, benefits${g === 'O' ? ' and pensions' : ''} after income tax${g !== 'O' ? ' and the cash interest on their mortgages' : ''}.`,
-      rule: `Net labour income = gross income − income tax${g !== 'O' ? ' − mortgage interest (the indexation on indexed loans is added to the loan, not paid)' : ''}.`,
+const perGroup: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
+  const [gross, tax] = [`grossIncome${g}`, `incomeTax${g}`];
+  const [mB, mPF] = g === 'O' ? ['', ''] : mortgageInterest(g);
+  return [
+    grossIncomeRule(g),
+    {
+      id: `netLabourIncome${g}`,
+      target: `netLabourIncome${g}`,
+      category: 'IDENTITY',
+      inputs: [gross, tax, ...mortgageInterest(g)],
+      terms: terms(
+        ['gross', 'Gross income', undefined, (c) => c.v(gross)],
+        ['tax', 'Income tax', 'automatic-stabilisers', (c) => -c.v(tax)],
+        ...(g !== 'O' ? ([['mortgage', 'Mortgage interest paid in cash', 'interest-distribution', (c: Ctx) => -(c.v(mB) + c.v(mPF))]] as [string, string, string, (c: Ctx) => number][]) : []),
+      ),
+      explain: {
+        what: `Income of the ${AGE_LABEL[g]} from work, benefits${g === 'O' ? ' and pensions' : ''} after income tax${g !== 'O' ? ' and the cash interest on their mortgages' : ''}.`,
+        rule: `Net labour income = gross income − income tax${g !== 'O' ? ' − mortgage interest (the indexation on indexed loans is added to the loan, not paid)' : ''}.`,
+      },
     },
-  },
-  {
-    id: `propertyIncome${g}`,
-    target: `propertyIncome${g}`,
-    category: 'IDENTITY',
-    inputs: propertyIncomeIds(g),
-    terms: propertyIncomeIds(g).map((id) => ({
-      id,
-      label: id.startsWith('deposit') ? 'Interest on deposits' : id.startsWith('bondInterest') ? 'Interest on government bonds' : id.startsWith('bank') ? 'Bank dividends' : id.startsWith('dividendsFX') ? 'Dividends from exporters' : 'Dividends and owners’ income from domestic firms',
-      concept: id.includes('nterest') ? 'interest-distribution' : undefined,
-      compute: (c: Ctx) => c.v(id),
-    })),
-    explain: { what: `Interest and dividends received by the ${AGE_LABEL[g]}.`, rule: 'Property income = interest on deposits and bonds + dividends from firms and banks.' },
-  },
-  {
-    id: `disposableIncome${g}`,
-    target: `disposableIncome${g}`,
-    category: 'IDENTITY',
-    inputs: [`netLabourIncome${g}`, `propertyIncome${g}`],
-    terms: terms(['labour', 'Net labour income', undefined, (c) => c.v(`netLabourIncome${g}`)], ['property', 'Property income', 'interest-distribution', (c) => c.v(`propertyIncome${g}`)]),
-    concepts: ['borrowers-and-savers'],
-    explain: { what: `Cash income of the ${AGE_LABEL[g]} after tax and mortgage interest.`, rule: 'Disposable income = net labour income + property income.' },
-  },
-  consumptionRule(g),
-]);
+    {
+      id: `propertyIncome${g}`,
+      target: `propertyIncome${g}`,
+      category: 'IDENTITY',
+      inputs: propertyIncomeIds(g),
+      terms: propertyIncomeIds(g).map((id) => ({
+        id,
+        label: id.startsWith('deposit') ? 'Interest on deposits' : id.startsWith('bondInterest') ? 'Interest on government bonds' : id.startsWith('bank') ? 'Bank dividends' : `Dividends and owners’ income from ${FIRM_NAME[id.slice(9, 11) as keyof typeof FIRM_NAME]}`,
+        concept: id.includes('nterest') ? 'interest-distribution' : undefined,
+        compute: (c: Ctx) => c.v(id),
+      })),
+      explain: { what: `Interest and dividends received by the ${AGE_LABEL[g]}.`, rule: 'Property income = interest on deposits and bonds + dividends from firms and banks.' },
+    },
+    {
+      id: `disposableIncome${g}`,
+      target: `disposableIncome${g}`,
+      category: 'IDENTITY',
+      inputs: [`netLabourIncome${g}`, `propertyIncome${g}`],
+      terms: terms(['labour', 'Net labour income', undefined, (c) => c.v(`netLabourIncome${g}`)], ['property', 'Property income', 'interest-distribution', (c) => c.v(`propertyIncome${g}`)]),
+      concepts: ['borrowers-and-savers'],
+      explain: { what: `Cash income of the ${AGE_LABEL[g]} after tax and mortgage interest.`, rule: 'Disposable income = net labour income + property income.' },
+    },
+    consumptionRule(g),
+  ];
+});
 
 const vars: VarDef[] = [
   ...AGES.flatMap((g): VarDef[] => [
@@ -142,6 +154,10 @@ const vars: VarDef[] = [
   { id: 'realConsumption', label: 'Household consumption (real)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base('realConsumption') },
   { id: 'realDisposableIncome', label: 'Households’ real disposable income', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base('realDisposableIncome') },
   { id: 'bondPurchasesHO', label: 'Older households’ bond purchases', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  ...AGES.flatMap((g): VarDef[] => [
+    { id: `consumption${g}_FR`, label: `Spending with retail and service firms, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+    { id: `consumption${g}_FC`, label: `Home repairs by builders, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  ]),
 ];
 
 export const households: ModuleDef = {
@@ -180,6 +196,27 @@ export const households: ModuleDef = {
       compute: (c) => AGES.reduce((s, g) => s + c.v(`disposableIncome${g}`), 0) / c.v('cpi'),
       explain: { what: 'All households’ disposable income at baseline prices; it drives house prices.', rule: 'Sum of the three groups’ disposable income ÷ CPI.' },
     },
+    ...AGES.flatMap((g): RuleDef[] => [
+      {
+        id: `consumption${g}_FR`,
+        target: `consumption${g}_FR`,
+        category: 'BEHAVIOUR',
+        inputs: [`consumption${g}`],
+        params: ['maintShare'],
+        compute: (c) => (1 - c.p('maintShare')) * c.v(`consumption${g}`),
+        concepts: ['consumption-function'],
+        explain: { what: `What the ${AGE_LABEL[g]} spend in shops, restaurants and on services, including VAT.`, rule: 'All their spending except home repairs: (1 − {maintShare%}) × consumption.' },
+      },
+      {
+        id: `consumption${g}_FC`,
+        target: `consumption${g}_FC`,
+        category: 'BEHAVIOUR',
+        inputs: [`consumption${g}`],
+        params: ['maintShare'],
+        compute: (c) => c.p('maintShare') * c.v(`consumption${g}`),
+        explain: { what: `What the ${AGE_LABEL[g]} pay builders for maintenance and repair of their homes, including VAT.`, rule: '{maintShare%} of their spending (the CPI weight of dwelling maintenance and repair).' },
+      },
+    ]),
     {
       id: 'bondPurchasesHO',
       target: 'bondPurchasesHO',
@@ -203,9 +240,12 @@ export const households: ModuleDef = {
       kind: 'cash',
       account: 'current',
       posting: { type: 'transfer' },
-      legs: AGES.map((g) => ({ from: HH[g], to: 'FD', amount: `consumption${g}` })),
+      legs: AGES.flatMap((g) => [
+        { from: HH[g], to: 'FR', amount: `consumption${g}_FR` },
+        { from: HH[g], to: 'FC', amount: `consumption${g}_FC` },
+      ]),
       concepts: ['consumption-function'],
-      explain: { what: 'Households buy goods and services, including VAT, from domestic firms; imported goods reach them through those firms.' },
+      explain: { what: 'Households buy goods and services, including VAT, from retail and service firms, and pay builders to repair their homes; imported goods reach them through those firms.' },
     },
     {
       id: 'bondPurchasesHO',

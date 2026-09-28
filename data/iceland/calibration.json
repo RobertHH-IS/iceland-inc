@@ -691,5 +691,206 @@
       "source": "Hagstofa THJ05181 (General government financial assets and liabilities)",
       "note": "Debt securities 37.4 + loans 19.3 (1,849 + 952 = 2,801 bn ISK), end-2025, general government. Excludes unfunded public-employee pension liabilities (25.2% of GDP) and other payables (6.4%); total liabilities 88.3% (Hagstofa March 2026 release: 84.2%). Net financial assets -38.2%."
     }
+  },
+  "firm_sectors": {
+    "construction": {
+      "value_added_pct_gdp": {
+        "value": 7.34,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ08420 (Production approach components by kind of activity), 2025",
+        "note": "F: 41-43 Construction, gross value added 362,737 m ISK / GDP 4,941,211 m. 8.21% of total GVA. 2024: 338,090 m (7.39% of GDP)."
+      },
+      "compensation_pct_gdp": {
+        "value": 4.6,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ08420 (Production approach components by kind of activity), 2025",
+        "note": "F: 41-43 compensation of employees 227,103 m ISK = 8.65% of all compensation (2,624,397 m). Compensation / GVA = 0.63."
+      },
+      "employment_share": {
+        "value": 8.51,
+        "unit": "% of employed persons",
+        "year": 2025,
+        "source": "Hagstofa VIN10022 (Register based employment in economic activity by main job, 2025 monthly average)",
+        "note": "F Construction 19,167 of 225,194 register-employed (2025 average). National-accounts persons (THJ11002): 19,017 of 223,160 = 8.52%; hours 8.57%."
+      },
+      "gfcf_pct_gdp": {
+        "value": 1.07,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ03105 (Gross fixed capital formation by kind of activity, current prices), 2025",
+        "note": "F: 41-43 Construction: 52,926 m ISK (investment BY construction firms, not construction work done for others). Business-sector GFCF total 875,037 m (17.71% of GDP); residential construction 250,001 m (5.06%) is not in the model."
+      },
+      "share_of_bank_corporate_loans": {
+        "value": 17.7,
+        "unit": "% of systemically important banks' loans to firms",
+        "year": 2025,
+        "source": "Central Bank of Iceland, Fjarmalastodugleiki 2026/1 (25 Mar 2026), chart data workbook, charts I-22 and II-7 (sedlabanki.is/library/?itemid=5355f431-e53e-44ad-a213-a9d8749f8bca)",
+        "note": "Construction sector (ISAT 41-43) debt to the systemically important banks, Dec 2025: 358.3 bn ISK (chart I-22, at Dec-2025 prices) / their loans to firms end-2025: 2,024 bn ISK (chart II-7, nominal) = 17.7%. EBA risk dashboard, Dec 2024: construction 15.4% and real estate 23.5% of exposures to non-financial corporations."
+      },
+      "household_maintenance_share_of_spending": {
+        "value": 1.09,
+        "unit": "% of household consumption",
+        "year": 2025,
+        "source": "Hagstofa VIS01306 (Weights for CPI subindices), December 2025 basket",
+        "note": "COICOP 04.3 Maintenance, repair and security of the dwelling: weight 109 of 10,000 (materials 63, services 47). Renovations that add value count as residential investment and are not in the model."
+      }
+    },
+    "fisheries": {
+      "value_added_pct_gdp": {
+        "value": 4.55,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ08420 (Production approach components by kind of activity), 2025",
+        "note": "A: 03 Fishing and aquaculture 142,351 m + fish processing (C: 10.2) 82,618 m = 224,969 m ISK. Volatile with catches: 2024 207,266 m (4.53% of 2024 GDP)."
+      },
+      "compensation_pct_gdp": {
+        "value": 2.96,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ08420 (Production approach components by kind of activity), 2025",
+        "note": "Compensation of employees: fishing and aquaculture 92,120 m + fish processing 54,268 m = 146,388 m ISK. Compensation / GVA = 0.65."
+      },
+      "employment_share": {
+        "value": 3.48,
+        "unit": "% of employed persons",
+        "year": 2025,
+        "source": "Hagstofa VIN10022 (Register based employment in economic activity by main job, 2025 monthly average)",
+        "note": "'Fishing industry (A:03 and C:10.2)' 7,836 of 225,194 register-employed (fishing 3,711, processing 4,125)."
+      },
+      "gfcf_pct_gdp": {
+        "value": 1.51,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ03105 (Gross fixed capital formation by kind of activity, current prices), 2025; fish-processing share from THJ08420",
+        "note": "A: 03 Fishing and aquaculture 56,062 m + fish processing's share of C: 10-12 (34,538 m x its GVA share 82,618/155,622 = 18,336 m) = 74,398 m ISK. [estimate for the processing part]"
+      },
+      "share_of_workers_outside_25_64": {
+        "value": 17.2,
+        "unit": "% of employed persons",
+        "year": 2025,
+        "source": "Hagstofa VIN10022 (Register based employment in economic activity by main job, 2025 monthly average)",
+        "note": "Fishing industry: employed persons outside ages 25-64 (total minus the 25-64 age group) as a share of all its employed. All employed: 22.8%. The register gives no finer age groups by activity."
+      }
+    },
+    "aluminium": {
+      "value_added_pct_gdp": {
+        "value": 1.13,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ08420 (Production approach components by kind of activity), 2025",
+        "note": "C: 24 Manufacture of basic metals (the three aluminium smelters plus ferrosilicon and silicon plants) 56,005 m ISK. Very cyclical: 104,663 m in 2022 (2.77% of GDP), 49,973 m in 2023. Net operating surplus -4,020 m in 2025."
+      },
+      "compensation_pct_gdp": {
+        "value": 0.7,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ08420 (Production approach components by kind of activity), 2025",
+        "note": "C: 24 compensation of employees 34,578 m ISK. Compensation / GVA = 0.62."
+      },
+      "employment_share": {
+        "value": 0.91,
+        "unit": "% of employed persons",
+        "year": 2025,
+        "source": "Hagstofa VIN10022 (Register based employment in economic activity by main job, 2025 monthly average)",
+        "note": "C: 24 Manufacture of basic metals 2,050 of 225,194 register-employed."
+      },
+      "gfcf_pct_gdp": {
+        "value": 0.25,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ03105 (Gross fixed capital formation by kind of activity, current prices), 2025",
+        "note": "C: 24 Manufacture of basic metals 12,567 m ISK. 2021-2025 average 15,044 m."
+      },
+      "imported_inputs_share_of_exports": {
+        "value": 46.6,
+        "unit": "% of aluminium export value",
+        "year": 2025,
+        "source": "Hagstofa UTA06203 (imports of some major items: aluminium oxide, coke) and UTA03803 (imports by HS number: 8545.11 and 8545.19 carbon electrodes), 2025 sums; aluminium exports from UTA05003",
+        "note": "Alumina 95,484.6 m + carbon electrodes (anodes) 52,117.6 m + coke 655.6 m = 148,257.8 m ISK cif / aluminium exports 318.2 bn ISK = 46.6%. Upper bound for the smelters alone: some furnace electrodes go to the ferrosilicon and silicon plants. Tonnage: alumina 1,504,276 t; electrodes 435,701 t."
+      },
+      "foreign_ownership_share": {
+        "value": 100,
+        "unit": "% of equity",
+        "year": 2025,
+        "source": "Ownership of the three smelters: ISAL (Rio Tinto), Fjardaal (Alcoa), Nordural (Century Aluminum); Islandsbanki Research (2026), \"Current account balance set to improve after 2025 deficit\"",
+        "note": "All three smelters are wholly owned by foreign groups, so their profits are primary income paid abroad and their owners absorb losses. Inward-FDI income (all foreign-owned firms, Eurostat bop_c6_a): 1.25% of GDP in 2024, of which intercompany interest 0.92% and dividends plus reinvested earnings 0.33%."
+      }
+    },
+    "tourism": {
+      "value_added_pct_gdp": {
+        "value": 6.65,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa SAM08008 (tourism satellite account): tourism direct gross value added",
+        "note": "Tourism direct GVA 328.5 bn ISK (as used in export_sector.value_added_share_of_gdp). Includes domestic tourism, so slightly overstates what foreign visitors buy."
+      },
+      "employment_share": {
+        "value": 9.93,
+        "unit": "% of employed persons",
+        "year": 2025,
+        "source": "Hagstofa SAM08010 (TSA employed persons) and VIN10022",
+        "note": "Tourism-attributable employed persons 22,363 of 225,194 register-employed. All tourism-characteristic industries (register): 29,228 = 12.98%."
+      },
+      "compensation_pct_gdp": {
+        "value": 4.81,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Derived from Hagstofa THJ08420 (compensation by activity), VIN10022 (employed by activity) and SAM08010 (TSA employed)",
+        "note": "[estimate] TSA employed persons 22,363 x average compensation per employed person in accommodation and food (I 55-56: 139,631 m / 16,197), air transport (H 51: 81,810 m / 4,428) and travel agencies (N 79: 34,013 m / 3,394) = 255,454 m / 24,019 = 10.64 m ISK = 237.8 bn ISK. Compensation / tourism GVA = 0.72, the most labour-intensive exporter."
+      },
+      "gfcf_pct_gdp": {
+        "value": 0.75,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ03105 (Gross fixed capital formation by kind of activity, current prices), 2025",
+        "note": "[estimate] Air transport 18,239 m + travel agencies 10,788 m + half of accommodation and food 15,978 m (the rest serves residents) = 37,016 m ISK."
+      },
+      "share_of_workers_outside_25_64": {
+        "value": 25.8,
+        "unit": "% of employed persons",
+        "year": 2025,
+        "source": "Hagstofa VIN10022 (Register based employment in economic activity by main job, 2025 monthly average)",
+        "note": "'Tourism industries': employed persons outside ages 25-64 as a share of all its employed, against 22.8% for all employed (ratio 1.13). Accommodation and food 33.3% (ratio 1.46), food service alone 42.2%. The register gives no 18-34 split by activity; this is the closest proxy for tourism's young workforce."
+      },
+      "jet_fuel_imports_pct_gdp": {
+        "value": 1.12,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa UTA06203 (imports of some major items, 2025 sum)",
+        "note": "Jet fuel 554,691 t, 55,124.8 m ISK cif = 8.5% of tourism exports. Most is burnt by Icelandic airlines carrying foreign visitors."
+      }
+    },
+    "other_exporters": {
+      "value_added_pct_gdp": {
+        "value": 6.53,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Derived from Hagstofa UTA05003/UTA04006 (export composition) and THJ08420 (value added / output by activity)",
+        "note": "[estimate] Other exports x the value-added share of output of the industries that make them: other goods 273.9 bn x 0.40 (manufacturing excl. food and basic metals 0.46; pharma C20-21 0.44; basic metals 0.16 for ferrosilicon) = 109.6 bn; transport 107 bn x 0.43 (H 49-50, 52); telecom and computer services 101.4 x 0.52 (J 61-63); other business services 76.4 x 0.53 (M-N); financial 41.2 x 0.69 (K); intellectual property 29.1 x 0.8; repair 21.6 x 0.49 (C 33); other 23 x 0.5 = 212.9 bn. Total 322.5 bn ISK. The v1 export_sector aggregate counted only pharma (30.8 bn) here."
+      },
+      "compensation_pct_gdp": {
+        "value": 4.15,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Derived from Hagstofa THJ08420 (compensation / value added by activity)",
+        "note": "[estimate] Each part of the value-added estimate x its industry's compensation / GVA: manufacturing 0.70, transport 0.68, ICT 0.57, business services 0.65, finance 0.47, IP (R&D M 72) 0.46, repair 0.84, other 0.65 = 205.2 bn ISK (labour share 0.64)."
+      },
+      "gfcf_pct_gdp": {
+        "value": 1.58,
+        "unit": "% of GDP",
+        "year": 2025,
+        "source": "Hagstofa THJ03105 (Gross fixed capital formation by kind of activity, current prices), 2025",
+        "note": "[estimate] Pharmaceuticals (C: 21) 12,024 m + the export share (computer and information services exports 101.4 bn / J 62-63 output 319.8 bn = 0.32) of computer programming and information services (J: 62-63, incl. data centres) 208,048 m = 77,988 m ISK."
+      }
+    },
+    "business_gfcf_pct_gdp": {
+      "value": 17.71,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa THJ03105 (Gross fixed capital formation by kind of activity, current prices), 2025",
+      "note": "'Business sector, total' 875,037 m ISK. Residential construction (5.06%) and government (4.09%) are separate. The model's business investment is 16% of GDP (placeholder)."
+    }
   }
 }

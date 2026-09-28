@@ -1,38 +1,88 @@
 /**
- * FlowMap: players (or groups) and the pipes between them, from engine.pipes(level).
+ * FlowMap: the players and groups of the model and the pipes between them, at whatever level
+ * of the hierarchy is open (engine.pipes({ expanded })).
+ *
+ * A closed group is a stack of cards with its member count and colour dots; clicking it opens
+ * it in place: its members replace it, inside a soft frame that closes the group again when
+ * clicked. Cards glide from the group's position to their own and pipes crossfade (about
+ * 360 ms; nothing moves when the user asks for reduced motion).
  *
  * Every cash pipe carries moving particles (a CSS dash animation); thickness ∝ √size; particle
  * speed rises with value/baseline (the animation's playback rate); an amber glow means above
  * baseline, blue-grey below; dashed pipes without particles are accruals, revaluations and
- * write-offs. The seven most changed pipes are labelled. Click a pipe or a player to inspect it.
+ * write-offs. Flows inside a closed group are a loop on its card. The seven most changed pipes
+ * are labelled. Click a pipe, a player or a group to inspect it.
  */
-import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import type { Id, Pipe } from '../../core/types.ts';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import type { FlowKind, Id, Pipe } from '../../core/types.ts';
 import type { EngineClient } from '../engine-client.ts';
 import { fmtCompact, fmtCompactChange, fmtIndicator, fmtNum, fmtSigned } from '../model/format.ts';
-import { MAP_H, MAP_W, fitMap, layoutNodes, levelHints, nodeRect, pipeGeometry, pipeKey, pipeWidth, placeLabels, widthScale, type Level, type NodeBox, type Pt, type PipeGeom } from '../model/geometry.ts';
+import { MAP_H, MAP_W, fitMap, frameBoxes, layoutView, nodeRect, pipeGeometry, pipeKey, pipeWidth, placeLabels, viewFitItems, viewLayoutHints, widthScale, type FrameBox, type NodeBox, type Pt, type PipeGeom } from '../model/geometry.ts';
+import { directMembers, memberCount, viewKey, viewTree, visibleNode, type ViewTree } from '../model/hierarchy.ts';
 import type { ModelInfo } from '../model/info.ts';
-import { nodeLabel } from '../model/info.ts';
+import { nodeColor, nodeLabel } from '../model/info.ts';
 import type { Selection } from '../model/navigation.ts';
-import { resolveCardMetrics, type ResolvedMetric } from '../model/player-cards.ts';
+import { GROUP_NOUNS, resolveCardMetrics, type ResolvedMetric } from '../model/player-cards.ts';
 import { deviation, pipeStyle, signTone, topChanged, type Tone } from '../model/styling.ts';
 import type { OnSelect } from './common.tsx';
+import { usePrefersReducedMotion } from './hooks.ts';
 
 interface FlowMapProps {
   info: ModelInfo;
   client: EngineClient;
-  level: Level;
+  /** Groups open on the map, one-player groups included (see effectiveExpanded). */
+  expanded: ReadonlySet<Id>;
+  /** The pipes for that view: client.pipes({ expanded }). */
   pipes: Pipe[];
   legs: Float64Array;
   regimes: Readonly<Record<Id, string | null>>;
   seq: number;
   selection: Selection | null;
   onSelect: OnSelect;
+  /** Open a closed group (and show it in the inspector). */
+  onOpenGroup: (id: Id) => void;
+  /** Close an open group. */
+  onCloseGroup: (id: Id) => void;
 }
 
 const KIND_WORD: Record<string, string> = { cash: 'cash', accrual: 'accrual (no cash moves)', revaluation: 'revaluation (no cash moves)', writeoff: 'write-off (no cash moves)' };
 
-export const FlowMap = memo(function FlowMap({ info, client, level, pipes, legs, regimes, seq, selection, onSelect }: FlowMapProps) {
+/** How long cards take to glide and pipes to crossfade when a group opens or closes. */
+export const ANIM_MS = 360;
+
+interface PipeShot {
+  key: string;
+  d: string;
+  kind: FlowKind;
+  tone: Tone;
+  width: number;
+}
+
+interface Snapshot {
+  key: string;
+  w: number;
+  h: number;
+  nodes: Map<Id, NodeBox>;
+  pipes: PipeShot[];
+}
+
+interface Anim {
+  id: number;
+  /** False for the first frame (cards drawn where they come from), then true (they move). */
+  run: boolean;
+  /** Old map units → new map units. */
+  sx: number;
+  sy: number;
+  origins: Map<Id, Pt>;
+  ghosts: { node: NodeBox; from: Pt; to: Pt }[];
+  oldPipes: PipeShot[];
+  newPipes: Set<string>;
+  newNodes: Set<Id>;
+}
+
+let animSeq = 0;
+
+export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, legs, regimes, seq, selection, onSelect, onOpenGroup, onCloseGroup }: FlowMapProps) {
   // Lay the map out in the container's own pixels, so text stays readable at any size, and
   // scale it down only as far as the cards need to stay clear of each other.
   const wrap = useRef<HTMLDivElement>(null);
@@ -51,18 +101,25 @@ export const FlowMap = memo(function FlowMap({ info, client, level, pipes, legs,
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const hints = useMemo(() => levelHints(info.players, info.groups, level).map((h) => h.hint), [info, level]);
-  const box = useMemo(() => fitMap(hints, size.cw, size.ch), [hints, size]);
-  const nodes = useMemo(() => layoutNodes(info.players, info.groups, level, { width: box.w, height: box.h, cardW: box.card.w, cardH: box.card.h }), [info, level, box]);
+  const vkey = viewKey(expanded);
+  const tree = useMemo(() => viewTree(info, expanded), [info, vkey]);
+  // Hints for this view on a map of this size: open groups whose members' hints would overlap
+  // are laid out as blocks, for the size at which the map will be drawn; then spread out.
+  const hints = useMemo(() => viewLayoutHints(info, tree, size.cw, size.ch), [info, tree, size]);
+  const box = useMemo(() => fitMap(viewFitItems(tree, hints), size.cw, size.ch), [tree, hints, size]);
+  const nodes = useMemo(() => layoutView(info, tree, hints, { width: box.w, height: box.h, cardW: box.card.w, cardH: box.card.h }), [info, tree, hints, box]);
   const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  const frames = useMemo(() => frameBoxes(tree, nodeMap, box), [tree, nodeMap, box]);
   const signature = pipes.map(pipeKey).join('|');
-  // The set of pipes is fixed for a model and level, so geometry and the width scale are too:
-  // they are recomputed only when that set changes, not on every tick.
+  // The set of pipes is fixed for a model and view, so their geometry is too: it is recomputed
+  // only when that set or the layout changes, not on every tick. Widths share one reference
+  // (the largest pipe between top-level groups), so a pipe is as thick in every view.
   const geom = useMemo(() => pipeGeometry(pipes, nodeMap), [nodeMap, signature]);
-  const scale = useMemo(() => widthScale(pipes), [info, level, signature]);
+  const scale = useMemo(() => widthScale(client.pipes('group')), [client]);
   const top = topChanged(pipes, 7);
   const labelText = top.map((p) => ({ p, ...pipeLabelText(info, p) }));
-  const cards = useMemo(() => nodes.map(nodeRect), [nodes]);
+  // Labels keep clear of the cards and of the frames' name tabs.
+  const cards = useMemo(() => [...nodes.map(nodeRect), ...frames.map((f) => ({ x: f.x + 14, y: f.y - 10, w: tabWidth(f.label), h: 20 }))], [nodes, frames]);
   const labelPos = placeLabels(
     labelText.flatMap(({ p, text }) => {
       const g = geom.get(pipeKey(p));
@@ -72,53 +129,182 @@ export const FlowMap = memo(function FlowMap({ info, client, level, pipes, legs,
     { w: box.w, h: box.h },
   );
 
-  const focusNode = selection && (selection.kind === 'player' || selection.kind === 'group') ? mapToLevel(info, selection.id, level) : null;
-  const pipeSel = selection && selection.kind === 'pipe' && selection.level === level ? selection : null;
-  const focusPipe = pipeSel ? `${pipeSel.from}->${pipeSel.to}:${pipeSel.flowKind}` : null;
-  const hasFocus = !!(focusNode || focusPipe);
-  const lit = (id: Id) => !hasFocus || focusNode === id || (!!pipeSel && (pipeSel.from === id || pipeSel.to === id));
+  const focus = useMemo(() => focusOf(info, tree, expanded, selection), [info, tree, expanded, selection]);
+  const hasFocus = focus.nodes.size > 0 || !!focus.pipe;
+  const lit = (id: Id) => !hasFocus || focus.nodes.has(id);
+
+  /* ------------------------------------------------ opening and closing */
+  const reduce = usePrefersReducedMotion();
+  const last = useRef<Snapshot | null>(null);
+  const [anim, setAnim] = useState<Anim | null>(null);
+  useLayoutEffect(() => {
+    const prev = last.current;
+    if (!prev || prev.key === vkey || reduce) {
+      setAnim(null);
+      return;
+    }
+    const sx = box.w / prev.w,
+      sy = box.h / prev.h;
+    const scaled = (p: Pt): Pt => ({ x: p.x * sx, y: p.y * sy });
+    const origins = new Map<Id, Pt>();
+    const newNodes = new Set<Id>();
+    for (const n of nodes) {
+      const was = prev.nodes.get(n.id);
+      if (was) {
+        origins.set(n.id, scaled(was));
+        continue;
+      }
+      newNodes.add(n.id);
+      // A member of a group that has just opened starts on the group's card.
+      const from = (info.ancestorsOf.get(n.id) ?? []).map((g) => prev.nodes.get(g)).find((x) => !!x);
+      if (from) origins.set(n.id, scaled(from));
+    }
+    const ghosts: Anim['ghosts'] = [];
+    for (const [id, was] of prev.nodes) {
+      if (nodeMap.has(id)) continue;
+      // A member of a group that has just closed slides into the group's card and fades.
+      const into = visibleNode(info, id, expanded);
+      const target = into ? nodeMap.get(into) : undefined;
+      ghosts.push({ node: was, from: scaled(was), to: target ? { x: target.x, y: target.y } : scaled(was) });
+    }
+    const keys = new Set(pipes.map(pipeKey));
+    const prevKeys = new Set(prev.pipes.map((p) => p.key));
+    const id = ++animSeq;
+    setAnim({ id, run: false, sx, sy, origins, ghosts, oldPipes: prev.pipes.filter((p) => !keys.has(p.key)), newPipes: new Set([...keys].filter((k) => !prevKeys.has(k))), newNodes });
+    const done = setTimeout(() => setAnim((a) => (a && a.id === id ? null : a)), ANIM_MS + 90);
+    return () => clearTimeout(done);
+    // Only a change of view starts an animation; resizes and ticks do not.
+  }, [vkey]);
+  // FLIP: once the cards are drawn where they come from, make the browser compute that style,
+  // then move them to where they go; the CSS transition animates between the two.
+  useLayoutEffect(() => {
+    if (!anim || anim.run) return;
+    wrap.current?.getBoundingClientRect();
+    setAnim((a) => (a && a.id === anim.id ? { ...a, run: true } : a));
+  }, [anim?.id, anim?.run]);
+  // Remember what is on screen, for the next change of view.
+  useLayoutEffect(() => {
+    last.current = {
+      key: vkey,
+      w: box.w,
+      h: box.h,
+      nodes: nodeMap,
+      pipes: pipes.flatMap((p) => {
+        const g = geom.get(pipeKey(p));
+        return g ? [{ key: g.key, d: g.d, kind: p.kind, tone: deviation(p.value, p.baseline).tone, width: pipeWidth(p.value, scale) }] : [];
+      }),
+    };
+  });
+  const at = (n: NodeBox): Pt => (anim && !anim.run ? (anim.origins.get(n.id) ?? n) : n);
+  const closedGroups = nodes.filter((n) => n.kind === 'group').length;
 
   return (
     <div className="flowmap">
       <div className="map-wrap" ref={wrap}>
-      <svg className={`map ${hasFocus ? 'has-focus' : ''}${box.card.lines === 1 ? ' compact' : ''}`} viewBox={`0 0 ${box.w} ${box.h}`} preserveAspectRatio="xMidYMid meet" role="group" aria-label={`Flow map of ${info.label}: ${nodes.length} ${level === 'player' ? 'players' : 'groups'} and ${pipes.length} pipes`}>
-        <defs>
-          <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-            <path d="M0,1 L9,5 L0,9 z" className="arrowhead" />
-          </marker>
-        </defs>
-        <g className="pipes">
-          {pipes.map((p) => {
-            const k = pipeKey(p);
-            const g = geom.get(k);
-            if (!g) return null;
-            const related = focusPipe ? k === focusPipe : focusNode ? p.from === focusNode || p.to === focusNode : false;
-            return <PipeView key={k} info={info} geom={g} pipe={p} width={pipeWidth(p.value, scale)} selected={k === focusPipe} related={related} level={level} onSelect={onSelect} />;
-          })}
-        </g>
-        <g className="pipe-labels" aria-hidden="true">
-          {labelText.map(({ p, name, change }) => {
-            const k = pipeKey(p);
-            const at = labelPos.get(k);
-            return at ? <PipeLabel key={k} at={at} name={name} change={change} tone={deviation(p.value, p.baseline).tone} /> : null;
-          })}
-        </g>
-        <g className="nodes">
-          {nodes.map((n) => (
-            <NodeCardLive key={n.id} info={info} client={client} node={n} lines={box.card.lines} level={level} legs={legs} regimes={regimes} seq={seq} selected={focusNode === n.id} dim={!lit(n.id)} onSelect={onSelect} />
-          ))}
-        </g>
-      </svg>
+        <svg
+          className={`map ${hasFocus ? 'has-focus' : ''}${box.card.lines === 1 ? ' compact' : ''}${anim?.run ? ' animating' : ''}`}
+          viewBox={`0 0 ${box.w} ${box.h}`}
+          preserveAspectRatio="xMidYMid meet"
+          role="group"
+          aria-label={`Flow map of ${info.label}: ${nodes.length} nodes${closedGroups ? ` (${closedGroups} closed group${closedGroups === 1 ? '' : 's'})` : ''} and ${pipes.length} pipes`}
+        >
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+              <path d="M0,1 L9,5 L0,9 z" className="arrowhead" />
+            </marker>
+          </defs>
+          <g className="frames">
+            {frames.map((f) => (
+              <FrameBack key={f.id} frame={f} selected={focus.frame === f.id} onClose={onCloseGroup} />
+            ))}
+          </g>
+          {anim && anim.oldPipes.length > 0 && (
+            <g className="pipes-old" transform={`scale(${anim.sx} ${anim.sy})`} aria-hidden="true">
+              {anim.oldPipes.map((p) => (
+                <path key={p.key} className={`old-pipe kind-${p.kind} tone-${p.tone}${p.kind === 'cash' ? '' : ' dashed'}`} d={p.d} style={{ strokeWidth: p.width }} />
+              ))}
+            </g>
+          )}
+          <g className="pipes">
+            {pipes.map((p) => {
+              const k = pipeKey(p);
+              const g = geom.get(k);
+              if (!g) return null;
+              const related = focus.pipe ? k === focus.pipe : focus.nodes.has(p.from) || focus.nodes.has(p.to);
+              return <PipeView key={k} info={info} geom={g} pipe={p} width={pipeWidth(p.value, scale)} selected={k === focus.pipe} related={related} entering={!!anim?.newPipes.has(k)} onSelect={onSelect} />;
+            })}
+          </g>
+          <g className="frame-tabs">
+            {frames.map((f) => (
+              <FrameTab key={f.id} frame={f} selected={focus.frame === f.id} onClose={onCloseGroup} />
+            ))}
+          </g>
+          <g className="pipe-labels" aria-hidden="true">
+            {labelText.map(({ p, name, change }) => {
+              const k = pipeKey(p);
+              const pos = labelPos.get(k);
+              return pos ? <PipeLabel key={k} at={pos} name={name} change={change} tone={deviation(p.value, p.baseline).tone} /> : null;
+            })}
+          </g>
+          {anim && anim.ghosts.length > 0 && (
+            <g className="ghosts" aria-hidden="true">
+              {anim.ghosts.map((g) => (
+                <GhostCard key={g.node.id} node={g.node} at={anim.run ? g.to : g.from} gone={anim.run} />
+              ))}
+            </g>
+          )}
+          <g className="nodes">
+            {nodes.map((n) => {
+              const p = at(n);
+              return (
+                <NodeCardLive
+                  key={n.id}
+                  info={info}
+                  client={client}
+                  node={n}
+                  px={p.x}
+                  py={p.y}
+                  lines={box.card.lines}
+                  legs={legs}
+                  regimes={regimes}
+                  seq={seq}
+                  selected={focus.selected === n.id}
+                  dim={!lit(n.id)}
+                  entering={!!anim && anim.newNodes.has(n.id) && !anim.origins.has(n.id)}
+                  onSelect={onSelect}
+                  onOpenGroup={onOpenGroup}
+                />
+              );
+            })}
+          </g>
+        </svg>
       </div>
-      <Legend />
+      <Legend grouped={info.groups.some((g) => g.allPlayers.length > 1)} />
     </div>
   );
 });
 
-/** A player selected at group level is shown as its group, and a group at player level as nothing. */
-function mapToLevel(info: ModelInfo, id: Id, level: Level): Id | null {
-  if (level === 'group') return info.groupById.has(id) ? id : (info.groupOf.get(id) ?? null);
-  return info.playerById.has(id) ? id : null;
+/**
+ * What to highlight for a selection: the node a player or group is drawn as (a closed group
+ * lights up for a player hidden inside it), every node inside an open group, and the pipe
+ * that carries a selected pipe's legs at this view.
+ */
+function focusOf(info: ModelInfo, tree: ViewTree, eff: ReadonlySet<Id>, s: Selection | null): { nodes: Set<Id>; selected: Id | null; frame: Id | null; pipe: string | null } {
+  const none = { nodes: new Set<Id>(), selected: null, frame: null, pipe: null };
+  if (!s) return none;
+  if (s.kind === 'player' || s.kind === 'group') {
+    const v = visibleNode(info, s.id, eff);
+    if (v) return { nodes: new Set([v]), selected: v, frame: null, pipe: null };
+    if (s.kind === 'group' && tree.frames.some((f) => f.id === s.id)) return { nodes: new Set(tree.nodes.filter((n) => n.frames.includes(s.id)).map((n) => n.id)), selected: null, frame: s.id, pipe: null };
+    return none;
+  }
+  if (s.kind === 'pipe') {
+    const a = visibleNode(info, s.from, eff),
+      b = visibleNode(info, s.to, eff);
+    if (!a || !b) return none;
+    return { nodes: new Set([a, b]), selected: null, frame: null, pipe: pipeKey({ from: a, to: b, kind: s.flowKind }) };
+  }
+  return none;
 }
 
 function activate(e: KeyboardEvent, fn: () => void) {
@@ -127,6 +313,34 @@ function activate(e: KeyboardEvent, fn: () => void) {
     fn();
   }
 }
+
+/* ----------------------------------------------------------------- frames */
+
+const FrameBack = memo(function FrameBack({ frame: f, selected, onClose }: { frame: FrameBox; selected: boolean; onClose: (id: Id) => void }) {
+  return (
+    <rect className={`frame depth-${Math.min(f.depth, 2)}${selected ? ' selected' : ''}`} x={f.x} y={f.y} width={f.w} height={f.h} rx={18} style={{ ['--frame' as string]: f.color }} onClick={() => onClose(f.id)}>
+      <title>{`${f.label}: click the frame to close it`}</title>
+    </rect>
+  );
+});
+
+const tabWidth = (label: string) => Math.min(240, 40 + label.length * 6.6);
+
+const FrameTab = memo(function FrameTab({ frame: f, selected, onClose }: { frame: FrameBox; selected: boolean; onClose: (id: Id) => void }) {
+  const w = tabWidth(f.label);
+  const close = () => onClose(f.id);
+  return (
+    <g className={`frame-tab${selected ? ' selected' : ''}`} transform={`translate(${Math.round(f.x + 14)},${Math.round(f.y)})`} role="button" tabIndex={0} aria-label={`Close ${f.label}`} aria-expanded={true} onClick={close} onKeyDown={(e) => activate(e, close)} style={{ ['--frame' as string]: f.color }}>
+      <title>{`Close ${f.label}`}</title>
+      <rect x={0} y={-10} width={w} height={20} rx={10} />
+      <circle className="frame-dot" cx={11} cy={0} r={3.5} />
+      <text x={20} y={4}>
+        {f.label}
+      </text>
+      <path className="frame-chev" d={`M${w - 17},3 l4,-4 l4,4`} />
+    </g>
+  );
+});
 
 /* ------------------------------------------------------------------ pipes */
 
@@ -137,12 +351,12 @@ interface PipeViewProps {
   width: number;
   selected: boolean;
   related: boolean;
-  level: Level;
+  entering: boolean;
   onSelect: OnSelect;
 }
 
 const PipeView = memo(
-  function PipeView({ info, geom, pipe, width, selected, related, level, onSelect }: PipeViewProps) {
+  function PipeView({ info, geom, pipe, width, selected, related, entering, onSelect }: PipeViewProps) {
     const st = pipeStyle(pipe.kind, pipe.value, pipe.baseline, width);
     const particles = useRef<SVGPathElement>(null);
     const rate = Math.round(st.rate * 100) / 100;
@@ -155,10 +369,11 @@ const PipeView = memo(
       }
     }, [rate, st.reverse, st.particles]);
     const flows = [...new Set(pipe.legs.map((l) => l.flow))].map((f) => info.flowById.get(f)?.label ?? f);
-    const label = `${nodeLabel(info, pipe.from)} to ${nodeLabel(info, pipe.to)}, ${KIND_WORD[pipe.kind]}: ${flows.join(', ')}. ${fmtNum(pipe.value)} now, ${fmtNum(pipe.baseline)} at baseline (% of GDP a year).`;
-    const open = () => onSelect({ kind: 'pipe', from: pipe.from, to: pipe.to, flowKind: pipe.kind, level });
+    const ends = pipe.from === pipe.to ? `Within ${nodeLabel(info, pipe.from)}` : `${nodeLabel(info, pipe.from)} to ${nodeLabel(info, pipe.to)}`;
+    const label = `${ends}, ${KIND_WORD[pipe.kind]}: ${flows.join(', ')}. ${fmtNum(pipe.value)} now, ${fmtNum(pipe.baseline)} at baseline (% of GDP a year).`;
+    const open = () => onSelect({ kind: 'pipe', from: pipe.from, to: pipe.to, flowKind: pipe.kind });
     return (
-      <g className={`pipe kind-${pipe.kind} tone-${st.tone}${selected ? ' selected' : ''}${related ? ' related' : ''}`} role="button" tabIndex={0} aria-label={label} onClick={open} onKeyDown={(e) => activate(e, open)}>
+      <g className={`pipe kind-${pipe.kind} tone-${st.tone}${selected ? ' selected' : ''}${related ? ' related' : ''}${entering ? ' enter' : ''}`} role="button" tabIndex={0} aria-label={label} onClick={open} onKeyDown={(e) => activate(e, open)}>
         <title>{label}</title>
         <path className="pipe-hit" d={geom.d} style={{ strokeWidth: Math.max(14, width + 8) }} />
         {st.tone !== 'flat' && <path className="pipe-glow" d={geom.d} style={{ strokeWidth: width + 7 + 6 * st.glow, opacity: 0.18 + 0.5 * st.glow }} />}
@@ -167,7 +382,16 @@ const PipeView = memo(
       </g>
     );
   },
-  (a, b) => a.geom === b.geom && a.width === b.width && a.selected === b.selected && a.related === b.related && a.pipe.value === b.pipe.value && a.pipe.baseline === b.pipe.baseline && a.info === b.info && a.level === b.level && a.onSelect === b.onSelect,
+  (a, b) =>
+    a.geom === b.geom &&
+    a.width === b.width &&
+    a.selected === b.selected &&
+    a.related === b.related &&
+    a.entering === b.entering &&
+    a.pipe.value === b.pipe.value &&
+    a.pipe.baseline === b.pipe.baseline &&
+    a.info === b.info &&
+    a.onSelect === b.onSelect,
 );
 
 function pipeLabelText(info: ModelInfo, pipe: Pipe): { name: string; change: string; text: string } {
@@ -203,7 +427,7 @@ interface MetricText {
   tone: Tone;
 }
 
-function evalMetric(m: ResolvedMetric, info: ModelInfo, client: EngineClient, members: Id[], legs: Float64Array): MetricText {
+function evalMetric(m: ResolvedMetric, info: ModelInfo, client: EngineClient, node: NodeBox, legs: Float64Array): MetricText {
   try {
     switch (m.kind) {
       case 'indicator': {
@@ -221,18 +445,14 @@ function evalMetric(m: ResolvedMetric, info: ModelInfo, client: EngineClient, me
         return { key: m.key, label: m.label, text: tone === 'flat' ? fmtCompact(v, vd.unit) : `${fmtCompact(v, vd.unit)} ${fmtCompactChange(d, vd.unit, b)}`, tone };
       }
       case 'netWorth': {
-        let v = 0,
-          b = 0;
-        for (const p of members) {
-          const bs = client.balanceSheet(p);
-          v += bs.netWorth;
-          b += bs.netWorthBaseline;
-        }
+        const bs = client.balanceSheet(node.id);
+        const v = bs.netWorth,
+          b = bs.netWorthBaseline;
         const tone = deviation(v, b).tone;
         return { key: m.key, label: m.label, text: tone === 'flat' ? fmtNum(v) : `${fmtNum(v)} ${fmtSigned(v - b)}`, tone };
       }
       case 'cashIn': {
-        const set = new Set(members);
+        const set = new Set(node.members);
         let v = 0,
           b = 0;
         for (const l of info.legs)
@@ -253,29 +473,38 @@ interface NodeLiveProps {
   info: ModelInfo;
   client: EngineClient;
   node: NodeBox;
+  px: number;
+  py: number;
   lines: 1 | 2;
-  level: Level;
   legs: Float64Array;
   regimes: Readonly<Record<Id, string | null>>;
   seq: number;
   selected: boolean;
   dim: boolean;
+  entering: boolean;
   onSelect: OnSelect;
+  onOpenGroup: (id: Id) => void;
 }
 
 /** Computes the card's live numbers each tick, then hands strings to the memoised card. */
-function NodeCardLive({ info, client, node, lines, level, legs, regimes, selected, dim, onSelect }: NodeLiveProps) {
+function NodeCardLive({ info, client, node, px, py, lines, legs, regimes, selected, dim, entering, onSelect, onOpenGroup }: NodeLiveProps) {
   const metrics = useMemo(() => resolveCardMetrics(info, node.id, undefined, lines), [info, node.id, lines]);
   const owned = useMemo(() => {
     const members = new Set(node.members);
     return [...info.regimeOwners].filter(([, owners]) => owners.some((o) => members.has(o))).map(([rule]) => rule);
   }, [info, node.members]);
-  const values = metrics.map((m) => evalMetric(m, info, client, node.members, legs));
+  const group = node.kind === 'group';
+  const count = useMemo(() => (group ? memberCount(info, node.id, GROUP_NOUNS[info.id]) : ''), [info, node.id, group]);
+  const dots = useMemo(() => (group ? directMembers(info, node.id).map((m) => nodeColor(info, m.id)).join(' ') : ''), [info, node.id, group]);
+  const values = metrics.map((m) => evalMetric(m, info, client, node, legs));
   const binding = owned.map((r) => regimes[r]).filter((x): x is string => !!x);
   return (
     <NodeCard
       node={node}
-      kind={level === 'player' ? 'player' : 'group'}
+      px={px}
+      py={py}
+      count={count}
+      dots={dots}
       m1={values[0]?.label ?? ''}
       v1={values[0]?.text ?? ''}
       t1={values[0]?.tone ?? 'flat'}
@@ -286,14 +515,20 @@ function NodeCardLive({ info, client, node, lines, level, legs, regimes, selecte
       regimeCount={binding.length}
       selected={selected}
       dim={dim}
+      entering={entering}
       onSelect={onSelect}
+      onOpenGroup={onOpenGroup}
     />
   );
 }
 
 interface NodeCardProps {
   node: NodeBox;
-  kind: 'player' | 'group';
+  px: number;
+  py: number;
+  /** For a closed group: "3 age groups", and its members' colours (space-separated). */
+  count: string;
+  dots: string;
   m1: string;
   v1: string;
   t1: Tone;
@@ -304,17 +539,23 @@ interface NodeCardProps {
   regimeCount: number;
   selected: boolean;
   dim: boolean;
+  entering: boolean;
   onSelect: OnSelect;
+  onOpenGroup: (id: Id) => void;
 }
 
-const NodeCard = memo(function NodeCard({ node: n, kind, m1, v1, t1, m2, v2, t2, regime, regimeCount, selected, dim, onSelect }: NodeCardProps) {
-  const x = n.x - n.w / 2,
-    y = n.y - n.h / 2;
-  const open = () => onSelect({ kind, id: n.id });
-  const label = `${n.label}${n.members.length > 1 ? ` (${n.members.length} players)` : ''}. ${m1} ${v1}. ${m2 ? `${m2} ${v2}.` : ''}${regime ? ` ${regime}.` : ''} Open its balance sheet.`;
-  const maxChars = Math.floor((n.w - 22) / 7.2);
+const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, t1, m2, v2, t2, regime, regimeCount, selected, dim, entering, onSelect, onOpenGroup }: NodeCardProps) {
+  const group = n.kind === 'group';
+  const x = px - n.w / 2,
+    y = py - n.h / 2;
+  const open = () => (group ? onOpenGroup(n.id) : onSelect({ kind: 'player', id: n.id }));
+  const label = group
+    ? `${n.label}, a group of ${count}. ${m1} ${v1}. ${m2 ? `${m2} ${v2}.` : ''}${regime ? ` ${regime}.` : ''} Open it to see its members.`
+    : `${n.label}. ${m1} ${v1}. ${m2 ? `${m2} ${v2}.` : ''}${regime ? ` ${regime}.` : ''} Open its balance sheet.`;
+  const maxChars = Math.floor((n.w - (group ? 40 : 22)) / 7.2);
   const title = n.label.length > maxChars ? n.label.slice(0, maxChars - 1) + '…' : n.label;
-  const compact = n.h < 56;
+  const compact = n.h - (group ? 16 : 0) < 56;
+  const shift = group ? 16 : 0;
   const row = (y0: number, m: string, v: string, t: Tone) => (
     <text className="node-metric" x={14} y={y0}>
       <tspan className="node-mlabel">{m.length > 14 ? m.slice(0, 13) + '…' : m}</tspan>
@@ -324,16 +565,54 @@ const NodeCard = memo(function NodeCard({ node: n, kind, m1, v1, t1, m2, v2, t2,
     </text>
   );
   const badgeW = regime ? Math.min(150, 14 + regime.length * 5.6) : 0;
+  const colours = dots ? dots.split(' ').slice(0, 7) : [];
+  const titleY = compact ? 18 : 20;
   return (
-    <g className={`node${selected ? ' selected' : ''}${dim ? ' dim' : ''}`} transform={`translate(${Math.round(x)},${Math.round(y)})`} role="button" tabIndex={0} aria-label={label} onClick={open} onKeyDown={(e) => activate(e, open)}>
-      <title>{n.label}</title>
+    <g
+      className={`node${group ? ' group' : ''}${selected ? ' selected' : ''}${dim ? ' dim' : ''}${entering ? ' enter' : ''}`}
+      style={{ transform: `translate(${Math.round(x)}px, ${Math.round(y)}px)` }}
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      aria-expanded={group ? false : undefined}
+      onClick={open}
+      onKeyDown={(e) => activate(e, open)}
+    >
+      <title>{group ? `${n.label}: click to open` : n.label}</title>
+      {group && (
+        <>
+          <rect className="node-stack s2" x={10} y={8} width={n.w - 20} height={n.h} rx={12} />
+          <rect className="node-stack s1" x={5} y={4} width={n.w - 10} height={n.h} rx={12} />
+        </>
+      )}
       <rect className="node-card" width={n.w} height={n.h} rx={12} />
       <rect className="node-accent" x={0} y={compact ? 8 : 10} width={3.5} height={n.h - (compact ? 16 : 20)} rx={1.75} style={{ fill: n.color }} />
-      <text className="node-title" x={14} y={compact ? 18 : 20}>
+      <text className="node-title" x={14} y={titleY}>
         {title}
       </text>
-      {m1 && row(compact ? 35 : 39, m1, v1, t1)}
-      {m2 && !compact && row(55, m2, v2, t2)}
+      {group && (
+        <>
+          <path className="node-chev" d={`M${n.w - 22},${titleY - 7} l5,5 l5,-5`} />
+          <g className="node-meta">
+            {colours.map((c, i) => (
+              <circle key={i} cx={17 + i * 8.5} cy={titleY + 12} r={3} style={{ fill: c }} />
+            ))}
+            <text x={17 + colours.length * 8.5 + 3} y={titleY + 15.5}>
+              {count}
+            </text>
+          </g>
+        </>
+      )}
+      {m1 && row((compact ? 35 : 39) + shift, m1, v1, t1)}
+      {m2 && !compact && row(55 + shift, m2, v2, t2)}
+      {group && (
+        <g className="open-hint" transform={`translate(${n.w / 2},${n.h + 20})`} aria-hidden="true">
+          <rect x={-44} y={-9} width={88} height={18} rx={9} />
+          <text textAnchor="middle" y={4}>
+            click to open
+          </text>
+        </g>
+      )}
       {regime && (
         <g className="regime-badge" transform={`translate(${n.w - 8},-8)`}>
           <title>{regime}</title>
@@ -348,9 +627,22 @@ const NodeCard = memo(function NodeCard({ node: n, kind, m1, v1, t1, m2, v2, t2,
   );
 });
 
+/** A card that is leaving the map (its group closed): it slides into the group and fades. */
+function GhostCard({ node: n, at, gone }: { node: NodeBox; at: Pt; gone: boolean }) {
+  return (
+    <g className="ghost" style={{ transform: `translate(${Math.round(at.x - n.w / 2)}px, ${Math.round(at.y - n.h / 2)}px)`, opacity: gone ? 0 : 1 }}>
+      <rect className="node-card" width={n.w} height={n.h} rx={12} />
+      <rect className="node-accent" x={0} y={10} width={3.5} height={n.h - 20} rx={1.75} style={{ fill: n.color }} />
+      <text className="node-title" x={14} y={20}>
+        {n.label.length > 18 ? n.label.slice(0, 17) + '…' : n.label}
+      </text>
+    </g>
+  );
+}
+
 /* ----------------------------------------------------------------- legend */
 
-const Legend = memo(function Legend() {
+const Legend = memo(function Legend({ grouped }: { grouped: boolean }) {
   return (
     <div className="legend" aria-label="How to read the map">
       <span className="lg">
@@ -385,7 +677,16 @@ const Legend = memo(function Legend() {
         </svg>
         accrual, revaluation, write-off: no cash moves
       </span>
-      <span className="lg muted">Click any pipe or player to see what drives it.</span>
+      {grouped && (
+        <span className="lg">
+          <svg width="22" height="16" aria-hidden="true">
+            <rect x="5" y="5" width="15" height="10" rx="3" className="lg-stack" />
+            <rect x="2" y="2" width="15" height="10" rx="3" className="lg-card" />
+          </svg>
+          stacked card: a group, click to open
+        </span>
+      )}
+      <span className="lg muted">Click any pipe, player or group to see what drives it.</span>
     </div>
   );
 });

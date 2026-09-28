@@ -1,6 +1,6 @@
 /**
- * LedgerView: a live Godley table. Flows are rows, players (or groups) columns, grouped by
- * account. Each cell shows the current value (minus for the side that pays or loses, plus for
+ * LedgerView: a live Godley table. Flows are rows, players (or, as an option, the groups as the
+ * flow map shows them) columns, grouped by account. Each cell shows the current value (minus for the side that pays or loses, plus for
  * the side that receives or gains) and its change from baseline; each row sums to zero; the
  * right-hand column is the row's effect on total net worth; the bottom row is each column's
  * change in net worth.
@@ -8,9 +8,8 @@
 import { memo } from 'react';
 import type { EngineClient } from '../engine-client.ts';
 import { fmtNum, fmtSigned } from '../model/format.ts';
-import type { Level } from '../model/geometry.ts';
 import type { ModelInfo } from '../model/info.ts';
-import { buildLedger, type LedgerCell } from '../model/ledger.ts';
+import { buildLedger, type LedgerCell, type LedgerColumns } from '../model/ledger.ts';
 import { deviation } from '../model/styling.ts';
 import type { OnSelect } from './common.tsx';
 
@@ -18,13 +17,14 @@ interface LedgerProps {
   info: ModelInfo;
   client: EngineClient;
   legs: Float64Array;
-  level: Level;
+  /** Every player, the top-level groups, or the nodes of the map ({ expanded }). */
+  columns: LedgerColumns;
   onSelect: OnSelect;
 }
 
-export const LedgerView = memo(function LedgerView({ info, legs, level, onSelect }: LedgerProps) {
-  const table = buildLedger(info, legs, level);
-  const nodeKind = level === 'player' ? 'player' : 'group';
+export const LedgerView = memo(function LedgerView({ info, legs, columns, onSelect }: LedgerProps) {
+  const table = buildLedger(info, legs, columns);
+  const nodeKind = (id: string) => (info.playerById.has(id) ? 'player' : 'group');
   return (
     <div className="ledger">
       <div className="ledger-cap">
@@ -42,7 +42,7 @@ export const LedgerView = memo(function LedgerView({ info, legs, level, onSelect
               </th>
               {table.columns.map((c) => (
                 <th key={c.id} scope="col">
-                  <button type="button" className="colhead" onClick={() => onSelect({ kind: nodeKind, id: c.id })}>
+                  <button type="button" className="colhead" onClick={() => onSelect({ kind: nodeKind(c.id), id: c.id })}>
                     <span className="swatch" style={{ background: c.color }} aria-hidden="true" />
                     {c.label}
                   </button>

@@ -10,5 +10,6 @@ export { CHECKS, DEFAULT_TOLERANCE, measureChecks } from './checks.ts';
 export { Ledger, postLeg, CASH, ACCRUAL, REVALUATION, WRITEOFF } from './ledger.ts';
 export { settle, type Payments } from './payments.ts';
 export { influenceOf, ideasAtPlay, upstreamRules } from './influence.ts';
+export { buildHierarchy, nodeFor, type Hierarchy, type CompiledGroup } from './hierarchy.ts';
 export { makeScenario, parseScenario, stringifyScenario, runScenario, SCENARIO_FORMAT } from './scenario.ts';
 export { toDisplay, formatNumber, formatValue, fillTemplate, unitScale, describePosting } from './format.ts';

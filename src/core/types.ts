@@ -58,11 +58,30 @@ export interface PlayerDef {
   id: Id;
   label: string;
   short?: string;
-  group: string; // e.g. 'Households' — players in a group can be drawn as one hub
+  /** The group the player belongs to directly: a GroupDef id, or (in models that declare
+   *  no GroupDefs) a free label such as 'Households', which becomes a top-level group.
+   *  Empty: the player sits at the top level on its own. */
+  group: string;
   color?: string;
   description: string;
   settlement: Settlement;
   /** Layout hint for the flow map, normalised 0..1 (x right, y down). */
+  layout?: { x: number; y: number };
+}
+
+/**
+ * A node in the player hierarchy. Groups nest: Firms → Exporters → Fisheries (a player).
+ * The flow map shows a group as one node until the user expands it, one level at a time;
+ * pipes are then drawn to whatever level is visible. Groups have no balance sheet of their
+ * own: theirs is the sum of their members'.
+ */
+export interface GroupDef {
+  id: Id;
+  label: string;
+  parent?: Id; // enclosing group; none = top level
+  color?: string;
+  description: string;
+  /** Where the collapsed node sits (normalised 0..1). Default: the centroid of its members. */
   layout?: { x: number; y: number };
 }
 
@@ -335,6 +354,7 @@ export interface ModuleDef {
   label: string;
   description: string;
   requires?: Id[];
+  groups?: GroupDef[];
   players?: PlayerDef[];
   instruments?: InstrumentDef[];
   vars?: VarDef[];
@@ -422,6 +442,12 @@ export interface LegSnapshot {
   baseline: number;
 }
 
+/** Which groups are expanded on the flow map. Unknown ids are ignored; a group whose
+ *  parent is collapsed stays hidden whether it is listed or not. */
+export interface PipeView {
+  expanded: readonly Id[];
+}
+
 /** A pipe = all legs between two nodes (players or groups) of one kind. */
 export interface Pipe {
   from: Id;
@@ -488,10 +514,22 @@ export interface Engine {
   indicator(id: Id): number; // current, in display units
   series(id: Id): { t: number; v: number }[]; // indicator in display units (or a variable's raw values), full history
   legs(): LegSnapshot[];
-  pipes(level: 'player' | 'group'): Pipe[];
-  balanceSheet(player: Id): BalanceSheet;
+  /**
+   * Pipes at a chosen level of the player hierarchy.
+   *   'player' — every player; 'group' — top-level groups only;
+   *   { expanded } — mixed: each player is drawn as its OUTERMOST collapsed ancestor group,
+   *   or as itself when all its ancestors are expanded. Legs inside one visible node are
+   *   returned as a pipe from the node to itself (drawn as a loop).
+   */
+  pipes(level: 'player' | 'group' | PipeView): Pipe[];
+  /** A player's balance sheet, or a group's: the sum of its members' (claims between
+   *  members are kept gross, so a group's balance sheet is not consolidated). */
+  balanceSheet(playerOrGroup: Id): BalanceSheet;
   influences(id: Id): Influence;
-  /** Concepts weighted by how much their terms currently move things (for "ideas at play"). */
+  /** Concepts weighted by how much their terms currently move things (for "ideas at play").
+   *  The scope is the economy (default), a player, a group at any depth, a flow, a variable,
+   *  an indicator, or a pipe 'from->to[:kind]' whose ends are players or groups at any level
+   *  (a group end stands for all its players). */
   ideasAtPlay(scope?: Id): { concept: Id; weight: number; via: Id[] }[];
   checks(): CheckReport;
   feed(): { t: number; message: string; indicator: Id; concept?: Id }[];
@@ -507,7 +545,23 @@ export interface Engine {
 export interface CompiledModel {
   def: ModelDef;
   players: PlayerDef[];
-  groups: { id: string; label: string; players: Id[]; color?: string }[];
+  /** The player hierarchy, parents before children. `players` are direct members,
+   *  `allPlayers` every descendant player, `children` the direct child groups. */
+  groups: {
+    id: Id;
+    label: string;
+    parent?: Id;
+    depth: number; // 0 = top level
+    children: Id[];
+    players: Id[];
+    allPlayers: Id[];
+    color?: string;
+    description?: string;
+    layout?: { x: number; y: number };
+  }[];
+  /** The node a player is drawn as, given the expanded groups: its outermost collapsed
+   *  enclosing group, or the player itself when every enclosing group is expanded. */
+  nodeOf(player: Id, expanded: readonly Id[] | ReadonlySet<Id>): Id;
   instruments: InstrumentDef[];
   vars: VarDef[];
   params: ParamDef[];

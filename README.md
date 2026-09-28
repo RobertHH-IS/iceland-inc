@@ -26,7 +26,7 @@ The foundation is in place and tested:
 | Kernel: compiler, payment system, ledger, solver, influences, scenarios | `src/core/` | Done, no runtime dependencies |
 | Test harness: accounting, drift, calibration, robustness | `src/harness/` | Done |
 | Reference model: a small teaching economy | `src/models/reference/` | Done, 3/3 calibration checks |
-| Iceland model, as 14 modules | `src/models/iceland/` | Done: 10 players, 266 variables, 20/20 calibration checks |
+| Iceland model, as 14 modules | `src/models/iceland/` | Done: 14 players in a hierarchy of groups (six firm sectors, decision 0003), 372 variables, 23/23 calibration checks |
 | Concept library: 59 economic ideas | `src/concepts/` | Done |
 | Interface: flow map, inspector, ideas at play, levers, charts, ledger | `src/ui/` | Done (React) |
 | Calibration data with sources | `data/iceland/` | Done |

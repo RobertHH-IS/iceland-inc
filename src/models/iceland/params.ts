@@ -90,7 +90,17 @@ P('compTotal', (2624.4 / GDP_BN) * 100, '% of GDP/yr', 'IDENTITY', 'Total compen
   source: 'Hagstofa THJ08420: compensation of employees ISK 2,624.4 bn ÷ 2025 GDP [calibration.json: labour.wage_share_of_factor_income, notes]',
   vintage: '2025',
 });
-P('fxEmpShare', pct('export_sector.employment_share'), 'fraction', 'IDENTITY', 'Exporters’ share of employment (and of the wage bill).', dataProv('export_sector.employment_share'));
+{
+  // Firms by sector (decision 0003): each sector's labour cost is its compensation of employees;
+  // retail and services employ the rest of the private wage bill.
+  const fs = 'firm_sectors.';
+  P('compFC', d(fs + 'construction.compensation_pct_gdp'), '% of GDP/yr', 'IDENTITY', 'Construction’s compensation of employees (wages, pension contributions, payroll tax).', dataProv(fs + 'construction.compensation_pct_gdp'));
+  P('compXF', d(fs + 'fisheries.compensation_pct_gdp'), '% of GDP/yr', 'IDENTITY', 'Fisheries’ compensation of employees (fishing, aquaculture and fish processing).', dataProv(fs + 'fisheries.compensation_pct_gdp'));
+  P('compXA', d(fs + 'aluminium.compensation_pct_gdp'), '% of GDP/yr', 'IDENTITY', 'Compensation of employees in basic metals (the aluminium smelters and silicon plants).', dataProv(fs + 'aluminium.compensation_pct_gdp'));
+  P('compXT', d(fs + 'tourism.compensation_pct_gdp'), '% of GDP/yr', 'IDENTITY', 'Tourism’s compensation of employees.', dataProv(fs + 'tourism.compensation_pct_gdp', 'Estimate: tourism-attributable employed persons × average pay in accommodation, air transport and travel agencies.'));
+  P('compXO', d(fs + 'other_exporters.compensation_pct_gdp'), '% of GDP/yr', 'IDENTITY', 'Other exporters’ compensation of employees (pharma, data centres, IT, transport, business services).', dataProv(fs + 'other_exporters.compensation_pct_gdp', 'Estimate: each part of their value added × its industry’s labour share.'));
+  P('youthTiltXT', 0.3, 'fraction', 'BEHAVIOUR', 'How much more of tourism’s jobs and pay go to the young than their share of all jobs (0.3: 30% more).', assumed(`Between the register ratios of workers outside ages 25–64: tourism industries ${d(fs + 'tourism.share_of_workers_outside_25_64')}% ÷ all 22.8% = 1.13, accommodation and food 33.3% ÷ 22.8% = 1.46 (VIN10022, 2025) [calibration.json: ${fs}tourism.share_of_workers_outside_25_64].`), { min: 0, max: 1 });
+}
 {
   const wsum = (['Y', 'W', 'O'] as const).reduce((s, g) => s + d(`${hh}${GROUP[g]}.share_of_total_wage_income`), 0);
   for (const g of ['Y', 'W', 'O'] as const) {
@@ -118,13 +128,33 @@ P('xOther', d('exports_pct_gdp.other_goods') + d('exports_pct_gdp.other_services
   ...dataProv('exports_pct_gdp.other_services'),
   note: 'Other services + other goods (UTA05003).',
 });
-P('vaFXtarget', d('export_sector.value_added_share_of_gdp'), '% of GDP/yr', 'IDENTITY', 'Exporters’ value added; it fixes their purchases of domestic inputs.', dataProv('export_sector.value_added_share_of_gdp'));
-P('iFD0', 13, '% of GDP/yr', 'BEHAVIOUR', 'Baseline investment of domestic-market firms, including construction.', placeholder());
-P('iFX0', 3, '% of GDP/yr', 'BEHAVIOUR', 'Baseline investment of exporters.', placeholder());
+{
+  // Value added by sector: each fixes the sector's purchases of domestic inputs (decision 0003).
+  const fs = 'firm_sectors.';
+  P('gvaFC', d(fs + 'construction.value_added_pct_gdp'), '% of GDP/yr', 'IDENTITY', 'Construction’s value added; it fixes what builders buy from retail and service firms.', dataProv(fs + 'construction.value_added_pct_gdp'));
+  P('gvaXF', d(fs + 'fisheries.value_added_pct_gdp'), '% of GDP/yr', 'IDENTITY', 'Fisheries’ value added (fishing, aquaculture and fish processing).', dataProv(fs + 'fisheries.value_added_pct_gdp'));
+  P('gvaXA', d(fs + 'aluminium.value_added_pct_gdp'), '% of GDP/yr', 'IDENTITY', 'Value added of basic metals: the aluminium smelters.', dataProv(fs + 'aluminium.value_added_pct_gdp', '2025 was a weak year for the smelters (net operating surplus below zero).'));
+  P('gvaXT', d(fs + 'tourism.value_added_pct_gdp'), '% of GDP/yr', 'IDENTITY', 'Tourism’s direct value added.', dataProv(fs + 'tourism.value_added_pct_gdp'));
+  P('gvaXO', d(fs + 'other_exporters.value_added_pct_gdp'), '% of GDP/yr', 'IDENTITY', 'Other exporters’ value added.', dataProv(fs + 'other_exporters.value_added_pct_gdp', 'Estimate: other exports × the value-added share of output of the industries that make them.'));
+  P('mXF', 0.12, 'fraction', 'BEHAVIOUR', 'Fisheries’ imported inputs per unit of exports: fuel, fishing gear, packaging.', assumed('Marine diesel and fuel oil imports (UTA06203, 2025: 43.6 and 6.9 bn ISK) are partly burnt by the fleet; with gear and packaging about 12% of marine exports.'));
+  P('mXA', pct(fs + 'aluminium.imported_inputs_share_of_exports'), 'fraction', 'BEHAVIOUR', 'Aluminium smelters’ imported inputs per unit of exports: alumina, carbon anodes and coke.', dataProv(fs + 'aluminium.imported_inputs_share_of_exports'));
+  P('mXT', 0.18, 'fraction', 'BEHAVIOUR', 'Tourism’s imported inputs per unit of exports: jet fuel, imported food and aircraft services.', assumed(`Jet fuel imports alone are ${d(fs + 'tourism.jet_fuel_imports_pct_gdp')}% of GDP, 8.5% of tourism exports (UTA06203, 2025); imported food, goods and aircraft leasing and maintenance assumed to add as much again [calibration.json: ${fs}tourism.jet_fuel_imports_pct_gdp].`));
+  // Investment: the group totals stay the v1 placeholders; the split follows gross fixed capital formation by industry.
+  const gX = ['fisheries', 'aluminium', 'tourism', 'other_exporters'].reduce((s, k) => s + d(`${fs}${k}.gfcf_pct_gdp`), 0);
+  const gfcfNote = (k: string) => `Share of exporters’ GFCF by industry (THJ03105, 2025): ${d(`${fs}${k}.gfcf_pct_gdp`)} of ${gX.toFixed(2)}% of GDP.`;
+  P('invShareXF', d(fs + 'fisheries.gfcf_pct_gdp') / gX, 'fraction', 'BEHAVIOUR', 'Fisheries’ share of exporters’ baseline investment.', dataProv(fs + 'fisheries.gfcf_pct_gdp', gfcfNote('fisheries')));
+  P('invShareXA', d(fs + 'aluminium.gfcf_pct_gdp') / gX, 'fraction', 'BEHAVIOUR', 'Aluminium smelters’ share of exporters’ baseline investment.', dataProv(fs + 'aluminium.gfcf_pct_gdp', gfcfNote('aluminium')));
+  P('invShareXT', d(fs + 'tourism.gfcf_pct_gdp') / gX, 'fraction', 'BEHAVIOUR', 'Tourism’s share of exporters’ baseline investment (other exporters make the rest).', dataProv(fs + 'tourism.gfcf_pct_gdp', gfcfNote('tourism')));
+  P('invShareFC', d(fs + 'construction.gfcf_pct_gdp') / (d(fs + 'business_gfcf_pct_gdp') - gX), 'fraction', 'BEHAVIOUR', 'Construction’s share of domestic firms’ baseline investment (retail and services make the rest).', dataProv(fs + 'construction.gfcf_pct_gdp', `Construction’s GFCF ÷ business GFCF outside the exporters (${d(fs + 'business_gfcf_pct_gdp')} − ${gX.toFixed(2)}% of GDP), THJ03105, 2025.`));
+  P('maintShare', pct(fs + 'construction.household_maintenance_share_of_spending'), 'fraction', 'BEHAVIOUR', 'Share of household spending that goes to builders for maintenance and repair of homes.', dataProv(fs + 'construction.household_maintenance_share_of_spending'));
+  P('fdWeightFish', 0.3, 'fraction', 'BEHAVIOUR', 'How much of a change in foreign demand moves marine export volumes (other exports move one for one).', assumed('Catches are capped by quotas, so stronger demand shows up mostly in prices (the fish-price lever); 0.3 lets demand shift the catch mix and aquaculture a little.'));
+}
+P('iFD0', 13, '% of GDP/yr', 'BEHAVIOUR', 'Baseline investment of domestic firms (construction and retail and services), before the split by sector.', placeholder());
+P('iFX0', 3, '% of GDP/yr', 'BEHAVIOUR', 'Baseline investment of the four exporters together, before the split by sector.', placeholder('Gross fixed capital formation of the export industries was about 4% of GDP in 2025 (calibration.json: firm_sectors.*.gfcf_pct_gdp); the v1 value is kept so aggregate results stay comparable.'));
 P('muC', pct('cpi_weights.imported_goods'), 'fraction', 'BEHAVIOUR', 'Import share of consumer spending (proxy: the CPI weight of imported goods).', dataProv('cpi_weights.imported_goods'));
 P('muG', 0.4, 'fraction', 'BEHAVIOUR', 'Import share of government purchases (medicines, equipment).', placeholder('Set within a plausible 0.3–0.4 range by the fiscal-multiplier check (v1).'));
 P('muI', pct('import_content.investment'), 'fraction', 'BEHAVIOUR', 'Import share of investment goods (TiVA import content of investment).', dataProv('import_content.investment'));
-P('muX', pct('import_content.exports'), 'fraction', 'BEHAVIOUR', 'Imported inputs per unit of exports: alumina, fuel, aircraft services (TiVA).', dataProv('import_content.exports'));
+P('muX', pct('import_content.exports'), 'fraction', 'BEHAVIOUR', 'Imported inputs per unit of exports, all exporters together (TiVA); what fisheries, aluminium and tourism do not use sets other exporters’ import share.', dataProv('import_content.exports'));
 P('epsM', 0.6, 'elasticity', 'BEHAVIOUR', 'Import volumes versus the real exchange rate.', assumed());
 P('eFish', 0.2, 'elasticity', 'BEHAVIOUR', 'Marine export volume versus the real exchange rate (quota-bound).', assumed());
 P('eAlu', 0.05, 'elasticity', 'BEHAVIOUR', 'Aluminium export volume versus the real exchange rate (capacity-bound).', assumed());
@@ -160,8 +190,13 @@ P('pfMortN', (205.6 / GDP_BN) * 100, '% of GDP', 'IDENTITY', 'Pension funds’ n
 });
 {
   const corp = d('money_credit.corporate_debt_pct_gdp');
-  P('loanFD', 0.55 * corp * 0.75, '% of GDP', 'IDENTITY', 'Bank loans to domestic-market firms.', placeholder(`Corporate debt ${corp}% of GDP (CBI Financial Stability 2026/1, calibration.json: money_credit.corporate_debt_pct_gdp) × assumed domestic-bank share 0.55 × domestic-market share 0.75.`));
-  P('loanFX', 0.55 * corp * 0.25, '% of GDP', 'IDENTITY', 'Bank loans to exporters.', placeholder('Same total × exporters’ share 0.25.'));
+  P('loanTotal', 0.55 * corp, '% of GDP', 'IDENTITY', 'Bank loans to firms, all sectors.', placeholder(`Corporate debt ${corp}% of GDP (CBI Financial Stability 2026/1, calibration.json: money_credit.corporate_debt_pct_gdp) × assumed domestic-bank share 0.55. The systemically important banks’ loans to firms were ISK 2,024 bn at end-2025 (41% of GDP; CBI FS 2026/1 chart II-7), close to this.`));
+  P('loanShareFC', pct('firm_sectors.construction.share_of_bank_corporate_loans'), 'fraction', 'IDENTITY', 'Construction’s share of bank loans to firms.', dataProv('firm_sectors.construction.share_of_bank_corporate_loans'));
+  const loanNote = 'Fisheries, real estate and services hold about two-thirds of banks’ loans to firms (IMF Country Report 25/141); the split among exporters is assumed. Retail and services, which include real-estate companies, hold the rest.';
+  P('loanShareXF', 0.15, 'fraction', 'IDENTITY', 'Fisheries’ share of bank loans to firms (quota-backed lending).', placeholder(loanNote));
+  P('loanShareXA', 0.01, 'fraction', 'IDENTITY', 'Aluminium smelters’ share of bank loans to firms: they borrow mostly from their foreign parents.', placeholder(loanNote));
+  P('loanShareXT', 0.12, 'fraction', 'IDENTITY', 'Tourism’s share of bank loans to firms (hotels, airlines, tour operators).', placeholder(loanNote));
+  P('loanShareXO', 0.05, 'fraction', 'IDENTITY', 'Other exporters’ share of bank loans to firms.', placeholder(loanNote));
 }
 P('govDebt', d('money_credit.govt_debt_pct_gdp'), '% of GDP', 'IDENTITY', 'Gross government debt.', dataProv('money_credit.govt_debt_pct_gdp'));
 P('govIdxShare', 0.35, 'fraction', 'CONTRACT', 'CPI-indexed share of government debt (held by pension funds).', placeholder());
@@ -176,20 +211,22 @@ P('m3', d('money_credit.broad_money_m3_pct_gdp'), '% of GDP', 'IDENTITY', 'Broad
 P('fxr', 18, '% of GDP', 'IDENTITY', 'Central-bank foreign-exchange reserves.', placeholder());
 P('tga', 5, '% of GDP', 'POLICY', 'Treasury account at the central bank: the government keeps it at this level by selling bonds.', placeholder());
 P('eqCB', 2, '% of GDP', 'IDENTITY', 'Central-bank equity.', placeholder());
-P('depFX', 5, '% of GDP', 'IDENTITY', 'Exporters’ deposits.', placeholder());
+P('depFX', 5, '% of GDP', 'IDENTITY', 'Exporters’ deposits, all four sectors, split by export revenue.', placeholder());
+P('depShareFC', 0.11, 'fraction', 'IDENTITY', 'Construction’s share of domestic firms’ deposits (retail and services hold the rest).', placeholder('Construction’s share of domestic firms’ value added (7.3 of about 67% of GDP).'));
 P('depW', 3, '% of GDP', 'IDENTITY', 'Non-residents’ króna deposits.', placeholder());
 P('eqHY', 1, '% of GDP', 'IDENTITY', 'Domestic shares held by young households (balance sheet only).', placeholder());
 P('eqHW', 10, '% of GDP', 'IDENTITY', 'Domestic shares held by working-age households (balance sheet only).', placeholder());
 P('eqHO', 5, '% of GDP', 'IDENTITY', 'Domestic shares held by older households (balance sheet only).', placeholder());
-P('eqW', 10, '% of GDP', 'IDENTITY', 'Foreign-owned equity in exporters, such as the aluminium smelters (balance sheet only).', placeholder());
-P('pfEqFDshare', 0.7, 'fraction', 'IDENTITY', 'Share of domestic equity (pension funds, households) that is in domestic-market firms.', placeholder());
+P('eqW', 10, '% of GDP', 'IDENTITY', 'Foreign-owned equity in exporters, such as the aluminium smelters (balance sheet only; split by the dividends each exporter pays abroad).', placeholder());
+P('pfEqFDshare', 0.7, 'fraction', 'IDENTITY', 'Share of domestic equity (pension funds, households) that is in domestic firms; within each group it is split by after-tax profit.', placeholder());
 P('divFDY', 0.05, 'fraction', 'IDENTITY', 'Share of domestic firms’ distributed profit (dividends and owners’ income) going to the young.', placeholder());
 P('divFDW', 0.67, 'fraction', 'IDENTITY', 'Share going to working-age owners and the self-employed.', placeholder());
 P('divFDO', 0.18, 'fraction', 'IDENTITY', 'Share going to older households; the rest (10%) goes to pension funds.', assumed('Capital income of the 67+ group, ISK 117.4 bn (Hagstofa THJ09001).'));
-P('fdiTarget', 0.33, '% of GDP/yr', 'IDENTITY', 'Baseline dividends to foreign owners of exporters; it fixes the foreign share of exporters’ dividends.', {
+P('fdiTarget', 0.33, '% of GDP/yr', 'IDENTITY', 'Baseline dividends to foreign owners of exporters (the smelters’ parents and others); it fixes the foreign share of other exporters’ dividends.', {
   ...dataProv('export_sector.profits_to_foreign_owners_pct_gdp'),
   note: 'Equity income only (dividends + reinvested earnings) on inward FDI, 2024: 0.33% of GDP (calibration notes).',
 });
+P('divXTW', 0.1, 'fraction', 'IDENTITY', 'Foreign owners’ share of tourism firms’ dividends (foreign-owned hotels and tour operators).', placeholder());
 P('divFXdomW', 0.55, 'fraction', 'IDENTITY', 'Working-age households’ weight in the domestic split of exporters’ dividends.', placeholder());
 P('divFXdomO', 0.15, 'fraction', 'IDENTITY', 'Older households’ weight in the domestic split of exporters’ dividends (pension funds get 1 − divFXdomW − divFXdomO).', placeholder());
 P('house0', 200, '% of GDP', 'IDENTITY', 'Value of the housing stock.', placeholder());
@@ -329,6 +366,8 @@ P('foreignDemandShift', 0, 'fraction', 'BEHAVIOUR', 'Change in foreign demand fo
 P('tourismShift', 0, 'fraction', 'BEHAVIOUR', 'Change in foreign visitors’ spending (the tourism lever).', lev('set by the tourism lever.'));
 P('foreignRateShift', 0, 'fraction/yr', 'POLICY', 'Change in the foreign interest rate (the foreign-rate lever).', lev('set by the foreign-rate lever.'));
 P('worldPriceShift', 0, 'fraction', 'BEHAVIOUR', 'Change in world prices of imports, fish and aluminium, in foreign currency (the world-prices lever).', lev('set by the world-prices lever.'));
+P('fishPriceShift', 0, 'fraction', 'BEHAVIOUR', 'Change in world prices of marine products, in foreign currency, on top of world prices (the fish-price lever).', lev('set by the fish-price lever.'));
+P('aluminiumPriceShift', 0, 'fraction', 'BEHAVIOUR', 'Change in the world aluminium price, in foreign currency, on top of world prices (the aluminium-price lever).', lev('set by the aluminium-price lever.'));
 
 /** Input parameters by id. */
 export const INPUT_PARAMS: Record<Id, ParamDef> = Object.fromEntries(list.map((p) => [p.id, p]));

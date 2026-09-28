@@ -25,6 +25,7 @@ import type {
   LegSnapshot,
   ModelDef,
   Pipe,
+  PipeView,
   RunResult,
   Scenario,
   ScenarioEvent,
@@ -37,6 +38,7 @@ import { baselineReport, solveBaseline, type Baseline, type BaselineReport } fro
 import { CHECKS, DEFAULT_TOLERANCE, measureChecks, type CheckSpec } from './checks.ts';
 import { ideasAtPlay, influenceOf, type InfluenceSource } from './influence.ts';
 import { toDisplay } from './format.ts';
+import { nodeFor } from './hierarchy.ts';
 
 export interface EngineOptions {
   /** Throw when a rule reads something it did not declare (default true). */
@@ -543,13 +545,22 @@ class KEngine implements KernelEngine {
     }));
   }
 
-  pipes(level: 'player' | 'group'): Pipe[] {
+  /**
+   * Pipes at a level of the player hierarchy: 'player', 'group' (top-level groups) or a mixed
+   * view in which each player is drawn as its outermost collapsed group. Legs are summed by
+   * (from node, to node, kind); the two directions stay separate, and legs inside one visible
+   * node make a pipe from the node to itself.
+   */
+  pipes(level: 'player' | 'group' | PipeView): Pipe[] {
     const m = this.model;
-    const node = (pid: Id) => (level === 'player' ? pid : m.players[m.playerIndex.get(pid)!].group || pid);
+    const expanded = level === 'player' ? null : new Set<Id>(level === 'group' ? [] : (level.expanded ?? []));
+    const node = m.players.map((p, j) => (expanded ? nodeFor(m.groupChains[j], expanded, p.id) : p.id));
     const map = new Map<string, Pipe>();
-    for (const leg of this.legs()) {
-      const from = node(leg.from),
-        to = node(leg.to);
+    const legs = this.legs();
+    m.clegs.forEach((l, i) => {
+      const leg = legs[i];
+      const from = node[l.from],
+        to = node[l.to];
       const key = `${from}\u0000${to}\u0000${leg.kind}`;
       let p = map.get(key);
       if (!p) {
@@ -559,25 +570,53 @@ class KEngine implements KernelEngine {
       p.value += leg.value;
       p.baseline += leg.baseline;
       p.legs.push(leg);
-    }
+    });
     return [...map.values()];
   }
 
-  balanceSheet(player: Id): BalanceSheet {
+  /** Players (by index) that an id stands for: a player itself, or every player of a group. */
+  private membersOf(id: Id): number[] | undefined {
     const m = this.model;
-    const p = m.playerIndex.get(player);
-    if (p === undefined) throw new Error(`unknown player '${player}'`);
+    const p = m.playerIndex.get(id);
+    if (p !== undefined) return [p];
+    const g = m.groupIndex.get(id);
+    return g === undefined ? undefined : m.groups[g].allPlayers.map((x) => m.playerIndex.get(x)!);
+  }
+
+  /** A player's balance sheet, or a group's: its players' positions summed instrument by
+   *  instrument, assets and liabilities apart (claims between members are not netted). */
+  balanceSheet(id: Id): BalanceSheet {
+    const m = this.model;
+    const members = this.membersOf(id);
+    if (members === undefined) throw new Error(`unknown player or group '${id}'`);
     const pos = this.M.ledger.pos,
       b = this.baselineData.positions;
-    const out: BalanceSheet = { player, assets: [], liabilities: [], netWorth: 0, netWorthBaseline: 0 };
+    const out: BalanceSheet = { player: id, assets: [], liabilities: [], netWorth: 0, netWorthBaseline: 0 };
     m.instruments.forEach((ins, i) => {
-      const j = i * m.NP + p;
-      const r = m.role[j];
-      if (!r) return;
-      out.netWorth += pos[j];
-      out.netWorthBaseline += b[j];
-      if (r === ROLE_ISSUER) out.liabilities.push({ instrument: ins.id, label: ins.label, value: -pos[j], baseline: -b[j] });
-      else out.assets.push({ instrument: ins.id, label: ins.label, value: pos[j], baseline: b[j] });
+      let a = 0,
+        ab = 0,
+        l = 0,
+        lb = 0,
+        held = false,
+        owed = false;
+      for (const q of members) {
+        const j = i * m.NP + q;
+        const r = m.role[j];
+        if (!r) continue;
+        out.netWorth += pos[j];
+        out.netWorthBaseline += b[j];
+        if (r === ROLE_ISSUER) {
+          owed = true;
+          l += -pos[j];
+          lb += -b[j];
+        } else {
+          held = true;
+          a += pos[j];
+          ab += b[j];
+        }
+      }
+      if (held) out.assets.push({ instrument: ins.id, label: ins.label, value: a, baseline: ab });
+      if (owed) out.liabilities.push({ instrument: ins.id, label: ins.label, value: l, baseline: lb });
     });
     return out;
   }

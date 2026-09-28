@@ -332,6 +332,13 @@ button {
   background: rgba(127, 227, 255, 0.14);
   color: var(--accent);
 }
+.seg:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.seg:disabled:hover {
+  color: var(--muted);
+}
 .speeds .seg {
   font-family: var(--mono);
   padding: 5px 9px;
@@ -960,6 +967,155 @@ button.chip {
 .node-mval.tone-down {
   fill: var(--bluegrey);
 }
+/* A closed group: a stack of cards with its member count, colour dots and a chevron. */
+.node-stack {
+  fill: #0f1624;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1;
+}
+.node-stack.s2 {
+  fill: #0d1320;
+  stroke: rgba(255, 255, 255, 0.07);
+}
+.node.group:hover .node-stack,
+.node.group:focus-visible .node-stack {
+  stroke: rgba(127, 227, 255, 0.35);
+}
+.node-chev {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.node.group:hover .node-chev,
+.node.group:focus-visible .node-chev {
+  stroke: var(--accent);
+}
+.node-meta text {
+  font-family: var(--ui);
+  font-size: 10.5px;
+  fill: var(--muted);
+}
+.open-hint {
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.open-hint rect {
+  fill: rgba(127, 227, 255, 0.16);
+  stroke: rgba(127, 227, 255, 0.5);
+}
+.open-hint text {
+  font-family: var(--ui);
+  font-size: 10.5px;
+  fill: var(--accent);
+}
+.node.group:hover .open-hint,
+.node.group:focus-visible .open-hint {
+  opacity: 1;
+}
+
+/* An open group: a soft frame around its members, with a label that closes it. */
+.frame {
+  fill: color-mix(in srgb, var(--frame, #8fa3c7) 7%, transparent);
+  stroke: color-mix(in srgb, var(--frame, #8fa3c7) 42%, transparent);
+  stroke-width: 1.2;
+  stroke-dasharray: 6 5;
+  cursor: pointer;
+  transition: stroke 0.2s, fill 0.2s;
+  animation: fade-in 0.36s ease both;
+}
+.frame.depth-1 {
+  fill: color-mix(in srgb, var(--frame, #8fa3c7) 9%, transparent);
+}
+.frame:hover {
+  stroke: color-mix(in srgb, var(--frame, #8fa3c7) 75%, transparent);
+  fill: color-mix(in srgb, var(--frame, #8fa3c7) 11%, transparent);
+}
+.frame.selected {
+  stroke: var(--accent);
+  stroke-dasharray: none;
+}
+.frame-tab {
+  cursor: pointer;
+  outline: none;
+  animation: fade-in 0.36s ease both;
+}
+.frame-tab rect {
+  fill: #101727;
+  stroke: color-mix(in srgb, var(--frame, #8fa3c7) 60%, transparent);
+}
+.frame-tab .frame-dot {
+  fill: var(--frame, #8fa3c7);
+}
+.frame-tab text {
+  font-family: var(--ui);
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--text);
+}
+.frame-chev {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.frame-tab:hover rect,
+.frame-tab:focus-visible rect,
+.frame-tab.selected rect {
+  stroke: var(--accent);
+}
+.frame-tab:hover .frame-chev,
+.frame-tab:focus-visible .frame-chev {
+  stroke: var(--accent);
+}
+
+/* Opening and closing: cards glide, pipes crossfade. */
+.map.animating .node,
+.map.animating .ghost {
+  transition:
+    transform 0.36s cubic-bezier(0.22, 0.8, 0.26, 1),
+    opacity 0.36s ease;
+}
+.ghost {
+  pointer-events: none;
+}
+.ghost .node-card {
+  filter: none;
+}
+.node.enter,
+.pipe.enter {
+  animation: fade-in 0.36s ease both;
+}
+.pipes-old {
+  pointer-events: none;
+  animation: fade-out 0.36s ease both;
+}
+.old-pipe {
+  fill: none;
+  stroke: rgba(143, 163, 199, 0.35);
+  stroke-linecap: round;
+}
+.old-pipe.tone-up {
+  stroke: rgba(255, 180, 84, 0.42);
+}
+.old-pipe.dashed {
+  stroke: rgba(195, 166, 255, 0.5);
+  stroke-dasharray: 5 6;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
 .regime-badge rect {
   fill: var(--amber);
 }
@@ -970,6 +1126,14 @@ button.chip {
   fill: #1b1204;
 }
 
+.lg-stack {
+  fill: #0f1624;
+  stroke: rgba(255, 255, 255, 0.25);
+}
+.lg-card {
+  fill: #121a2b;
+  stroke: rgba(255, 255, 255, 0.4);
+}
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -1309,6 +1473,41 @@ button.chip {
 }
 .terms ul,
 .params ul,
+.member-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.member-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+  text-align: left;
+}
+.member-row:hover {
+  border-color: var(--line);
+  background: rgba(127, 227, 255, 0.06);
+}
+.member-name {
+  flex: 1;
+}
+.group-path {
+  align-items: center;
+}
+.path-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .pipe-list,
 .regime-list,
 .refs,
@@ -1863,8 +2062,18 @@ button.via:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .pipe-particles,
-  .lg-dots {
+  .lg-dots,
+  .frame,
+  .frame-tab,
+  .node.enter,
+  .pipe.enter,
+  .pipes-old {
     animation: none;
+  }
+  .map.animating .node,
+  .map.animating .ghost,
+  .open-hint {
+    transition: none;
   }
   .lbar-knob,
   .wbar span,

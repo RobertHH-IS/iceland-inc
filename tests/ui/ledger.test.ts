@@ -29,12 +29,18 @@ for (const def of models)
       expect(t.maxRowResidual).toBeLessThan(1e-9);
     });
 
-    test('group columns sum their players', () => {
+    test('group columns sum their players: top-level groups, or the map’s nodes', () => {
       const p = buildLedger(info, legValues(), 'player');
       const g = buildLedger(info, legValues(), 'group');
-      expect(g.columns.map((c) => c.id)).toEqual(info.groups.map((x) => x.id));
+      expect(g.columns.map((c) => c.id)).toEqual(info.roots);
       const total = (x: typeof p) => x.netWorth.reduce((s, n) => s + n.value, 0);
       expect(total(g)).toBeCloseTo(total(p), 9);
+      for (const expanded of [new Set<string>(), new Set(info.groups.map((x) => x.id))]) {
+        const m = buildLedger(info, legValues(), { expanded });
+        expect(total(m)).toBeCloseTo(total(p), 9);
+        expect(m.allBalanced).toBe(true);
+      }
+      expect(buildLedger(info, legValues(), { expanded: new Set(info.groups.map((x) => x.id)) }).columns.map((c) => c.id).sort()).toEqual(info.players.map((x) => x.id).sort());
     });
 
     test('the net-worth row matches the balance sheets month by month, after a shock', () => {

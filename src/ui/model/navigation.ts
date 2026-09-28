@@ -3,12 +3,14 @@
  * Pure data and reducers.
  */
 import type { FlowKind, Id } from '../../core/types.ts';
-import type { Level } from './geometry.ts';
 import type { ModelInfo } from './info.ts';
 import { nodeLabel, varLabel } from './info.ts';
 
+/** What the inspector shows. A pipe is named by its two ends, players or groups at any level
+ *  of the hierarchy: it is every leg of its kind from a player of `from` to a player of `to`,
+ *  so it stays the same pipe whatever is open on the map. */
 export type Selection =
-  | { kind: 'pipe'; from: Id; to: Id; flowKind: FlowKind; level: Level }
+  | { kind: 'pipe'; from: Id; to: Id; flowKind: FlowKind }
   | { kind: 'player'; id: Id }
   | { kind: 'group'; id: Id }
   | { kind: 'var'; id: Id }

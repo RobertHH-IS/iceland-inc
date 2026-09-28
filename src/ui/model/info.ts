@@ -8,6 +8,7 @@
 import type {
   Account,
   Category,
+  CompiledModel,
   ConceptDef,
   FeedRule,
   FlowDef,
@@ -67,12 +68,9 @@ export interface RuleInfo {
   adjusts: boolean;
 }
 
-export interface GroupInfo {
-  id: Id;
-  label: string;
-  players: Id[];
-  color?: string;
-}
+/** A group of the player hierarchy: `players` are direct members, `allPlayers` every
+ *  descendant player, `children` the direct sub-groups (see CompiledModel.groups). */
+export type GroupInfo = CompiledModel['groups'][number];
 
 export interface ModelInfo {
   id: Id;
@@ -97,7 +95,12 @@ export interface ModelInfo {
   paramById: Map<Id, ParamDef>;
   playerById: Map<Id, PlayerDef>;
   groupById: Map<Id, GroupInfo>;
+  /** A player's own group (its direct parent), or the player's id when it has none. */
   groupOf: Map<Id, Id>;
+  /** Enclosing groups of every player and group, outermost first ([] at the top level). */
+  ancestorsOf: Map<Id, Id[]>;
+  /** The top of the map: top-level groups and players outside any group, in model order. */
+  roots: Id[];
   flowById: Map<Id, FlowInfo>;
   leverById: Map<Id, LeverInfo>;
   indicatorById: Map<Id, IndicatorInfo>;
@@ -159,8 +162,20 @@ export function describeModel(m: KModel, baseline: (varId: Id) => number, warnin
     const { compute: _compute, ...rest } = ind;
     return { ...rest, index };
   });
-  const groups: GroupInfo[] = m.groups.map((g) => ({ ...g, players: [...g.players] }));
-  const groupOf = new Map<Id, Id>(players.map((p) => [p.id, p.group || p.id]));
+  const groups: GroupInfo[] = m.groups.map((g) => ({ ...g, children: [...g.children], players: [...g.players], allPlayers: [...g.allPlayers], ...(g.layout ? { layout: { ...g.layout } } : {}) }));
+  const groupIds = new Set(groups.map((g) => g.id));
+  const groupOf = new Map<Id, Id>(players.map((p) => [p.id, p.group && groupIds.has(p.group) ? p.group : p.id]));
+  const ancestorsOf = new Map<Id, Id[]>();
+  for (const g of groups) ancestorsOf.set(g.id, g.parent ? [...ancestorsOf.get(g.parent)!, g.parent] : []);
+  for (const p of players) ancestorsOf.set(p.id, p.group && groupIds.has(p.group) ? [...ancestorsOf.get(p.group)!, p.group] : []);
+  const firstPlayer = new Map<Id, number>();
+  players.forEach((p, i) => ancestorsOf.get(p.id)!.forEach((g) => firstPlayer.has(g) || firstPlayer.set(g, i)));
+  const roots = [
+    ...groups.filter((g) => !g.parent).map((g) => ({ id: g.id, at: firstPlayer.get(g.id) ?? Infinity })),
+    ...players.flatMap((p, i) => (ancestorsOf.get(p.id)!.length ? [] : [{ id: p.id, at: i }])),
+  ]
+    .sort((a, b) => a.at - b.at)
+    .map((r) => r.id);
 
   const termByKey = new Map<string, { rule: RuleInfo; term: TermInfo }>();
   for (const r of rules) for (const t of r.terms) termByKey.set(t.key, { rule: r, term: t });
@@ -195,6 +210,8 @@ export function describeModel(m: KModel, baseline: (varId: Id) => number, warnin
     playerById: byId(players),
     groupById: byId(groups),
     groupOf,
+    ancestorsOf,
+    roots,
     flowById: byId(flows),
     leverById: byId(levers),
     indicatorById: byId(indicators),
@@ -263,8 +280,8 @@ export function nodeColor(info: ModelInfo, id: Id): string {
   return info.playerById.get(id)?.color ?? info.groupById.get(id)?.color ?? '#8FA3C7';
 }
 
-/** Members of a node: a player is its own member; a group lists its players. */
+/** Members of a node: a player is its own member; a group lists all its players, at any depth. */
 export function nodeMembers(info: ModelInfo, id: Id): Id[] {
   if (info.playerById.has(id)) return [id];
-  return info.groupById.get(id)?.players ?? [];
+  return info.groupById.get(id)?.allPlayers ?? [];
 }

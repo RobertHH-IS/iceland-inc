@@ -21,7 +21,7 @@
  */
 import type { Id, ParamDef, Provenance } from '../../core/types.ts';
 import { INPUT_PARAMS, INPUT_VALUES } from './params.ts';
-import { annuity, derived, solved, sum } from './util.ts';
+import { annuity, derived, DOMESTIC, EXPORTERS, FIRMS, FIRM_NAME, solved, sum, type Exporter, type Firm } from './util.ts';
 
 export interface IcelandSteadyState {
   params: Record<Id, number>;
@@ -60,8 +60,11 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   const LCr = 1 + p.cEr + p.css;
   const Wpriv = (p.compTotal - p.compG) / LCr;
   const Ntot = Wpriv + NG;
-  const NFX = p.fxEmpShare * Ntot;
-  const NFD = Wpriv - NFX;
+  // Firms by sector (decision 0003): each sector's wage bill is its compensation of employees ÷ the
+  // labour-cost factor; retail and services employ the rest of the private wage bill.
+  const N = { FC: p.compFC / LCr, XF: p.compXF / LCr, XA: p.compXA / LCr, XT: p.compXT / LCr, XO: p.compXO / LCr } as Record<Firm, number>;
+  N.FR = Wpriv - N.FC - sum(EXPORTERS.map((j) => N[j]));
+  if (!(N.FR > 0)) warn.push(`retail and services' wage bill is not positive: ${N.FR.toFixed(2)}`);
   o.cEe = p.conTarget / Ntot - p.cEr;
   const G3 = ['Y', 'W', 'O'] as const;
   const pop = [p.popY, p.popW, p.popO],
@@ -86,17 +89,35 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   });
   o.uBase = sum(U) / sum(LF);
   o.Ntot0 = Ntot;
-  o.NFD0 = NFD;
-  o.NFX0 = NFX;
+  for (const j of FIRMS) o[`N${j}0`] = N[j];
 
   /* ------------------------------------------------ trade and investment */
-  const xc = p.xFish + p.xAlu;
-  const XN = xc + p.xTour + p.xOther;
+  // Each exporter sells one export line; its imported inputs are a data or assumed share, other
+  // exporters take what is left of the TiVA import content of all exports, and each sector's
+  // domestic inputs (bought from retail and services) close the gap to its value added.
+  const x: Record<Exporter, number> = { XF: p.xFish, XA: p.xAlu, XT: p.xTour, XO: p.xOther };
+  const XN = sum(EXPORTERS.map((j) => x[j]));
   const imX = p.muX * XN;
-  o.muXD = (XN - imX - p.vaFXtarget) / XN;
-  const xd = o.muXD * XN;
-  const vaFX = XN - imX - xd;
+  o.mXO = (imX - p.mXF * x.XF - p.mXA * x.XA - p.mXT * x.XT) / x.XO;
+  if (!(o.mXO > 0 && o.mXO < 1)) warn.push(`other exporters' import share is outside (0, 1): ${o.mXO.toFixed(3)}`);
+  const m: Record<Exporter, number> = { XF: p.mXF, XA: p.mXA, XT: p.mXT, XO: o.mXO };
+  const gva: Record<Firm, number> = { FC: p.gvaFC, FR: 0, XF: p.gvaXF, XA: p.gvaXA, XT: p.gvaXT, XO: p.gvaXO };
+  for (const j of EXPORTERS) {
+    o[`d${j}`] = (x[j] - m[j] * x[j] - gva[j]) / x[j];
+    if (!(o[`d${j}`] > 0)) warn.push(`${FIRM_NAME[j]}' domestic-input share is not positive: ${o[`d${j}`].toFixed(3)}`);
+  }
+  const xd = sum(EXPORTERS.map((j) => o[`d${j}`] * x[j]));
+  const vaFX = sum(EXPORTERS.map((j) => gva[j]));
   const inv = p.iFD0 + p.iFX0 + p.gInv;
+  const i0: Record<Firm, number> = {
+    FC: p.iFD0 * p.invShareFC,
+    FR: p.iFD0 * (1 - p.invShareFC),
+    XF: p.iFX0 * p.invShareXF,
+    XA: p.iFX0 * p.invShareXA,
+    XT: p.iFX0 * p.invShareXT,
+    XO: p.iFX0 * (1 - p.invShareXF - p.invShareXA - p.invShareXT),
+  };
+  for (const j of FIRMS) o[`i${j}0`] = i0[j];
   const OA = [p.trOA * p.oaShareY, p.trOA * (1 - p.oaShareY - p.oaShareO), p.trOA * p.oaShareO];
   const FAM = [p.trFam * p.famShareY, p.trFam * (1 - p.famShareY), 0];
 
@@ -109,7 +130,9 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     MIB = MIt - p.pfMortI;
   o.pfShN = p.pfMortN / MNt;
   o.pfShI = p.pfMortI / MIt;
-  const Ltot = p.loanFD + p.loanFX;
+  const Ltot = p.loanTotal;
+  const loan: Record<Firm, number> = { FC: p.loanShareFC * Ltot, FR: 0, XF: p.loanShareXF * Ltot, XA: p.loanShareXA * Ltot, XT: p.loanShareXT * Ltot, XO: p.loanShareXO * Ltot };
+  loan.FR = Ltot - sum(FIRMS.filter((j) => j !== 'FR').map((j) => loan[j]));
   const RWA = p.rwM * (MNB + MIB) + p.rwL * Ltot;
   const EB = p.kapT * RWA;
   const BI = p.govIdxShare * p.govDebt;
@@ -123,6 +146,8 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   const dsh = p.depShY + p.depShW + p.depShO;
   const Dh = [(p.hhDep * p.depShY) / dsh, (p.hhDep * p.depShW) / dsh, (p.hhDep * p.depShO) / dsh];
   const DFD = p.m3 - sum(Dh) - DPF - p.depFX;
+  const dep: Record<Firm, number> = { FC: p.depShareFC * DFD, FR: (1 - p.depShareFC) * DFD, XF: 0, XA: 0, XT: 0, XO: 0 };
+  for (const j of EXPORTERS) dep[j] = (p.depFX * x[j]) / XN;
   const Dtot = p.m3 + p.depW;
   const NWPF = p.pfNWshare * APF;
   const Et = APF - NWPF;
@@ -137,6 +162,7 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     ['bank bonds held by pension funds', bbondPF],
     ['pension-fund domestic equity', EQPF],
     ['domestic-firm deposits', DFD],
+    ['retail and service firms’ loans', loan.FR],
     ['bank reserves', R],
   ] as const)
     if (!(x > 0)) warn.push(`residual ${what} is not positive: ${x.toFixed(2)}`);
@@ -147,22 +173,42 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   const incPF0 = id * DPF + ib * bondPF + rbi * BI + imn * p.pfMortN + rmi * p.pfMortI + ibb * bbondPF + iF * FAv;
 
   /* ------------------------------ firms: profits from the income side, Y = 100 */
+  // Five sectors' value added is data; retail and services' is what is left of GDP after the
+  // public sector, the other five and VAT (which shops collect).
   const VAT = p.vatTarget;
-  const PiFX = XN - imX - xd - LCr * NFX - il * p.loanFX + id * p.depFX;
-  const PiFD = p.Y0 - vaG - vaFX - VAT - LCr * NFD - il * p.loanFD + id * DFD;
-  o.tauF = p.citTarget / (PiFD + PiFX);
-  const DIVFD = (1 - o.tauF) * PiFD - p.iFD0;
-  const DIVFX = (1 - o.tauF) * PiFX - p.iFX0;
-  o.rhoFD0 = p.iFD0 / ((1 - o.tauF) * PiFD);
-  o.rhoFX0 = p.iFX0 / ((1 - o.tauF) * PiFX);
-  o.divFXW = Math.min(0.9, p.fdiTarget / DIVFX);
-  const dFD = { HY: p.divFDY, HW: p.divFDW, HO: p.divFDO, PF: 1 - p.divFDY - p.divFDW - p.divFDO };
-  const dFX = { W: o.divFXW, HW: (1 - o.divFXW) * p.divFXdomW, HO: (1 - o.divFXW) * p.divFXdomO, PF: (1 - o.divFXW) * (1 - p.divFXdomW - p.divFXdomO) };
+  gva.FR = p.Y0 - vaG - p.gvaFC - vaFX;
+  const Pi = {} as Record<Firm, number>;
+  for (const j of FIRMS) Pi[j] = gva[j] - (j === 'FR' ? VAT : 0) - LCr * N[j] - il * loan[j] + id * dep[j];
+  o.tauF = p.citTarget / sum(FIRMS.map((j) => Pi[j]));
+  const PiAT = {} as Record<Firm, number>;
+  const DIV = {} as Record<Firm, number>;
+  for (const j of FIRMS) {
+    PiAT[j] = (1 - o.tauF) * Pi[j];
+    DIV[j] = PiAT[j] - i0[j];
+    o[`pi${j}0`] = PiAT[j];
+    if (j !== 'XA') o[`rho${j}0`] = i0[j] / PiAT[j];
+    if (!(DIV[j] > 0)) warn.push(`baseline dividends of ${FIRM_NAME[j]} not positive: ${DIV[j].toFixed(3)}`);
+  }
+  // Who owns what: domestic firms pay households and pension funds; fisheries are domestically
+  // owned; the smelters wholly abroad; tourism and other exporters partly. Other exporters' foreign
+  // share makes baseline dividends abroad match the data (fdiTarget).
+  o.divXOW = (p.fdiTarget - DIV.XA - p.divXTW * DIV.XT) / DIV.XO;
+  if (!(o.divXOW >= 0 && o.divXOW <= 0.9)) warn.push(`other exporters' foreign dividend share outside [0, 0.9]: ${o.divXOW.toFixed(3)}`);
+  const dFD = { HY: p.divFDY, HW: p.divFDW, HO: p.divFDO, PF: 1 - p.divFDY - p.divFDW - p.divFDO, W: 0 };
+  const dX = (w: number) => ({ HY: 0, W: w, HW: (1 - w) * p.divFXdomW, HO: (1 - w) * p.divFXdomO, PF: (1 - w) * (1 - p.divFXdomW - p.divFXdomO) });
+  const dShare: Record<Firm, Record<'HY' | 'HW' | 'HO' | 'PF' | 'W', number>> = {
+    FC: dFD,
+    FR: dFD,
+    XF: dX(0),
+    XA: { HY: 0, HW: 0, HO: 0, PF: 0, W: 1 },
+    XT: dX(p.divXTW),
+    XO: dX(o.divXOW),
+  };
+  const divTo = (h: 'HY' | 'HW' | 'HO' | 'PF' | 'W') => sum(FIRMS.map((j) => dShare[j][h] * DIV[j]));
   const dB = { G: p.divBshG, PF: p.divBshPF, HW: p.divBshW, HO: 1 - p.divBshG - p.divBshPF - p.divBshW };
-  if (!(DIVFD > 0 && DIVFX > 0)) warn.push(`baseline dividends not positive: FD ${DIVFD.toFixed(2)}, FX ${DIVFX.toFixed(2)}`);
 
   /* ------------------- pension funds: returns credited = income, rights constant */
-  const incPF = incPF0 + dFD.PF * DIVFD + dFX.PF * DIVFX + dB.PF * profB;
+  const incPF = incPF0 + divTo('PF') + dB.PF * profB;
   const CON = p.conTarget;
   const PAY = CON + incPF;
   o.payout = PAY / EO;
@@ -172,12 +218,12 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   const gross = G3.map((_, h) => (1 - o.cEe) * Ng[h] + UE[h] + OA[h] + FAM[h] + (h === 2 ? PAY : 0));
   const taxBase = sum(gross);
   const Gspend = (1 + p.cEr) * NG + gPur + p.gInv + p.trOA + p.trFam + sum(UE) + ib * Bnom + rbi * BI;
-  const Grev0 = VAT + o.tauF * (PiFD + PiFX) + p.css * Wpriv + profCB + dB.G * profB;
+  const Grev0 = VAT + o.tauF * sum(FIRMS.map((j) => Pi[j])) + p.css * Wpriv + profCB + dB.G * profB;
   o.tau0 = (Gspend - Grev0) / taxBase;
 
   /* ---------------------- households: cash budgets balance -> spending -> c0 */
   const mint = [imn * (1 - th) * M[0] + rmi * th * M[0], imn * (1 - th) * M[1] + rmi * th * M[1], 0];
-  const divHv = [dFD.HY * DIVFD, dFD.HW * DIVFD + dFX.HW * DIVFX + dB.HW * profB, dFD.HO * DIVFD + dFX.HO * DIVFX + dB.HO * profB];
+  const divHv = [divTo('HY'), divTo('HW') + dB.HW * profB, divTo('HO') + dB.HO * profB];
   const HC = [-p.purY, -p.purW, p.purY + p.purW];
   const LW = [Dh[0], Dh[1], Dh[2] + p.bondO];
   const aL = [p.aLY, p.aLW, p.aLO];
@@ -196,10 +242,20 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   o.vat0 = VAT / (Ctot - VAT);
 
   /* ------------------------- rest of world: current account = 0 -> imports -> muD */
-  const IM = XN + p.iFXR * p.fxr + iF * FAv - id * p.depW - ib * p.bondW - dFX.W * DIVFX;
+  const divW = divTo('W');
+  const IM = XN + p.iFXR * p.fxr + iF * FAv - id * p.depW - ib * p.bondW - divW;
   o.muD = (IM - p.muC * Ctot - p.muI * inv - imX - p.muG * gPur) / (Ctot + inv + xd);
   if (!(o.muD > 0)) warn.push(`muD is not positive: ${o.muD.toFixed(4)}`);
   const gdpCheck = Ctot + vaG + gPur + inv + XN - IM - p.Y0;
+
+  /* ------------------- construction: what builders buy from retail and service firms */
+  // Builders sell all investment goods and home repairs (net of VAT); after imported equipment and
+  // inputs, their purchases from retail and services close the gap to their value added (data).
+  const salesFC = inv + p.maintShare * (Ctot - VAT);
+  const imFC = o.muD * (inv + p.maintShare * Ctot);
+  o.salesFC0 = salesFC;
+  o.dFC = (salesFC - p.muI * inv - imFC - p.gvaFC) / salesFC;
+  if (!(o.dFC > 0)) warn.push(`construction's domestic-input share is not positive: ${o.dFC.toFixed(3)}`);
 
   /* --------------------- mortgages: desired stock = actual, debt-service cap slack */
   const rmR = th * rmi + (1 - th) * imn;
@@ -219,15 +275,12 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   /* ------------------------------------------------ baseline normalisers */
   const y = Ctot + gServ + inv + XN - IM;
   o.potentialOutput = y;
-  o.vaFX0 = vaFX;
-  o.vaFD0 = y - vaFX - vaG;
-  o.piFD0 = (1 - o.tauF) * PiFD;
-  o.piFX0 = (1 - o.tauF) * PiFX;
+  o.vaFR0 = y - vaG - p.gvaFC - vaFX;
   o.rl0 = il;
-  o.lFD0 = p.loanFD / p.Y0;
-  o.lFX0 = p.loanFX / p.Y0;
-  o.depFD0 = DFD / p.Y0;
-  o.depFX0 = p.depFX / p.Y0;
+  for (const j of FIRMS) {
+    o[`l${j}0`] = loan[j] / p.Y0;
+    o[`dep${j}0`] = dep[j] / p.Y0;
+  }
   o.krona0 = p.depW + p.bondW;
   o.bW0 = p.bondW / p.Y0;
   o.debtR0 = p.govDebt / p.Y0;
@@ -246,8 +299,7 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   put('deposits', 'HY', Dh[0]);
   put('deposits', 'HW', Dh[1]);
   put('deposits', 'HO', Dh[2]);
-  put('deposits', 'FD', DFD);
-  put('deposits', 'FX', p.depFX);
+  for (const j of FIRMS) put('deposits', j, dep[j]);
   put('deposits', 'PF', DPF);
   put('deposits', 'W', p.depW);
   put('reserves', 'B', R);
@@ -261,8 +313,7 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   put('mortgagesI', 'HW', th * M[1]);
   put('mortgagesI', 'B', MIB);
   put('mortgagesI', 'PF', p.pfMortI);
-  put('businessLoans', 'FD', p.loanFD);
-  put('businessLoans', 'FX', p.loanFX);
+  for (const j of FIRMS) put('businessLoans', j, loan[j]);
   put('govBonds', 'B', BB);
   put('govBonds', 'CB', p.bondCB);
   put('govBonds', 'PF', bondPF);
@@ -270,11 +321,15 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   put('govBonds', 'W', p.bondW);
   put('indexedBonds', 'PF', BI);
   put('bankBonds', 'PF', bbondPF);
-  // shares at book value: two issuers, five holders
-  const eqFD = sF * (EQPF + p.eqHY + p.eqHW + p.eqHO);
-  const eqFX = (1 - sF) * (EQPF + p.eqHY + p.eqHW + p.eqHO) + p.eqW;
-  put('shares', 'FD', eqFD);
-  put('shares', 'FX', eqFX);
+  // shares at book value: six issuers, five holders. Domestic equity goes sF to domestic firms and
+  // the rest, with foreign equity, to exporters; within each group each sector's book equity is in
+  // proportion to its net assets (deposits + capital − bank loans), so no sector starts insolvent.
+  const eqDom = EQPF + p.eqHY + p.eqHW + p.eqHO;
+  const netAssets = (j: Firm) => dep[j] + i0[j] / p.depreciationRate - loan[j];
+  const naD = sum(DOMESTIC.map(netAssets)),
+    naX = sum(EXPORTERS.map(netAssets));
+  for (const j of DOMESTIC) put('shares', j, (sF * eqDom * netAssets(j)) / naD);
+  for (const j of EXPORTERS) put('shares', j, (((1 - sF) * eqDom + p.eqW) * netAssets(j)) / naX);
   put('shares', 'PF', EQPF);
   put('shares', 'HY', p.eqHY);
   put('shares', 'HW', p.eqHW);
@@ -287,8 +342,7 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   put('homes', 'HY', H[0]);
   put('homes', 'HW', H[1]);
   put('homes', 'HO', H[2]);
-  put('capital', 'FD', p.iFD0 / p.depreciationRate);
-  put('capital', 'FX', p.iFX0 / p.depreciationRate);
+  for (const j of FIRMS) put('capital', j, i0[j] / p.depreciationRate);
 
   /* ------------------------------------------------ baseline variables */
   // prices, rates and expectations
@@ -334,15 +388,11 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     riskWeightedAssets: RWA,
   });
   // labour
-  Object.assign(v, {
-    employmentFD: NFD,
-    employmentFX: NFX,
-    employmentTotal: Ntot,
-    publicEmployment: NG,
-    valueAddedFD: y - vaFX - vaG,
-    valueAddedFX: vaFX,
-    unemployment: o.uBase,
-  });
+  Object.assign(v, { employmentTotal: Ntot, publicEmployment: NG, unemployment: o.uBase });
+  for (const j of FIRMS) {
+    v[`employment${j}`] = N[j];
+    v[`valueAdded${j}`] = gva[j];
+  }
   G3.forEach((g, h) => {
     v[`employment${g}`] = Ng[h];
     v[`unemployed${g}`] = U[h];
@@ -372,17 +422,8 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     importVolume: IM,
     exportVolume: XN,
     exportValue: XN,
-    investmentFD: p.iFD0,
-    investmentFX: p.iFX0,
     investmentReal: inv,
-    profitsFD: PiFD,
-    profitsFX: PiFX,
-    profitsFDSmoothed: o.piFD0,
-    profitsFXSmoothed: o.piFX0,
-    retentionFD: o.rhoFD0,
-    retentionFX: o.rhoFX0,
-    dividendsFD: DIVFD,
-    dividendsFX: DIVFX,
+    dividendsAbroad: divW,
     bankProfit: profB,
     bankProfitSmoothed: profB,
     bankDividends: profB,
@@ -397,6 +438,13 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     debtRatio: o.debtR0,
     deficit: 0,
   });
+  for (const j of FIRMS) {
+    v[`investment${j}`] = i0[j];
+    v[`profits${j}`] = Pi[j];
+    v[`profits${j}Smoothed`] = PiAT[j];
+    v[`dividends${j}`] = DIV[j];
+    if (j !== 'XA') v[`retention${j}`] = o[`rho${j}0`];
+  }
   for (const g of ['Y', 'W'] as const) {
     const h = g === 'Y' ? 0 : 1;
     v[`mortgageTarget${g}`] = M[h];
@@ -413,8 +461,11 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     depHW: Dh[1],
     depHO: Dh[2],
     depW: p.depW,
-    loanFD: p.loanFD,
-    loanFX: p.loanFX,
+    loanFC: loan.FC,
+    loanFR: loan.FR,
+    loanXF: loan.XF,
+    loanXT: loan.XT,
+    loanXO: loan.XO,
     rightsHW: EW,
     rightsHO: EO,
     mortY: M[0],
@@ -432,15 +483,16 @@ const G3N = { Y: 'young', W: 'working-age', O: 'older' } as const;
 const meta: [Id, string, ParamDef['category'], string, Provenance][] = [
   ['tau0', 'fraction', 'POLICY', 'Income-tax rate (standing in for all taxes on households and other revenue) that balances the baseline budget.', solved('the government’s budget balances with debt at 56.7% of GDP.')],
   ['tauF', 'fraction', 'POLICY', 'Effective corporate tax rate on gross profits.', solved('baseline revenue matches the data (citTarget).')],
-  ['muXD', 'fraction', 'BEHAVIOUR', 'Exporters’ domestic inputs per unit of exports.', solved('exporters’ value added matches the data (vaFXtarget).')],
-  ['divFXW', 'fraction', 'IDENTITY', 'Foreign owners’ share of exporters’ dividends.', solved('dividends to foreign owners match the data (fdiTarget).')],
+  ['divXOW', 'fraction', 'IDENTITY', 'Foreign owners’ share of other exporters’ dividends (data centres, pharma and other foreign-owned firms).', solved('dividends to foreign owners of all exporters match the data (fdiTarget), after the smelters’ (all abroad) and tourism’s (divXTW).')],
+  ['mXO', 'fraction', 'BEHAVIOUR', 'Other exporters’ imported inputs per unit of exports.', derived('What is left of the TiVA import content of all exports (muX) after fisheries, aluminium and tourism.')],
+  ['dFC', 'fraction', 'BEHAVIOUR', 'What builders buy from retail and service firms (materials, engineering, transport) per króna of their sales.', solved('construction’s value added matches the data (gvaFC).')],
+  ['salesFC0', '% of GDP/yr', 'IDENTITY', 'Builders’ real sales at baseline: all investment goods plus home repairs, net of VAT.', derived('Business and public investment + maintShare × (consumption − VAT).')],
+  ['vaFR0', '% of GDP/yr', 'IDENTITY', 'Retail and service firms’ real value added at baseline (including VAT and housing services).', derived('Output − public value added − the other five sectors’ value added (data).')],
   ['vat0', 'fraction', 'POLICY', 'Effective VAT rate on consumer spending at baseline.', solved('baseline VAT revenue matches the data (vatTarget).')],
   ['cEe', 'fraction', 'CONTRACT', 'Employee pension contribution, deducted from the gross wage.', solved('baseline contributions match the data (conTarget).')],
   ['rr', 'fraction', 'POLICY', 'Unemployment-benefit replacement rate (share of the average wage per unemployed person).', solved('baseline benefits match the data (ueTarget).')],
   ['wsOther', 'fraction', 'POLICY', 'Share of other public services that is staff pay.', solved('public compensation of employees matches the data (compG).')],
   ['muD', 'fraction', 'BEHAVIOUR', 'Import share of domestic firms’ inputs.', solved('the current account balances at baseline.')],
-  ['rhoFD0', 'fraction', 'BEHAVIOUR', 'Domestic firms’ normal retention ratio: the share of after-tax profit kept to pay for investment.', solved('retained profit = investment, so firms’ debt is constant.')],
-  ['rhoFX0', 'fraction', 'BEHAVIOUR', 'Exporters’ normal retention ratio.', solved('retained profit = investment.')],
   ['c0Y', '% of GDP/yr', 'BEHAVIOUR', 'Young: spending not tied to current income (at baseline prices).', solved('the young save nothing at baseline, so their deposits are constant.')],
   ['c0W', '% of GDP/yr', 'BEHAVIOUR', 'Working age: spending not tied to current income (at baseline prices).', solved('zero saving at baseline.')],
   ['c0O', '% of GDP/yr', 'BEHAVIOUR', 'Older: spending not tied to current income (at baseline prices).', solved('zero saving at baseline.')],
@@ -453,17 +505,7 @@ const meta: [Id, string, ParamDef['category'], string, Provenance][] = [
   ['potentialOutput', '% of GDP/yr', 'IDENTITY', 'Real output at baseline: the benchmark for the output gap.', derived('Baseline real output C + G + I + X − IM (100 by construction).')],
   ['uBase', 'fraction', 'IDENTITY', 'Unemployment rate at baseline: the rate at which wages grow only with expected inflation.', derived('Unemployed ÷ labour force from the age groups’ data.')],
   ['Ntot0', '% of GDP/yr', 'IDENTITY', 'Baseline employment, measured as the gross wage bill at baseline wages.', derived('Private wages (compensation ÷ (1 + employer contribution + payroll tax)) + public staff.')],
-  ['NFD0', '% of GDP/yr', 'IDENTITY', 'Baseline employment in domestic-market firms (gross wage bill at baseline wages).', derived('Private employment minus exporters’ share.')],
-  ['NFX0', '% of GDP/yr', 'IDENTITY', 'Baseline employment in exporting firms.', derived('Exporters’ employment share × total employment.')],
-  ['vaFD0', '% of GDP/yr', 'IDENTITY', 'Domestic firms’ real value added at baseline.', derived('Output − exporters’ value added − public value added.')],
-  ['vaFX0', '% of GDP/yr', 'IDENTITY', 'Exporters’ real value added at baseline.', derived('Exports − imported inputs − domestic inputs.')],
-  ['piFD0', '% of GDP/yr', 'IDENTITY', 'Domestic firms’ after-tax profit at baseline.', derived('From the income side with GDP = 100.')],
-  ['piFX0', '% of GDP/yr', 'IDENTITY', 'Exporters’ after-tax profit at baseline.', derived('Exports − inputs − labour costs − net interest, after tax.')],
   ['rl0', 'fraction/yr', 'IDENTITY', 'Real business-loan rate at baseline.', derived('Neutral rate + loan spread.')],
-  ['lFD0', 'ratio', 'IDENTITY', 'Domestic firms’ debt ÷ GDP at baseline.', derived('loanFD ÷ 100.')],
-  ['lFX0', 'ratio', 'IDENTITY', 'Exporters’ debt ÷ GDP at baseline.', derived('loanFX ÷ 100.')],
-  ['depFD0', 'ratio', 'BEHAVIOUR', 'Deposits domestic firms keep, as a share of a year’s GDP.', derived('Their baseline deposits (M3 minus everyone else’s) ÷ 100.')],
-  ['depFX0', 'ratio', 'BEHAVIOUR', 'Deposits exporters keep, as a share of a year’s GDP.', derived('depFX ÷ 100.')],
   ['krona0', '% of GDP', 'IDENTITY', 'Non-residents’ króna holdings (deposits + government bonds) at baseline.', derived('depW + bondW.')],
   ['bW0', 'ratio', 'BEHAVIOUR', 'Non-residents’ government bonds ÷ GDP at baseline.', derived('bondW ÷ 100.')],
   ['debtR0', 'ratio', 'POLICY', 'Government debt ÷ GDP that the debt-tied tax rule aims for.', derived('govDebt ÷ 100.')],
@@ -481,6 +523,18 @@ const meta: [Id, string, ParamDef['category'], string, Provenance][] = [
   ['homeAgeingRateY', 'per year', 'IDENTITY', 'Share of young households’ homes that moves to the working-age group each year as people age.', derived('Keeps the young’s housing constant: purchases ÷ holdings.')],
   ['homeAgeingRateW', 'per year', 'IDENTITY', 'Share of working-age households’ homes that moves to older households each year.', derived('Keeps working-age housing constant.')],
 ];
+for (const j of FIRMS) {
+  const who = FIRM_NAME[j];
+  meta.push(
+    [`N${j}0`, '% of GDP/yr', 'IDENTITY', `Baseline employment of ${who}, as a gross wage bill at baseline wages.`, derived(j === 'FR' ? 'The private wage bill minus the other five sectors’.' : 'Their compensation of employees (data) ÷ (1 + employer pension contribution + payroll tax).')],
+    [`i${j}0`, '% of GDP/yr', 'BEHAVIOUR', `Baseline investment of ${who}, at baseline prices.`, derived(j[0] === 'X' ? 'Exporters’ investment (iFX0) × their share of exporters’ gross fixed capital formation (data).' : 'Domestic firms’ investment (iFD0) × their share of domestic firms’ gross fixed capital formation (data).')],
+    [`pi${j}0`, '% of GDP/yr', 'IDENTITY', `After-tax profit of ${who} at baseline.`, derived('Value added − labour costs − net interest (− VAT for retail and services), after corporate tax.')],
+    [`l${j}0`, 'ratio', 'IDENTITY', `Bank debt of ${who} ÷ GDP at baseline.`, derived('Their share of bank loans to firms × loanTotal ÷ 100.')],
+    [`dep${j}0`, 'ratio', 'BEHAVIOUR', `Deposits ${who} keep, as a share of a year’s GDP.`, derived(j[0] === 'X' ? 'Exporters’ deposits (depFX) split by export revenue ÷ 100.' : 'Domestic firms’ deposits (M3 minus everyone else’s) split by depShareFC ÷ 100.')],
+  );
+  if (j !== 'XA') meta.push([`rho${j}0`, 'fraction', 'BEHAVIOUR', `Normal retention ratio of ${who}: the share of after-tax profit kept to pay for investment.`, solved('retained profit = investment, so their bank debt is constant.')]);
+  if (j[0] === 'X') meta.push([`d${j}`, 'fraction', 'BEHAVIOUR', `Domestic inputs ${who} buy from retail and service firms per unit of exports.`, solved('their value added matches the data (gva).')]);
+}
 for (const g of ['Y', 'W', 'O'] as const) {
   meta.push(
     [`emp0${g}`, 'thousand persons', 'IDENTITY', `Workers, ${G3N[g]}, at baseline.`, derived('Population × employment rate (data).')],

@@ -12,7 +12,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, HH, pickParams, terms, lastMonth } from '../util.ts';
+import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth } from '../util.ts';
 
 type Channel = { id: string; label: string; level: Id; share: Id; lever: string; channel: string; what: string };
 const CHANNELS: Channel[] = [
@@ -20,7 +20,7 @@ const CHANNELS: Channel[] = [
   { id: 'education', label: 'Public education', level: 'gEdu', share: 'wsEdu', lever: 'education', channel: 'education', what: 'schools and universities' },
   { id: 'otherServices', label: 'Other public services', level: 'gOther', share: 'wsOther', lever: 'otherServices', channel: 'otherServices', what: 'administration, police, culture, road upkeep and subsidies' },
 ];
-const PAYEES = [...AGES.map((g) => HH[g]), 'PF', 'FD'] as const;
+const PAYEES = [...AGES.map((g) => HH[g]), 'PF', 'FR'] as const;
 
 /** Public staff in a channel, as a gross wage bill at baseline wages. */
 const staff = (c: Ctx, ch: Channel) => (c.p(ch.share) * c.p(ch.level)) / (1 + c.p('cEr'));
@@ -28,7 +28,7 @@ const staff = (c: Ctx, ch: Channel) => (c.p(ch.share) * c.p(ch.level)) / (1 + c.
 const channelLegs: RuleDef[] = CHANNELS.flatMap((ch) =>
   PAYEES.map((to): RuleDef => {
     const id = `${ch.id}_${to}`;
-    if (to === 'FD')
+    if (to === 'FR')
       return {
         id,
         target: id,
@@ -37,7 +37,7 @@ const channelLegs: RuleDef[] = CHANNELS.flatMap((ch) =>
         params: [ch.level, ch.share],
         compute: (c) => c.v('domesticPrice') * (1 - c.p(ch.share)) * c.p(ch.level),
         concepts: ['multiplier'],
-        explain: { what: `What ${ch.label.toLowerCase()} buy from domestic firms (${ch.what}).`, rule: `Purchases = (1 − {${ch.share}}) × the real level {${ch.level}} × domestic prices.` },
+        explain: { what: `What ${ch.label.toLowerCase()} (${ch.what}) buy from retail and service firms.`, rule: `Purchases = (1 − {${ch.share}}) × the real level {${ch.level}} × domestic prices.` },
       };
     if (to === 'PF')
       return {
@@ -93,21 +93,22 @@ const transferRules: RuleDef[] = [
       explain: { what: `Child, parental-leave and housing benefits paid to the ${AGE_LABEL[g]}.`, rule: `Benefits = real level {trFam} × ${g === 'Y' ? '{famShareY}' : '(1 − {famShareY})'} × CPI.` },
     }),
   ),
-  ...AGES.map(
-    (g): RuleDef => ({
+  ...AGES.map((g): RuleDef => {
+    const [un, wb] = [`unemployed${g}`, `wb${g}`]; // built once: this rule sits in the income–spending block
+    return {
       id: `unemploymentBenefits${g}`,
       target: `unemploymentBenefits${g}`,
       category: 'POLICY',
-      inputs: ['wage', `unemployed${g}`],
-      params: ['rr', 'rrShift', `wb${g}`],
-      compute: (c) => (c.p('rr') + c.p('rrShift')) * c.v('wage') * c.p(`wb${g}`) * c.v(`unemployed${g}`),
+      inputs: ['wage', un],
+      params: ['rr', 'rrShift', wb],
+      compute: (c) => (c.p('rr') + c.p('rrShift')) * c.v('wage') * c.p(wb) * c.v(un),
       concepts: ['automatic-stabilisers'],
       explain: {
         what: `Unemployment benefits paid automatically to unemployed ${AGE_LABEL[g]}.`,
         rule: 'Benefits = replacement rate ({rr%} + the lever) × the average wage of the group × the number unemployed.',
       },
-    }),
-  ),
+    };
+  }),
 ];
 
 const HOLDERS = [
@@ -135,6 +136,8 @@ const TAXES_H = AGES.map((g) => `incomeTax${g}`);
 const SPEND: Id[] = CHANNELS.map((ch) => `spending${ch.id[0].toUpperCase()}${ch.id.slice(1)}`);
 const TRANSFERS: Id[] = [...AGES.map((g) => `oldAgeTransfers${g}`), 'familyBenefitsY', 'familyBenefitsW', ...AGES.map((g) => `unemploymentBenefits${g}`)];
 const INTEREST: Id[] = [...HOLDERS.map(([h]) => `bondInterest${h}`), 'indexedBondCoupon'];
+const PAYROLL: Id[] = FIRMS.map((j) => `payrollTax${j}`);
+const CORP: Id[] = FIRMS.map((j) => `corporateTax${j}`);
 const sumV = (ids: Id[]) => (c: Ctx) => ids.reduce((s, id) => s + c.v(id), 0);
 
 const vars: VarDef[] = [
@@ -143,7 +146,7 @@ const vars: VarDef[] = [
   { id: 'publicPurchasesReal', label: 'Public purchases (real)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real' },
   { id: 'publicServicesReal', label: 'Public services (real)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real' },
   ...CHANNELS.flatMap((ch): VarDef[] => [
-    ...PAYEES.map((to): VarDef => ({ id: `${ch.id}_${to}`, label: `${ch.label} → ${to === 'FD' ? 'domestic firms (purchases)' : to === 'PF' ? 'pension funds (contributions)' : `${AGE_LABEL[AGES[PAYEES.indexOf(to)]]} (pay)`}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' })),
+    ...PAYEES.map((to): VarDef => ({ id: `${ch.id}_${to}`, label: `${ch.label} → ${to === 'FR' ? 'retail and service firms (purchases)' : to === 'PF' ? 'pension funds (contributions)' : `${AGE_LABEL[AGES[PAYEES.indexOf(to)]]} (pay)`}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' })),
     { id: `spending${ch.id[0].toUpperCase()}${ch.id.slice(1)}`, label: `Spending on ${ch.label.toLowerCase()}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   ]),
   { id: 'publicInvestment', label: 'Public investment', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
@@ -152,14 +155,16 @@ const vars: VarDef[] = [
   ...AGES.map((g): VarDef => ({ id: `unemploymentBenefits${g}`, label: `Unemployment benefits, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`unemploymentBenefits${g}`) })),
   { id: 'vatRate', label: 'VAT rate (effective)', unit: 'fraction', kind: 'rate', scale: 'none', initial: base('vatRate') },
   { id: 'vat', label: 'VAT and taxes on goods', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('vat') },
+  { id: 'vatFR', label: 'VAT passed on by retail and service firms', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  { id: 'vatFC', label: 'VAT passed on by builders (home repairs)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'debtRatio', label: 'Government debt ratio', unit: 'ratio', kind: 'ratio', scale: 'none', initial: base('debtRatio'), description: 'Government bonds (nominal and indexed) ÷ last month’s annual GDP.' },
   { id: 'taxRuleAdjustment', label: 'Debt-rule tax adjustment', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0 },
   { id: 'taxRate', label: 'Income-tax rate', unit: 'fraction', kind: 'rate', scale: 'none', initial: base('taxRate') },
   ...AGES.map((g): VarDef => ({ id: `incomeTax${g}`, label: `Income tax, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`incomeTax${g}`) })),
-  { id: 'payrollTaxFD', label: 'Payroll tax, domestic firms', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
-  { id: 'payrollTaxFX', label: 'Payroll tax, exporters', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
-  { id: 'corporateTaxFD', label: 'Corporate tax, domestic firms', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
-  { id: 'corporateTaxFX', label: 'Corporate tax, exporters', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  ...FIRMS.flatMap((j): VarDef[] => [
+    { id: `payrollTax${j}`, label: `Payroll tax, ${FIRM_NAME[j]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+    { id: `corporateTax${j}`, label: `Corporate tax, ${FIRM_NAME[j]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  ]),
   { id: 'bondRate', label: 'Government-bond rate', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('bondRate') },
   ...HOLDERS.map(([h, who]): VarDef => ({ id: `bondInterest${h}`, label: `Bond interest to ${who}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' })),
   { id: 'indexedBondCoupon', label: 'Real coupon on indexed bonds', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
@@ -213,9 +218,9 @@ const rules: RuleDef[] = [
       terms: terms(
         ['pay', 'Staff pay', undefined, sumV(AGES.map((g) => `${ch.id}_${HH[g]}`))],
         ['pensions', 'Pension contributions', 'funded-pensions', (c) => c.v(`${ch.id}_PF`)],
-        ['purchases', 'Purchases from firms', 'multiplier', (c) => c.v(`${ch.id}_FD`)],
+        ['purchases', 'Purchases from retail and service firms', 'multiplier', (c) => c.v(`${ch.id}_FR`)],
       ),
-      explain: { what: `Total spending on ${ch.label.toLowerCase()}.`, rule: 'Spending = staff pay + their pension contributions + purchases from domestic firms.' },
+      explain: { what: `Total spending on ${ch.label.toLowerCase()}.`, rule: 'Spending = staff pay + their pension contributions + purchases from retail and service firms.' },
     }),
   ),
   {
@@ -226,7 +231,7 @@ const rules: RuleDef[] = [
     params: ['gInv'],
     compute: (c) => c.v('domesticPrice') * c.p('gInv'),
     concepts: ['multiplier'],
-    explain: { what: 'Roads, buildings and equipment the government buys from domestic firms (who import part of it).', rule: 'Spending = real level {gInv}% of GDP (plus the lever) × domestic prices.' },
+    explain: { what: 'Roads, buildings and equipment the government buys from builders (who import part of it).', rule: 'Spending = real level {gInv}% of GDP (plus the lever) × domestic prices.' },
   },
   ...transferRules,
   {
@@ -245,6 +250,24 @@ const rules: RuleDef[] = [
     compute: (c) => (c.v('vatRate') / (1 + c.v('vatRate'))) * c.v('consumption'),
     concepts: ['automatic-stabilisers'],
     explain: { what: 'VAT and other taxes on goods that shops collect from consumers and pass to the government.', rule: 'VAT = rate ÷ (1 + rate) × consumer spending (which includes the VAT).' },
+  },
+  {
+    id: 'vatFR',
+    target: 'vatFR',
+    category: 'POLICY',
+    inputs: ['vat'],
+    params: ['maintShare'],
+    compute: (c) => (1 - c.p('maintShare')) * c.v('vat'),
+    explain: { what: 'VAT retail and service firms collect and pass on.', rule: 'Their share (1 − {maintShare%}) of household spending × the VAT on it.' },
+  },
+  {
+    id: 'vatFC',
+    target: 'vatFC',
+    category: 'POLICY',
+    inputs: ['vat'],
+    params: ['maintShare'],
+    compute: (c) => c.p('maintShare') * c.v('vat'),
+    explain: { what: 'VAT builders collect on home repairs and pass on.', rule: 'Their share {maintShare%} of household spending × the VAT on it.' },
   },
   {
     id: 'debtRatio',
@@ -297,12 +320,12 @@ const rules: RuleDef[] = [
       target: `incomeTax${g}`,
       category: 'POLICY',
       inputs: ['taxRate', `grossIncome${g}`],
-      compute: (c) => c.v('taxRate') * c.v(`grossIncome${g}`),
+      compute: ((gross) => (c: Ctx) => c.v('taxRate') * c.v(gross))(`grossIncome${g}`),
       concepts: ['automatic-stabilisers'],
       explain: { what: `Income tax paid by the ${AGE_LABEL[g]}.`, rule: 'Tax = income-tax rate × gross income (wages, benefits and pensions).' },
     }),
   ),
-  ...(['FD', 'FX'] as const).flatMap((j): RuleDef[] => [
+  ...FIRMS.flatMap((j): RuleDef[] => [
     {
       id: `payrollTax${j}`,
       target: `payrollTax${j}`,
@@ -310,7 +333,7 @@ const rules: RuleDef[] = [
       inputs: ['wage', `employment${j}`],
       params: ['css'],
       compute: (c) => c.p('css') * c.v('wage') * c.v(`employment${j}`),
-      explain: { what: `Payroll tax (tryggingagjald) paid by ${j === 'FD' ? 'domestic firms' : 'exporters'}.`, rule: 'Tax = {css%} × their gross wage bill.' },
+      explain: { what: `Payroll tax (tryggingagjald) paid by ${FIRM_NAME[j]}.`, rule: 'Tax = {css%} × their gross wage bill.' },
     },
     {
       id: `corporateTax${j}`,
@@ -320,7 +343,7 @@ const rules: RuleDef[] = [
       params: ['tauF'],
       compute: (c) => c.p('tauF') * c.v(`profits${j}`),
       concepts: ['automatic-stabilisers'],
-      explain: { what: `Corporate income tax paid by ${j === 'FD' ? 'domestic firms' : 'exporters'}.`, rule: 'Tax = effective rate {tauF%} × gross profit (set so baseline revenue matches the data).' },
+      explain: { what: `Corporate income tax paid by ${FIRM_NAME[j]}.`, rule: 'Tax = effective rate {tauF%} × gross profit (set so baseline revenue matches the data). A loss earns a refund, so the state shares losses too.' },
     },
   ]),
   {
@@ -369,7 +392,7 @@ const rules: RuleDef[] = [
     id: 'deficit',
     target: 'deficit',
     category: 'IDENTITY',
-    inputs: [...SPEND, 'publicInvestment', ...TRANSFERS, ...INTEREST, ...TAXES_H, 'vat', 'payrollTaxFD', 'payrollTaxFX', 'corporateTaxFD', 'corporateTaxFX', 'cbProfit', 'bankDividendsG'],
+    inputs: [...SPEND, 'publicInvestment', ...TRANSFERS, ...INTEREST, ...TAXES_H, 'vat', ...PAYROLL, ...CORP, 'cbProfit', 'bankDividendsG'],
     terms: terms(
       ['services', 'Public services', 'multiplier', sumV(SPEND)],
       ['investment', 'Public investment', 'multiplier', (c) => c.v('publicInvestment')],
@@ -377,8 +400,8 @@ const rules: RuleDef[] = [
       ['interest', 'Interest on debt', 'interest-distribution', sumV(INTEREST)],
       ['incomeTax', 'Income tax', 'automatic-stabilisers', (c) => -sumV(TAXES_H)(c)],
       ['vat', 'VAT', 'automatic-stabilisers', (c) => -c.v('vat')],
-      ['payrollTax', 'Payroll tax', undefined, (c) => -(c.v('payrollTaxFD') + c.v('payrollTaxFX'))],
-      ['corporateTax', 'Corporate tax', 'automatic-stabilisers', (c) => -(c.v('corporateTaxFD') + c.v('corporateTaxFX'))],
+      ['payrollTax', 'Payroll tax', undefined, (c) => -sumV(PAYROLL)(c)],
+      ['corporateTax', 'Corporate tax', 'automatic-stabilisers', (c) => -sumV(CORP)(c)],
       ['centralBank', 'Central-bank profit', undefined, (c) => -c.v('cbProfit')],
       ['bankDividends', 'Dividends from state-owned banks', undefined, (c) => -c.v('bankDividendsG')],
     ),
@@ -471,7 +494,7 @@ export const government: ModuleDef = {
       channel: ch.channel,
       legs: PAYEES.map((to) => ({ from: 'G', to, amount: `${ch.id}_${to}` })),
       concepts: ['multiplier', 'deficits-and-money'],
-      explain: { what: `The government runs ${ch.what}: it pays staff (their pension contributions go to pension funds) and buys supplies from domestic firms.` },
+      explain: { what: `The government runs ${ch.what}: it pays staff (their pension contributions go to pension funds) and buys supplies from retail and service firms.` },
     })),
     {
       id: 'publicInvestment',
@@ -480,9 +503,9 @@ export const government: ModuleDef = {
       account: 'current',
       posting: { type: 'transfer' },
       channel: 'investment',
-      legs: [{ from: 'G', to: 'FD', amount: 'publicInvestment' }],
+      legs: [{ from: 'G', to: 'FC', amount: 'publicInvestment' }],
       concepts: ['multiplier'],
-      explain: { what: 'The government buys roads, buildings and equipment from domestic firms. Public capital is not tracked, as in v1.' },
+      explain: { what: 'The government buys roads, buildings and equipment from builders. Public capital is not tracked, as in v1.' },
     },
     {
       id: 'oldAgeTransfers',
@@ -527,13 +550,16 @@ export const government: ModuleDef = {
       explain: { what: 'Households pay income tax on wages, benefits and pensions from their deposits; banks pass reserves to the treasury, so deposits shrink.' },
     },
     {
-      id: 'vat',
+      id: 'vatPayments',
       label: 'VAT and taxes on goods',
       kind: 'cash',
       account: 'current',
       posting: { type: 'transfer' },
-      legs: [{ from: 'FD', to: 'G', amount: 'vat' }],
-      explain: { what: 'Shops pass the VAT they collect on consumer spending to the government.' },
+      legs: [
+        { from: 'FR', to: 'G', amount: 'vatFR' },
+        { from: 'FC', to: 'G', amount: 'vatFC' },
+      ],
+      explain: { what: 'Shops, and builders doing home repairs, pass the VAT they collect on consumer spending to the government.' },
     },
     {
       id: 'payrollTax',
@@ -541,10 +567,7 @@ export const government: ModuleDef = {
       kind: 'cash',
       account: 'current',
       posting: { type: 'transfer' },
-      legs: [
-        { from: 'FD', to: 'G', amount: 'payrollTaxFD' },
-        { from: 'FX', to: 'G', amount: 'payrollTaxFX' },
-      ],
+      legs: FIRMS.map((j) => ({ from: j, to: 'G', amount: `payrollTax${j}` })),
       explain: { what: 'Firms pay the social-security tax on their wage bills.' },
     },
     {
@@ -553,10 +576,7 @@ export const government: ModuleDef = {
       kind: 'cash',
       account: 'current',
       posting: { type: 'transfer' },
-      legs: [
-        { from: 'FD', to: 'G', amount: 'corporateTaxFD' },
-        { from: 'FX', to: 'G', amount: 'corporateTaxFX' },
-      ],
+      legs: FIRMS.map((j) => ({ from: j, to: 'G', amount: `corporateTax${j}` })),
       concepts: ['automatic-stabilisers'],
       explain: { what: 'Firms pay tax on their profits.' },
     },
@@ -695,7 +715,7 @@ export const government: ModuleDef = {
       id: 'bank-financed-deficit-creates-more-money',
       label: 'Spending financed by banks creates more broad money than spending financed by pension funds',
       run: (e) => {
-        const money = (f: ReturnType<typeof e.fork>) => ['HY', 'HW', 'HO', 'FD', 'FX', 'PF'].reduce((s, pl) => s + f.balanceSheet(pl).assets.find((a) => a.instrument === 'deposits')!.value, 0);
+        const money = (f: ReturnType<typeof e.fork>) => ['HY', 'HW', 'HO', ...FIRMS, 'PF'].reduce((s, pl) => s + f.balanceSheet(pl).assets.find((a) => a.instrument === 'deposits')!.value, 0);
         const run = (choice: number) => {
           const f = e.fork();
           f.setLever('bondBuyers', choice);

@@ -1,10 +1,13 @@
 /**
- * Key numbers on the player cards of the flow map.
+ * Key numbers on the player and group cards of the flow map.
  *
- * Each model may name one or two indicators (or variables) per player and per group. Ids that
- * the model does not have are skipped, so a mapping written ahead of a model port is harmless.
- * A card with nothing mapped falls back to the player's net worth and the cash it receives.
- * To add a mapping for a new model, add an entry to PLAYER_CARDS keyed by the model id.
+ * Each model may name one or two indicators (or variables) per player and per group. A group's
+ * entry is looked up by its id, then by its label, so a mapping can be written before the
+ * model's group ids are settled. Ids that the model does not have are skipped, so a mapping
+ * written ahead of a model port is harmless. A card with nothing mapped falls back to the net
+ * worth of the player (or of the group's players) and the cash it receives from outside.
+ * To add a mapping for a new model, add an entry to PLAYER_CARDS keyed by the model id, and
+ * name what a group's members are in GROUP_NOUNS ("3 age groups").
  */
 import type { Id } from '../../core/types.ts';
 import type { ModelInfo } from './info.ts';
@@ -46,13 +49,27 @@ export const PLAYER_CARDS: Record<Id, CardMapping> = {
     G: [{ indicator: 'govBalance', label: 'Balance' }, { indicator: 'govDebt', label: 'Debt' }],
     PF: [{ indicator: 'pfAssets', label: 'Assets' }],
     W: [{ indicator: 'currentAccount', label: 'Current account' }, { indicator: 'krona', label: 'Króna' }],
+    // Groups, by id or label.
     Households: [{ indicator: 'consumption', label: 'Spending' }, { indicator: 'unemployment', label: 'Unemployment' }],
     Firms: [{ indicator: 'output', label: 'Output' }, { indicator: 'investment', label: 'Investment' }],
+    'Domestic firms': [{ indicator: 'consumption', label: 'Consumer demand' }, { indicator: 'profitsFD', label: 'Profits' }],
+    Exporters: [{ indicator: 'exports', label: 'Exports' }, { indicator: 'profitsFX', label: 'Profits' }],
     Banks: [{ indicator: 'broadMoney', label: 'Broad money' }, { indicator: 'bankCapital', label: 'Capital ratio' }],
     'Central bank': [{ indicator: 'keyRate', label: 'Key rate' }, { indicator: 'inflation', label: 'Inflation' }],
     Government: [{ indicator: 'govBalance', label: 'Balance' }, { indicator: 'govDebt', label: 'Debt' }],
     'Pension funds': [{ indicator: 'pfAssets', label: 'Assets' }],
     'Rest of world': [{ indicator: 'currentAccount', label: 'Current account' }, { indicator: 'krona', label: 'Króna' }],
+  },
+};
+
+/** What a group's direct members are called, singular and plural, by group id or label:
+ *  a closed group's card says "3 age groups". Without an entry: "3 players" or "2 groups". */
+export const GROUP_NOUNS: Record<Id, Record<Id, [one: string, many: string]>> = {
+  iceland: {
+    Households: ['age group', 'age groups'],
+    Firms: ['kind of firm', 'kinds of firm'],
+    'Domestic firms': ['sector', 'sectors'],
+    Exporters: ['export industry', 'export industries'],
   },
 };
 
@@ -65,7 +82,9 @@ export type ResolvedMetric =
 /** The metrics a node's card shows: the model's mapping where it resolves, else the fallback. */
 export function resolveCardMetrics(info: ModelInfo, nodeId: Id, mapping: CardMapping | undefined = PLAYER_CARDS[info.id], max = 2): ResolvedMetric[] {
   const out: ResolvedMetric[] = [];
-  for (const spec of mapping?.[nodeId] ?? []) {
+  const group = info.playerById.has(nodeId) ? undefined : info.groupById.get(nodeId);
+  const specs = mapping?.[nodeId] ?? (group ? mapping?.[group.label] : undefined) ?? [];
+  for (const spec of specs) {
     if (out.length >= max) break;
     if (spec.indicator && info.indicatorById.has(spec.indicator)) {
       const ind = info.indicatorById.get(spec.indicator)!;

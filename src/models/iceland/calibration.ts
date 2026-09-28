@@ -1,8 +1,9 @@
 /**
  * Iceland Inc.: the 20 calibration checks of engine v1 (legacy/v1-engine/tools/calibration_checks.js),
- * with the same scenarios and target ranges. They are CHECKS on whole-model responses, never
- * equations. Each range's source is in `source` (v1 SPEC §7.3 and the research report,
- * docs/research/icelandic-economy-flow-simulation.md).
+ * with the same scenarios and target ranges, and three checks on the firm sectors (decision 0003).
+ * They are CHECKS on whole-model responses, never equations. Each range's source is in `source`
+ * (v1 SPEC §7.3, the research report docs/research/icelandic-economy-flow-simulation.md, and
+ * data/iceland/calibration.json for the sector checks).
  *
  * Series are indexed by month (0 = baseline), in display units, as in v1.
  */
@@ -39,6 +40,9 @@ const LEND_12: ScenarioEvent[] = [
   { t: 12, lever: 'lendingAppetite', value: 0 },
 ];
 const LEND_HELD: ScenarioEvent[] = [{ t: 0, lever: 'lendingAppetite', value: 1 }];
+const TOURISM: ScenarioEvent[] = [{ t: 0, lever: 'tourism', value: -30 }];
+const ALUMINIUM: ScenarioEvent[] = [{ t: 0, lever: 'aluminiumPrice', value: 20 }];
+const FIRMS = ['FC', 'FR', 'XF', 'XA', 'XT', 'XO'] as const;
 
 /* ------------------------------------------------------------------ sources */
 const SRC = {
@@ -49,7 +53,16 @@ const SRC = {
   money: 'Accounting mechanism: deficits add deposits when banks buy the bonds and move existing deposits when pension funds do (Bank of England 2014, "Money creation in the modern economy"; research report §1); v1 SPEC §7.3 requires a gap of at least 0.5 pp.',
   krona: 'CBI WP85 exchange-rate pass-through: a 10% depreciation raises the CPI about 1.5 pp within a year and 2.3 pp in the long run (research report, "A 10% króna depreciation"; v1 SPEC §7.3). https://ideas.repec.org/p/ice/wpaper/wp85.html',
   credit: 'Credit-impulse definition (Biggs, Mayer & Pick 2010; Keen 2011): positive while new credit accelerates, negative when a temporary boost ends, near zero when a higher flow is merely held (research report, "Banks’ lending appetite rises"; v1 SPEC §7.3). https://www.bde.es/f/webpi/SES/seminars/2015/files/sie1515.pdf',
+  tourism:
+    'Reasoned from 2020: foreign visitor numbers fell by about three-quarters and the króna lost nearly 10% in trade-weighted terms over the year (euro 14.9% dearer), cushioned by pension funds pausing FX purchases and by central-bank FX sales (Íslandsbanki, Economic review 2020; Landsbankinn, 8 January 2021; CBI Monetary Bulletin 2020/4). Scaled to a 30% fall, about 4%; the model has no FX intervention, so up to 10%. Tourism is 13% of GDP of exports and the exporter most sensitive to the exchange rate, so its output must fall most (calibration.json: firm_sectors.tourism). https://www.landsbankinn.is/en/news/2021/01/08/the-icelandic-krona-depreciated-in-2020',
+  aluminium:
+    'Reasoned from ownership and tax: the three smelters are wholly foreign-owned (Rio Tinto, Alcoa, Century), so every króna of profit they do not reinvest is paid abroad; corporate tax takes about 9% of profit (effective rate from Hagstofa THJ05132); inward-FDI equity income was 78% dividends and 22% reinvested earnings in 2024 (Eurostat bop_c6_a). So 60–95% of a windfall should leave within two years (calibration.json: firm_sectors.aluminium).',
+  squeeze:
+    'First-round arithmetic on Hagstofa THJ08420 (2025): a 10% wage rise cuts profit by 10% × labour cost ÷ profit. Labour cost is 72% of tourism’s value added (labour ÷ profit about 3) and about 45% of retail and services’ once VAT and housing services are counted (about 0.85): a ratio near 3.5 on impact, less as prices catch up (calibration.json: firm_sectors).',
 };
+
+/** Percent change of a raw variable from month 0. */
+const pctOf = (run: RunResult, id: string, m: number) => 100 * (run.value(id, m) / run.value(id, 0) - 1);
 
 /* ------------------------------------- the bank- versus fund-financed money gap */
 
@@ -264,5 +277,50 @@ export const calibration: CalibrationCheck[] = [
     measure: (run) => Math.max(...run.series('creditImpulse').slice(18, 49).map(Math.abs)),
     range: [0, 0.3],
     source: SRC.credit,
+  },
+  // Firm sectors (decision 0003)
+  {
+    id: 'tourism-slump',
+    label: 'Tourism −30% held: króna value at month 12, % vs baseline (+ stronger); tourism’s output must fall more than any other sector’s (otherwise not a number)',
+    scenario: TOURISM,
+    months: 72,
+    measure: (run) => {
+      const falls = FIRMS.map((j) => pctOf(run, `valueAdded${j}`, 12));
+      const xt = falls[FIRMS.indexOf('XT')];
+      const hardest = falls.every((x, k) => FIRMS[k] === 'XT' || x > xt);
+      return hardest ? run.series('krona')[12] : NaN;
+    },
+    range: [-10, -2],
+    source: SRC.tourism,
+  },
+  {
+    id: 'aluminium-windfall-abroad',
+    label: 'Aluminium price +20% held: extra dividends paid abroad ÷ the smelters’ extra profit, months 1–24; aluminium export revenue must rise (otherwise not a number)',
+    scenario: ALUMINIUM,
+    months: 72,
+    measure: (run) => {
+      if (!(run.series('exportsXA')[12] > 5)) return NaN;
+      let abroad = 0,
+        profit = 0;
+      for (let m = 1; m <= 24; m++) {
+        abroad += run.value('dividendsAbroad', m) - run.value('dividendsAbroad', 0);
+        profit += run.value('profitsXA', m) - run.value('profitsXA', 0);
+      }
+      return abroad / profit;
+    },
+    range: [0.6, 0.95],
+    source: SRC.aluminium,
+  },
+  {
+    id: 'wage-squeeze-labour-intensive',
+    label: 'Wages +10% one-off: fall in real profit in the first quarter, tourism ÷ retail and services',
+    scenario: WAGE,
+    months: 72,
+    measure: (run) => {
+      const q = (id: string) => (run.series(id)[1] + run.series(id)[2] + run.series(id)[3]) / 3;
+      return q('profitsXT') / q('profitsFR');
+    },
+    range: [2, 6],
+    source: SRC.squeeze,
   },
 ];

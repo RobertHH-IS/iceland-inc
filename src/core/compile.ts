@@ -2,7 +2,8 @@
  * The compiler: turns a declared ModelDef into a validated, indexed and scheduled model.
  *
  *   1. merge modules and apply `replaces`;
- *   2. check that ids are unique and every reference resolves;
+ *   2. check that ids are unique and every reference resolves, and build the player
+ *      hierarchy (groups; see hierarchy.ts);
  *   3. enforce one rule per endogenous variable;
  *   4. dry-run every rule, term and indicator against a recording context, so that reading
  *      an undeclared input (or an id that does not exist) is a compile error;
@@ -25,6 +26,7 @@ import type {
   InstrumentDef,
   LeverDef,
   ModelDef,
+  GroupDef,
   ModuleDef,
   ParamDef,
   PlayerDef,
@@ -33,6 +35,7 @@ import type {
   TermDef,
   VarDef,
 } from './types.ts';
+import { buildHierarchy, nodeFor } from './hierarchy.ts';
 
 export interface CompileOptions {
   /** Concepts defined outside the model (e.g. the shared library). Model concepts win. */
@@ -152,6 +155,10 @@ export interface KModel extends CompiledModel {
   pay: PaymentIndex;
   /** Module that declared each rule/flow/etc. (for messages and the inspector). */
   origin: Map<string, Id>;
+  /** Group index by id (the player hierarchy). */
+  groupIndex: Map<Id, number>;
+  /** For each player (by index), its enclosing groups, outermost first. */
+  groupChains: Id[][];
 }
 
 /* ---------------------------------------------------------------- utilities */
@@ -273,6 +280,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     return out;
   }
   const players = gather((m) => m.players);
+  const groupDefs = gather((m) => m.groups as GroupDef[] | undefined);
   const instruments = gather((m) => m.instruments);
   const vars = gather((m) => m.vars);
   const params = gather((m) => m.params);
@@ -383,6 +391,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     if (p.layout && !(p.layout.x >= 0 && p.layout.x <= 1 && p.layout.y >= 0 && p.layout.y <= 1)) warn(`player '${p.id}' has a layout hint outside 0..1`);
     if (!p.layout) warn(`player '${p.id}' has no layout hint`);
   });
+  const hierarchy = buildHierarchy(players, groupDefs, err, warn);
   const ps = def.paymentSystem;
   const pay: PaymentIndex = { bank: -1, centralBank: -1, treasury: -1, deposits: -1, reserves: -1, treasuryAccount: -1 };
   if (!ps) err('model has no paymentSystem');
@@ -964,18 +973,8 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   if (errors.length) throw new CompileError(errors, warnings);
 
   /* 13. assemble ---------------------------------------------------------- */
-  const groups: CompiledModel['groups'] = [];
-  const groupIx = new Map<string, number>();
-  players.forEach(({ def: p }) => {
-    const g = p.group || p.id;
-    let j = groupIx.get(g);
-    if (j === undefined) {
-      j = groups.length;
-      groupIx.set(g, j);
-      groups.push({ id: g, label: g, players: [], color: p.color });
-    }
-    groups[j].players.push(p.id);
-  });
+  const groups = hierarchy.groups;
+  const groupChains = hierarchy.chains;
   const ruleIndex = new Map<Id, number>();
   crules.forEach((cr, j) => ruleIndex.set(cr.def.id, j));
   const ruleList = crules.map((c) => c.def);
@@ -997,6 +996,11 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     ruleFor(varId: Id) {
       const k = varIndex.get(varId);
       return k === undefined || ruleOfVar[k] < 0 ? undefined : ruleList[ruleOfVar[k]];
+    },
+    nodeOf(player: Id, expanded: readonly Id[] | ReadonlySet<Id>): Id {
+      const j = playerIndex.get(player);
+      if (j === undefined) throw new Error(`nodeOf: unknown player '${player}'`);
+      return nodeFor(groupChains[j], expanded instanceof Set ? expanded : new Set(expanded), player);
     },
     warnings,
     NV,
@@ -1024,6 +1028,8 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     settlement,
     pay,
     origin,
+    groupIndex: hierarchy.groupIndex,
+    groupChains,
   };
   return model;
 }

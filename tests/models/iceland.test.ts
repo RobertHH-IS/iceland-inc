@@ -1,6 +1,7 @@
 /**
- * The Iceland model as a port of engine v1: parameters and provenance, levers, charts, the
- * steady state against v1's published numbers, and step time.
+ * The Iceland model as a port of engine v1, with firms split into six sectors (decision 0003):
+ * players and groups, parameters and provenance, levers, charts, the steady state against v1's
+ * published numbers, and step time.
  */
 import { describe, expect, test } from 'bun:test';
 import { compile } from '../../src/core/compile.ts';
@@ -17,18 +18,28 @@ const V1_LEVERS = [
   'oldAgeTransfers', 'familyBenefits', 'unemploymentBenefits', 'fiscalRule', 'bondBuyers', 'dstiCap', 'ltvCap', 'wageSettlement',
   'lendingAppetite', 'pfForeign', 'migration', 'foreignDemand', 'tourism', 'kronaShock', 'foreignRate', 'importPrices',
 ];
+const SECTOR_LEVERS = ['fishPrices', 'aluminiumPrice'];
 const V1_SERIES = [
   'output', 'consumption', 'investment', 'unemployment', 'unemploymentY', 'unemploymentW', 'unemploymentO', 'realWage', 'profitsFD', 'profitsFX',
   'inflation', 'priceLevel', 'expInflation', 'keyRate', 'mortgageRate', 'broadMoney', 'creditImpulse', 'creditImpulseTotal', 'netMortgage',
   'mortgageDebt', 'bankCapital', 'realHousePrice', 'krona', 'currentAccount', 'exports', 'imports', 'govBalance', 'govDebt', 'incomeTaxRate',
   'rdiY', 'rdiW', 'rdiO', 'pfAssets', 'pfForeignShare',
 ];
+const FIRMS = ['FC', 'FR', 'XF', 'XA', 'XT', 'XO'];
+const SECTOR_SERIES = ['dividendsAbroad', ...['XF', 'XA', 'XT', 'XO'].map((j) => `exports${j}`), ...FIRMS.map((j) => `profits${j}`), ...FIRMS.map((j) => `jobs${j}`)];
 
 describe('Iceland model: structure', () => {
-  test('ten players in seven groups, with layout hints', () => {
-    expect(model.players.map((p) => p.id)).toEqual(['HY', 'HW', 'HO', 'FD', 'FX', 'B', 'CB', 'G', 'PF', 'W']);
-    expect(model.groups.map((g) => g.id)).toEqual(['Households', 'Firms', 'Banks', 'Central bank', 'Government', 'Pension funds', 'Rest of world']);
+  test('fourteen players in a hierarchy of nine groups, with layout hints', () => {
+    expect(model.players.map((p) => p.id)).toEqual(['HY', 'HW', 'HO', ...FIRMS, 'B', 'CB', 'G', 'PF', 'W']);
+    expect(model.groups.map((g) => g.id)).toEqual(['households', 'firms', 'domestic', 'exporters', 'banks', 'central-bank', 'government', 'pension-funds', 'world']);
+    const byId = new Map(model.groups.map((g) => [g.id, g]));
+    expect(model.groups.filter((g) => !g.parent).map((g) => g.id)).toEqual(['households', 'firms', 'banks', 'central-bank', 'government', 'pension-funds', 'world']);
+    expect(byId.get('firms')!.children).toEqual(['domestic', 'exporters']);
+    expect(byId.get('domestic')!.players).toEqual(['FC', 'FR']);
+    expect(byId.get('exporters')!.players).toEqual(['XF', 'XA', 'XT', 'XO']);
+    expect(byId.get('households')!.players).toEqual(['HY', 'HW', 'HO']);
     for (const p of model.players) expect(p.layout).toBeDefined();
+    for (const g of model.groups) expect(g.layout).toBeDefined();
   });
 
   test('the only compiler warning is the constant book value of shares (as in v1)', () => {
@@ -48,14 +59,14 @@ describe('Iceland model: structure', () => {
     }
   });
 
-  test('v1’s 25 levers, with the same ids and a precise definition each', () => {
-    expect(model.levers.map((l) => l.id).sort()).toEqual([...V1_LEVERS].sort());
+  test('v1’s 25 levers, with the same ids, plus the fish- and aluminium-price levers; a precise definition each', () => {
+    expect(model.levers.map((l) => l.id).sort()).toEqual([...V1_LEVERS, ...SECTOR_LEVERS].sort());
     for (const l of model.levers) expect(l.definition.length).toBeGreaterThan(40);
   });
 
-  test('v1’s 34 charts, with the same ids, in four tabs', () => {
-    expect(model.indicators.map((i) => i.id).sort()).toEqual([...V1_SERIES].sort());
-    expect([...new Set(model.indicators.map((i) => i.group))]).toEqual(['Overview', 'People', 'Money and credit', 'Government and world']);
+  test('v1’s 34 charts, with the same ids, in four tabs, plus 17 charts by firm sector in a fifth', () => {
+    expect(model.indicators.map((i) => i.id).sort()).toEqual([...V1_SERIES, ...SECTOR_SERIES].sort());
+    expect([...new Set(model.indicators.map((i) => i.group))]).toEqual(['Overview', 'People', 'Money and credit', 'Government and world', 'Firms by sector']);
   });
 
   test('the seven spending channels are separate flows', () => {
@@ -79,15 +90,21 @@ describe('Iceland model: structure', () => {
 });
 
 describe('Iceland model: the steady state matches engine v1', () => {
-  // engine v1, legacy/v1-engine/test_output.txt section 1
-  const V1: Record<string, number> = {
-    tau0: 0.3848, tauF: 0.0901, muXD: 0.3954, divFXW: 0.2452, vat0: 0.3033, cEe: 0.0465, rr: 0.3879, wsOther: 0.342, muD: 0.0267,
-    rhoFD0: 0.5033, rhoFX0: 0.6903, c0Y: 0.9612, c0W: 9.5947, c0O: 4.4101, payout: 0.1788, ageing: 0.1159, nuY: 0.0088, nuW: 0.016, mRY: 0.8906, mRW: 1.4206,
-  };
+  // engine v1, legacy/v1-engine/test_output.txt section 1. The firm split (decision 0003) leaves the
+  // parameters that do not depend on who owns which firm as they were; those that balance
+  // households’ and pension funds’ dividend income and the current account move a little. v1's
+  // muXD, divFXW, rhoFD0 and rhoFX0 are replaced by per-sector values.
+  const V1_UNCHANGED: Record<string, number> = { tauF: 0.0901, vat0: 0.3033, cEe: 0.0465, rr: 0.3879, wsOther: 0.342, nuY: 0.0088, nuW: 0.016, mRY: 0.8906, mRW: 1.4206 };
+  const V1_MOVED: Record<string, number> = { tau0: 0.3848, c0Y: 0.9612, c0W: 9.5947, c0O: 4.4101, payout: 0.1788, ageing: 0.1159, muD: 0.0267 };
   const e = createEngine(model);
+  const solvedValue = (id: string) => e.baselineData.pBase[model.paramIndex.get(id)!];
 
-  test('solved balancing parameters equal v1’s to four decimals', () => {
-    for (const [id, want] of Object.entries(V1)) expect(Math.abs(e.baselineData.pBase[model.paramIndex.get(id)!] - want)).toBeLessThan(6e-5);
+  test('solved balancing parameters that do not depend on the firm split equal v1’s to four decimals', () => {
+    for (const [id, want] of Object.entries(V1_UNCHANGED)) expect(Math.abs(solvedValue(id) - want)).toBeLessThan(6e-5);
+  });
+
+  test('those that balance dividend income and the current account stay within 8% of v1’s', () => {
+    for (const [id, want] of Object.entries(V1_MOVED)) expect(Math.abs(solvedValue(id) / want - 1)).toBeLessThan(0.08);
   });
 
   test('GDP = 100 is not imposed but comes out of the closed form (v1’s gdpCheck)', () => {
@@ -102,7 +119,7 @@ describe('Iceland model: the steady state matches engine v1', () => {
   });
 
   test('balance sheet as in v1 SPEC §4: broad money 67.4, bank bonds 27.8, reserves 12.0, pension assets 179.7 (% of GDP)', () => {
-    const money = ['HY', 'HW', 'HO', 'FD', 'FX', 'PF'].reduce((s, pl) => s + e.stock('deposits', pl), 0);
+    const money = ['HY', 'HW', 'HO', ...FIRMS, 'PF'].reduce((s, pl) => s + e.stock('deposits', pl), 0);
     expect(money).toBeCloseTo(67.4, 9);
     expect(e.stock('bankBonds', 'PF')).toBeCloseTo(27.85, 2);
     expect(e.stock('reserves', 'B')).toBeCloseTo(12, 9);

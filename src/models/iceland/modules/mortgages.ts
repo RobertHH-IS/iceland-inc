@@ -12,7 +12,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, annuity, BORROWERS, HH, pickParams, stepsIn, terms, lastMonth } from '../util.ts';
+import { AGE_LABEL, annuity, BORROWERS, FIRMS, HH, pickParams, stepsIn, terms, lastMonth } from '../util.ts';
 
 type B = (typeof BORROWERS)[number];
 const LENDERS = [
@@ -334,10 +334,10 @@ export const mortgages: ModuleDef = {
       id: 'netCreditTotal',
       target: 'netCreditTotal',
       category: 'IDENTITY',
-      inputs: ['netMortgageLending', 'borrowingFD', 'borrowingFX'],
+      inputs: ['netMortgageLending', ...FIRMS.map((j) => `borrowing${j}`)],
       terms: terms(
         ['mortgages', 'Net mortgage lending', 'endogenous-money', (c) => c.v('netMortgageLending')],
-        ['firms', 'Firms’ net borrowing', 'endogenous-money', (c) => c.v('borrowingFD') + c.v('borrowingFX')],
+        ['firms', 'Firms’ net borrowing', 'endogenous-money', (c) => FIRMS.reduce((s, j) => s + c.v(`borrowing${j}`), 0)],
       ),
       explain: { what: 'All net new credit to households and firms.', rule: 'Net mortgage lending + firms’ net borrowing.' },
     },
@@ -503,7 +503,7 @@ export const mortgages: ModuleDef = {
       id: 'bank-loan-creates-pension-loan-moves',
       label: 'A bank mortgage creates deposits; a pension-fund mortgage only moves them',
       run: (e) => {
-        const money = (f: ReturnType<typeof e.fork>) => ['HY', 'HW', 'HO', 'FD', 'FX', 'PF'].reduce((s, pl) => s + f.balanceSheet(pl).assets.find((a) => a.instrument === 'deposits')!.value, 0);
+        const money = (f: ReturnType<typeof e.fork>) => ['HY', 'HW', 'HO', ...FIRMS, 'PF'].reduce((s, pl) => s + f.balanceSheet(pl).assets.find((a) => a.instrument === 'deposits')!.value, 0);
         const lending = (f: ReturnType<typeof e.fork>) => (f.value('mortgageLendingY') + f.value('mortgageLendingW')) / 12;
         const effect = (pfShare: number) => {
           const params = { pfShN: pfShare, pfShI: pfShare };

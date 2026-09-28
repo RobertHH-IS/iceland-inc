@@ -36,6 +36,27 @@ export const HH: Record<Age, Id> = { Y: 'HY', W: 'HW', O: 'HO' };
 export const AGE_LABEL: Record<Age, string> = { Y: 'young (18–34)', W: 'working-age (35–66)', O: 'older (67+)' };
 export const AGE_SHORT: Record<Age, string> = { Y: 'young', W: 'working-age', O: 'older' };
 
+/** Firms by sector (decision 0003): two domestic sectors and four exporters. */
+export const DOMESTIC = ['FC', 'FR'] as const;
+export const EXPORTERS = ['XF', 'XA', 'XT', 'XO'] as const;
+export const FIRMS = [...DOMESTIC, ...EXPORTERS] as const;
+export type Firm = (typeof FIRMS)[number];
+export type Exporter = (typeof EXPORTERS)[number];
+export const isExporter = (j: Firm): j is Exporter => j[0] === 'X';
+/** Lower-case names for sentences ("wages {name} pay"). */
+export const FIRM_NAME: Record<Firm, string> = {
+  FC: 'construction firms',
+  FR: 'retail and service firms',
+  XF: 'fisheries',
+  XA: 'aluminium smelters',
+  XT: 'tourism firms',
+  XO: 'other exporters',
+};
+/** The export line each exporter sells (ids used by external.ts: exportsFish, exportVolumeFish, …). */
+export const EXPORT_OF: Record<Exporter, 'Fish' | 'Aluminium' | 'Tourism' | 'Other'> = { XF: 'Fish', XA: 'Aluminium', XT: 'Tourism', XO: 'Other' };
+/** Baseline real value added: data for five sectors (gva*), the residual for retail and services. */
+export const VA0: Record<Firm, Id> = { FC: 'gvaFC', FR: 'vaFR0', XF: 'gvaXF', XA: 'gvaXA', XT: 'gvaXT', XO: 'gvaXO' };
+
 /* ------------------------------------------------------------------ data */
 
 interface Leaf {

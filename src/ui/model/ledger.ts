@@ -1,6 +1,9 @@
 /**
  * The live Godley table: flows as rows, players (or groups) as columns. Pure functions.
  *
+ * Columns are every player, the top-level groups, or the nodes of the flow map as it is (each
+ * closed group one column, the players of open groups one each).
+ *
  * Each cell is the leg's signed amount for that column, in % of baseline GDP a year: minus for
  * the side that pays (or loses value), plus for the side that receives (or gains). Every
  * two-sided row sums to zero; that is double entry, re-checked here on the live numbers.
@@ -15,6 +18,10 @@ import type { Account, Id } from '../../core/types.ts';
 import type { FlowInfo, LegInfo, ModelInfo } from './info.ts';
 import { nodeLabel, nodeColor } from './info.ts';
 import type { Level } from './geometry.ts';
+import { effectiveExpanded, nodeOfPlayer, viewTree } from './hierarchy.ts';
+
+/** Which columns the ledger shows: players, top-level groups, or the map's nodes. */
+export type LedgerColumns = Level | { expanded: ReadonlySet<Id> };
 
 export const ACCOUNT_ORDER: Account[] = ['current', 'capital', 'financial', 'other'];
 
@@ -92,10 +99,12 @@ export function legEffects(l: Pick<LegInfo, 'posting' | 'oneSided'>, v: number):
 }
 
 /** Build the table for the given leg values (by leg index, as engine.legs() returns them). */
-export function buildLedger(info: ModelInfo, legValues: ArrayLike<number>, level: Level = 'player', tol = 1e-9): LedgerTable {
-  const colIds = level === 'player' ? info.players.map((p) => p.id) : info.groups.map((g) => g.id);
+export function buildLedger(info: ModelInfo, legValues: ArrayLike<number>, level: LedgerColumns = 'player', tol = 1e-9): LedgerTable {
+  const eff = typeof level === 'object' ? effectiveExpanded(info, level.expanded) : null;
+  const colIds = eff ? viewTree(info, eff).nodes.map((n) => n.id) : level === 'group' ? info.roots : info.players.map((p) => p.id);
   const colIndex = new Map<Id, number>(colIds.map((id, i) => [id, i]));
-  const col = (player: Id) => colIndex.get(level === 'player' ? player : (info.groupOf.get(player) ?? player))!;
+  const node = (player: Id) => (eff ? nodeOfPlayer(info, player, eff) : level === 'group' ? (info.ancestorsOf.get(player)?.[0] ?? player) : player);
+  const col = (player: Id) => colIndex.get(node(player))!;
   const columns = colIds.map((id) => ({ id, label: nodeLabel(info, id), color: nodeColor(info, id) }));
   const byFlow = new Map<Id, LegInfo[]>();
   for (const l of info.legs) {

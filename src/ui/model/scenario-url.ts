@@ -8,8 +8,10 @@
  *   e  events, comma-separated: month:lever:value, with '!' before the lever for a one-off
  *      that is fired. Lever ids are URI-encoded; values use JavaScript's shortest exact
  *      decimal form, so they round-trip bit for bit.
+ *   x  the groups open on the flow map, comma-separated and URI-encoded (view state only:
+ *      it does not change the numbers). Without it the map opens with every group closed.
  *
- * Unknown keys are ignored, so the hash can carry view state later without breaking links.
+ * Unknown keys are ignored, so the hash can carry more view state later without breaking links.
  */
 import type { Id, Scenario, ScenarioEvent } from '../../core/types.ts';
 
@@ -17,6 +19,8 @@ export interface HashState {
   modelId?: Id;
   months: number;
   events: ScenarioEvent[];
+  /** Groups open on the flow map; undefined when the link does not say. */
+  expanded?: Id[];
 }
 
 export type DecodeResult = { ok: true; state: HashState } | { ok: false; error: string };
@@ -25,11 +29,12 @@ function encodeEvent(e: ScenarioEvent): string {
   return `${e.t}:${e.fire ? '!' : ''}${encodeURIComponent(e.lever)}:${String(e.value)}`;
 }
 
-/** Encode a scenario as a URL hash (without the leading '#'). */
-export function encodeScenarioHash(s: Pick<Scenario, 'modelId' | 'events' | 'months'>): string {
+/** Encode a scenario (and, optionally, the groups open on the map) as a URL hash, without the '#'. */
+export function encodeScenarioHash(s: Pick<Scenario, 'modelId' | 'events' | 'months'> & { expanded?: readonly Id[] }): string {
   const parts = [`m=${encodeURIComponent(s.modelId)}`, `t=${Math.max(0, Math.round(s.months))}`];
   const events = [...s.events].sort((a, b) => a.t - b.t);
   if (events.length) parts.push(`e=${events.map(encodeEvent).join(',')}`);
+  if (s.expanded?.length) parts.push(`x=${s.expanded.map(encodeURIComponent).join(',')}`);
   return parts.join('&');
 }
 
@@ -53,6 +58,17 @@ export function decodeScenarioHash(hash: string): DecodeResult {
       const t = Number(val);
       if (!(Number.isInteger(t) && t >= 0)) return { ok: false, error: `bad month '${val}'` };
       state.months = t;
+    } else if (key === 'x') {
+      const ids: Id[] = [];
+      for (const raw of val.split(',')) {
+        if (!raw) continue;
+        try {
+          ids.push(decodeURIComponent(raw));
+        } catch {
+          return { ok: false, error: `bad group id '${raw}'` };
+        }
+      }
+      state.expanded = ids;
     } else if (key === 'e') {
       if (!val) continue;
       for (const raw of val.split(',')) {

@@ -57,13 +57,13 @@ describe('breadcrumb navigation', () => {
   });
 
   test('scopes for ideas at play; validity against the model', () => {
-    expect(selectionScope({ kind: 'pipe', from: 'HH', to: 'F', flowKind: 'cash', level: 'player' })).toBe('HH->F:cash');
+    expect(selectionScope({ kind: 'pipe', from: 'HH', to: 'F', flowKind: 'cash' })).toBe('HH->F:cash');
     expect(selectionScope(c)).toBeUndefined();
     expect(selectionScope(null)).toBeUndefined();
     expect(selectionValid(a, info)).toBe(true);
     expect(selectionValid({ kind: 'player', id: 'nobody' }, info)).toBe(false);
     // every scope the interface builds is one the engine accepts
-    for (const s of [a, b, { kind: 'pipe', from: 'HH', to: 'F', flowKind: 'cash', level: 'player' } as Selection, { kind: 'group', id: 'Households' } as Selection, { kind: 'indicator', id: 'broadMoney' } as Selection])
+    for (const s of [a, b, { kind: 'pipe', from: 'HH', to: 'F', flowKind: 'cash' } as Selection, { kind: 'group', id: 'Households' } as Selection, { kind: 'indicator', id: 'broadMoney' } as Selection])
       expect(() => engine.ideasAtPlay(selectionScope(s))).not.toThrow();
   });
 

@@ -32,7 +32,7 @@ All types live in `src/core/types.ts`. In brief:
 | Concept | What it is | Example |
 |---|---|---|
 | **Player** | A sector with a balance sheet and a way of paying (`settlement`) | Young households (18–34), exporters, the central bank |
-| **Group** | Players drawn together on the map | Households = young + working-age + older |
+| **Group** | Players drawn together on the map; groups nest, and the map opens them one level at a time | Firms = Domestic firms (construction, retail) + Exporters (fisheries, aluminium, tourism, other) |
 | **Instrument** | A stock: financial (someone's asset and someone's liability) or real | Deposits, CPI-indexed mortgages, government bonds, homes |
 | **Variable** | A named quantity with a unit | Key rate, CPI, the wage bill of exporters |
 | **Rule** | The one equation that sets a variable: terms (additive), a combine (e.g. `min`), optional gradual adjustment, a regime label | Desired mortgage lending = Σ terms; actual = min(desired, debt-service cap, loan-to-value cap) |
@@ -42,6 +42,12 @@ All types live in `src/core/types.ts`. In brief:
 | **Indicator** | A chart series computed from variables and stocks, with a display transform | Broad money, % vs baseline |
 | **Concept** | An economic idea with a plain-English explanation and references | "Loans create deposits" (Bank of England 2014) |
 | **Module** | A bundle of all of the above, plus its own tests | `pensions/funded`, `government/cofog-channels` |
+
+### The player hierarchy
+
+Players are the unit of accounting; groups are a way of looking at them. A module declares `GroupDef`s (with an optional `parent`) and each player names its own group. The compiler checks the tree (unique ids, parents that exist, no cycles, every player in a declared group, no id that is both a group and a player) and publishes it as `CompiledModel.groups`, parents first, with each group's direct `players`, sub-groups (`children`) and `allPlayers`. A group's colour and layout default to its first player's colour and its players' centroid. A model without `GroupDef`s gets flat groups from its players' `group` labels, as before.
+
+The map shows a group as one node until it is expanded. `nodeOf(player, expanded)` is the player's outermost closed group, or the player itself when every group around it is open, and `engine.pipes({ expanded })` sums legs to those nodes (legs inside a node become a loop on it). A group's balance sheet is the sum of its players', instrument by instrument, without netting claims between them. Because groups own nothing, opening and closing them can never change a number. Decision record [0003](decisions/0003-player-hierarchy.md) has the details.
 
 ### Why legs carry their own amounts
 
@@ -128,6 +134,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | **A pipe** | Its legs, the flows they belong to, value vs baseline, and for each leg its amount variable's `Influence`: the rule, its category, the regime, terms now vs baseline, parameters with provenance, and concepts |
 | **A term** | The input variables it reads. Following them walks the influence graph upstream, and `trace` highlights the path back to the lever that started it |
 | **A player** | Its live balance sheet (value, baseline, change), its biggest pipes, and its binding constraints |
+| **A group** | On the map, a closed group opens to show its members. In the inspector: its description, members, the summed balance sheet of its players, and its biggest pipes as the map shows them |
 | **An indicator** | How it is computed, its drivers, and their influences |
 | **"Ideas at play"** | `ideasAtPlay(scope)` weights each concept by the absolute change in the terms tagged with it, across the scope (a pipe, a player or the whole economy), and lists them with the terms they come from. Because they are live, the ideas at play shift as the shock travels: markup pricing first, then adaptive expectations, then the Taylor rule, then endogenous money |
 | **The feed** | Declarative threshold rules on indicators. These are narration only, never logic |
@@ -153,7 +160,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 
 - **`EngineClient`** wraps the engine. It runs on the main thread today, and a Web Worker with the same interface can come later. Views receive compact snapshots and ask for details (influences, balance sheets) on demand.
 - **Views, all generated from the compiled model:**
-  - the flow map, at group or player level;
+  - the flow map, with groups that open in place, one level at a time;
   - lever sections;
   - the inspector for pipes, players, indicators, concepts and terms;
   - chart tabs by indicator group;
@@ -174,6 +181,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | To add… | Do this |
 |---|---|
 | **A player** | Add a `PlayerDef` with `settlement` and a layout hint, its instruments and holders, and the flows that touch it. The steady state gets new targets and free parameters |
+| **A group** | Add a `GroupDef` (with a `parent` to nest it) and set the players' `group` to its id. Give it a description and, optionally, a layout hint for its closed card |
 | **A flow** | Add a `FlowDef` with its posting and legs, and one rule per leg amount (usually a family). The kernel posts it, checks it and draws it |
 | **A behaviour** | Add a rule with terms and concepts. To refine an existing one, add a rule with `replaces` in a new module and keep the old module for comparison |
 | **A lever** | Add a `LeverDef` with a precise `definition` and bind it to a parameter or exogenous variable, or give it a `fire` for one-off shocks that touch only non-stock state |
@@ -195,6 +203,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | 6 | Deterministic scenarios and forks | Time travel, sharing, video, honest counterfactuals |
 | 7 | Monthly step, flows at annual rates in % of baseline GDP | Readable numbers; the step can be changed; the harness checks sensitivity |
 | 8 | Engine v1 kept in `legacy/` | A reference to port from and to compare results against |
+| 9 | Groups are views over players, not players ([0003](decisions/0003-player-hierarchy.md)) | Opening and closing groups can never change the accounting; pipes and balance sheets at any level are sums of the same legs and positions |
 
 ## 10. Roadmap
 

@@ -5,19 +5,22 @@
  *             desired vs actual, terms now vs baseline, parameters with provenance, concepts)
  *   Variable  its influence; clicking a term's input walks upstream to that variable
  *   Player    live balance sheet, net worth, biggest pipes, regimes
+ *   Group     description, members, the balance sheet of all its players, biggest pipes
+ *             against the map as it is, regimes
  *   Indicator description, drivers, a big chart and the drivers' influences
  *   Concept   the concept card
  *
  * Breadcrumbs keep the path of clicks, with back and forward.
  */
 import { memo, useEffect, useRef, type ReactNode } from 'react';
-import type { Id, Influence, Pipe } from '../../core/types.ts';
+import type { BalanceSheet, FlowKind, Id, Influence, Pipe } from '../../core/types.ts';
 import { describePosting } from '../../core/format.ts';
 import type { EngineClient, Frame } from '../engine-client.ts';
 import { chartRef, chartWindow } from '../model/charts.ts';
 import { fmtChange, fmtCompact, fmtCompactChange, fmtIndicator, fmtNum, fmtSigned, fmtValue, shortUnit, unitCaption } from '../model/format.ts';
-import type { Level } from '../model/geometry.ts';
+import { directMembers, isHidden, memberCount, nodePipes, pipeBetween } from '../model/hierarchy.ts';
 import { nodeColor, nodeLabel, nodeMembers, varLabel, type ModelInfo } from '../model/info.ts';
+import { GROUP_NOUNS } from '../model/player-cards.ts';
 import { canBack, canForward, navCurrent, selectionKey, selectionLabel, type NavState } from '../model/navigation.ts';
 import { changeBar, deviation, signTone } from '../model/styling.ts';
 import { ChartSvg } from './ChartSvg.tsx';
@@ -28,6 +31,8 @@ interface InspectorProps {
   client: EngineClient;
   frame: Frame;
   nav: NavState;
+  /** Groups open on the map (effectively): pipes are listed against the map as it is. */
+  expanded: ReadonlySet<Id>;
   onSelect: OnSelect;
   onBack: () => void;
   onForward: () => void;
@@ -35,7 +40,7 @@ interface InspectorProps {
   onClose: () => void;
 }
 
-export function Inspector({ info, client, frame, nav, onSelect, onBack, onForward, onGo, onClose }: InspectorProps) {
+export function Inspector({ info, client, frame, nav, expanded, onSelect, onBack, onForward, onGo, onClose }: InspectorProps) {
   const sel = navCurrent(nav);
   const first = Math.max(0, nav.stack.length - 6);
   const body = useRef<HTMLDivElement>(null);
@@ -83,8 +88,8 @@ export function Inspector({ info, client, frame, nav, onSelect, onBack, onForwar
       )}
       <div className="panel-body scroll" ref={body}>
         {!sel && <Intro info={info} />}
-        {sel?.kind === 'pipe' && <PipeDetail info={info} client={client} frame={frame} from={sel.from} to={sel.to} kind={sel.flowKind} level={sel.level} onSelect={onSelect} />}
-        {(sel?.kind === 'player' || sel?.kind === 'group') && <NodeDetail info={info} client={client} frame={frame} id={sel.id} kind={sel.kind} onSelect={onSelect} />}
+        {sel?.kind === 'pipe' && <PipeDetail info={info} client={client} frame={frame} from={sel.from} to={sel.to} kind={sel.flowKind} onSelect={onSelect} />}
+        {(sel?.kind === 'player' || sel?.kind === 'group') && <NodeDetail info={info} client={client} frame={frame} expanded={expanded} id={sel.id} kind={sel.kind} onSelect={onSelect} />}
         {sel?.kind === 'var' && <VarDetail info={info} client={client} frame={frame} id={sel.id} onSelect={onSelect} />}
         {sel?.kind === 'flow' && <FlowDetail info={info} client={client} id={sel.id} onSelect={onSelect} />}
         {sel?.kind === 'indicator' && <IndicatorDetail info={info} client={client} frame={frame} id={sel.id} onSelect={onSelect} />}
@@ -99,7 +104,7 @@ function Intro({ info }: { info: ModelInfo }) {
     <div className="intro">
       <p className="lede">{info.description}</p>
       <p>
-        Click any <strong>pipe</strong> or <strong>player</strong> on the map, a <strong>chart</strong> or an <strong>idea</strong>. The inspector shows what is driving it right now: the rule behind it, its terms now against the baseline, the parameters and where they come from, and the economic ideas at play.
+        Click any <strong>pipe</strong>, <strong>player</strong> or <strong>group</strong> on the map (a group opens to show its members), a <strong>chart</strong> or an <strong>idea</strong>. The inspector shows what is driving it right now: the rule behind it, its terms now against the baseline, the parameters and where they come from, and the economic ideas at play.
       </p>
       <p className="muted small">
         {info.players.length} players · {info.flows.length} flows · {info.legs.length} legs · {info.rules.length} rules · {info.levers.length} levers · {info.indicators.length} charts
@@ -249,25 +254,32 @@ function DesiredRow({ value, baseline, desired, desiredBaseline, unit }: { value
 
 /* ------------------------------------------------------------------ pipe */
 
-function PipeDetail({ info, client, frame, from, to, kind, level, onSelect }: { info: ModelInfo; client: EngineClient; frame: Frame; from: Id; to: Id; kind: string; level: Level; onSelect: OnSelect }) {
-  const pipe = frame.pipes[level].find((p) => p.from === from && p.to === to && p.kind === kind);
-  if (!pipe) return <p className="muted">This pipe is not part of the map at this level.</p>;
+/** A player or a group, as a selection. */
+const nodeSelection = (info: ModelInfo, id: Id) => (info.playerById.has(id) ? ({ kind: 'player', id } as const) : ({ kind: 'group', id } as const));
+
+function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: ModelInfo; client: EngineClient; frame: Frame; from: Id; to: Id; kind: FlowKind; onSelect: OnSelect }) {
+  const pipe = pipeBetween(info, frame.legs, from, to, kind);
+  if (!pipe) return <p className="muted">No flow of this kind runs between these two.</p>;
   const dev = deviation(pipe.value, pipe.baseline);
   const byFlow = new Map<Id, Pipe['legs']>();
   for (const l of pipe.legs) byFlow.set(l.flow, [...(byFlow.get(l.flow) ?? []), l]);
-  const nodeKind = level === 'player' ? 'player' : 'group';
   let shown = 0;
   return (
     <div className="detail">
       <h3 className="detail-title">
-        <NavLink selection={{ kind: nodeKind, id: from }} onSelect={onSelect}>
+        <NavLink selection={nodeSelection(info, from)} onSelect={onSelect}>
           <Swatch color={nodeColor(info, from)} /> {nodeLabel(info, from)}
         </NavLink>
         <span className="arrow">→</span>
-        <NavLink selection={{ kind: nodeKind, id: to }} onSelect={onSelect}>
-          <Swatch color={nodeColor(info, to)} /> {nodeLabel(info, to)}
-        </NavLink>
+        {from === to ? (
+          <span className="muted">itself</span>
+        ) : (
+          <NavLink selection={nodeSelection(info, to)} onSelect={onSelect}>
+            <Swatch color={nodeColor(info, to)} /> {nodeLabel(info, to)}
+          </NavLink>
+        )}
       </h3>
+      {from === to && info.groupById.has(from) && <p className="muted small">Flows between the members of {nodeLabel(info, from)}, drawn as a loop on its card while it is closed.</p>}
       <div className="bignum">
         <span className="mono big">{fmtNum(pipe.value)}</span>
         <span className="muted small">% of GDP a year · baseline {fmtNum(pipe.baseline)}</span>
@@ -326,111 +338,113 @@ function Swatch({ color }: { color: string }) {
 
 /* ---------------------------------------------------------------- player */
 
-function NodeDetail({ info, client, frame, id, kind, onSelect }: { info: ModelInfo; client: EngineClient; frame: Frame; id: Id; kind: 'player' | 'group'; onSelect: OnSelect }) {
+function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { info: ModelInfo; client: EngineClient; frame: Frame; expanded: ReadonlySet<Id>; id: Id; kind: 'player' | 'group'; onSelect: OnSelect }) {
   const members = nodeMembers(info, id);
   const player = info.playerById.get(id);
-  const rows = new Map<Id, { label: string; side: 'asset' | 'liability'; value: number; baseline: number }>();
-  let nw = 0,
-    nwb = 0;
-  for (const p of members) {
-    const bs = client.balanceSheet(p);
-    nw += bs.netWorth;
-    nwb += bs.netWorthBaseline;
-    for (const a of bs.assets) {
-      const k = `a:${a.instrument}`;
-      const r = rows.get(k) ?? { label: a.label, side: 'asset' as const, value: 0, baseline: 0 };
-      r.value += a.value;
-      r.baseline += a.baseline;
-      rows.set(k, r);
-    }
-    for (const l of bs.liabilities) {
-      const k = `l:${l.instrument}`;
-      const r = rows.get(k) ?? { label: l.label, side: 'liability' as const, value: 0, baseline: 0 };
-      r.value += l.value;
-      r.baseline += l.baseline;
-      rows.set(k, r);
-    }
+  const group = kind === 'group' ? info.groupById.get(id) : undefined;
+  let bs: BalanceSheet;
+  try {
+    bs = client.balanceSheet(id);
+  } catch (err) {
+    return <p className="error">{err instanceof Error ? err.message : String(err)}</p>;
   }
-  const assets = [...rows.values()].filter((r) => r.side === 'asset');
-  const liabs = [...rows.values()].filter((r) => r.side === 'liability');
-  const level: Level = kind === 'player' ? 'player' : 'group';
-  const pipes = frame.pipes[level]
-    .filter((p) => p.from === id || p.to === id)
+  const pipes = nodePipes(info, frame.legs, expanded, id)
     .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
     .slice(0, 8);
   const memberSet = new Set(members);
   const regimes = [...info.regimeOwners].filter(([, owners]) => owners.some((o) => memberSet.has(o)));
-  const group = player ? info.groupOf.get(player.id) : undefined;
+  const path = info.ancestorsOf.get(id) ?? [];
+  const hidden = isHidden(info, id, expanded);
+  const inside = new Set(info.groupById.has(id) ? [id, ...info.groups.filter((g) => (info.ancestorsOf.get(g.id) ?? []).includes(id)).map((g) => g.id), ...members] : [id]);
   return (
     <div className="detail">
       <h3 className="detail-title">
         <Swatch color={nodeColor(info, id)} /> {nodeLabel(info, id)}
       </h3>
-      {player && <p className="inf-what">{player.description}</p>}
-      {kind === 'group' && members.length > 1 && (
-        <p className="members">
-          <span className="muted small">Players:</span>
-          {members.map((m) => (
-            <NavLink key={m} selection={{ kind: 'player', id: m }} onSelect={onSelect}>
-              {nodeLabel(info, m)}
-            </NavLink>
-          ))}
-        </p>
-      )}
-      {kind === 'player' && group && group !== id && info.groupById.get(group)!.players.length > 1 && (
-        <p className="members">
+      {path.length > 0 && (
+        <p className="members group-path">
           <span className="muted small">Part of</span>
-          <NavLink selection={{ kind: 'group', id: group }} onSelect={onSelect}>
-            {nodeLabel(info, group)}
-          </NavLink>
+          {path.map((g, i) => (
+            <span key={g} className="path-step">
+              {i > 0 && <span className="muted small">›</span>}
+              <NavLink selection={{ kind: 'group', id: g }} onSelect={onSelect}>
+                {nodeLabel(info, g)}
+              </NavLink>
+            </span>
+          ))}
+          {hidden && <span className="muted small">(closed on the map)</span>}
         </p>
       )}
-      <h4 className="sub">Balance sheet</h4>
-      <p className="muted small">% of baseline annual GDP · now · baseline · change</p>
+      {player && <p className="inf-what">{player.description}</p>}
+      {group?.description && <p className="inf-what">{group.description}</p>}
+      {group && (
+        <>
+          <h4 className="sub">
+            Members <span className="muted small">· {memberCount(info, id, GROUP_NOUNS[info.id])}</span>
+          </h4>
+          <ul className="member-list">
+            {directMembers(info, id).map((m) => {
+              const sub = info.groupById.get(m.id);
+              return (
+                <li key={m.id}>
+                  <button type="button" className="member-row" onClick={() => onSelect({ kind: m.kind, id: m.id })}>
+                    <Swatch color={nodeColor(info, m.id)} />
+                    <span className="member-name">{nodeLabel(info, m.id)}</span>
+                    {sub && <span className="muted small">{memberCount(info, m.id, GROUP_NOUNS[info.id])}</span>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+      <h4 className="sub">Balance sheet{group ? ' of all its players' : ''}</h4>
+      <p className="muted small">% of baseline annual GDP · now · baseline · change{group ? ' · claims between members are not netted' : ''}</p>
       <table className="bs">
         <tbody>
           <tr className="bs-head">
             <th colSpan={4}>Assets</th>
           </tr>
-          {assets.length === 0 && (
+          {bs.assets.length === 0 && (
             <tr>
               <td colSpan={4} className="muted">
                 none
               </td>
             </tr>
           )}
-          {assets.map((r) => (
-            <BsRow key={r.label} {...r} />
+          {bs.assets.map((r) => (
+            <BsRow key={r.instrument} label={r.label} value={r.value} baseline={r.baseline} />
           ))}
           <tr className="bs-head">
             <th colSpan={4}>Liabilities</th>
           </tr>
-          {liabs.length === 0 && (
+          {bs.liabilities.length === 0 && (
             <tr>
               <td colSpan={4} className="muted">
                 none
               </td>
             </tr>
           )}
-          {liabs.map((r) => (
-            <BsRow key={r.label} {...r} />
+          {bs.liabilities.map((r) => (
+            <BsRow key={r.instrument} label={r.label} value={r.value} baseline={r.baseline} />
           ))}
-          <BsRow label="Net worth" value={nw} baseline={nwb} strong />
+          <BsRow label="Net worth" value={bs.netWorth} baseline={bs.netWorthBaseline} strong />
         </tbody>
       </table>
-      <h4 className="sub">Biggest pipes</h4>
+      <h4 className="sub">Biggest pipes{group ? ' as the map shows them' : ''}</h4>
       <ul className="pipe-list">
         {pipes.map((p) => {
-          const out = p.from === id;
+          const within = inside.has(p.from) && inside.has(p.to);
+          const out = inside.has(p.from);
           const other = out ? p.to : p.from;
           const flows = [...new Set(p.legs.map((l) => info.flowById.get(l.flow)?.label ?? l.flow))];
           const dev = deviation(p.value, p.baseline);
           return (
             <li key={`${p.from}-${p.to}-${p.kind}`}>
-              <button type="button" className="pipe-row" onClick={() => onSelect({ kind: 'pipe', from: p.from, to: p.to, flowKind: p.kind, level })}>
-                <span className="pipe-dir">{out ? 'to' : 'from'}</span>
+              <button type="button" className="pipe-row" onClick={() => onSelect({ kind: 'pipe', from: p.from, to: p.to, flowKind: p.kind })}>
+                <span className="pipe-dir">{within ? 'inside' : out ? 'to' : 'from'}</span>
                 <span className="pipe-other">
-                  {other === id ? 'itself' : nodeLabel(info, other)}
+                  {within ? (p.from === p.to ? nodeLabel(info, p.from) : `${nodeLabel(info, p.from)} → ${nodeLabel(info, p.to)}`) : nodeLabel(info, other)}
                   <span className="muted small"> · {flows.join(', ')}</span>
                 </span>
                 <span className="mono">{fmtNum(p.value)}</span>
@@ -502,7 +516,7 @@ function VarDetail({ info, client, frame, id, onSelect }: { info: ModelInfo; cli
         <p className="members">
           <span className="muted small">Pays</span>
           {legs.map((l) => (
-            <NavLink key={l.index} selection={{ kind: 'pipe', from: l.from, to: l.to, flowKind: l.kind, level: 'player' }} onSelect={onSelect}>
+            <NavLink key={l.index} selection={{ kind: 'pipe', from: l.from, to: l.to, flowKind: l.kind }} onSelect={onSelect}>
               {nodeLabel(info, l.from)} → {nodeLabel(info, l.to)}
             </NavLink>
           ))}

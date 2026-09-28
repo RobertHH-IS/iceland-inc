@@ -11,7 +11,8 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { gapRate, pickParams, terms, lastMonth } from '../util.ts';
+import { FIRMS, FIRM_NAME, gapRate, pickParams, terms, lastMonth } from '../util.ts';
+import { dividendsTo } from './firms.ts';
 
 const PF_ASSETS: [Id, string][] = [
   ['deposits', 'Deposits'],
@@ -34,16 +35,14 @@ const INCOME: [Id, string, Id | undefined][] = [
   ['indexation_HY_PF', 'Indexation of the young’s mortgages', 'indexation'],
   ['indexation_HW_PF', 'Indexation of working-age mortgages', 'indexation'],
   ['foreignAssetIncome', 'Income on foreign assets', undefined],
-  ['dividendsFD_PF', 'Dividends from domestic firms', undefined],
-  ['dividendsFX_PF', 'Dividends from exporters', undefined],
+  ...dividendsTo('PF').map((id): [Id, string, Id | undefined] => [id, `Dividends from ${FIRM_NAME[id.slice(9, 11) as keyof typeof FIRM_NAME]}`, undefined]),
   ['bankDividendsPF', 'Dividends from banks', undefined],
 ];
 
 const rightsShare = (c: Ctx, who: 'HW' | 'HO') => c.stock('pensionRights', who) / (c.stock('pensionRights', 'HW') + c.stock('pensionRights', 'HO'));
 
 const vars: VarDef[] = [
-  { id: 'pensionContribFD', label: 'Pension contributions, domestic firms', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
-  { id: 'pensionContribFX', label: 'Pension contributions, exporters', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  ...FIRMS.map((j): VarDef => ({ id: `pensionContrib${j}`, label: `Pension contributions, ${FIRM_NAME[j]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' })),
   { id: 'pensionContributions', label: 'Pension contributions, all employers', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('pensionContributions') },
   { id: 'pensionPayouts', label: 'Pension payouts', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('pensionPayouts') },
   { id: 'pensionFundAssets', label: 'Pension-fund assets', unit: '% of GDP', kind: 'state', scale: 'nominal', description: 'Everything the funds own, at the start of the month.' },
@@ -61,7 +60,7 @@ const vars: VarDef[] = [
 ];
 
 const rules: RuleDef[] = [
-  ...(['FD', 'FX'] as const).map(
+  ...FIRMS.map(
     (j): RuleDef => ({
       id: `pensionContrib${j}`,
       target: `pensionContrib${j}`,
@@ -71,7 +70,7 @@ const rules: RuleDef[] = [
       compute: (c) => (c.p('cEr') + c.p('cEe')) * c.v('wage') * c.v(`employment${j}`),
       concepts: ['funded-pensions'],
       explain: {
-        what: `Pension contributions ${j === 'FD' ? 'domestic firms' : 'exporters'} pay for their staff.`,
+        what: `Pension contributions ${FIRM_NAME[j]} pay for their staff.`,
         rule: '(employer {cEr%} + employee {cEe%}) × gross wages. The employee part is deducted from pay, so wages are counted once.',
       },
     }),
@@ -257,10 +256,7 @@ export const pensions: ModuleDef = {
       kind: 'cash',
       account: 'current',
       posting: { type: 'transfer' },
-      legs: [
-        { from: 'FD', to: 'PF', amount: 'pensionContribFD' },
-        { from: 'FX', to: 'PF', amount: 'pensionContribFX' },
-      ],
+      legs: FIRMS.map((j) => ({ from: j, to: 'PF', amount: `pensionContrib${j}` })),
       concepts: ['funded-pensions'],
       explain: { what: 'Firms pay the employer and employee pension contributions to the pension funds. Public employers pay theirs inside the spending channels.' },
     },

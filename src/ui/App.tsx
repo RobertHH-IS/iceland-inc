@@ -10,9 +10,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Id, ModelDef } from '../core/types.ts';
 import { models as registryModels } from '../models/index.ts';
 import { createEngineClient, type EngineClient } from './engine-client.ts';
-import type { Level } from './model/geometry.ts';
-import type { ModelInfo } from './model/info.ts';
-import { EMPTY_NAV, navBack, navClear, navCurrent, navForward, navGo, navPush, type NavState, type Selection } from './model/navigation.ts';
+import { cleanExpanded, collapseGroup, effectiveExpanded, expandAll, expandGroup, expandableGroups, pipeBetween, reveal, viewKey } from './model/hierarchy.ts';
+import { EMPTY_NAV, navBack, navClear, navCurrent, navForward, navGo, navPush, selectionKey, type NavState, type Selection } from './model/navigation.ts';
 import { pickModel } from './model/registry.ts';
 import { decodeScenarioHash, encodeScenarioHash, hasScenario, type HashState } from './model/scenario-url.ts';
 import { Charts } from './views/Charts.tsx';
@@ -63,10 +62,21 @@ export interface AppProps {
   initialModelId?: Id;
 }
 
+/** Groups a link asks to open on the map; `n` changes whenever a new link arrives. */
+export interface LinkView {
+  expanded?: Id[];
+  n: number;
+}
+
 export function App({ models = registryModels, initialHash = '', initialModelId }: AppProps) {
   const [pool] = useState(() => new ClientPool(models));
   const choices = useMemo(() => models.map((m) => ({ id: m.id, label: m.label })), [models]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [linkView, setLinkView] = useState<LinkView>(() => {
+    const boot = decodeScenarioHash(initialHash);
+    const forThis = boot.ok && (!boot.state.modelId || !initialModelId || boot.state.modelId === initialModelId);
+    return { expanded: forThis && boot.ok ? boot.state.expanded : undefined, n: 0 };
+  });
   const [modelId, setModelId] = useState<Id>(() => {
     const boot = decodeScenarioHash(initialHash);
     const want = initialModelId ?? (boot.ok ? boot.state.modelId : undefined);
@@ -96,6 +106,7 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
       setModelId(id);
       const c = pool.get(id).client;
       if (c && scenario && hasScenario(scenario)) c.load({ modelId: id, events: scenario.events, months: scenario.months });
+      setLinkView((v) => ({ expanded: scenario?.expanded, n: v.n + 1 }));
       if (typeof window !== 'undefined' && !scenario) window.history.replaceState(null, '', `#m=${encodeURIComponent(id)}`);
     },
     [pool],
@@ -109,7 +120,10 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
       const id = pickModel(pool.ids, d.state.modelId) ?? modelId;
       if (d.state.modelId && d.state.modelId !== id) setNotice(`This link is for model '${d.state.modelId}', which is not available here.`);
       if (id !== modelId) switchModel(id, d.state);
-      else if (hasScenario(d.state)) pool.get(id).client?.load({ modelId: id, events: d.state.events, months: d.state.months });
+      else {
+        if (hasScenario(d.state)) pool.get(id).client?.load({ modelId: id, events: d.state.events, months: d.state.months });
+        if (d.state.expanded) setLinkView((v) => ({ expanded: d.state.expanded, n: v.n + 1 }));
+      }
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -138,6 +152,7 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
       client={entry.client}
       models={choices}
       modelId={shownId}
+      link={shownId === modelId ? linkView : { n: 0 }}
       onModelChange={(id) => switchModel(id)}
       notice={failed && shownId !== modelId ? `Model '${modelId}' could not be started, showing '${shownId}' instead: ${failed}` : notice}
       onDismissNotice={() => setNotice(null)}
@@ -145,31 +160,62 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
   );
 }
 
-/** Map level to open a model at: groups when there are many players. */
-export function defaultLevel(info: ModelInfo): Level {
-  return info.players.length > 7 && info.groups.length < info.players.length ? 'group' : 'player';
-}
-
 interface WorkspaceProps {
   client: EngineClient;
   models: { id: Id; label: string }[];
   modelId: Id;
+  /** Groups a shared link asks to open. */
+  link: LinkView;
   onModelChange: (id: Id) => void;
   notice: string | null;
   onDismissNotice: () => void;
 }
 
-function Workspace({ client, models, modelId, onModelChange, notice, onDismissNotice }: WorkspaceProps) {
+function Workspace({ client, models, modelId, link, onModelChange, notice, onDismissNotice }: WorkspaceProps) {
   const frame = useFrame(client);
   const info = client.info;
-  const [level, setLevel] = useState<Level>(() => defaultLevel(info));
+  // The map opens with every group closed, unless a shared link says otherwise.
+  const [expanded, setExpanded] = useState<ReadonlySet<Id>>(() => new Set(cleanExpanded(info, link.expanded ?? [])));
+  useEffect(() => {
+    if (link.n > 0 && link.expanded) setExpanded(new Set(cleanExpanded(info, link.expanded)));
+  }, [info, link]);
   const [stage, setStage] = useState<'map' | 'ledger'>('map');
+  const [ledgerCols, setLedgerCols] = useState<'players' | 'map'>('players');
   const [nav, setNav] = useState<NavState>(EMPTY_NAV);
   const [chartTab, setChartTab] = useState<string | null>(null);
   const [share, setShare] = useState<ShareState>({ status: 'idle' });
   const selection = navCurrent(nav);
 
-  const onSelect = useCallback((s: Selection) => setNav((n) => navPush(n, s)), []);
+  const eff = useMemo(() => effectiveExpanded(info, expanded), [info, expanded]);
+  const vkey = viewKey(eff);
+  // Pipes at the level that is open on the map, recomputed each tick.
+  const viewPipes = useMemo(() => client.pipes({ expanded: [...eff] }), [client, frame.seq, vkey]);
+  const expandable = useMemo(() => expandableGroups(info), [info]);
+
+  // Going to a player or group hidden inside a closed group (from the inspector, the ledger or
+  // the breadcrumbs) opens the groups around it. Closing a group keeps the selection: the map
+  // then highlights the closed group instead.
+  const revealSelection = useCallback((s: Selection | null) => {
+    if (s && (s.kind === 'player' || s.kind === 'group')) setExpanded((e) => reveal(info, e, s.id));
+  }, [info]);
+  const selKey = selection ? selectionKey(selection) : '';
+  useEffect(() => revealSelection(selection), [selKey, nav.index]);
+
+  const onSelect = useCallback(
+    (s: Selection) => {
+      setNav((n) => navPush(n, s));
+      revealSelection(s);
+    },
+    [revealSelection],
+  );
+  const onOpenGroup = useCallback(
+    (id: Id) => {
+      setExpanded((e) => expandGroup(info, e, id));
+      setNav((n) => navPush(n, { kind: 'group', id }));
+    },
+    [info],
+  );
+  const onCloseGroup = useCallback((id: Id) => setExpanded((e) => collapseGroup(info, e, id)), [info]);
   const onBack = useCallback(() => setNav(navBack), []);
   const onForward = useCallback(() => setNav(navForward), []);
   const onGo = useCallback((i: number) => setNav((n) => navGo(n, i)), []);
@@ -177,7 +223,7 @@ function Workspace({ client, models, modelId, onModelChange, notice, onDismissNo
   const onShareDone = useCallback(() => setShare({ status: 'idle' }), []);
 
   const onShare = useCallback(() => {
-    const hash = encodeScenarioHash(client.scenario());
+    const hash = encodeScenarioHash({ ...client.scenario(), expanded: cleanExpanded(info, expanded) });
     const url = `${window.location.href.split('#')[0]}#${hash}`;
     window.history.replaceState(null, '', `#${hash}`);
     const clip = navigator.clipboard;
@@ -186,7 +232,7 @@ function Workspace({ client, models, modelId, onModelChange, notice, onDismissNo
       () => setShare({ status: 'copied', url }),
       () => setShare({ status: 'manual', url }),
     );
-  }, [client]);
+  }, [client, info, expanded]);
 
   // Space plays and pauses, unless focus is in a control that uses it.
   useEffect(() => {
@@ -201,8 +247,9 @@ function Workspace({ client, models, modelId, onModelChange, notice, onDismissNo
     return () => window.removeEventListener('keydown', onKey);
   }, [client]);
 
-  const selectedPipe = selection?.kind === 'pipe' ? frame.pipes[selection.level].find((p) => p.from === selection.from && p.to === selection.to && p.kind === selection.flowKind) : undefined;
-  const hasGroups = info.groups.length < info.players.length;
+  const selectedPipe = selection?.kind === 'pipe' ? (pipeBetween(info, frame.legs, selection.from, selection.to, selection.flowKind) ?? undefined) : undefined;
+  const allOpen = expandable.every((id) => expanded.has(id));
+  const noneOpen = !expandable.some((id) => expanded.has(id));
 
   return (
     <div className="app">
@@ -244,26 +291,38 @@ function Workspace({ client, models, modelId, onModelChange, notice, onDismissNo
               Ledger
             </button>
           </div>
-          {hasGroups && (
-            <div className="seg-group" role="group" aria-label="Detail">
-              <button type="button" className={`seg ${level === 'group' ? 'on' : ''}`} aria-pressed={level === 'group'} onClick={() => setLevel('group')}>
-                Groups
+          {expandable.length > 0 && stage === 'map' && (
+            <div className="seg-group" role="group" aria-label="Groups on the map">
+              <button type="button" className="seg" disabled={allOpen} onClick={() => setExpanded(expandAll(info))}>
+                Expand all
               </button>
-              <button type="button" className={`seg ${level === 'player' ? 'on' : ''}`} aria-pressed={level === 'player'} onClick={() => setLevel('player')}>
-                All players
+              <button type="button" className="seg" disabled={noneOpen} onClick={() => setExpanded(new Set())}>
+                Collapse all
               </button>
             </div>
           )}
-          <span className="stage-hint muted small">{stage === 'map' ? 'Money flows along the pipes, always. Click a pipe or a player.' : 'Every flow is posted twice: each row sums to zero.'}</span>
+          {expandable.length > 0 && stage === 'ledger' && (
+            <div className="seg-group" role="group" aria-label="Ledger columns">
+              <button type="button" className={`seg ${ledgerCols === 'players' ? 'on' : ''}`} aria-pressed={ledgerCols === 'players'} onClick={() => setLedgerCols('players')}>
+                Every player
+              </button>
+              <button type="button" className={`seg ${ledgerCols === 'map' ? 'on' : ''}`} aria-pressed={ledgerCols === 'map'} onClick={() => setLedgerCols('map')} title="One column per card on the flow map: closed groups are one column">
+                Grouped as on the map
+              </button>
+            </div>
+          )}
+          <span className="stage-hint muted small">
+            {stage === 'ledger' ? 'Every flow is posted twice: each row sums to zero.' : expandable.length ? 'Money flows along the pipes, always. Click a group to open it, or a pipe or player.' : 'Money flows along the pipes, always. Click a pipe or a player.'}
+          </span>
         </div>
         {stage === 'map' ? (
-          <FlowMap info={info} client={client} level={level} pipes={frame.pipes[level]} legs={frame.legs} regimes={frame.regimes} seq={frame.seq} selection={selection} onSelect={onSelect} />
+          <FlowMap info={info} client={client} expanded={eff} pipes={viewPipes} legs={frame.legs} regimes={frame.regimes} seq={frame.seq} selection={selection} onSelect={onSelect} onOpenGroup={onOpenGroup} onCloseGroup={onCloseGroup} />
         ) : (
-          <LedgerView info={info} client={client} legs={frame.legs} level={level} onSelect={onSelect} />
+          <LedgerView info={info} client={client} legs={frame.legs} columns={ledgerCols === 'map' ? { expanded: eff } : 'player'} onSelect={onSelect} />
         )}
       </main>
       <div className="side">
-        <Inspector info={info} client={client} frame={frame} nav={nav} onSelect={onSelect} onBack={onBack} onForward={onForward} onGo={onGo} onClose={onClose} />
+        <Inspector info={info} client={client} frame={frame} nav={nav} expanded={eff} onSelect={onSelect} onBack={onBack} onForward={onForward} onGo={onGo} onClose={onClose} />
         <IdeasAtPlay info={info} client={client} seq={frame.seq} selection={selection} pipe={selectedPipe} onSelect={onSelect} />
         <Feed info={info} feed={frame.feed} onSelect={onSelect} />
       </div>

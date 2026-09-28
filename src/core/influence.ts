@@ -154,28 +154,37 @@ function varInfluence(S: InfluenceSource, k: number): Influence {
   return out;
 }
 
+/** Players (by index) a node id stands for: the player itself, or every player of a group. */
+function nodeMembers(m: KModel, id: Id): Set<number> | undefined {
+  const p = m.playerIndex.get(id);
+  if (p !== undefined) return new Set([p]);
+  const g = m.groupIndex.get(id);
+  return g === undefined ? undefined : new Set(m.groups[g].allPlayers.map((x) => m.playerIndex.get(x)!));
+}
+
 /** Variables (by index) that a scope id starts from, plus the flows in the scope. */
 function scopeSeeds(m: KModel, scope?: Id): { vars: number[]; flows: number[] } | null {
   if (!scope || scope === 'economy') return null;
-  const legsWhere = (pred: (from: Id, to: Id, flow: number) => boolean) => {
-    const legs = m.clegs.filter((l) => pred(m.players[l.from].id, m.players[l.to].id, l.flow));
+  const legsWhere = (pred: (from: number, to: number, flow: number) => boolean) => {
+    const legs = m.clegs.filter((l) => pred(l.from, l.to, l.flow));
     return { vars: legs.map((l) => l.amount), flows: uniq(legs.map((l) => l.flow)) };
   };
-  const groupOf = (pid: Id) => m.players[m.playerIndex.get(pid)!].group || pid;
   const k = m.varIndex.get(scope);
   if (k !== undefined) return { vars: [k], flows: [] };
   const f = m.flowIndex.get(scope);
   if (f !== undefined) return legsWhere((_a, _b, fl) => fl === f);
-  if (m.playerIndex.has(scope)) return legsWhere((a, b) => a === scope || b === scope);
-  const g = m.groups.find((x) => x.id === scope);
-  if (g) return legsWhere((a, b) => groupOf(a) === g.id || groupOf(b) === g.id);
+  const members = nodeMembers(m, scope);
+  if (members) return legsWhere((a, b) => members.has(a) || members.has(b));
   const i = m.indicatorIndex.get(scope);
   if (i !== undefined) return { vars: (m.indicators[i].drivers ?? []).map((d) => m.varIndex.get(d)!), flows: [] };
   const pipe = /^(.+?)->(.+?)(?::(\w+))?$/.exec(scope);
   if (pipe) {
+    // A pipe between two nodes at any level: a group end stands for all its players.
     const [, a, b, kind] = pipe;
-    const node = (pid: Id) => (m.playerIndex.has(a) || m.playerIndex.has(b) ? pid : groupOf(pid));
-    return legsWhere((from, to, fl) => node(from) === a && node(to) === b && (!kind || m.flows[fl].kind === kind));
+    const A = nodeMembers(m, a),
+      B = nodeMembers(m, b);
+    if (!A || !B) throw new Error(`ideasAtPlay: pipe scope '${scope}' names '${A ? b : a}', which is not a player or group`);
+    return legsWhere((from, to, fl) => A.has(from) && B.has(to) && (!kind || m.flows[fl].kind === kind));
   }
   throw new Error(`ideasAtPlay: unknown scope '${scope}' (use a player, group, flow, variable, indicator or 'from->to[:kind]')`);
 }

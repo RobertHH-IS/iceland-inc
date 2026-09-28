@@ -1,7 +1,7 @@
 {
  "format": "iceland-inc/golden@1",
  "modelId": "iceland",
- "scenario": "calibration-wage-key-rate-peak",
+ "scenario": "calibration-wage-squeeze-labour-intensive",
  "months": 72,
  "events": [
   {

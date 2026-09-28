@@ -8,15 +8,14 @@
  */
 import type { Id, ModuleDef, RuleDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { pickParams, terms, lastMonth } from '../util.ts';
+import { FIRMS, FIRM_NAME, pickParams, terms, lastMonth } from '../util.ts';
 
-const DEPOSITORS = ['HY', 'HW', 'HO', 'FD', 'FX', 'PF', 'W'] as const;
+const DEPOSITORS = ['HY', 'HW', 'HO', ...FIRMS, 'PF', 'W'] as const;
 const DEP_LABEL: Record<(typeof DEPOSITORS)[number], string> = {
   HY: 'young households',
   HW: 'working-age households',
   HO: 'older households',
-  FD: 'domestic firms',
-  FX: 'exporters',
+  ...FIRM_NAME,
   PF: 'pension funds',
   W: 'non-residents',
 };
@@ -55,6 +54,7 @@ const sumOf = (ids: Id[]) => (c: { v(id: Id): number }) => ids.reduce((s, id) =>
 const MORT_B: Id[] = ['mortgageInterest_HY_B', 'mortgageInterest_HW_B'];
 const IDX_B: Id[] = ['indexation_HY_B', 'indexation_HW_B'];
 const DEP_ALL: Id[] = DEPOSITORS.map((p) => `depositInterest${p}`);
+const LOAN_ALL: Id[] = FIRMS.map((j) => `loanInterest${j}`);
 
 export const banks: ModuleDef = {
   id: 'banks',
@@ -73,8 +73,7 @@ export const banks: ModuleDef = {
     { id: 'mortgageRateI', label: 'Indexed mortgage rate (real)', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('mortgageRateI') },
     { id: 'bankBondRate', label: 'Bank-bond rate', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('bankBondRate') },
     ...DEPOSITORS.map((pl) => ({ id: `depositInterest${pl}`, label: `Deposit interest to ${DEP_LABEL[pl]}`, unit: '% of GDP/yr', kind: 'flow' as const, scale: 'nominal' as const })),
-    { id: 'loanInterestFD', label: 'Loan interest from domestic firms', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
-    { id: 'loanInterestFX', label: 'Loan interest from exporters', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+    ...FIRMS.map((j) => ({ id: `loanInterest${j}`, label: `Loan interest from ${FIRM_NAME[j]}`, unit: '% of GDP/yr', kind: 'flow' as const, scale: 'nominal' as const })),
     { id: 'bankBondInterest', label: 'Interest on bank bonds', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
     { id: 'bankProfit', label: 'Bank profit', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('bankProfit') },
     { id: 'bankProfitSmoothed', label: 'Bank profit (smoothed)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('bankProfitSmoothed') },
@@ -208,26 +207,18 @@ export const banks: ModuleDef = {
       explain: { what: 'Interest banks pay on the covered bonds pension funds hold.', rule: 'Rate = key rate + {sBB pp}.' },
     },
     ...depositInterest,
-    {
-      id: 'loanInterestFD',
-      target: 'loanInterestFD',
-      category: 'CONTRACT',
-      inputs: ['loanRate'],
-      stocks: [['businessLoans', 'FD']],
-      compute: (c) => c.v('loanRate') * c.stock('businessLoans', 'FD'),
-      concepts: ['interest-distribution'],
-      explain: { what: 'Interest domestic firms pay the banks.', rule: 'Interest = loan rate × their loans.' },
-    },
-    {
-      id: 'loanInterestFX',
-      target: 'loanInterestFX',
-      category: 'CONTRACT',
-      inputs: ['loanRate'],
-      stocks: [['businessLoans', 'FX']],
-      compute: (c) => c.v('loanRate') * c.stock('businessLoans', 'FX'),
-      concepts: ['interest-distribution'],
-      explain: { what: 'Interest exporters pay the banks.', rule: 'Interest = loan rate × their loans.' },
-    },
+    ...FIRMS.map(
+      (j): RuleDef => ({
+        id: `loanInterest${j}`,
+        target: `loanInterest${j}`,
+        category: 'CONTRACT',
+        inputs: ['loanRate'],
+        stocks: [['businessLoans', j]],
+        compute: (c) => c.v('loanRate') * c.stock('businessLoans', j),
+        concepts: ['interest-distribution'],
+        explain: { what: `Interest ${FIRM_NAME[j]} pay the banks.`, rule: 'Interest = loan rate × their loans.' },
+      }),
+    ),
     {
       id: 'bankBondInterest',
       target: 'bankBondInterest',
@@ -242,11 +233,11 @@ export const banks: ModuleDef = {
       id: 'bankProfit',
       target: 'bankProfit',
       category: 'IDENTITY',
-      inputs: [...MORT_B, ...IDX_B, 'loanInterestFD', 'loanInterestFX', 'bondInterestB', 'reserveInterest', ...DEP_ALL, 'bankBondInterest'],
+      inputs: [...MORT_B, ...IDX_B, ...LOAN_ALL, 'bondInterestB', 'reserveInterest', ...DEP_ALL, 'bankBondInterest'],
       terms: terms(
         ['mortgages', 'Mortgage interest', 'interest-distribution', sumOf(MORT_B)],
         ['indexation', 'Indexation of indexed mortgages', 'indexation', sumOf(IDX_B)],
-        ['loans', 'Business-loan interest', 'interest-distribution', sumOf(['loanInterestFD', 'loanInterestFX'])],
+        ['loans', 'Business-loan interest', 'interest-distribution', sumOf(LOAN_ALL)],
         ['bonds', 'Government-bond interest', undefined, (c) => c.v('bondInterestB')],
         ['reserves', 'Interest on reserves', 'reserves-and-payments', (c) => c.v('reserveInterest')],
         ['deposits', 'Interest paid on deposits', 'interest-distribution', (c) => -sumOf(DEP_ALL)(c)],
@@ -303,10 +294,7 @@ export const banks: ModuleDef = {
       kind: 'cash',
       account: 'current',
       posting: { type: 'transfer' },
-      legs: [
-        { from: 'FD', to: 'B', amount: 'loanInterestFD' },
-        { from: 'FX', to: 'B', amount: 'loanInterestFX' },
-      ],
+      legs: FIRMS.map((j) => ({ from: j, to: 'B', amount: `loanInterest${j}` })),
       concepts: ['interest-distribution', 'money-destruction'],
       explain: { what: 'Firms pay interest to the banks from their deposits, which cancels those deposits.' },
     },

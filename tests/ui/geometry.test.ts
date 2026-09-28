@@ -1,12 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import type { PlayerDef } from '../../src/core/types.ts';
-import { CARD_COMPACT, CARD_FULL, CARD_H, CARD_W, MAP_H, MAP_W, MIN_MAP, boxExit, fitMap, layoutNodes, levelHints, pipeGeometry, pipeKey, pipeWidth, placeLabels, quadAt, widthScale, type NodeBox, type PipeLike } from '../../src/ui/model/geometry.ts';
-import type { GroupInfo } from '../../src/ui/model/info.ts';
+import { CARD_COMPACT, CARD_FULL, CARD_H, CARD_W, MAP_H, MAP_W, MIN_MAP, boxExit, fitMap, layoutNodes, levelHints, pipeGeometry, pipeKey, pipeWidth, placeLabels, quadAt, widthScale, type GroupLike, type NodeBox, type PipeLike } from '../../src/ui/model/geometry.ts';
 
 const player = (id: string, group: string, x?: number, y?: number): PlayerDef => ({ id, label: id, group, description: '', settlement: 'deposits', ...(x !== undefined ? { layout: { x, y: y! } } : {}) });
 
 const players = [player('A', 'G1', 0.1, 0.5), player('B', 'G1', 0.3, 0.5), player('C', 'G2', 0.9, 0.2), player('D', 'G3')];
-const groups: GroupInfo[] = [
+const groups: GroupLike[] = [
   { id: 'G1', label: 'Group one', players: ['A', 'B'] },
   { id: 'G2', label: 'Group two', players: ['C'] },
   { id: 'G3', label: 'Group three', players: ['D'] },
