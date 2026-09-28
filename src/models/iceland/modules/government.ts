@@ -815,7 +815,7 @@ export const government: ModuleDef = {
     },
     {
       id: 'non-bank-buyers-pay-with-cash-they-have',
-      label: 'When pension funds or older households are the sole buyers of a large deficit, they buy only what their deposits pay for and banks take the rest',
+      label: 'When pension funds or older households are the sole buyers of a very large deficit, they buy only what their deposits pay for and banks take the rest',
       run: (e) => {
         const ke = e as unknown as { stock(i: string, p: string): number };
         const out: string[] = [];
@@ -826,7 +826,10 @@ export const government: ModuleDef = {
         ] as const) {
           const f = e.fork() as unknown as typeof e & typeof ke;
           f.setLever('bondBuyers', choice);
+          // A deficit of about 16% of GDP in the first year, growing. Without the tax cut (about 9%)
+          // pension funds pay for all of it for 20 years by selling foreign assets and bank bonds.
           for (const l of ['health', 'education', 'otherServices', 'publicInvestment']) f.setLever(l, 3);
+          f.setLever('incomeTax', -10);
           let lowest = Infinity,
             banksTook = 0;
           for (let t = 0; t < 240; t++) {

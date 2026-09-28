@@ -62,6 +62,9 @@ const WORST: [string, Setting[], boolean][] = [
   ['older households as sole buyers of a large deficit', [['bondBuyers', 4], ['health', 3], ['education', 3]], true],
   ['pension funds as sole buyers with the key rate at 15%', [['bondBuyers', 3], ['keyRateFixed', 15]], false],
   ['central bank as buyer, surplus on Automatic (income-tax offset +10): reserves overdrawn', [['bondBuyers', 2], ['incomeTaxOffset', 10]], true],
+  // Random two- and three-lever combinations (review of the floors): pension payouts outran
+  // contributions and income, and the funds overdrew deposits while still holding bank bonds.
+  ['health −3, education −3, fish prices +30: funds overdrew deposits holding bank bonds', [['health', -3], ['education', -3], ['fishPrices', 30]], false],
 ];
 
 describe('Iceland model: balance sheets stay possible', () => {
@@ -84,6 +87,41 @@ describe('Iceland model: balance sheets stay possible', () => {
   test('known gap: a surplus held on Manual after every bond is repaid overdraws banks’ reserves at the central bank, and nothing else', () => {
     // decision 0002 §6: the treasury account keeps the surplus, which drains reserves one for one.
     expect(wrongSigns([['incomeTax', 10]], false)).toEqual(['reserves/B', 'reserves/CB']);
+  });
+
+  test('pension funds let bank bonds run off once foreign sales cannot raise the cash: no overdraft beside the known reserves gap', () => {
+    // Each of these used to overdraw the funds' deposits by 0.9–4.2% of GDP with bank bonds left.
+    const gap = ['reserves/B', 'reserves/CB'];
+    expect(wrongSigns([['incomeTax', 10], ['aluminiumPrice', -40], ['pfForeign', 20]], false)).toEqual(gap);
+    expect(wrongSigns([['foreignRate', 5], ['pfForeign', 20], ['education', -3]], false)).toEqual(gap);
+    expect(wrongSigns([['vat', 10], ['incomeTax', 10]], false)).toEqual(gap);
+  });
+
+  test('the bank-bond run-off takes over only when foreign sales are limited (holdings gone, or non-residents short of krónur)', () => {
+    const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    for (const [id, v] of [['health', -3], ['education', -3], ['fishPrices', 30]] as Setting[]) e.setLever(id, v);
+    let ran = 0,
+      lowest = Infinity;
+    for (let m = 1; m <= 240; m++) {
+      e.step(1);
+      lowest = Math.min(lowest, e.stock('deposits', 'PF'));
+      if (e.influences('bankBondPurchases').regime === 'Letting bank bonds run off to raise cash') {
+        ran++;
+        expect(e.influences('foreignAssetPurchases').regime ?? '').toStartWith('Sales limited by');
+      }
+    }
+    expect(ran).toBeGreaterThan(0);
+    expect(lowest).toBeGreaterThan(-1e-9);
+  });
+
+  test('known gap: a current-account surplus after non-residents have sold every bond overdraws their króna deposits', () => {
+    // decision 0002 §6: nothing supplies them krónur once their bonds are gone (no króna borrowing).
+    expect(wrongSigns([['pfForeign', -20], ['tourism', 30]], false)).toEqual(['deposits/W']);
+  });
+
+  test('known gap: when the economy collapses, the funds run through every asset they can sell and overdraw deposits', () => {
+    // decision 0002 §6: shares and mortgages are never sold, and pensions are paid in full.
+    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false)).toEqual(['deposits/PF', 'deposits/W', 'reserves/B', 'reserves/CB']);
   });
 
   test('the floors do not bind at the baseline, in either mode', () => {
