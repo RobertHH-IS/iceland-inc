@@ -15,6 +15,7 @@
  * worth: saving plus revaluations.
  */
 import type { Account, Id } from '../../core/types.ts';
+import { labels } from '../labels.ts';
 import type { FlowInfo, LegInfo, ModelInfo } from './info.ts';
 import { nodeLabel, nodeColor } from './info.ts';
 import type { Level } from './geometry.ts';
@@ -24,13 +25,6 @@ import { effectiveExpanded, nodeOfPlayer, viewTree } from './hierarchy.ts';
 export type LedgerColumns = Level | { expanded: ReadonlySet<Id> };
 
 export const ACCOUNT_ORDER: Account[] = ['current', 'capital', 'financial', 'other'];
-
-export const ACCOUNT_LABEL: Record<Account, string> = {
-  current: 'Current account: income and spending',
-  capital: 'Capital account: investment',
-  financial: 'Financial account: lending, repaying and trading claims',
-  other: 'Other changes: accruals, revaluations and write-offs',
-};
 
 export interface LedgerCell {
   value: number;
@@ -126,7 +120,7 @@ export function buildLedger(info: ModelInfo, legValues: ArrayLike<number>, level
     else byFlow.set(l.flow, [l]);
   }
   const nwTotals = colIds.map(() => ({ value: 0, baseline: 0 }));
-  const sections: LedgerSection[] = ACCOUNT_ORDER.map((account) => ({ account, label: ACCOUNT_LABEL[account], rows: [] as LedgerRow[] }));
+  const sections: LedgerSection[] = ACCOUNT_ORDER.map((account) => ({ account, label: labels.accountSection[account], rows: [] as LedgerRow[] }));
   let maxRowResidual = 0;
   let allBalanced = true;
   for (const flow of info.flows) {

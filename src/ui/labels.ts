@@ -14,8 +14,12 @@ export interface LabelTable {
   school: Record<School, string>;
   /** Kinds of flow: the chip on a pipe, and the note after a non-cash flow's name. */
   flowKind: Record<FlowKind, string>;
+  /** A kind of flow inside a sentence, saying when no cash moves: a pipe's label on the map. */
+  flowKindPhrase: Record<FlowKind, string>;
   /** The account a flow belongs to, as a short name ("Capital account"). */
   account: Record<Account, string>;
+  /** An account as a section of the ledger, with what it holds. */
+  accountSection: Record<Account, string>;
   /** What a breadcrumb points to. */
   selectionKind: Record<Selection['kind'], string>;
 }
@@ -42,11 +46,23 @@ export const EN: LabelTable = {
     revaluation: 'Revaluation',
     writeoff: 'Write-off',
   },
+  flowKindPhrase: {
+    cash: 'cash payments',
+    accrual: 'accrual (no cash moves)',
+    revaluation: 'revaluation (no cash moves)',
+    writeoff: 'write-off (no cash moves)',
+  },
   account: {
     current: 'Current account',
     capital: 'Capital account',
     financial: 'Financial account',
     other: 'Other changes',
+  },
+  accountSection: {
+    current: 'Current account: income and spending',
+    capital: 'Capital account: investment',
+    financial: 'Financial account: lending, repaying and trading claims',
+    other: 'Other changes: accruals, revaluations and write-offs',
   },
   selectionKind: {
     pipe: 'Pipe',

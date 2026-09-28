@@ -13,6 +13,7 @@ import { effectiveExpanded } from '../../src/ui/model/hierarchy.ts';
 import { varLabel } from '../../src/ui/model/info.ts';
 import { EMPTY_NAV, navPush, type NavState, type Selection } from '../../src/ui/model/navigation.ts';
 import { CategoryChip } from '../../src/ui/views/common.tsx';
+import { FlowMap } from '../../src/ui/views/FlowMap.tsx';
 import { Inspector } from '../../src/ui/views/Inspector.tsx';
 import { LedgerView } from '../../src/ui/views/LedgerView.tsx';
 import { LeverPanel } from '../../src/ui/views/LeverPanel.tsx';
@@ -59,6 +60,16 @@ describe('labels instead of raw ids', () => {
     expect(flowHtml).not.toContain('other account');
     const pk = info.concepts.find((c) => c.school === 'post-keynesian')!;
     expect(inspect(open({ kind: 'concept', id: pk.id }))).toContain('<span class="chip quiet">Post-Keynesian</span>');
+  });
+
+  test('the map’s pipe labels and the ledger’s section titles come from the same table', () => {
+    const eff = effectiveExpanded(info, []);
+    const pipes = client.pipes({ expanded: [...eff] });
+    const map = text(renderToString(<FlowMap info={info} client={client} expanded={eff} pipes={pipes} legs={frame.legs} regimes={frame.regimes} seq={frame.seq} selection={null} onSelect={noop} onOpenGroup={noop} onCloseGroup={noop} />));
+    for (const kind of new Set(pipes.map((p) => p.kind))) expect(map).toContain(`, ${labels.flowKindPhrase[kind]}: `);
+    expect(map).toContain(`, ${labels.flowKindPhrase.cash}: `);
+    const ledger = text(renderToString(<LedgerView info={info} client={client} legs={frame.legs} columns="player" onSelect={noop} />));
+    for (const a of new Set(info.flows.map((f) => f.account))) expect(ledger).toContain(labels.accountSection[a]);
   });
 });
 
