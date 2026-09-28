@@ -3,9 +3,9 @@
  * three checks on the firm sectors (decision 0003) and five on the stabiliser setting (decision 0004).
  * After the audit of 29 September 2026 (docs/audit/2026-09-29-audit.md: M12/M20, M13, M14/M21, L26)
  * each check's scenario is the experiment its source describes, and its range is the source's where
- * the source gives one. Where the model lies outside a cited range, the check keeps v1's wider band
- * (v1 SPEC §7.3), says so in its label and source, and is listed in KNOWN_GAPS for a calibration
- * decision.
+ * the source gives one. Where the model lies outside a cited estimate, or inside its band only
+ * because of an artefact of the scenario, the check keeps v1's band (v1 SPEC §7.3), says so in its
+ * label and source, and is listed in KNOWN_GAPS for a calibration decision.
  *
  * Every published response these checks compare with comes from an economy whose policy reacts:
  * the central bank follows its rule and the debt rule leans on income tax. So each of the 23
@@ -81,11 +81,18 @@ const M_WAGE: ScenarioEvent[] = [{ t: 0, lever: 'wageSettlement', value: 10, fir
 const FIRMS = ['FC', 'FR', 'XF', 'XA', 'XT', 'XO'] as const;
 
 /* ------------------------------------------------------------------ sources */
+const QMM_URL = 'https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf';
+/** The experiment all five rate checks run, and what happens when the rule takes over. */
+const QMM_RATE =
+  'CBI QMM v2.1 (Monetary Bulletin): the key rate raised 1 pp for four quarters, after which the rule takes over, lowers output about 0.41% and inflation about 0.24 pp at a trough in quarter 5 (research report, "Policy rate +1 pp"). The scenario is that experiment: the key rate is held 1 pp above baseline on Manual for 12 months, which also keeps the slow debt rule off, and the Automatic rule then takes over. The rule’s own rate eases toward its target from its own past value, which kept falling with the weaker economy during the hold, not from the key rate actually set (central-bank.ts, ruleRate); so the key rate drops about 1.4 pp in month 13, to about 0.4 pp below baseline, rather than easing down. (v1 instead added a 1 pp offset to the Automatic rule for 8 quarters, a key rate only about 0.7 pp higher on average.)';
 const SRC = {
-  rate: 'CBI QMM v2.1 (Monetary Bulletin): the key rate raised 1 pp for four quarters, after which the rule takes over, lowers output about 0.41% and inflation about 0.24 pp at a trough in quarter 5 (research report, "Policy rate +1 pp"). The ranges are v1’s bands around those figures (v1 SPEC §7.3). The scenario is that experiment: the key rate is held 1 pp above baseline on Manual for 12 months, which also keeps the slow debt rule off, and the Automatic rule then takes over; because the rule’s own rate has kept reacting to the weaker economy, the key rate drops about 1.4 pp in month 13, to about 0.4 pp below baseline, rather than easing down. (v1 instead added a 1 pp offset to the Automatic rule for 8 quarters, a key rate only about 0.7 pp higher on average.) https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf',
-  rateKrona:
-    'CBI QMM v2.1 (Monetary Bulletin): the króna rises 0.67% on impact per 1 pp of interest-rate differential, with its real peak in quarter 4 (research report, "Policy rate +1 pp" and the dial table; the "+0.7–1%" once quoted here belongs to the wage experiment). The range is 0.6 to 1.5 times the QMM figure, the relative band v1 put around the output trough (0.25–0.6 around 0.41); v1’s own band was 0.3–1.5 (v1 SPEC §7.3). The model’s peak, about 0.45, is a third below the QMM figure: its króna is less sensitive to the rate gap. https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf',
+  rate: `${QMM_RATE} The ranges are v1’s bands around the QMM figures (v1 SPEC §7.3). ${QMM_URL}`,
+  rateTiming: `${QMM_RATE} The range is v1’s band around QMM’s quarter 5 (v1 SPEC §7.3). KNOWN GAP: the model’s output trough is month 12, the last month of the hold (quarter 4, the band’s lower edge), a quarter before QMM’s. Output starts to recover the month the hold ends, and still does when the rule takes over gradually instead (tests/models, iceland-credit-and-checks), so the quarter is set by the length of the hold rather than by the model’s own lags. ${QMM_URL}`,
+  rateInflation: `${QMM_RATE} The range is v1’s band around QMM’s −0.24 pp (v1 SPEC §7.3). KNOWN GAP: the model’s trough, about −0.34 pp in month 13, is inside the band only because of that one-month drop in the key rate. If the held rate instead closes a quarter of its gap to the rule’s suggestion each month, the trough is about −0.36 pp in month 14, outside the band (tests/models, iceland-credit-and-checks). ${QMM_URL}`,
+  rateKrona: `CBI QMM v2.1 (Monetary Bulletin): the króna rises 0.67% on impact per 1 pp of interest-rate differential, with its real peak in quarter 4 (research report, "Policy rate +1 pp" and the dial table; the "+0.7–1%" once quoted here belongs to the wage experiment). QMM is quarterly, so its impact is the first quarter; the check measures the model’s first-quarter average. The range is v1’s band of 0.3–1.5 (v1 SPEC §7.3), which no source gives. KNOWN GAP: the model’s first-quarter rise is about 0.41%, about 0.35% in month 1, and it peaks in month 3 rather than quarter 4, so the model’s króna is less sensitive to the rate gap than QMM’s (KNOWN_GAPS). ${QMM_URL}`,
   wage: 'Research report, "Wages +10%": CPI about +2% in year 1 rising toward about +4% as pass-through completes (CBI MB 2026/2 Box 2); the ranges are v1’s bands around those figures (v1 SPEC §7.3). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
+  wageLevel:
+    'Research report, "Wages +10%": the CPI ends about 4% higher once pass-through is complete, a 6% rise in domestic prices on the two-thirds of the basket that is not imported (import share: CBI MB 2026/2 Box 2). The range is 25% either side of that 4%: v1’s lower bound of 3, and an upper bound of 5 in place of v1’s 8, which no source gives (v1 SPEC §7.3). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageRate: 'Research report, "Wages +10%": policy rate +1 to +1.5 pp at the peak, in quarters 2–4 (CBI DYNIMO, +0.3 pp per 1 pp of wages above baseline for two years, scaled; CBI MB 2026/2). v1’s band was 0.8–2 (v1 SPEC §7.3); the range is now the cited one. https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageJobs:
     'Research report, "Wages +10%": unemployment +0.5–1 pp at the peak (CBI DYNIMO: −0.7 pp of hours per +1 pp of wages, CBI MB 2026/2; the size of the cap on a 10% shock is the report’s assumption). KNOWN GAP: the model’s peak, about 0.47, is below the cited 0.5, as v1’s was (+0.42); the range is v1’s band of 0.3–1.2 (v1 SPEC §7.3), which gives no reason for the wider bounds, kept until a calibration decision (KNOWN_GAPS). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
@@ -176,16 +183,16 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'rate-output-timing',
-    label: 'Key rate held +1 pp for 4 quarters, then the rule: quarter of the output trough',
+    label: 'Key rate held +1 pp for 4 quarters, then the rule: quarter of the output trough (known gap: the last month of the hold, a quarter before QMM’s)',
     scenario: RATE,
     months: 72,
     measure: (run) => quarter(argmin(run.series('output'), 1, 48)),
     range: [4, 7],
-    source: SRC.rate,
+    source: SRC.rateTiming,
   },
   {
     id: 'rate-inflation-trough',
-    label: 'Key rate held +1 pp for 4 quarters, then the rule: 12-month inflation trough, pp vs baseline',
+    label: 'Key rate held +1 pp for 4 quarters, then the rule: 12-month inflation trough, pp vs baseline (known gap: inside the band only because the key rate drops when the rule takes over)',
     scenario: RATE,
     months: 72,
     measure: (run) => {
@@ -193,7 +200,7 @@ export const calibration: CalibrationCheck[] = [
       return a[argmin(a, 1, 48)];
     },
     range: [-0.35, -0.1],
-    source: SRC.rate,
+    source: SRC.rateInflation,
   },
   {
     id: 'rate-inflation-timing',
@@ -206,14 +213,11 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'rate-krona',
-    label: 'Key rate held +1 pp for 4 quarters, then the rule: króna appreciation, peak in the first 8 quarters, %',
+    label: 'Key rate held +1 pp for 4 quarters, then the rule: króna appreciation on impact (first-quarter average), % (known gap: below QMM’s 0.67%; v1’s band)',
     scenario: RATE,
     months: 72,
-    measure: (run) => {
-      const a = run.series('krona');
-      return a[argmax(a, 1, 24)];
-    },
-    range: [0.4, 1],
+    measure: (run) => run.series('krona').slice(1, 4).reduce((s, x) => s + x, 0) / 3,
+    range: [0.3, 1.5],
     source: SRC.rateKrona,
   },
   {
@@ -267,8 +271,8 @@ export const calibration: CalibrationCheck[] = [
     scenario: WAGE,
     months: 72,
     measure: (run) => run.series('priceLevel')[72],
-    range: [3, 8],
-    source: SRC.wage,
+    range: [3, 5],
+    source: SRC.wageLevel,
   },
   wageBack('output', 'output'),
   wageBack('unemployment', 'unemployment'),
@@ -434,13 +438,30 @@ export const calibration: CalibrationCheck[] = [
 ];
 
 /**
- * Checks whose result lies outside the published estimate they cite: each keeps v1's wider band so
- * the harness passes, says so in its label and source, and waits for a calibration decision
- * (docs/audit/2026-09-29-audit.md, L26). tests/models checks that each is still outside its cited
- * range; when calibration closes a gap, that test fails as a reminder to narrow the check's range to
- * the cited one and remove the entry. The króna check's gap is in a different experiment (a held
- * depreciation), so its tripwire is its own test.
+ * Checks with a known gap to their source (docs/audit/2026-09-29-audit.md, L26): each keeps v1's band
+ * so the harness passes, says 'known gap' in its label and 'KNOWN GAP' in its source, and waits for a
+ * calibration decision. Where `cited` is given, the result lies outside that published range, and
+ * tests/models checks that it still does: when calibration closes the gap, that test fails as a
+ * reminder to narrow the check's range to the cited one and remove the entry. A point estimate is
+ * cited as [x, x]. Entries without `cited` have their own tripwire test, named in `why`.
  */
-export const KNOWN_GAPS: Record<string, { cited: [number, number]; why: string }> = {
-  'wage-unemployment-peak': { cited: [0.5, 1], why: 'Unemployment rises less than the research report’s +0.5–1 pp: the migration buffer and labour hoarding absorb more of the job loss.' },
+export const KNOWN_GAPS: Record<string, { cited?: [number, number]; why: string }> = {
+  'rate-output-timing': {
+    cited: [5, 5],
+    why: 'The output trough is month 12, the last month of the key-rate hold (quarter 4); QMM’s is quarter 5. It stays there when the rule takes over gradually, so the hold’s length sets it. Tripwire: the generic test, and "the rate checks’ takeover" test in tests/models.',
+  },
+  'rate-inflation-trough': {
+    why: 'The trough, about −0.34 pp, is inside v1’s band only because the key rate drops about 1.4 pp when the rule takes over (central-bank.ts: ruleRate eases from its own past value, not from the key rate set). With a gradual takeover it is about −0.36 pp, outside the band. Tripwire: "the rate checks’ takeover" test in tests/models fails once the drop is gone; then re-run the rate checks.',
+  },
+  'rate-krona': {
+    cited: [0.67, 0.67],
+    why: 'The króna rises about 0.41% in the first quarter against QMM’s 0.67% on impact. Recalibration would touch betaI and lamFX (how strongly and how fast the króna answers the rate gap, external.ts); no decomposition has yet shown which of them causes the gap.',
+  },
+  'wage-unemployment-peak': {
+    cited: [0.5, 1],
+    why: 'Unemployment peaks about 0.47 pp above baseline against the research report’s +0.5–1 pp. Recalibration would touch mig, okun and sigW; no decomposition has yet shown which of them causes the gap.',
+  },
+  'krona-price-level-8q': {
+    why: 'The scenario is a fading sentiment shock, not WP85’s sustained depreciation, and per point of realised depreciation the model passes through far more than WP85. Tripwire: the "króna held about 10% weaker" test in tests/models fails once the price block is recalibrated.',
+  },
 };

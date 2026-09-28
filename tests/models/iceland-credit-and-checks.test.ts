@@ -194,10 +194,18 @@ describe('Iceland calibration: each check runs the experiment its source describ
     expect(check('fiscal-output-year1').source).toMatch(/0\.3–0\.6%/);
   });
 
-  test('ranges quoted by a source are the source’s: wage key-rate peak +1 to +1.5 pp, króna within 0.6–1.5 × QMM’s 0.67%', () => {
+  test('ranges quoted by a source are the source’s: wage key-rate peak +1 to +1.5 pp; price level after 6 years within 25% of the cited 4%', () => {
     expect(check('wage-key-rate-peak').range).toEqual([1, 1.5]);
-    expect(check('rate-krona').range).toEqual([0.4, 1]);
+    expect(check('wage-price-level-6y').range).toEqual([3, 5]);
+    expect(check('wage-price-level-6y').source).toMatch(/about 4% higher/);
+  });
+
+  test('the króna check measures what QMM reports, the rise on impact (first quarter), not the peak', () => {
+    const r = run('rate-krona');
+    const k = r.series('krona');
+    expect(check('rate-krona').measure(r)).toBeCloseTo((k[1] + k[2] + k[3]) / 3, 12);
     expect(check('rate-krona').source).toMatch(/0\.67% on impact/);
+    expect(check('rate-krona').range).toEqual([0.3, 1.5]); // v1's band: no source gives a band around 0.67
   });
 
   test('known gaps are real: each check passes its v1 band but lies outside the range its source cites', () => {
@@ -208,10 +216,40 @@ describe('Iceland calibration: each check runs the experiment its source describ
       expect(v).toBeGreaterThanOrEqual(c.range[0]);
       expect(v).toBeLessThanOrEqual(c.range[1]);
       // if this fails, calibration has closed the gap: narrow the check's range to `cited` and remove the entry
-      expect(v < gap.cited[0] || v > gap.cited[1]).toBe(true);
+      if (gap.cited) expect(v < gap.cited[0] || v > gap.cited[1]).toBe(true);
+      else expect(gap.why).toMatch(/Tripwire: /);
       expect(c.label).toMatch(/known gap/);
       expect(c.source).toMatch(/KNOWN GAP/);
     }
+    // and every check that says it has a known gap is listed
+    for (const c of calibration) if (/known gap/.test(c.label)) expect(KNOWN_GAPS[c.id]).toBeDefined();
+  });
+
+  test('known gap: the rate checks’ takeover. The key rate drops about 1.4 pp when the rule takes over, and the inflation check passes only because of it', () => {
+    const r = run('rate-inflation-trough');
+    // if this fails, the rule's takeover is smooth (central-bank.ts): re-run the rate checks, handle any
+    // that fail as known gaps, and drop the notes that blame the drop
+    const rate = r.series('keyRate'); // pp vs baseline
+    expect(rate[12] - rate[13]).toBeGreaterThan(1);
+    expect(rate[13]).toBeLessThan(0);
+
+    // the same hold, but the held rate then closes a quarter of its gap to the rule's suggestion each month
+    const e = fresh();
+    const held = model.levers.find((l) => l.id === 'keyRateFixed')!.default;
+    let lever = held + 1;
+    e.setLever('keyRateFixed', lever);
+    const output = [0];
+    const inflation = [0];
+    for (let m = 1; m <= 48; m++) {
+      if (m > 12) e.setLever('keyRateFixed', (lever += 0.25 * (e.value('keyRateSuggestion') - lever)));
+      e.step(1);
+      output.push(e.indicator('output'));
+      inflation.push(e.indicator('inflation'));
+    }
+    const low = (a: number[]) => a.indexOf(Math.min(...a.slice(1)));
+    expect(inflation[low(inflation)]).toBeLessThan(check('rate-inflation-trough').range[0]); // outside the band
+    expect(low(output)).toBe(12); // output still turns the month the hold ends
+    expect(check('rate-output-timing').measure(r)).toBe(4);
   });
 
   test('known gap: a króna held about 10% weaker passes through to the CPI far more than CBI WP85’s 0.15 in a year and 0.23 in the long run', () => {
