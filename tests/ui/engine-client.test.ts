@@ -135,11 +135,17 @@ describe('engine client', () => {
   });
 
   test('a bad scenario leaves a clean baseline and reports why', () => {
-    const c = fresh();
+    const c = fresh({ maxMonths: 12 });
+    c.step(20);
+    expect(c.getFrame().ended).toBe(true);
     c.load({ modelId: 'reference', events: [{ t: 0, lever: 'missing', value: 1 }], months: 10 });
     const f = c.getFrame();
     expect(f.error).toContain('missing');
     expect(f.t).toBe(0);
+    // Back at month 0 the clock can run again: Play and Step are not left disabled.
+    expect(f.ended).toBe(false);
+    c.play();
+    expect(c.getFrame().playing).toBe(true);
     c.dispose();
   });
 

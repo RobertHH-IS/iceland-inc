@@ -387,6 +387,7 @@ class MainThreadClient implements EngineClient {
       } catch (err) {
         this.engine.reset();
         this.horizon = 0;
+        this.ended = false;
         this.rebuildHistory();
         throw err;
       }
