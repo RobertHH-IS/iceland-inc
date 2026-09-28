@@ -83,6 +83,7 @@ const dividendLegs: RuleDef[] = FIRMS.flatMap((j) =>
 /* ------------------------------------------------------------- behaviour */
 
 type T = [string, string, string | undefined, (c: Ctx) => number];
+const sumTerms = (t: Record<Id, number>) => Object.values(t).reduce((a, b) => a + b, 0);
 
 function investmentRule(j: Firm): RuleDef {
   const i0 = `i${j}0`;
@@ -103,10 +104,15 @@ function investmentRule(j: Firm): RuleDef {
       ['realRate', 'Cost of borrowing', 'policy-lags', (c) => -c.p(i0) * c.p('betaRI') * (c.v('loanRate') - lastMonth(c, 'expectedInflation') - c.p('rl0'))],
       ...(accel ? ([['capacity', 'Busy capacity', 'investment-accelerator', (c: Ctx) => c.p(i0) * c.p('betaU') * (lastMonth(c, 'output') / c.p('potentialOutput') - 1)]] as T[]) : []),
     ),
+    // Gross investment cannot be negative: a firm can stop buying machines but cannot sell them
+    // back to builders. The floor acts on the target, before the planning lag, so investment and
+    // capital (which then only wears out) stay at or above zero.
+    combine: (t) => Math.max(0, sumTerms(t)),
+    regime: (_c, _v, t) => (sumTerms(t) < 0 ? 'No new investment: capital only wears out' : null),
     concepts: ['investment-accelerator', 'policy-lags'],
     explain: {
       what: `Investment by ${FIRM_NAME[j]} in machines and buildings, at baseline prices. They buy them from builders.`,
-      rule: `Target = {${i0}} × [1 + {betaPi} × (their smoothed real profits ÷ baseline − 1) − {betaRI} × (real loan rate − baseline)${accel ? ' + {betaU} × output gap' : ''}]. Plans turn into spending at speed {lamInv} a year, so the peak effect of a rate change comes after about a year.`,
+      rule: `Target = {${i0}} × [1 + {betaPi} × (their smoothed real profits ÷ baseline − 1) − {betaRI} × (real loan rate − baseline)${accel ? ' + {betaU} × output gap' : ''}], never below zero: firms can stop buying machines but cannot sell them back to builders, so their capital then only wears out. Plans turn into spending at speed {lamInv} a year, so the peak effect of a rate change comes after about a year.`,
     },
   };
 }
@@ -336,7 +342,10 @@ function firmRules(j: Firm): RuleDef[] {
       label: 'Firms’ budget constraint',
       inputs: [`investmentPurchase${j}`, `corporateTax${j}`, `dividends${j}`, `profits${j}`, 'nominalGDP'],
       params: [`dep${j}0`, 'firmCashSpeed'],
-      stocks: [['deposits', j]],
+      stocks: [
+        ['deposits', j],
+        ['businessLoans', j],
+      ],
       terms: terms(
         ['investment', 'Investment', 'investment-accelerator', (c) => c.v(`investmentPurchase${j}`)],
         ['tax', 'Corporate tax', undefined, (c) => c.v(`corporateTax${j}`)],
@@ -344,10 +353,14 @@ function firmRules(j: Firm): RuleDef[] {
         ['profit', 'Profit', 'profit-squeeze', (c) => -c.v(`profits${j}`)],
         ['cash', 'Restore target deposits', 'endogenous-money', (c) => c.p('firmCashSpeed') * (c.p(`dep${j}0`) * c.v('nominalGDP') - c.stock('deposits', j))],
       ),
+      // A firm can repay no more than it owes: once its loans are paid off, spare cash stays in
+      // its deposits rather than turning the loan into a claim on the bank.
+      combine: (t, c) => Math.max(-c.stock('businessLoans', j) / c.dt, sumTerms(t)),
+      regime: (c, _v, t) => (sumTerms(t) < -c.stock('businessLoans', j) / c.dt ? 'Loans repaid in full: spare cash stays in deposits' : null),
       concepts: ['endogenous-money'],
       explain: {
         what: `New bank loans ${who} take (negative: repay). Each loan creates a deposit; each repayment destroys one.`,
-        rule: `Borrowing = investment + corporate tax + dividends − profit (the cash they are short of this month) + {firmCashSpeed} × a year of any shortfall of deposits below {dep${j}0} of GDP. At {firmCashSpeed} a year the gap closes within about a month.`,
+        rule: `Borrowing = investment + corporate tax + dividends − profit (the cash they are short of this month) + {firmCashSpeed} × a year of any shortfall of deposits below {dep${j}0} of GDP. At {firmCashSpeed} a year the gap closes within about a month. They never repay more than they owe: once their loans are paid off, spare cash stays in their deposits.`,
       },
     },
   ];
@@ -574,6 +587,43 @@ export const firms: ModuleDef = {
           return { j, want, got: ke.stock('deposits', j) };
         });
         return { pass: out.every((x) => Math.abs(x.got - x.want) < 1e-6 * Math.abs(x.want) + 1e-3), detail: out.map((x) => `${x.j}: deposits ${x.got.toFixed(4)} vs target ${x.want.toFixed(4)}`).join('; ') };
+      },
+    },
+    {
+      id: 'investment-and-capital-never-negative',
+      label: 'With the aluminium price −40% and pension funds 20 points less abroad for 20 years, no sector’s investment or capital goes below zero and loss-making smelters stop investing',
+      run: (e) => {
+        const ke = e as unknown as { stock(i: string, p: string): number };
+        e.setLever('aluminiumPrice', -40);
+        e.setLever('pfForeign', -20);
+        let minI = Infinity,
+          minK = Infinity,
+          stopped = 0;
+        for (let t = 0; t < 240; t++) {
+          e.step(1);
+          for (const j of FIRMS) {
+            minI = Math.min(minI, e.value(`investment${j}`));
+            minK = Math.min(minK, ke.stock('capital', j));
+          }
+          if (e.influences('investmentXA').regime?.startsWith('No new investment')) stopped++;
+        }
+        return { pass: minI >= 0 && minK >= 0 && stopped > 0, detail: `lowest investment ${minI.toFixed(4)}, lowest capital ${minK.toFixed(4)} (% of GDP); smelters invest nothing for ${stopped} months` };
+      },
+    },
+    {
+      id: 'loans-never-an-asset',
+      label: 'When tourism collapses, fisheries’ swelling cash repays their loans in full and then stays in their deposits: no firm’s loan becomes a claim on the bank',
+      run: (e) => {
+        const ke = e as unknown as { stock(i: string, p: string): number };
+        e.setLever('tourism', -60);
+        let minLoan = Infinity,
+          repaid = 0;
+        for (let t = 0; t < 240; t++) {
+          e.step(1);
+          for (const j of FIRMS) minLoan = Math.min(minLoan, ke.stock('businessLoans', j));
+          if (e.influences('borrowingXF').regime) repaid++;
+        }
+        return { pass: minLoan >= -1e-9 && repaid > 0, detail: `lowest loan balance ${minLoan.toExponential(2)} (% of GDP); fisheries debt-free for ${repaid} months, deposits ${ke.stock('deposits', 'XF').toFixed(2)}` };
       },
     },
     {

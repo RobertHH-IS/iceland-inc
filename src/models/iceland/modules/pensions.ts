@@ -13,6 +13,7 @@ import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts
 import { ALL_PARAMS, base } from '../steady.ts';
 import { FIRMS, FIRM_NAME, gapRate, pickParams, terms, lastMonth } from '../util.ts';
 import { dividendsTo } from './firms.ts';
+import { bondsBanksCanSell, cashToSpend } from './banks.ts';
 
 const PF_ASSETS: [Id, string][] = [
   ['deposits', 'Deposits'],
@@ -38,6 +39,59 @@ const INCOME: [Id, string, Id | undefined][] = [
   ...dividendsTo('PF').map((id): [Id, string, Id | undefined] => [id, `Dividends from ${FIRM_NAME[id.slice(9, 11) as keyof typeof FIRM_NAME]}`, undefined]),
   ['bankDividendsPF', 'Dividends from banks', undefined],
 ];
+
+/**
+ * The funds' cash in hand this month (banks.ts, `cashToSpend`) pays for their purchases in turn:
+ * new government bonds first (government.ts), then foreign assets, then bank bonds, then government
+ * bonds bought from banks. Each takes at most what the ones before it left, so their deposits never
+ * go negative. Each reader declares the inputs, params and stocks below.
+ */
+const CASH_PARAMS: Id[] = ['liquiditySpeed'];
+const CASH_STOCKS: [Id, Id][] = [['deposits', 'PF']];
+const pos = (x: number) => Math.max(0, x);
+const cashAfter = (c: Ctx, spent: Id[]) => pos(cashToSpend(c, 'PF') - spent.reduce((s, id) => s + pos(c.v(id)), 0));
+/** Relative change in the funds' domestic targets (bank bonds, deposits) when the lever shifts the
+ *  foreign target by s: −s ÷ (1 − the normal foreign share). The funds make room for more foreign
+ *  assets by holding proportionally less of the rest. */
+const domesticShift = (c: Ctx) => -c.p('pfForeignShift') / (1 - c.p('pfForeignTarget'));
+
+/** Foreign purchases toward the target share of assets, both valued at this month's exchange rate
+ *  (funds see market values), and the lever's shift of that target. */
+const foreignToTarget = (c: Ctx) => {
+  const reval = c.v('revaluationForeignAssets') * c.dt; // this month's revaluation
+  return gapRate(c.p('lamFA'), c.dt) * (c.p('pfForeignTarget') * (c.v('pensionFundAssets') + reval) - c.stock('foreignAssets', 'PF') - reval);
+};
+const foreignLever = (c: Ctx) => gapRate(c.p('lamFA'), c.dt) * c.p('pfForeignShift') * (c.v('pensionFundAssets') + c.v('revaluationForeignAssets') * c.dt);
+/** Sales that rebuild the funds' deposits when they fall below the share pfLiquidityFloorShare of
+ *  their usual share of assets, at the liquidity speed (a yearly rate). Foreign assets go first,
+ *  then bank bonds. */
+const pfSaleNeeded = (c: Ctx) => gapRate(c.p('liquiditySpeed'), c.dt) * pos(c.p('pfLiquidityFloorShare') * c.p('dPF0') * (1 + domesticShift(c)) * c.v('pensionFundAssets') - c.stock('deposits', 'PF'));
+/** When a sale is needed it overrides buying: target + lever + this term = min(target + lever, −the sale). */
+const foreignLiquidity = (c: Ctx) => {
+  const need = pfSaleNeeded(c);
+  return need > 0 ? Math.min(0, -need - foreignToTarget(c) - foreignLever(c)) : 0;
+};
+/** Foreign assets the funds hold at this month's exchange rate. Declare the stock and the
+ *  revaluation input. */
+const foreignHeld = (c: Ctx) => pos(c.stock('foreignAssets', 'PF') + c.v('revaluationForeignAssets') * c.dt);
+/** What non-residents can pay for foreign assets the funds sell them this month (a yearly rate):
+ *  the share 1 − e^(−liquiditySpeed × dt) of their króna deposits and bonds, after this month's
+ *  current account. They raise it by selling bonds to banks (external.ts, bondPurchasesW). */
+const kronurAbroad = (c: Ctx) => gapRate(c.p('liquiditySpeed'), c.dt) * pos(c.stock('deposits', 'W') + c.stock('govBonds', 'W') - c.dt * c.v('currentAccount'));
+/** The part of this month's liquidity need their foreign sales could not meet (foreign assets all
+ *  sold, or non-residents short of krónur): bank bonds cover it. Declare the foreign-purchase input. */
+const pfSaleUnmet = (c: Ctx) => pos(pfSaleNeeded(c) - pos(-c.v('foreignAssetPurchases')));
+/** Bank-bond purchases toward their usual share, and the lever's shift of that share. */
+const bankBondTarget = (c: Ctx) => gapRate(c.p('lamReb'), c.dt) * (c.p('bbSh0') * c.v('pensionFundAssets') - c.stock('bankBonds', 'PF'));
+const bankBondShift = (c: Ctx) => gapRate(c.p('lamReb'), c.dt) * c.p('bbSh0') * domesticShift(c) * c.v('pensionFundAssets');
+/** When foreign sales fall short, bank bonds run off to cover the rest; this overrides buying:
+ *  target + shift + this term = min(target + shift, −what is left). */
+const bankBondLiquidity = (c: Ctx) => {
+  const need = pfSaleUnmet(c);
+  return need > 0 ? Math.min(0, -need - bankBondTarget(c) - bankBondShift(c)) : 0;
+};
+/** Government bonds the funds can still sell this month, after the government's buyback of theirs. */
+const pfBondsToSell = (c: Ctx) => pos(c.stock('govBonds', 'PF') / c.dt + Math.min(0, c.v('bondIssuePF')));
 
 const rightsShare = (c: Ctx, who: 'HW' | 'HO') => c.stock('pensionRights', who) / (c.stock('pensionRights', 'HW') + c.stock('pensionRights', 'HO'));
 
@@ -194,49 +248,89 @@ const rules: RuleDef[] = [
     target: 'foreignAssetPurchases',
     category: 'BEHAVIOUR',
     label: 'Foreign allocation',
-    inputs: ['pensionFundAssets', 'revaluationForeignAssets'],
-    params: ['pfForeignTarget', 'pfForeignShift', 'lamFA'],
-    stocks: [['foreignAssets', 'PF']],
+    inputs: ['pensionFundAssets', 'revaluationForeignAssets', 'bondIssuePF', 'currentAccount'],
+    params: ['pfForeignTarget', 'pfForeignShift', 'lamFA', 'dPF0', 'pfLiquidityFloorShare', ...CASH_PARAMS],
+    stocks: [['foreignAssets', 'PF'], ['deposits', 'W'], ['govBonds', 'W'], ...CASH_STOCKS],
     terms: terms(
-      [
-        'target',
-        'Toward the target foreign share',
-        'funded-pensions',
-        (c) => {
-          const reval = c.v('revaluationForeignAssets') * c.dt; // this month's revaluation: funds see market values
-          return gapRate(c.p('lamFA'), c.dt) * (c.p('pfForeignTarget') * (c.v('pensionFundAssets') + reval) - c.stock('foreignAssets', 'PF') - reval);
-        },
-      ],
-      ['lever', 'Foreign-allocation lever', 'floating-exchange-rate', (c) => gapRate(c.p('lamFA'), c.dt) * c.p('pfForeignShift') * (c.v('pensionFundAssets') + c.v('revaluationForeignAssets') * c.dt)],
+      ['target', 'Toward the target foreign share', 'funded-pensions', foreignToTarget],
+      ['lever', 'Foreign-allocation lever', 'floating-exchange-rate', foreignLever],
+      ['liquidity', 'Selling to raise cash', 'funded-pensions', foreignLiquidity],
     ),
+    // Buy only with cash in hand; sell no more than they hold, nor more than non-residents have
+    // krónur to pay for.
+    combine: (t, c) => {
+      const want = t.target + t.lever + t.liquidity;
+      return want > 0 ? Math.min(want, cashAfter(c, ['bondIssuePF'])) : Math.max(want, -foreignHeld(c) / c.dt, -kronurAbroad(c));
+    },
+    regime: (c, _v, t) => {
+      const want = t.target + t.lever + t.liquidity;
+      if (want > cashAfter(c, ['bondIssuePF'])) return 'Purchases limited by cash in hand';
+      const [held, kronur] = [foreignHeld(c) / c.dt, kronurAbroad(c)];
+      if (want < -Math.min(held, kronur)) return held <= kronur ? 'Sales limited by holdings' : 'Sales limited by the krónur non-residents hold';
+      return t.liquidity < 0 ? 'Selling foreign assets to raise cash' : null;
+    },
     explain: {
       what: 'Foreign assets the funds buy (negative: sell) with krónur, a yearly rate. Buying means selling krónur to foreigners.',
-      rule: 'They close the gap between the target ({pfForeignTarget%} of assets, plus the lever) and their foreign holdings, both valued at this month’s exchange rate, at speed {lamFA} a year. A weaker króna makes the foreign share too high, so they sell some foreign assets back.',
+      rule: 'They close the gap between the target ({pfForeignTarget%} of assets, plus the lever) and their foreign holdings, both valued at this month’s exchange rate, at speed {lamFA} a year. A weaker króna makes the foreign share too high, so they sell some foreign assets back. When their deposits fall below {pfLiquidityFloorShare%} of their usual share of assets ({dPF0%}, less when the lever raises the foreign target) they stop buying and sell foreign assets to raise cash, closing that gap at speed {liquiditySpeed} a year; bank bonds cover what foreign sales cannot. They buy only with cash in hand: what is left of 1 − e^(−{liquiditySpeed} × one month) of their deposits after paying for new government bonds. They sell no more than non-residents can pay for with the same share of their krónur.',
     },
   },
   {
     id: 'bankBondPurchases',
     target: 'bankBondPurchases',
     category: 'BEHAVIOUR',
-    inputs: ['pensionFundAssets'],
-    params: ['bbSh0', 'lamReb'],
-    stocks: [['bankBonds', 'PF']],
-    compute: (c) => gapRate(c.p('lamReb'), c.dt) * (c.p('bbSh0') * c.v('pensionFundAssets') - c.stock('bankBonds', 'PF')),
+    inputs: ['pensionFundAssets', 'bondIssuePF', 'foreignAssetPurchases'],
+    params: ['bbSh0', 'lamReb', 'pfForeignShift', 'pfForeignTarget', 'dPF0', 'pfLiquidityFloorShare', ...CASH_PARAMS],
+    stocks: [['bankBonds', 'PF'], ...CASH_STOCKS],
+    terms: terms(
+      ['target', 'Toward their usual share of bank bonds', 'broad-money', bankBondTarget],
+      ['foreignShift', 'Making room for more (or fewer) foreign assets', 'funded-pensions', bankBondShift],
+      ['liquidity', 'Letting bank bonds run off to raise cash', 'funded-pensions', bankBondLiquidity],
+    ),
+    // Buy only with cash in hand; let run off no more than they hold.
+    combine: (t, c) => {
+      const want = t.target + t.foreignShift + t.liquidity;
+      return want > 0 ? Math.min(want, cashAfter(c, ['bondIssuePF', 'foreignAssetPurchases'])) : Math.max(want, -c.stock('bankBonds', 'PF') / c.dt);
+    },
+    regime: (c, _v, t) => {
+      const want = t.target + t.foreignShift + t.liquidity;
+      if (want > cashAfter(c, ['bondIssuePF', 'foreignAssetPurchases'])) return 'Purchases limited by cash in hand';
+      if (want < -c.stock('bankBonds', 'PF') / c.dt) return 'Run-off limited by holdings';
+      return t.liquidity < 0 ? 'Letting bank bonds run off to raise cash' : null;
+    },
     concepts: ['broad-money'],
-    explain: { what: 'Bank bonds the funds buy from banks (negative: let run off). Paying cancels the funds’ deposits, so broad money shrinks.', rule: 'They close the gap to {bbSh0%} of assets at speed {lamReb} a year.' },
+    explain: {
+      what: 'Bank bonds the funds buy from banks (negative: let run off). Paying cancels the funds’ deposits, so broad money shrinks.',
+      rule: 'They close the gap to {bbSh0%} of assets at speed {lamReb} a year. When the foreign-allocation lever raises the foreign target, the bank-bond target shrinks in proportion to the rest of the portfolio, so bank bonds run off to pay for foreign assets. When their deposits run low and selling foreign assets does not raise enough (they have none left, or non-residents lack the krónur to pay), they let bank bonds run off to cover the rest, at speed {liquiditySpeed} a year. They buy only with the cash in hand left after new government bonds and foreign assets.',
+    },
   },
   {
     id: 'bondPurchasesPF',
     target: 'bondPurchasesPF',
     category: 'BEHAVIOUR',
-    inputs: ['pensionFundAssets'],
-    params: ['dPF0', 'lamReb'],
-    stocks: [['deposits', 'PF']],
-    compute: (c) => gapRate(c.p('lamReb'), c.dt) * (c.stock('deposits', 'PF') - c.p('dPF0') * c.v('pensionFundAssets')),
+    inputs: ['pensionFundAssets', 'bondIssuePF', 'foreignAssetPurchases', 'bankBondPurchases', 'bondIssueB'],
+    params: ['dPF0', 'lamReb', 'pfForeignShift', 'pfForeignTarget', ...CASH_PARAMS],
+    stocks: [['govBonds', 'PF'], ['govBonds', 'B'], ...CASH_STOCKS],
+    terms: terms(
+      ['deposits', 'Deposits above their usual share', 'bond-buyers', (c) => gapRate(c.p('lamReb'), c.dt) * (c.stock('deposits', 'PF') - c.p('dPF0') * c.v('pensionFundAssets'))],
+      ['foreignShift', 'Smaller (or larger) cash buffer as foreign assets take more (or less) room', 'funded-pensions', (c) => -gapRate(c.p('lamReb'), c.dt) * c.p('dPF0') * domesticShift(c) * c.v('pensionFundAssets')],
+    ),
+    // Buy only with cash in hand and only bonds banks still hold; sell only bonds they hold after
+    // this month's buyback.
+    combine: (t, c) => {
+      const want = t.deposits + t.foreignShift;
+      if (want > 0) return Math.min(want, cashAfter(c, ['bondIssuePF', 'foreignAssetPurchases', 'bankBondPurchases']), bondsBanksCanSell(c));
+      return Math.max(want, -pfBondsToSell(c));
+    },
+    regime: (c, _v, t) => {
+      const want = t.deposits + t.foreignShift;
+      const [cash, fromBanks] = [cashAfter(c, ['bondIssuePF', 'foreignAssetPurchases', 'bankBondPurchases']), bondsBanksCanSell(c)];
+      if (want > Math.min(cash, fromBanks)) return fromBanks <= cash ? 'Limited by the bonds banks hold' : 'Purchases limited by cash in hand';
+      return want < -pfBondsToSell(c) ? 'Sales limited by holdings' : null;
+    },
     concepts: ['bond-buyers'],
     explain: {
       what: 'Government bonds the funds buy from banks when they have more deposits than they like (negative: sell bonds to raise cash).',
-      rule: 'They close the gap between their deposits and {dPF0%} of assets at speed {lamReb} a year, by trading bonds with banks.',
+      rule: 'They close the gap between their deposits and {dPF0%} of assets (less in proportion when the foreign-allocation lever raises the foreign target) at speed {lamReb} a year, by trading bonds with banks. They sell only bonds they hold, and buy only with the cash in hand left after their other purchases and only bonds banks hold.',
     },
   },
 ];
@@ -246,7 +340,7 @@ export const pensions: ModuleDef = {
   label: 'Pension funds',
   description: 'Contributions, pension rights, payouts, credited returns and retirement; the funds’ portfolio, foreign assets and the foreign-allocation lever.',
   requires: ['structure', 'labour-and-wages', 'banks', 'government', 'firms', 'mortgages', 'external'],
-  params: pickParams(ALL_PARAMS, ['payout', 'ageing', 'lamPFnw', 'lamPFinc', 'lamFA', 'lamReb', 'nwPF0', 'pfForeignTarget', 'pfForeignShift', 'bbSh0', 'dPF0', 'conTarget', 'pfAssets', 'pfForeignShare', 'pfDepShare', 'pfNWshare', 'eShareW', 'pfGovShare']),
+  params: pickParams(ALL_PARAMS, ['payout', 'ageing', 'lamPFnw', 'lamPFinc', 'lamFA', 'lamReb', 'nwPF0', 'pfForeignTarget', 'pfForeignShift', 'bbSh0', 'dPF0', 'pfLiquidityFloorShare', 'conTarget', 'pfAssets', 'pfForeignShare', 'pfDepShare', 'pfNWshare', 'eShareW', 'pfGovShare']),
   vars,
   rules,
   flows: [

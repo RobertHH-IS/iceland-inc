@@ -13,6 +13,7 @@
 import type { Ctx, Id, ModuleDef, RuleDef, TermDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
 import { EXPORTERS, FIRM_NAME, gapRate, pickParams, sum, terms, lastMonth, type Exporter } from '../util.ts';
+import { bondsBanksCanSell } from './banks.ts';
 
 /** Export lines: [key, seller, baseline volume, elasticity, what, price in foreign currency (null: krónur)]. */
 const EXPORTS = [
@@ -78,6 +79,28 @@ const X_INPUTS: Record<Exporter, string> = { XF: 'port services, transport, repa
 const mOf = (j: Exporter) => (j === 'XO' ? 'mXO' : `m${j}`);
 const volOf = (j: Exporter) => `exportVolume${EXPORTS.find((e) => e[1] === j)![0]}`;
 
+/** Non-residents' króna deposits at the end of this month before any bond trade: what Iceland's
+ *  current account and pension funds' foreign purchases add to (or take from) them. */
+const wDepositsBeforeTrade = (c: Ctx) => c.stock('deposits', 'W') + c.dt * (c.v('foreignAssetPurchases') - c.v('currentAccount'));
+/** The least they keep in deposits: the share wDepositFloorShare of their baseline deposit share
+ *  of króna holdings. */
+const wDepositFloor = (c: Ctx) => ((c.p('wDepositFloorShare') * c.p('depW')) / (c.p('depW') + c.p('bondW'))) * (wDepositsBeforeTrade(c) + c.stock('govBonds', 'W'));
+/** Bond sales that keep their deposits at that floor this month (a yearly rate). */
+const wSaleNeeded = (c: Ctx) => Math.max(0, wDepositFloor(c) - wDepositsBeforeTrade(c)) / c.dt;
+/** The carry trade: toward normal holdings, and more when Icelandic rates are high relative to abroad. */
+const wNormal = (c: Ctx) => gapRate(c.p('lamBW'), c.dt) * (c.p('bW0') * c.v('nominalGDP') - c.stock('govBonds', 'W'));
+const wCarry = (c: Ctx) => gapRate(c.p('lamBW'), c.dt) * c.p('bW0') * c.v('nominalGDP') * c.p('psiB') * (c.v('keyRate') - c.p('i0') - (c.v('foreignRate') - c.p('iF0')));
+/** When a sale is needed it overrides buying: normal + carry + this term = min(normal + carry, −the sale). */
+const wLiquidity = (c: Ctx) => {
+  const need = wSaleNeeded(c);
+  return need > 0 ? Math.min(0, -need - wNormal(c) - wCarry(c)) : 0;
+};
+/** Króna cash they can spend on bonds this month. */
+const wCash = (c: Ctx) => gapRate(c.p('liquiditySpeed'), c.dt) * Math.max(0, wDepositsBeforeTrade(c));
+/** Government bonds banks can still sell non-residents this month, after the buyback and the
+ *  purchases of pension funds and older households. */
+const wFromBanks = (c: Ctx) => Math.max(0, bondsBanksCanSell(c) - Math.max(0, c.v('bondPurchasesPF')) - Math.max(0, c.v('bondPurchasesHO')));
+
 /** Relative price factor for home-market import volumes: (real exchange rate)^−epsM. */
 const rq = (c: { v(id: string): number; p(id: string): number }) => Math.pow(Math.max(1e-6, c.v('realExchangeRate')), -c.p('epsM'));
 
@@ -120,7 +143,7 @@ export const external: ModuleDef = {
   params: pickParams(ALL_PARAMS, [
     'xFish', 'xAlu', 'xTour', 'xOther', 'eFish', 'eAlu', 'eTour', 'eOther', 'lamRer', 'muX', 'muC', 'muD', 'muI', 'muG', 'epsM',
     'betaI', 'betaH', 'lamFX', 'lamSent', 'psiB', 'lamBW', 'iF0', 'krona0', 'bW0',
-    'foreignDemandShift', 'tourismShift', 'foreignRateShift', 'worldPriceShift', 'fishPriceShift', 'aluminiumPriceShift', 'fdWeightFish', 'bondW', 'depW', 'eqW',
+    'foreignDemandShift', 'tourismShift', 'foreignRateShift', 'worldPriceShift', 'fishPriceShift', 'aluminiumPriceShift', 'fdWeightFish', 'bondW', 'depW', 'eqW', 'wDepositFloorShare',
     'gvaXF', 'gvaXA', 'gvaXT', 'gvaXO', 'mXF', 'mXA', 'mXT', 'mXO', 'dXF', 'dXA', 'dXT', 'dXO',
   ]),
   vars,
@@ -388,17 +411,35 @@ export const external: ModuleDef = {
       target: 'bondPurchasesW',
       category: 'BEHAVIOUR',
       label: 'Carry trade',
-      inputs: ['nominalGDP', 'keyRate', 'foreignRate'],
-      params: ['bW0', 'psiB', 'lamBW', 'i0', 'iF0'],
-      stocks: [['govBonds', 'W']],
+      inputs: ['nominalGDP', 'keyRate', 'foreignRate', 'currentAccount', 'foreignAssetPurchases', 'bondIssueB', 'bondPurchasesPF', 'bondPurchasesHO'],
+      params: ['bW0', 'psiB', 'lamBW', 'i0', 'iF0', 'depW', 'bondW', 'wDepositFloorShare', 'liquiditySpeed'],
+      stocks: [
+        ['govBonds', 'W'],
+        ['deposits', 'W'],
+        ['govBonds', 'B'],
+      ],
       terms: terms(
-        ['normal', 'Toward normal holdings', undefined, (c) => gapRate(c.p('lamBW'), c.dt) * (c.p('bW0') * c.v('nominalGDP') - c.stock('govBonds', 'W'))],
-        ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => gapRate(c.p('lamBW'), c.dt) * c.p('bW0') * c.v('nominalGDP') * c.p('psiB') * (c.v('keyRate') - c.p('i0') - (c.v('foreignRate') - c.p('iF0')))],
+        ['normal', 'Toward normal holdings', undefined, wNormal],
+        ['carry', 'Interest-rate gap with abroad', 'carry-trade', wCarry],
+        ['liquidity', 'Selling bonds to keep enough króna cash', 'floating-exchange-rate', wLiquidity],
       ),
+      // Buy only with króna cash in hand and only bonds banks still hold after pension funds' and
+      // older households' purchases; sell only bonds they hold.
+      combine: (t, c) => {
+        const want = t.normal + t.carry + t.liquidity;
+        return want > 0 ? Math.min(want, wCash(c), wFromBanks(c)) : Math.max(want, -c.stock('govBonds', 'W') / c.dt);
+      },
+      regime: (c, _v, t) => {
+        const want = t.normal + t.carry + t.liquidity;
+        const [cash, fromBanks] = [wCash(c), wFromBanks(c)];
+        if (want > Math.min(cash, fromBanks)) return fromBanks <= cash ? 'Limited by the bonds banks hold' : 'Purchases limited by cash in hand';
+        if (want < -c.stock('govBonds', 'W') / c.dt) return 'Sales limited by holdings';
+        return t.liquidity < 0 ? 'Selling bonds to keep enough króna cash' : null;
+      },
       concepts: ['carry-trade'],
       explain: {
         what: 'Government bonds non-residents buy from banks (negative: sell), paying with their króna deposits.',
-        rule: 'They want bonds worth {bW0} of GDP × (1 + {psiB} × the rate gap with abroad relative to normal), and close the gap to their holdings at speed {lamBW} a year.',
+        rule: 'They want bonds worth {bW0} of GDP × (1 + {psiB} × the rate gap with abroad relative to normal), and close the gap to their holdings at speed {lamBW} a year. They also keep at least {wDepositFloorShare%} of their usual share of króna holdings in deposits ({wDepositFloorShare%} of {depW} ÷ ({depW} + {bondW})): when this month’s payments for exports, income and pension funds’ foreign sales would take their deposits below that, they sell enough bonds to banks to cover it. They buy only with deposits they have (at most 1 − e^(−{liquiditySpeed} × one month) of them) and only bonds banks hold, and sell only bonds they hold.',
       },
     },
     {

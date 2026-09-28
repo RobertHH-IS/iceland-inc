@@ -10,6 +10,7 @@ import { icelandModel } from '../../src/models/iceland/index.ts';
 import { ALL_PARAMS, BASE } from '../../src/models/iceland/steady.ts';
 import { concepts } from '../../src/concepts/library.ts';
 import { withConcepts } from '../../src/models/index.ts';
+import { resetsWhenSetting, snapToStep } from '../../src/ui/model/levers.ts';
 
 const model = compile(withConcepts(icelandModel));
 
@@ -21,7 +22,7 @@ const V1_LEVERS = [
   'lendingAppetite', 'pfForeign', 'migration', 'foreignDemand', 'tourism', 'kronaShock', 'foreignRate', 'importPrices',
 ];
 const SECTOR_LEVERS = ['fishPrices', 'aluminiumPrice'];
-const STABILISER_LEVERS = ['stabilisers'];
+const STABILISER_LEVERS = ['stabilisers', 'incomeTaxOffset'];
 const V1_SERIES = [
   'output', 'consumption', 'investment', 'unemployment', 'unemploymentY', 'unemploymentW', 'unemploymentO', 'realWage', 'profitsFD', 'profitsFX',
   'inflation', 'priceLevel', 'expInflation', 'keyRate', 'mortgageRate', 'broadMoney', 'creditImpulse', 'creditImpulseTotal', 'netMortgage',
@@ -62,22 +63,51 @@ describe('Iceland model: structure', () => {
     }
   });
 
-  test('v1’s levers with the same ids (less its two rule switches), the fish- and aluminium-price levers and the stabiliser setting; a precise definition each', () => {
+  test('v1’s levers with the same ids (less its two rule switches), the fish- and aluminium-price levers, the stabiliser setting and the income-tax offset; a precise definition each', () => {
     expect(model.levers.map((l) => l.id).sort()).toEqual([...V1_LEVERS, ...SECTOR_LEVERS, ...STABILISER_LEVERS].sort());
     for (const l of model.levers) expect(l.definition.length).toBeGreaterThan(40);
   });
 
-  test('two stabilisers, the key-rate levers shown one mode at a time, Manual by default', () => {
+  test('two stabilisers, their levers and offsets shown one mode at a time, Manual by default', () => {
     expect(model.stabilisers.map((s) => [s.id, s.lever, s.offset ?? s.lever, s.suggestion])).toEqual([
       ['keyRateRule', 'keyRateFixed', 'keyRateAddon', 'keyRateSuggestion'],
-      ['debtRule', 'incomeTax', 'incomeTax', 'taxRuleSuggestion'],
+      ['debtRule', 'incomeTax', 'incomeTaxOffset', 'taxRuleSuggestion'],
     ]);
     expect(model.stabiliserMode).toEqual({ lever: 'stabilisers', manual: 0, automatic: 1 });
     const lever = (id: string) => model.levers.find((l) => l.id === id)!;
     expect(lever('stabilisers').default).toBe(0);
     expect(lever('keyRateFixed').showWhen).toEqual({ lever: 'stabilisers', equals: 0 });
     expect(lever('keyRateAddon').showWhen).toEqual({ lever: 'stabilisers', equals: 1 });
-    expect(lever('incomeTax').showWhen).toBeUndefined();
+    expect(lever('incomeTax').showWhen).toEqual({ lever: 'stabilisers', equals: 0 });
+    expect(lever('incomeTaxOffset').showWhen).toEqual({ lever: 'stabilisers', equals: 1 });
+  });
+
+  test('the debt rule is counted once: after “Apply” on Manual, switching to Automatic (with the lever panel’s resets) moves the tax rate only by the rule’s drift that month (audit M8)', () => {
+    const e = createEngine(model, { dev: false });
+    e.setLever('otherServices', 3); // debt builds up, so the rule calls for a higher tax
+    e.step(48);
+    const rule = e.stabilisers().find((s) => s.id === 'debtRule')!;
+    expect(rule.calling).toBe(true);
+    const info = model.levers.map((l, index) => ({ ...l, index }));
+    const applied = snapToStep(info.find((l) => l.id === 'incomeTax')!, rule.suggested);
+    e.setLever('incomeTax', applied); // Apply
+    e.step(1);
+    const manual = e.value('taxRate');
+    const adjustment = e.value('taxRuleAdjustment');
+    const values = info.map((l) => e.leverValue(l.id));
+    for (const r of resetsWhenSetting(info, values, 'stabilisers', 1)) e.setLever(r.id, r.value);
+    e.setLever('stabilisers', 1);
+    expect(e.leverValue('incomeTax')).toBe(0);
+    e.step(1);
+    const tau0 = e.influences('taxRate').params.find((p) => p.id === 'tau0')!.value;
+    // Automatic: the baseline rate plus the rule's adjustment, and nothing from the Manual lever.
+    expect(e.value('taxRate')).toBeCloseTo(tau0 + e.value('taxRuleAdjustment'), 15);
+    // So the rate moves only by the half-point rounding of "Apply" and the rule's drift that month,
+    // not by the whole adjustment a second time.
+    const drift = Math.abs(e.value('taxRuleAdjustment') - adjustment);
+    expect(Math.abs(e.value('taxRate') - manual)).toBeLessThanOrEqual(Math.abs(applied / 100 - adjustment) + drift + 1e-12);
+    expect(Math.abs(applied / 100 - adjustment)).toBeLessThanOrEqual(0.0025 + 1e-12);
+    expect(Math.abs(e.value('taxRate') - manual)).toBeLessThan(adjustment / 2);
   });
 
   test('v1’s 34 charts, with the same ids, in four tabs, plus 17 charts by firm sector in a fifth', () => {

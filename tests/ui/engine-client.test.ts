@@ -186,7 +186,7 @@ describe('engine client: stabilisers (decision 0004)', () => {
   test('on Automatic the rules act and nothing calls', () => {
     const c = createEngineClient(createEngine(ibase.model, { baseline: ibase.baselineData }));
     c.setLever('stabilisers', 1);
-    c.setLever('incomeTax', 1);
+    c.setLever('incomeTaxOffset', 1); // on Automatic the income-tax lever is the offset to the debt rule
     c.pause();
     c.step(24);
     const f = c.getFrame();

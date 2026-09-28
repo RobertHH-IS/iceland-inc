@@ -348,13 +348,20 @@ P('lamReb', 0.5, 'per year', 'BEHAVIOUR', 'Portfolio rebalancing speed of pensio
 P('lamPFnw', 0.3, 'per year', 'BEHAVIOUR', 'How fast pension-fund gains or losses are credited to members.', assumed());
 P('lamPFinc', 1, 'per year', 'BEHAVIOUR', 'Smoothing of the fund income credited to members.', assumed());
 
+/* ------------------------------------------------ liquidity: nobody pays with money they do not have */
+const liq = 'New in the port (audit H1): keeps balance sheets possible far from the baseline; it never binds at the baseline.';
+P('liquiditySpeed', 12, 'per year', 'BEHAVIOUR', 'How fast pension funds, households and non-residents can draw down their deposits to buy assets, or households to spend beyond their income: at 12 a year, at most 63% of their deposits in a month.', assumed(liq));
+P('pfLiquidityFloorShare', 0.5, 'fraction', 'BEHAVIOUR', 'Share of their usual deposit holdings below which pension funds sell foreign assets, then bank bonds, to raise cash.', assumed(liq));
+P('wDepositFloorShare', 0.5, 'fraction', 'BEHAVIOUR', 'Share of their usual deposit share of króna holdings below which non-residents sell government bonds to raise króna cash.', assumed(liq));
+P('hoBondCashShare', 0.5, 'fraction', 'BEHAVIOUR', 'Share of older households’ spendable deposits set aside for buying bonds; the rest is for spending.', assumed(liq));
+
 /* ------------------------------------------------ government financing */
 P('treasuryTopUp', 12, 'per year', 'POLICY', 'How fast bond sales restore the treasury account to its target (12: within about a month, as in v1).', assumed('v1 closed the gap every month.'));
 P('bondMixBankShare', 0.4, 'fraction', 'POLICY', 'Banks’ share of new government bonds in the default mix; pension funds buy the rest.', assumed('v1 default: 40% banks, 60% pension funds.'));
 
 /* ------------------------------------------------ lever settings (baseline 0) */
 const lev = (note: string): Provenance => ({ basis: 'assumed', note: `Zero at baseline; ${note}` });
-P('incomeTaxShift', 0, 'fraction', 'POLICY', 'Your change in the income-tax rate (the income-tax lever). With stabilisers on Automatic, the debt rule’s adjustment is added on top.', lev('set by the income-tax lever.'));
+P('incomeTaxShift', 0, 'fraction', 'POLICY', 'Your change in the income-tax rate (the income-tax lever, Manual only). On Automatic the rate is the baseline plus the debt rule’s adjustment plus your offset (incomeTaxOffset).', lev('set by the income-tax lever.'));
 P('vatShift', 0, 'fraction', 'POLICY', 'Change in the effective VAT rate (the VAT lever).', lev('set by the VAT lever.'));
 P('rrShift', 0, 'fraction', 'POLICY', 'Change in the unemployment-benefit replacement rate (the lever).', lev('set by the unemployment-benefit lever.'));
 P('dstiShift', 0, 'fraction', 'POLICY', 'Shift of both debt-service caps (the debt-service-cap lever).', lev('set by the debt-service-cap lever.'));

@@ -13,7 +13,8 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth, automatic, STABILISERS } from '../util.ts';
+import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth, automatic, AUTOMATIC, MANUAL, STABILISERS } from '../util.ts';
+import { cashToSpend } from './banks.ts';
 
 type Channel = { id: string; label: string; level: Id; share: Id; lever: string; channel: string; what: string };
 const CHANNELS: Channel[] = [
@@ -126,12 +127,26 @@ const BUYERS = [
   ['HO', 'older households', 4],
 ] as const;
 
+type Buyer = (typeof BUYERS)[number][0];
 /** Share of new bonds each buyer takes, by the bond-buyer lever (0 mix, 1 banks, 2 CB, 3 PF, 4 older households). */
-function buyerShare(c: Ctx, who: 'B' | 'CB' | 'PF' | 'HO'): number {
+function buyerShare(c: Ctx, who: Buyer): number {
   const choice = Math.min(4, Math.max(0, Math.round(c.lever('bondBuyers'))));
   if (choice === 0) return who === 'B' ? c.p('bondMixBankShare') : who === 'PF' ? 1 - c.p('bondMixBankShare') : 0;
   return BUYERS.find(([k]) => k === who)![2] === choice ? 1 : 0;
 }
+/** Nominal government bonds the government can buy back: all but non-residents', who trade theirs
+ *  with banks. Indexed bonds are never redeemed here. */
+const bondsHeld = (c: Ctx) => BUYERS.reduce((s, [h]) => s + c.stock('govBonds', h), 0);
+const BOND_STOCKS = BUYERS.map(([h]): [Id, Id] => ['govBonds', h]);
+/** A holder's share of a buyback: in proportion to what it holds at the start of the month. */
+const buybackShare = (c: Ctx, h: Buyer) => {
+  const all = bondsHeld(c);
+  return all > 0 ? c.stock('govBonds', h) / all : 0;
+};
+/** New bonds a pension fund or older household can pay for this month: pension funds may use their
+ *  cash in hand (bondPurchasesPF and their other purchases take what is left), older households
+ *  the share hoBondCashShare of it (the rest is for their spending, households.ts). */
+const buyerCash = (c: Ctx, h: 'PF' | 'HO') => (h === 'PF' ? 1 : c.p('hoBondCashShare')) * cashToSpend(c, h);
 
 const TAXES_H = AGES.map((g) => `incomeTax${g}`);
 const SPEND: Id[] = CHANNELS.map((ch) => `spending${ch.id[0].toUpperCase()}${ch.id.slice(1)}`);
@@ -276,13 +291,18 @@ const rules: RuleDef[] = [
     target: 'debtRatio',
     category: 'IDENTITY',
     lagInputs: ['nominalGDP'],
+    params: ['tga'],
     stocks: [
       ['govBonds', 'G'],
       ['indexedBonds', 'G'],
+      ['treasuryAccount', 'G'],
     ],
-    compute: (c) => (c.stock('govBonds', 'G') + c.stock('indexedBonds', 'G')) / lastMonth(c, 'nominalGDP'),
+    compute: (c) => (c.stock('govBonds', 'G') + c.stock('indexedBonds', 'G') - (c.stock('treasuryAccount', 'G') - c.p('tga'))) / lastMonth(c, 'nominalGDP'),
     concepts: ['fiscal-rule'],
-    explain: { what: 'Government debt as a share of a year’s GDP (as a ratio: 0.567 is 56.7%).', rule: 'Debt ratio = (nominal + indexed bonds at the start of the month) ÷ last month’s annual GDP.' },
+    explain: {
+      what: 'Government debt as a share of a year’s GDP (as a ratio: 0.567 is 56.7%), net of any cash the treasury holds above its usual balance.',
+      rule: 'Debt ratio = (nominal + indexed bonds − treasury account above its target {tga}% of GDP, at the start of the month) ÷ last month’s annual GDP. The treasury account is normally at its target; it rises above it only once every bond that can be bought back has been.',
+    },
   },
   {
     id: 'taxRuleAdjustment',
@@ -297,7 +317,7 @@ const rules: RuleDef[] = [
     regime: (c) => (automatic(c) ? null : 'Suggestion only (Manual)'),
     concepts: ['fiscal-rule'],
     explain: {
-      what: 'How far the debt rule would move the income-tax rate: added to the rate when stabilisers are Automatic, only suggested on the income-tax lever when they are Manual.',
+      what: 'How far the debt rule would move the income-tax rate: added to the rate (with your offset) when stabilisers are Automatic, only suggested on the income-tax lever when they are Manual.',
       rule: 'Moves toward {phiTau} × (debt ratio − {debtR0}) at speed {lamTau} a year, in both modes. Ten points more debt eventually means about 2.5 points more tax.',
     },
   },
@@ -318,17 +338,21 @@ const rules: RuleDef[] = [
     id: 'taxRate',
     target: 'taxRate',
     category: 'POLICY',
+    label: 'Income-tax rate: yours, or the rule’s plus your offset',
     inputs: ['taxRuleAdjustment'],
     params: ['tau0', 'incomeTaxShift'],
-    levers: [STABILISERS],
+    levers: [STABILISERS, 'incomeTaxOffset'],
+    // Each mode reads its own lever, as the key rate does: the engine applies a hidden lever's
+    // value, so a shift set with "Apply" on Manual must not also count as an offset on Automatic.
     terms: terms(
       ['normal', 'Baseline rate', undefined, (c) => c.p('tau0')],
-      ['lever', 'Income-tax lever', undefined, (c) => c.p('incomeTaxShift')],
+      ['lever', 'The shift you set (Manual)', undefined, (c) => (automatic(c) ? 0 : c.p('incomeTaxShift'))],
+      ['offset', 'Your offset to the rule (Automatic)', undefined, (c) => (automatic(c) ? c.lever('incomeTaxOffset') / 100 : 0)],
       ['debtRule', 'Debt rule (Automatic)', 'fiscal-rule', (c) => (automatic(c) ? c.v('taxRuleAdjustment') : 0)],
     ),
     explain: {
       what: 'The average tax rate on wages, benefits and pensions. At {tau0%} it also stands in for property taxes, other taxes on households and non-tax revenue.',
-      rule: 'Rate = {tau0%} + your income-tax lever. With stabilisers on Automatic, the debt rule’s adjustment is added as well; on Manual it is not, and the rate stays where you set it.',
+      rule: 'Who sets it depends on the Stabilisers setting. Manual (the default): rate = {tau0%} + the income-tax lever, and it stays where you set it; the debt rule only suggests a value beside the lever. Automatic: rate = {tau0%} + the debt rule’s adjustment + your offset lever.',
     },
   },
   ...AGES.map(
@@ -434,33 +458,55 @@ const rules: RuleDef[] = [
     category: 'POLICY',
     inputs: ['deficit'],
     params: ['tga', 'treasuryTopUp'],
-    stocks: [['treasuryAccount', 'G']],
+    stocks: [['treasuryAccount', 'G'], ...BOND_STOCKS],
     terms: terms(
       ['deficit', 'Deficit to finance', 'deficits-and-money', (c) => c.v('deficit')],
       ['topUp', 'Refill the treasury account', 'reserves-and-payments', (c) => c.p('treasuryTopUp') * (c.p('tga') - c.stock('treasuryAccount', 'G'))],
     ),
+    // The government cannot buy back more bonds than there are: a surplus beyond that stays in
+    // its treasury account (and is spent down first when a deficit returns).
+    combine: (t, c) => Math.max(-bondsHeld(c) / c.dt, t.deficit + t.topUp),
+    regime: (c, _v, t) => (t.deficit + t.topUp < -bondsHeld(c) / c.dt ? 'Buyback limited by holdings: the surplus stays in the treasury account' : null),
     concepts: ['deficits-and-money'],
     explain: {
       what: 'New government bonds sold this month (a yearly rate; negative means buying bonds back).',
-      rule: 'Bonds sold = the cash deficit + {treasuryTopUp} × a year of any shortfall of the treasury account below {tga}% of GDP, so the account stays at its target.',
+      rule: 'Bonds sold = the cash deficit + {treasuryTopUp} × a year of any shortfall of the treasury account below {tga}% of GDP, so the account stays at its target. The government never buys back more than the bonds banks, the central bank, pension funds and older households hold; once they are all repaid, a surplus builds up in the treasury account.',
     },
   },
-  ...BUYERS.map(
-    ([h, who]): RuleDef => ({
+  ...BUYERS.map(([h, who]): RuleDef => {
+    const nonBank = h === 'PF' || h === 'HO';
+    const sale = (c: Ctx) => Math.max(0, c.v('bondIssue')) * buyerShare(c, h);
+    const buyback = (c: Ctx) => Math.min(0, c.v('bondIssue')) * buybackShare(c, h);
+    // What pension funds and older households were due to buy but could not pay for.
+    const overflow = (c: Ctx, k: 'PF' | 'HO') => Math.max(0, c.v('bondIssue')) * buyerShare(c, k) - Math.max(0, c.v(`bondIssue${k}`));
+    return {
       id: `bondIssue${h}`,
       target: `bondIssue${h}`,
       category: 'POLICY',
-      inputs: ['bondIssue'],
-      params: ['bondMixBankShare'],
+      inputs: ['bondIssue', ...(h === 'B' ? ['bondIssuePF', 'bondIssueHO'] : [])],
+      params: ['bondMixBankShare', ...(nonBank ? ['liquiditySpeed'] : []), ...(h === 'HO' ? ['hoBondCashShare'] : [])],
       levers: ['bondBuyers'],
-      compute: (c) => buyerShare(c, h) * c.v('bondIssue'),
+      stocks: [...BOND_STOCKS, ...(nonBank ? [['deposits', h] as [Id, Id]] : [])],
+      terms: terms(
+        ['sale', 'Their share of new bonds (bond-buyer lever)', 'bond-buyers', sale],
+        ...(h === 'B' ? ([['overflow', 'New bonds other buyers could not pay for', 'endogenous-money', (c: Ctx) => overflow(c, 'PF') + overflow(c, 'HO')]] as [string, string, string, (c: Ctx) => number][]) : []),
+        ['buyback', 'Bonds bought back, in proportion to holdings', 'deficits-and-money', buyback],
+      ),
+      ...(nonBank
+        ? {
+            combine: (t: Record<Id, number>, c: Ctx) => Math.min(t.sale, buyerCash(c, h)) + t.buyback,
+            regime: (c: Ctx, _v: number, t: Record<Id, number>) => (t.sale > buyerCash(c, h) ? 'Limited by cash in hand: banks take the rest' : null),
+          }
+        : {}),
       concepts: ['bond-buyers', h === 'B' || h === 'CB' ? 'endogenous-money' : 'deficits-and-money'],
       explain: {
-        what: `New government bonds bought by ${who}. ${h === 'B' || h === 'CB' ? 'They pay with newly created money.' : 'They pay with deposits that already exist.'}`,
-        rule: 'Their share of new bonds under the bond-buyer lever: mix ({bondMixBankShare%} banks, the rest pension funds), or all to banks, the central bank, pension funds or older households.',
+        what: `New government bonds bought by ${who} (negative: bonds the government buys back from them). ${h === 'B' || h === 'CB' ? 'They pay with newly created money.' : 'They pay with deposits that already exist.'}`,
+        rule: `Their share of new bonds under the bond-buyer lever: mix ({bondMixBankShare%} banks, the rest pension funds), or all to banks, the central bank, pension funds or older households.${
+          nonBank ? ` They buy only what they can pay for from their deposits this month (${h === 'PF' ? 'at most' : '{hoBondCashShare%} of'} 1 − e^(−{liquiditySpeed} × one month) of them); banks take the rest.` : h === 'B' ? ' Banks also take whatever pension funds or older households cannot pay for.' : ''
+        } When the government buys bonds back, it buys from every holder in proportion to what they hold.`,
       },
-    }),
-  ),
+    };
+  }),
   {
     id: 'govBalance',
     target: 'govBalance',
@@ -639,7 +685,27 @@ export const government: ModuleDef = {
     },
   ],
   levers: [
-    leverFor('incomeTax', 'Income-tax rate', 'incomeTaxShift', 'pp', -10, 10, 0.5, 'Changes the average tax rate on wages, benefits and pensions.', 'Level shift in the income-tax rate, in percentage points from its baseline, applied in the month it is set and persistent while set. Stabilisers on Manual: this is the whole change, and the debt rule only suggests a value beside the lever. On Automatic: the debt rule’s adjustment is added on top, leaning against the change in debt. Setting it back to 0 removes your shift.', ['automatic-stabilisers'], 0.01),
+    {
+      ...leverFor('incomeTax', 'Income-tax rate', 'incomeTaxShift', 'pp', -10, 10, 0.5, 'Changes the average tax rate on wages, benefits and pensions, held where you set it. The debt rule only suggests a value beside the lever.', 'Level shift in the income-tax rate, in percentage points from its baseline, applied in the month it is set and held there until you change it (stabilisers on Manual). This is the whole change: the debt rule only suggests a value beside the lever. Setting it back to 0 removes your shift. It has no effect while stabilisers are Automatic, when the debt rule and your offset set the rate.', ['automatic-stabilisers'], 0.01),
+      showWhen: { lever: STABILISERS, equals: MANUAL },
+    },
+    {
+      id: 'incomeTaxOffset',
+      label: 'Income tax: your offset to the rule',
+      group: 'Policy',
+      section: 'Government',
+      kind: 'setting',
+      unit: 'pp',
+      default: 0,
+      min: -10,
+      max: 10,
+      step: 0.5,
+      showWhen: { lever: STABILISERS, equals: AUTOMATIC },
+      description: 'Sets the income-tax rate this many points above (or below) where the debt rule puts it.',
+      definition:
+        'Level shift in the income-tax rate, in percentage points on top of the baseline rate and the debt rule’s adjustment, applied in the month it is set and persistent while set (stabilisers on Automatic). The debt rule keeps leaning against government debt underneath it. Setting it back to 0 leaves the rate to the rule. It has no effect while stabilisers are Manual.',
+      concepts: ['automatic-stabilisers', 'fiscal-rule'],
+    },
     leverFor('vat', 'VAT rate', 'vatShift', 'pp', -10, 10, 0.5, 'Changes the effective VAT rate on consumer spending; prices move at once.', 'Level shift in the effective VAT rate, in percentage points, applied at once and persistent while set. Consumer prices jump with it and indexed debts are revalued. Setting it back to 0 removes the shift (prices drop back).', ['cost-pass-through'], 0.01),
     leverFor('health', 'Health spending', 'gHealth', '% of GDP', -3, 3, 0.1, 'Real change in public health spending: staff pay and purchases.', 'Level shift in real health spending, % of baseline GDP a year, split between staff and purchases as at baseline; persistent while set. Nominal spending also rises with wages and prices. Setting it back to 0 returns spending to baseline; the debt built up meanwhile remains.', ['multiplier']),
     leverFor('education', 'Education spending', 'gEdu', '% of GDP', -3, 3, 0.1, 'Real change in public education spending.', 'Level shift in real education spending, % of baseline GDP a year, persistent while set, split between staff and purchases as at baseline. Setting it back to 0 returns spending to baseline.', ['multiplier']),
@@ -668,7 +734,7 @@ export const government: ModuleDef = {
       ],
       description: 'Banks and the central bank pay with newly created money; pension funds and households pay with existing deposits.',
       definition:
-        'Choice, persistent while set: every new bond sold (or bought back) from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares.',
+        'Choice, persistent while set: every new bond sold from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Pension funds and older households buy only what their deposits can pay for that month; banks take the rest. When the budget is in surplus the government buys bonds back from every holder in proportion to what they hold, whatever the choice. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares.',
       concepts: ['bond-buyers', 'deficits-and-money', 'endogenous-money'],
     },
   ],
@@ -677,12 +743,13 @@ export const government: ModuleDef = {
       id: 'debtRule',
       label: 'Debt rule on income tax',
       lever: 'incomeTax',
+      offset: 'incomeTaxOffset',
       suggestion: 'taxRuleSuggestion',
       shadow: ['taxRuleAdjustment'],
       // Half the lever's half-point step: it calls exactly when "Apply" would move the lever.
       threshold: 0.25,
       description:
-        'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually. On Automatic it is added to the income-tax rate on top of your lever; on Manual it suggests a value for the lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step.',
+        'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually. On Automatic it sets the income-tax rate, and your offset lever adds to or subtracts from it; on Manual it suggests a value for the income-tax lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step.',
       concepts: ['fiscal-rule'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'incomeTaxRate' },
     },
@@ -720,6 +787,61 @@ export const government: ModuleDef = {
           out.push(`${who} +${gain(who).toFixed(3)}`);
         }
         return { pass, detail: `after one month of spending +1% of GDP, the chosen buyer's bonds: ${out.join(', ')}` };
+      },
+    },
+    {
+      id: 'buyback-by-holdings',
+      label: 'In a surplus the government buys bonds back from every holder in proportion to its holdings, never more than there are; the rest of the surplus stays in the treasury account',
+      run: (e) => {
+        const ke = e as unknown as { stock(i: string, p: string): number };
+        e.setLever('bondBuyers', 2); // the central bank buys new bonds, but buybacks come from everyone
+        e.setLever('incomeTax', 10);
+        const held = BUYERS.map(([h]) => ke.stock('govBonds', h)); // at the start of the month
+        e.step(1);
+        const all = held.reduce((a, b) => a + b, 0);
+        const shares = BUYERS.map(([h], k) => Math.abs(e.value(`bondIssue${h}`) / e.value('bondIssue') - held[k] / all));
+        let lowest = Infinity,
+          capped = 0;
+        for (let t = 1; t < 240; t++) {
+          e.step(1);
+          lowest = Math.min(lowest, ...HOLDERS.map(([h]) => ke.stock('govBonds', h)));
+          if (e.influences('bondIssue').regime) capped++;
+        }
+        const tga = ke.stock('treasuryAccount', 'G');
+        return {
+          pass: Math.max(...shares) < 1e-12 && lowest >= -1e-9 && ke.stock('govBonds', 'G') >= -1e-9 && capped > 0 && tga > 5,
+          detail: `buyback shares differ from holding shares by at most ${Math.max(...shares).toExponential(1)}; lowest holding ${lowest.toExponential(2)}; buyback capped for ${capped} months; treasury account ${tga.toFixed(2)}% of GDP`,
+        };
+      },
+    },
+    {
+      id: 'non-bank-buyers-pay-with-cash-they-have',
+      label: 'When pension funds or older households are the sole buyers of a very large deficit, they buy only what their deposits pay for and banks take the rest',
+      run: (e) => {
+        const ke = e as unknown as { stock(i: string, p: string): number };
+        const out: string[] = [];
+        let pass = true;
+        for (const [choice, who] of [
+          [3, 'PF'],
+          [4, 'HO'],
+        ] as const) {
+          const f = e.fork() as unknown as typeof e & typeof ke;
+          f.setLever('bondBuyers', choice);
+          // A deficit of about 16% of GDP in the first year, growing. Without the tax cut (about 9%)
+          // pension funds pay for all of it for 20 years by selling foreign assets and bank bonds.
+          for (const l of ['health', 'education', 'otherServices', 'publicInvestment']) f.setLever(l, 3);
+          f.setLever('incomeTax', -10);
+          let lowest = Infinity,
+            banksTook = 0;
+          for (let t = 0; t < 240; t++) {
+            f.step(1);
+            lowest = Math.min(lowest, f.stock('deposits', who));
+            if (f.value('bondIssueB') > 0) banksTook++;
+          }
+          pass &&= lowest >= 0 && banksTook > 0;
+          out.push(`${who}: lowest deposits ${lowest.toFixed(3)}, banks took the rest in ${banksTook} months`);
+        }
+        return { pass, detail: out.join('; ') };
       },
     },
     {
