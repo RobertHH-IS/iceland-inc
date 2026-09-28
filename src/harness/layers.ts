@@ -6,16 +6,18 @@
  *   3. accounting       the four checks across every scenario the harness runs
  *   4. baseline         240 months without a shock: drift of every variable and stock
  *   5. calibration      the model's CalibrationChecks, PASS/FAIL against their ranges
- *   6. robustness       property tests, half-step and tolerance sensitivity, determinism,
- *                       golden scenarios
+ *   6. robustness       property tests, lever extremes, half-step and tolerance sensitivity,
+ *                       determinism, golden scenarios
  */
-import type { ModelDef, RunResult, ScenarioEvent } from '../core/types.ts';
+import type { CalibrationCheck, ModelDef, RunResult, ScenarioEvent } from '../core/types.ts';
 import { compile, CompileError, type KModel } from '../core/compile.ts';
 import { createEngine, type KernelEngine } from '../core/engine.ts';
 import { runScenario } from '../core/scenario.ts';
 import { CHECKS, DEFAULT_TOLERANCE } from '../core/checks.ts';
 import { baselineReport, type BaselineReport } from '../core/steady.ts';
-import { compareGolden, readGolden, writeGolden, GOLDEN_ABS, GOLDEN_REL, type GoldenFile } from './golden.ts';
+import { compareGolden, nonFiniteValues, readGolden, writeGolden, GOLDEN_ABS, GOLDEN_REL, type GoldenFile } from './golden.ts';
+import { firstNonFinite, plausibilityBounds, plausibilityBreaches, SIGN_TOL, type Breach, type Severity } from './plausibility.ts';
+import { allLeversScenarios, leverExtremeRuns, timingShock, type HarnessScenario } from './scenarios.ts';
 import { rng } from './rng.ts';
 
 export interface HarnessOptions {
@@ -24,6 +26,13 @@ export interface HarnessOptions {
   propertyRuns: number;
   propertyMonths: number;
   seed: number;
+  /** Months of each lever-extremes run. */
+  extremeMonths: number;
+  /** Whether implausible values (unemployment outside [0, 50%], a price index at or below zero…)
+   *  in the property and lever-extremes runs fail the robustness layer or are only reported. */
+  plausibility: Severity;
+  /** The same for positions with the wrong sign for their role (a holder's overdraft). */
+  signs: Severity;
 }
 
 export interface LayerResult {
@@ -42,20 +51,51 @@ export interface HarnessResult {
   pass: boolean;
   layers: LayerResult[];
   microsPerStep: number;
+  /** What the step timing ran: the shock, how many fresh runs of how many months, and the most
+   *  solver iterations in a month (above 1 shows the shock kept the simultaneous block working). */
+  timing?: { shock: string; runs: number; months: number; maxIterations: number };
   baseline?: BaselineReport;
   model?: KModel;
 }
 
 export const DRIFT_TOL = 1e-9;
-export const HALF_STEP_TOL = 0.2; // relative change of each calibration measure
+export const HALF_STEP_TOL = 0.1; // relative change of each continuous calibration measure
 /** For a measure near zero a relative change means little, so the change may also be as large as
  *  HALF_STEP_TOL × HALF_STEP_BAND of the width of the check's range (when both ends are finite). */
 export const HALF_STEP_BAND = 0.5;
+/** A timing measure (CalibrationCheck.kind 'timing', in whole quarters) may move by one quarter. */
+export const HALF_STEP_TIMING_TOL = 1;
 export const SOLVER_TOL_TOL = 1e-6; // indicator change when the solver tolerance is loosened
 
 const e2 = (x: number) => (Number.isFinite(x) ? x.toExponential(2) : String(x));
 const f = (x: number, d = 3) => (Number.isFinite(x) ? x.toFixed(d) : String(x));
 const verdict = (ok: boolean) => (ok ? 'PASS' : 'FAIL');
+
+/**
+ * How far a calibration measure moved when the time step was halved, as a share of what is
+ * allowed (at most 1 passes; NaN fails). A timing measure may move by HALF_STEP_TIMING_TOL
+ * quarters; any other by HALF_STEP_TOL of its value, or of HALF_STEP_BAND × the width of its
+ * range when that is larger (a measure near zero).
+ */
+export function halfStepShare(c: CalibrationCheck, v: number, vh: number): number {
+  if (c.kind === 'timing') return Math.abs(vh - v) / HALF_STEP_TIMING_TOL;
+  const width = Number.isFinite(c.range[0]) && Number.isFinite(c.range[1]) ? c.range[1] - c.range[0] : 0;
+  return Math.abs(vh - v) / Math.max(Math.abs(v), HALF_STEP_BAND * width, 1e-9) / HALF_STEP_TOL;
+}
+
+/**
+ * Make every fork of `e`, and every fork of those, land in `kids`, so the accounting layer can
+ * check runs a module test makes on forks. Track them after the test: it keeps stepping them.
+ */
+function collectForks(e: KernelEngine, kids: KernelEngine[]): KernelEngine {
+  const fork = e.fork.bind(e);
+  e.fork = (o) => {
+    const c = fork(o);
+    kids.push(c);
+    return collectForks(c, kids);
+  };
+  return e;
+}
 
 interface Tracked {
   name: string;
@@ -129,7 +169,8 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
         n++;
         let pass = false,
           detail = '';
-        const fresh = createEngine(m, { baseline: engine.baselineData });
+        const kids: KernelEngine[] = [];
+        const fresh = collectForks(createEngine(m, { baseline: engine.baselineData }), kids);
         try {
           const r = t.run(fresh);
           pass = r.pass;
@@ -139,6 +180,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
         }
         if (pass) ok++;
         track(`module test ${mod.id}/${t.id}`, fresh);
+        kids.forEach((c, i) => track(`module test ${mod.id}/${t.id}, fork ${i + 1}`, c));
         rows.push(`| ${mod.id} | ${t.label} | ${verdict(pass)} | ${detail.replace(/\|/g, '/')} |`);
       }
     layers.push({
@@ -205,12 +247,15 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   {
     const rows: string[] = [];
     let ok = 0;
+    // A measure may run a comparison scenario on its run's engine (runScenario keeps the engine's
+    // options); the harness cannot track that run, so a failed check in it throws instead.
+    const calEngine = createEngine(m, { baseline: engine.baselineData, onCheckFailure: 'throw' });
     for (const c of calib) {
       let v = NaN,
         pass = false,
         note = '';
       try {
-        const r = run(`calibration ${c.id}`, c.scenario, c.months);
+        const r = run(`calibration ${c.id}`, c.scenario, c.months, calEngine);
         v = c.measure(r);
         pass = v >= c.range[0] && v <= c.range[1];
       } catch (e) {
@@ -234,11 +279,29 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   let pass6 = true;
   const sum6: string[] = [];
   const levers = m.levers;
+  // What every property and lever-extremes run must satisfy (a failure) and should (a breach,
+  // which fails only when its severity option says so).
+  const bounds = plausibilityBounds(m);
+  let worstRes = 0;
+  const inspect = (name: string, events: ScenarioEvent[], months: number): { why: string; breaches: Breach[] } => {
+    try {
+      const e = run(name, events, months).engine;
+      for (const x of e.maxResiduals()) worstRes = Math.max(worstRes, x.residual);
+      const fails = e.checks().failures!.length;
+      const why = firstNonFinite(m, e) || (fails ? `${fails} accounting failure(s)` : '');
+      return { why, breaches: plausibilityBreaches(m, e, bounds) };
+    } catch (err) {
+      return { why: `threw: ${(err as Error).message}`, breaches: [] };
+    }
+  };
+  const gated = (b: Breach) => (b.kind === 'sign' ? opts.signs : opts.plausibility) === 'fail';
+  const failNote = (b: Breach[]) => `${b.length} breach(es) that fail, first ${b[0].what} ${b[0].rule} at month ${b[0].first}`;
+  const gateNote = `Implausible values ${opts.plausibility === 'fail' ? 'fail' : 'are warnings'}; wrong-signed positions ${opts.signs === 'fail' ? 'fail' : 'are warnings'}`;
   // 6a. property tests
   {
     const rand = rng(opts.seed);
     let ok = 0;
-    let worstRes = 0;
+    let warned = 0;
     const bad: string[] = [];
     for (let k = 0; k < opts.propertyRuns; k++) {
       const nEv = 1 + Math.floor(rand() * 4);
@@ -251,25 +314,10 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
         events.push(l.kind === 'oneoff' ? { t: Math.floor(rand() * 25), lever: l.id, value, fire: true } : { t: Math.floor(rand() * 25), lever: l.id, value });
       }
       events.sort((a, b) => a.t - b.t);
-      let why = '';
-      try {
-        const r = run(`property run ${k + 1}`, events, opts.propertyMonths);
-        const e = r.engine;
-        for (let t = 0; t <= e.t && !why; t++) {
-          for (const v of m.vars)
-            if (!Number.isFinite(e.valueAt(v.id, t))) {
-              why = `${v.id} is not finite at month ${t}`;
-              break;
-            }
-          if (!why && !e.positionsAt(t).every(Number.isFinite)) why = `a stock is not finite at month ${t}`;
-        }
-        const fails = e.checks().failures!.length;
-        if (!why && fails) why = `${fails} accounting failure(s)`;
-        for (const x of e.maxResiduals()) worstRes = Math.max(worstRes, x.residual);
-      } catch (err) {
-        why = `threw: ${(err as Error).message}`;
-      }
-      if (why) bad.push(`- run ${k + 1}: ${why}; events ${JSON.stringify(events)}`);
+      const { why, breaches } = inspect(`property run ${k + 1}`, events, opts.propertyMonths);
+      const failing = breaches.filter(gated);
+      if (breaches.length) warned++;
+      if (why || failing.length) bad.push(`- run ${k + 1}: ${why || failNote(failing)}; events ${JSON.stringify(events)}`);
       else ok++;
     }
     const pass = ok === opts.propertyRuns;
@@ -278,46 +326,103 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Property tests',
       '',
-      `${opts.propertyRuns} runs of ${opts.propertyMonths} months, each with 1 to 4 random lever events (values uniform within each lever's range, months 0 to 24; seed ${opts.seed}). Every variable and stock must stay finite and every accounting check must pass. Largest residual: ${e2(worstRes)}. ${ok}/${opts.propertyRuns} pass: ${verdict(pass)}.`,
+      `${opts.propertyRuns} runs of ${opts.propertyMonths} months, each with 1 to 4 random lever events (values uniform within each lever's range, months 0 to 24; seed ${opts.seed}). Every variable and stock must stay finite and every accounting check must pass. ${gateNote} (see Lever extremes for the checks); ${warned} run(s) had some. Largest residual: ${e2(worstRes)}. ${ok}/${opts.propertyRuns} pass: ${verdict(pass)}.`,
       '',
       ...bad.slice(0, 10),
       '',
     );
   }
-  // 6b. half-step sensitivity
+  // 6b. lever extremes
+  {
+    const t0 = performance.now();
+    const runs = leverExtremeRuns(m);
+    let ok = 0;
+    const bad: string[] = [];
+    const rows: string[] = [];
+    let nBreach = 0;
+    const affected = new Set<string>();
+    for (const x of runs) {
+      const setting = `${x.lever} = ${x.value}${x.mode ? `, ${x.mode}` : ''}`;
+      const { why, breaches } = inspect(`lever extreme ${setting}`, x.events, opts.extremeMonths);
+      const failing = breaches.filter(gated);
+      if (why || failing.length) bad.push(`- ${setting}: ${why || failNote(failing)}`);
+      else ok++;
+      nBreach += breaches.length;
+      for (const b of breaches) {
+        affected.add(`${b.kind}:${b.what}`);
+        rows.push(`| ${x.lever} | ${x.value} | ${x.mode || '–'} | ${b.what} ${b.rule} | ${b.first} | ${f(b.worst, 4)} | ${gated(b) ? 'FAIL' : 'warn'} |`);
+      }
+    }
+    const seconds = (performance.now() - t0) / 1000;
+    const pass = ok === runs.length;
+    pass6 &&= pass;
+    sum6.push(`extremes ${ok}/${runs.length} (${nBreach} breach(es))`);
+    const modes = def.stabiliserMode ? ', in each stabiliser mode' : '';
+    body6.push(
+      '### Lever extremes',
+      '',
+      `Every lever alone at its min and at its max (a choice: each option other than its default), from month 0 for ${opts.extremeMonths} months${modes}: ${runs.length} runs in ${f(seconds, 1)} s. Every variable and stock must stay finite and every accounting check must pass. Plausibility: ${bounds.length} bounds on variables (${[...new Set(bounds.map((b) => b.rule))].map((r) => `${bounds.filter((b) => b.rule === r).map((b) => `\`${b.id}\``).join(', ')} ${r}`).join('; ')}) and the sign of every position (a holder's asset at least −${SIGN_TOL.toExponential()}, an issuer’s liability at most +${SIGN_TOL.toExponential()}). ${gateNote}. ${ok}/${runs.length} pass: ${verdict(pass)}.`,
+      '',
+      ...bad.slice(0, 10),
+      '',
+      rows.length ? `${rows.length} breach(es) of ${affected.size} bound(s) or position(s):` : 'No implausible values.',
+      '',
+      ...(rows.length ? ['| Lever | Value | Mode | Breach | First month | Furthest value | Severity |', '|---|---|---|---|---|---|---|', ...rows] : []),
+      '',
+    );
+  }
+  // 6c. half-step sensitivity
   {
     const rows: string[] = [];
-    let worst = 0;
+    let worstRel = 0,
+      worstQuarters = 0;
     let ok = true;
+    let half: KernelEngine | null = null;
     try {
-      const half = createEngine({ ...def, dt: def.dt / 2 });
-      calib.forEach((c, j) => {
-        const events = c.scenario.map((e) => ({ ...e, t: e.t * 2 }));
-        const r = run(`half-step ${c.id}`, events, c.months * 2, half);
-        const sub: RunResult = {
-          months: c.months,
-          series: (id) => r.series(id).filter((_, t) => t % 2 === 0),
-          value: (id, month) => r.value(id, month * 2),
-        };
-        const vh = c.measure(sub),
-          v = measures[j];
-        const width = Number.isFinite(c.range[0]) && Number.isFinite(c.range[1]) ? c.range[1] - c.range[0] : 0;
-        const rel = Math.abs(vh - v) / Math.max(Math.abs(v), HALF_STEP_BAND * width, 1e-9);
-        worst = Math.max(worst, rel);
-        const pass = rel <= HALF_STEP_TOL;
-        ok &&= pass;
-        rows.push(`| ${c.id} | ${f(v)} | ${f(vh)} | ${f(100 * rel, 1)}% | ${verdict(pass)} |`);
-      });
+      half = createEngine({ ...def, dt: def.dt / 2 }, { onCheckFailure: 'throw' });
     } catch (err) {
       ok = false;
       rows.push(`| (half-step model) | | | threw: ${(err as Error).message} | FAIL |`);
     }
+    if (half)
+      calib.forEach((c, j) => {
+        let vh = NaN,
+          note = '';
+        try {
+          const events = c.scenario.map((e) => ({ ...e, t: e.t * 2 }));
+          const r = run(`half-step ${c.id}`, events, c.months * 2, half);
+          // The engine lets a measure's own comparison run (calibration.ts fundsFinancedRun) use the same step.
+          const sub: RunResult & { engine: KernelEngine } = {
+            months: c.months,
+            series: (id) => r.series(id).filter((_, t) => t % 2 === 0),
+            value: (id, month) => r.value(id, month * 2),
+            engine: r.engine,
+          };
+          vh = c.measure(sub);
+        } catch (err) {
+          note = ` (threw: ${(err as Error).message})`;
+        }
+        const v = measures[j];
+        const share = halfStepShare(c, v, vh);
+        const pass = share <= 1;
+        ok &&= pass;
+        let change: string;
+        if (c.kind === 'timing') {
+          worstQuarters = Math.max(worstQuarters, Math.abs(vh - v));
+          change = `${f(vh - v, 0)} quarter(s)`;
+        } else {
+          const rel = share * HALF_STEP_TOL;
+          worstRel = Math.max(worstRel, Number.isNaN(rel) ? Infinity : rel);
+          change = `${f(100 * rel, 1)}%`;
+        }
+        rows.push(`| ${c.id} | ${f(v)} | ${f(vh)}${note} | ${change} | ${verdict(pass)} |`);
+      });
     pass6 &&= ok;
-    sum6.push(`half-step ${f(100 * worst, 1)}%`);
+    sum6.push(`half-step ${f(100 * worstRel, 1)}%${calib.some((c) => c.kind === 'timing') ? ` and ${f(worstQuarters, 0)} quarter(s)` : ''}`);
     body6.push(
       '### Half-step sensitivity',
       '',
-      `Each calibration scenario rerun with half the time step (dt = ${def.dt / 2}); the measure may change by at most ${100 * HALF_STEP_TOL}% of its value, or ${100 * HALF_STEP_TOL * HALF_STEP_BAND}% of the width of its target range when that is larger (a measure near zero). ${verdict(ok)}.`,
+      `Each calibration scenario rerun with half the time step (dt = ${def.dt / 2}). A timing measure (the quarter of a peak or trough) may move by ${HALF_STEP_TIMING_TOL} quarter; any other measure by at most ${100 * HALF_STEP_TOL}% of its value, or ${100 * HALF_STEP_TOL * HALF_STEP_BAND}% of the width of its target range when that is larger (a measure near zero). ${verdict(ok)}.`,
       '',
       '| Check | dt | dt / 2 | Change | Verdict |',
       '|---|---|---|---|---|',
@@ -325,7 +430,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       '',
     );
   }
-  // 6c. solver-tolerance sensitivity and 6d. determinism
+  // 6d. solver-tolerance sensitivity and 6e. determinism
   {
     let worstTol = 0;
     let deterministic = true;
@@ -376,27 +481,29 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       '',
     );
   }
-  // 6e. golden scenarios
+  // 6f. golden scenarios
   {
-    const scen: { name: string; events: ScenarioEvent[]; months: number }[] = [{ name: 'baseline', events: [], months: 24 }];
+    const scen: HarnessScenario[] = [{ name: 'baseline', events: [], months: 24 }];
     for (const c of calib) scen.push({ name: `calibration-${c.id}`, events: c.scenario, months: c.months });
-    const all: ScenarioEvent[] = [];
-    levers.forEach((l, j) => {
-      const t = 3 * j;
-      if (l.kind === 'oneoff') all.push({ t, lever: l.id, value: l.default, fire: true });
-      else {
-        const hi = l.max ?? l.default + 1;
-        all.push({ t, lever: l.id, value: Math.round((l.default + (hi - l.default) / 2) * 1000) / 1000 });
-      }
-    });
-    scen.push({ name: 'all-levers', events: all, months: 60 });
+    scen.push(...allLeversScenarios(m));
     const rows: string[] = [];
     let ok = 0;
     for (const s of scen) {
+      // An event at or after the last month never reaches the recorded history (events apply after recording).
+      const late = s.events.filter((e) => e.t >= s.months);
+      if (late.length) {
+        rows.push(`| ${s.name} | | ${late.length} event(s) at or after month ${s.months} would never apply, first ${late[0].lever} at ${late[0].t} | FAIL |`);
+        continue;
+      }
       const r = run(`golden ${s.name}`, s.events, s.months);
       const g: GoldenFile = { format: 'iceland-inc/golden@1', modelId: m.def.id, scenario: s.name, months: s.months, events: s.events, indicators: {} };
       for (const ind of m.indicators) g.indicators[ind.id] = r.series(ind.id);
       if (opts.updateGolden) {
+        const bad = nonFiniteValues(g);
+        if (bad.length) {
+          rows.push(`| ${s.name} | not written | ${bad.length} value(s) not finite, first ${bad[0]} | FAIL |`);
+          continue;
+        }
         writeGolden(opts.goldenDir, g);
         ok++;
         rows.push(`| ${s.name} | written | | PASS |`);
@@ -409,7 +516,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       }
       const c = compareGolden(stored, g);
       if (c.pass) ok++;
-      rows.push(`| ${s.name} | ${e2(c.maxDiff)} | ${c.where} | ${verdict(c.pass)} |`);
+      rows.push(`| ${s.name} | ${e2(c.diff)} (${f(c.ratio, 2)} × tolerance) | ${c.where} | ${verdict(c.pass)} |`);
     }
     const pass = ok === scen.length;
     pass6 &&= pass;
@@ -417,9 +524,9 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Golden scenarios',
       '',
-      `Stored indicator paths in \`tests/golden/${m.def.id}/\`, compared with tolerance ${GOLDEN_ABS} + ${GOLDEN_REL} × |value|. ${opts.updateGolden ? 'Updated in this run.' : ''}`,
+      `Stored indicator paths in \`tests/golden/${m.def.id}/\`, compared point by point with tolerance ${GOLDEN_ABS} + ${GOLDEN_REL} × |stored value|; a stored or new value that is not a finite number fails. The table shows the point furthest outside, or nearest to, its tolerance. The all-levers scenarios move every lever in turn, one every 3 months, and run 36 months past the last${def.stabiliserMode ? ', once in each stabiliser mode' : ''}. ${opts.updateGolden ? 'Updated in this run.' : ''}`,
       '',
-      '| Scenario | Largest difference | Where | Verdict |',
+      '| Scenario | Difference at the worst point | Where | Verdict |',
       '|---|---|---|---|',
       ...rows,
       '',
@@ -446,7 +553,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       pass: ok,
       summary: `max residual ${e2(max)} over ${tracked.length} runs (${steps} months)`,
       body: [
-        `All four checks after every step of every run in this report: ${tracked.length} runs, ${steps} months in total. Tolerance ${DEFAULT_TOLERANCE}. Failed steps: ${failures}. ${verdict(ok)}.`,
+        `All four checks after every step of every run the harness makes, including the forks module tests make: ${tracked.length} runs, ${steps} months in total. Tolerance ${DEFAULT_TOLERANCE}. Failed steps: ${failures}. ${verdict(ok)}. A comparison run that a calibration measure makes itself is not counted here; a failed check in it throws, which fails that check.`,
         '',
         '| Check | Largest residual |',
         '|---|---|',
@@ -457,15 +564,28 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   layers.push(layer4, layer5, layer6);
   layers.sort((a, b) => a.n - b.n);
 
-  // timing: a long shocked run
+  // timing: fresh runs under a shock, timed through its transient, after one run to warm up the JIT
   {
-    const e = createEngine(m, { baseline: engine.baselineData });
-    const setting = levers.find((l) => l.kind !== 'oneoff');
-    if (setting) e.setLever(setting.id, setting.max ?? setting.default + 1);
-    e.step(100);
-    const t0 = performance.now();
-    e.step(1200);
-    out.microsPerStep = ((performance.now() - t0) * 1000) / 1200;
+    const shock = timingShock(m);
+    const runs = 10,
+      months = 120;
+    const shocked = () => {
+      const e = createEngine(m, { baseline: engine.baselineData });
+      shock?.apply(e);
+      return e;
+    };
+    shocked().step(months);
+    let ms = 0,
+      maxIterations = 0;
+    for (let k = 0; k < runs; k++) {
+      const e = shocked();
+      const t0 = performance.now();
+      e.step(months);
+      ms += performance.now() - t0;
+      maxIterations = Math.max(maxIterations, e.stats().maxIterations);
+    }
+    out.microsPerStep = (ms * 1000) / (runs * months);
+    out.timing = { shock: shock?.describe ?? 'no shock (the model has no lever to shock it with)', runs, months, maxIterations };
   }
   out.pass = layers.every((l) => l.pass);
   return out;

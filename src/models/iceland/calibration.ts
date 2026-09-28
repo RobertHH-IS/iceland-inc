@@ -112,13 +112,20 @@ export function bindCalibrationModel(def: ModelDef): void {
 
 /**
  * The g.money check compares two scenarios. A CalibrationCheck has one, so the measure runs the
- * pension-fund-financed counterpart itself: on the same compiled model, baseline and step length
- * when the run carries its engine (the harness and `bun test` pass runScenario results), else on
- * a fresh engine of the registered model at the standard step.
+ * pension-fund-financed counterpart itself. When the run carries its engine (runScenario results,
+ * and the harness's half-step runs), it runs on that engine's compiled model, baseline and options,
+ * at that engine's step: with k steps a month, events at k × their month, k × `months` steps, and
+ * every k-th value kept, so a half-step run is compared with a half-step run. Without an engine
+ * (the interface), it runs on a fresh engine of the registered model at the standard step.
  */
 function fundsFinancedRun(run: RunResult, months: number): RunResult {
   const engine = (run as RunResult & { engine?: KernelEngine }).engine;
-  if (engine) return runScenario(engine, G_FUNDS, months);
+  if (engine) {
+    const k = Math.round(1 / (12 * engine.model.def.dt));
+    if (k === 1) return runScenario(engine, G_FUNDS, months);
+    const r = runScenario(engine, G_FUNDS.map((e) => ({ ...e, t: e.t * k })), months * k);
+    return { months, series: (id) => r.series(id).filter((_, t) => t % k === 0), value: (id, m) => r.value(id, m * k) };
+  }
   if (!modelForComparisons) throw new Error('calibration: the Iceland model is not registered for comparison runs');
   fallbackFundsRun ??= runScenario(createEngine(modelForComparisons), G_FUNDS, 72);
   return fallbackFundsRun;
@@ -155,6 +162,7 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'rate-output-timing',
+    kind: 'timing',
     label: 'Key rate +1 pp for 8 quarters: quarter of the output trough',
     scenario: RATE,
     months: 72,
@@ -176,6 +184,7 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'rate-inflation-timing',
+    kind: 'timing',
     label: 'Key rate +1 pp for 8 quarters: quarter of the inflation trough',
     scenario: RATE,
     months: 72,
@@ -209,6 +218,7 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'wage-inflation-timing',
+    kind: 'timing',
     label: 'Wages +10% one-off: quarter of the inflation peak',
     scenario: WAGE,
     months: 72,

@@ -168,7 +168,8 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 5. **Calibration:** the model's `CalibrationCheck`s, each a scenario, a measure and a plausible range with a source. The result is a PASS/FAIL table.
 6. **Robustness:**
    - **property tests:** random lever combinations within range produce no NaNs and no failed checks;
-   - **numerics:** half-step and tolerance sensitivity;
+   - **lever extremes:** every lever alone at its min and at its max for 240 months, in each stabiliser mode, with the same requirements; implausible values (an unemployment rate outside [0, 50%], a price index at or below zero, a negative key rate) and positions with the wrong sign for their role are reported as warnings, or failures with `--plausibility fail` and `--signs fail`;
+   - **numerics:** half-step and tolerance sensitivity (a timing measure may move by one quarter, any other by 10%);
    - **determinism:** the same scenario gives identical results;
    - **golden scenarios:** stored outputs, so any change in results is visible in review.
 

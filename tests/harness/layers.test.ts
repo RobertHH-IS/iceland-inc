@@ -1,0 +1,132 @@
+/**
+ * The harness layers on the reference model: half-step tolerances (audit L27, L28), runs on
+ * forks reaching the accounting layer (L29), the golden guard for late events (M19) and the
+ * severity switch of the lever-extremes sweep (M22).
+ */
+import { describe, expect, test } from 'bun:test';
+import { join } from 'node:path';
+import { createEngine } from '../../src/core/engine.ts';
+import { runScenario } from '../../src/core/scenario.ts';
+import type { CalibrationCheck, ModelDef, RunResult } from '../../src/core/types.ts';
+import { models } from '../../src/models/index.ts';
+import { HALF_STEP_BAND, HALF_STEP_TOL, halfStepShare, runHarness, type HarnessOptions } from '../../src/harness/layers.ts';
+
+const reference = models.find((d) => d.id === 'reference')!;
+const iceland = models.find((d) => d.id === 'iceland')!;
+const opts: HarnessOptions = {
+  updateGolden: false,
+  goldenDir: join(import.meta.dir, '..', 'golden'),
+  propertyRuns: 4,
+  propertyMonths: 36,
+  seed: 1,
+  extremeMonths: 60,
+  plausibility: 'warn',
+  signs: 'warn',
+};
+const layer = (r: ReturnType<typeof runHarness>, n: number) => r.layers.find((l) => l.n === n)!;
+
+describe('halfStepShare', () => {
+  const check = (x: Partial<CalibrationCheck>): CalibrationCheck => ({ id: 'c', label: '', scenario: [], months: 12, measure: () => 0, range: [0, 10], ...x });
+
+  test('a timing measure may move by one quarter, whatever its value', () => {
+    const timing = check({ kind: 'timing', range: [4, 7] });
+    expect(halfStepShare(timing, 4, 5)).toBe(1);
+    expect(halfStepShare(timing, 6, 5)).toBe(1);
+    expect(halfStepShare(timing, 4, 6)).toBe(2);
+    expect(halfStepShare(timing, 5, 5)).toBe(0);
+  });
+
+  test('a continuous measure may move by HALF_STEP_TOL of its value', () => {
+    const level = check({ range: [0, 0.1] });
+    expect(halfStepShare(level, 1, 1 + 0.5 * HALF_STEP_TOL)).toBeCloseTo(0.5, 12);
+    expect(halfStepShare(level, 1, 1 + 1.5 * HALF_STEP_TOL)).toBeCloseTo(1.5, 12);
+    // the one-quarter move that used to pass the old 20% limit on a timing value of 5 fails here
+    expect(halfStepShare(check({ range: [4, 7] }), 5, 6)).toBeGreaterThan(1);
+  });
+
+  test('near zero, the allowance is a share of the range width', () => {
+    const c = check({ range: [-1, 1] });
+    expect(halfStepShare(c, 0, HALF_STEP_TOL * HALF_STEP_BAND * 2)).toBeCloseTo(1, 12);
+  });
+
+  test('a measure that is not a number fails', () => {
+    expect(halfStepShare(check({}), 1, NaN) <= 1).toBe(false);
+    expect(halfStepShare(check({ kind: 'timing' }), NaN, 5) <= 1).toBe(false);
+  });
+});
+
+test('L28: the money-gap measure compares a half-step bank run with a half-step fund run', () => {
+  const c = iceland.calibration!.find((x) => x.id === 'fiscal-money-banks-vs-funds')!;
+  const half = createEngine({ ...iceland, dt: iceland.dt / 2 });
+  const sub = (events: typeof c.scenario): RunResult & { engine: ReturnType<typeof createEngine> } => {
+    const r = runScenario(half, events.map((e) => ({ ...e, t: e.t * 2 })), c.months * 2);
+    return { months: c.months, series: (id) => r.series(id).filter((_, t) => t % 2 === 0), value: (id, m) => r.value(id, m * 2), engine: r.engine };
+  };
+  const banks = sub(c.scenario);
+  // the funds-financed counterpart: the same scenario with pension funds (option 3) buying the bonds
+  const funds = sub(c.scenario.map((e) => (e.lever === 'bondBuyers' ? { ...e, value: 3 } : e)));
+  const gap = (m: number) => banks.series('broadMoney')[m] - funds.series('broadMoney')[m];
+  expect(c.measure(banks)).toBe(Math.min(gap(12), gap(24)));
+});
+
+describe('runHarness on the reference model', () => {
+  test('passes', () => {
+    const r = runHarness(reference, opts);
+    expect(r.layers.filter((l) => !l.pass).map((l) => l.title)).toEqual([]);
+    expect(r.timing!.maxIterations).toBeGreaterThan(1);
+  });
+
+  test('L29: runs a module test makes on forks, and on forks of forks, reach the accounting layer', () => {
+    const forking: ModelDef = {
+      ...reference,
+      modules: reference.modules.map((mod, i) =>
+        i
+          ? mod
+          : {
+              ...mod,
+              tests: [
+                ...(mod.tests ?? []),
+                {
+                  id: 'forks',
+                  label: 'Steps a fork and a fork of that fork',
+                  run: (e) => {
+                    const a = e.fork();
+                    const b = a.fork();
+                    a.step(6);
+                    b.step(12);
+                    return { pass: true, detail: '' };
+                  },
+                },
+              ],
+            },
+      ),
+    };
+    const runs = (d: ModelDef) => Number(/over (\d+) runs/.exec(layer(runHarness(d, opts), 3).summary)![1]);
+    const months = (d: ModelDef) => Number(/\((\d+) months\)/.exec(layer(runHarness(d, opts), 3).summary)![1]);
+    expect(runs(forking) - runs(reference)).toBe(3);
+    expect(months(forking) - months(reference)).toBe(18);
+  });
+
+  test('M19: a golden scenario with an event at or after its last month fails', () => {
+    const late: ModelDef = {
+      ...reference,
+      calibration: [...reference.calibration!, { id: 'late', label: 'late', scenario: [{ t: 60, lever: 'govSpending', value: 1 }], months: 60, measure: () => 0, range: [0, 0] }],
+    };
+    const l6 = layer(runHarness(late, opts), 6);
+    expect(l6.pass).toBe(false);
+    expect(l6.body.find((x) => x.startsWith('| calibration-late |'))).toContain('1 event(s) at or after month 60 would never apply');
+  });
+
+  test('M22: breaches are warnings by default and failures when the severity says so', () => {
+    const extremes = (o: HarnessOptions) => {
+      const s = /extremes (\d+)\/(\d+) \((\d+) breach/.exec(layer(runHarness(reference, o), 6).summary)!;
+      return { ok: Number(s[1]), runs: Number(s[2]), warnings: Number(s[3]) };
+    };
+    const warn = extremes(opts);
+    expect(warn.ok).toBe(warn.runs);
+    const fail = extremes({ ...opts, plausibility: 'fail', signs: 'fail' });
+    expect(fail.warnings).toBe(warn.warnings);
+    if (warn.warnings) expect(fail.ok).toBeLessThan(fail.runs);
+    else expect(fail.ok).toBe(fail.runs);
+  });
+});

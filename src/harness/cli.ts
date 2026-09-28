@@ -1,14 +1,17 @@
 /**
- * `bun run harness [--update-golden] [--model <id>] [--runs <n>] [--seed <n>]`
+ * `bun run harness [--update-golden] [--model <id>] [--runs <n>] [--seed <n>] [--plausibility warn|fail] [--signs warn|fail]`
  *
  * Runs the six test layers for every model in src/models/index.ts, writes
  * reports/harness-<modelId>.md, prints a summary and exits with code 1 on any failure.
+ * --plausibility and --signs say whether implausible values and wrong-signed positions in the
+ * property and lever-extremes runs fail the harness (default: warn, reported only).
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { models } from '../models/index.ts';
 import { runHarness, type HarnessOptions } from './layers.ts';
 import { renderReport } from './report.ts';
+import type { Severity } from './plausibility.ts';
 
 const root = resolve(import.meta.dir, '..', '..');
 const args = process.argv.slice(2);
@@ -18,12 +21,24 @@ const option = (name: string) => {
   return j >= 0 ? args[j + 1] : undefined;
 };
 
+function severity(name: string): Severity {
+  const v = option(name) ?? 'warn';
+  if (v !== 'warn' && v !== 'fail') {
+    console.error(`${name} must be 'warn' or 'fail', not '${v}'`);
+    process.exit(1);
+  }
+  return v;
+}
+
 const opts: HarnessOptions = {
   updateGolden: flag('--update-golden'),
   goldenDir: join(root, 'tests', 'golden'),
   propertyRuns: Number(option('--runs') ?? 40),
   propertyMonths: 120,
   seed: Number(option('--seed') ?? 20260928),
+  extremeMonths: 240,
+  plausibility: severity('--plausibility'),
+  signs: severity('--signs'),
 };
 const only = option('--model');
 const selected = only ? models.filter((m) => m.id === only) : models;
