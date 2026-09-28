@@ -47,6 +47,21 @@ describe('breadcrumb navigation', () => {
     const n = navClear(navPush(navPush(EMPTY_NAV, a), b));
     expect(navCurrent(n)).toBeNull();
     expect(n.stack).toEqual([a, b]);
+    expect(canBack(n)).toBe(true);
+    expect(navCurrent(navBack(n))).toEqual(b);
+    expect(navCurrent(navBack(navBack(n)))).toEqual(a);
+    // Nothing lies ahead of a closed inspector, so Forward is off and does nothing.
+    expect(canForward(n)).toBe(false);
+    expect(navForward(n)).toBe(n);
+    // Opening something after a close adds to the history instead of wiping it.
+    expect(navPush(n, c).stack).toEqual([a, b, c]);
+    expect(navCurrent(navBack(navPush(n, c)))).toEqual(b);
+    // Closing in the middle of the history drops what was ahead of the closed item.
+    const mid = navClear(navBack(navPush(navPush(navPush(EMPTY_NAV, a), b), c)));
+    expect(mid.stack).toEqual([a, b]);
+    expect(navCurrent(navBack(mid))).toEqual(b);
+    expect(canBack(EMPTY_NAV)).toBe(false);
+    expect(navBack(EMPTY_NAV)).toBe(EMPTY_NAV);
   });
 
   test('history is capped', () => {
