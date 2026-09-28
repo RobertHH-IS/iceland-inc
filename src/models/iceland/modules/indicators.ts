@@ -3,6 +3,10 @@
  * grouped into four chart tabs, plus a fifth tab of charts by firm sector (decision 0003). Every
  * chart shows a deviation from the steady-state baseline. The v1 charts of domestic firms' and
  * exporters' profits keep their ids and are now sums over the sectors in each group.
+ *
+ * Charts in "% of GDP" divide by nominal GDP, so they share one scale when prices move: flows by
+ * this month's GDP (at an annual rate), debt stocks by GDP over the past 12 months (gdpTrailing12),
+ * as official statistics do.
  */
 import type { IndicatorCtx, IndicatorDef, ModuleDef } from '../../../core/types.ts';
 import { AGE_LABEL, AGES, DOMESTIC, EXPORT_OF, EXPORTERS, FIRMS, FIRM_NAME, type Firm } from '../util.ts';
@@ -86,17 +90,17 @@ export const indicators: ModuleDef = {
       drivers: ['mortgageLendingY', 'mortgageLendingW', ...FIRMS.map((j) => `borrowing${j}`), 'bondIssueB', 'bondIssueCB', 'bankBondPurchases'],
       concepts: ['broad-money', 'endogenous-money', 'money-destruction'],
     }),
-    I({ id: 'creditImpulse', label: 'Credit impulse (mortgages)', group: 'Money and credit', display: 'deviation', compute: (c) => c.v('creditImpulse'), description: 'Change in the yearly flow of net new mortgage credit compared with a year earlier. Positive means credit is accelerating.', drivers: ['creditImpulse', 'netMortgageLending'], concepts: ['credit-impulse'] }),
-    I({ id: 'creditImpulseTotal', label: 'Credit impulse (households + firms)', group: 'Money and credit', display: 'deviation', compute: (c) => c.v('creditImpulseTotal'), description: 'The credit impulse including firms’ borrowing, which is noisier.', drivers: ['creditImpulseTotal', 'netCreditTotal'], concepts: ['credit-impulse'] }),
-    I({ id: 'netMortgage', label: 'Net new mortgage lending', group: 'Money and credit', display: 'deviation', unit: '% of GDP', compute: (c) => c.v('netMortgageLending'), description: 'New mortgages minus repayments, at an annual rate.', drivers: ['netMortgageLendingY', 'netMortgageLendingW'], concepts: ['endogenous-money', 'debt-service-constraint'] }),
+    I({ id: 'creditImpulse', label: 'Credit impulse (mortgages)', group: 'Money and credit', display: 'deviation', compute: (c) => (c.v('creditImpulse') / c.v('nominalGDP')) * 100, description: 'Change in the yearly flow of net new mortgage credit compared with a year earlier, % of GDP. Positive means credit is accelerating.', drivers: ['creditImpulse', 'netMortgageLending', 'nominalGDP'], concepts: ['credit-impulse'] }),
+    I({ id: 'creditImpulseTotal', label: 'Credit impulse (households + firms)', group: 'Money and credit', display: 'deviation', compute: (c) => (c.v('creditImpulseTotal') / c.v('nominalGDP')) * 100, description: 'The credit impulse including firms’ borrowing, which is noisier, % of GDP.', drivers: ['creditImpulseTotal', 'netCreditTotal', 'nominalGDP'], concepts: ['credit-impulse'] }),
+    I({ id: 'netMortgage', label: 'Net new mortgage lending', group: 'Money and credit', display: 'deviation', compute: (c) => (c.v('netMortgageLending') / c.v('nominalGDP')) * 100, description: 'New mortgages minus repayments, at an annual rate, % of GDP.', drivers: ['netMortgageLendingY', 'netMortgageLendingW', 'nominalGDP'], concepts: ['endogenous-money', 'debt-service-constraint'] }),
     I({
       id: 'mortgageDebt',
       label: 'Mortgage debt / GDP',
       group: 'Money and credit',
       display: 'deviation',
-      compute: (c) => ((c.stock('mortgagesN', 'B') + c.stock('mortgagesI', 'B') + c.stock('mortgagesN', 'PF') + c.stock('mortgagesI', 'PF')) / c.v('nominalGDP')) * 100,
-      description: 'Household mortgage debt relative to a year’s GDP. It rises with net lending and with CPI indexation of indexed loans.',
-      drivers: ['netMortgageLending', 'indexation_HY_B', 'indexation_HW_B', 'nominalGDP'],
+      compute: (c) => ((c.stock('mortgagesN', 'B') + c.stock('mortgagesI', 'B') + c.stock('mortgagesN', 'PF') + c.stock('mortgagesI', 'PF')) / c.v('gdpTrailing12')) * 100,
+      description: 'Household mortgage debt relative to GDP over the past 12 months, as official statistics measure it. It rises with net lending and with CPI indexation of indexed loans.',
+      drivers: ['netMortgageLending', 'indexation_HY_B', 'indexation_HW_B', 'gdpTrailing12'],
       concepts: ['indexation', 'endogenous-money'],
     }),
     I({ id: 'bankCapital', label: 'Bank capital ratio', group: 'Money and credit', display: 'deviation-pp', compute: (c) => c.v('capitalRatio'), description: 'Bank equity divided by risk-weighted loans. Retained profit rebuilds it; dividends are cut when it is short.', drivers: ['capitalRatio', 'bankEquity', 'bankDividends'], concepts: ['bank-capital'] }),
@@ -104,7 +108,7 @@ export const indicators: ModuleDef = {
     I({ id: 'pfForeignShare', label: 'Pension funds’ foreign share', group: 'Money and credit', display: 'deviation-pp', compute: (c) => c.stock('foreignAssets', 'PF') / pfAssets(c), description: 'Share of pension assets invested abroad. It moves toward its target through new flows; revaluations shift it too.', drivers: ['foreignAssetPurchases', 'revaluationForeignAssets'], concepts: ['funded-pensions', 'floating-exchange-rate'] }),
     /* --------------------------------------------------- Government and world */
     I({ id: 'govBalance', label: 'Government balance', group: 'Government and world', display: 'deviation', compute: (c) => (c.v('govBalance') / c.v('nominalGDP')) * 100, description: 'Revenue minus spending, % of GDP, on an accrual basis: indexation of indexed debt counts as spending.', drivers: ['deficit', 'bondIndexation'], concepts: ['sectoral-balances', 'automatic-stabilisers'] }),
-    I({ id: 'govDebt', label: 'Government debt / GDP', group: 'Government and world', display: 'deviation', compute: (c) => ((c.stock('govBonds', 'G') + c.stock('indexedBonds', 'G')) / c.v('nominalGDP')) * 100, description: 'Government bonds outstanding relative to a year’s GDP. Rises with deficits and with indexation of indexed bonds.', drivers: ['bondIssue', 'deficit', 'bondIndexation', 'nominalGDP'], concepts: ['deficits-and-money', 'fiscal-rule'] }),
+    I({ id: 'govDebt', label: 'Government debt / GDP', group: 'Government and world', display: 'deviation', compute: (c) => ((c.stock('govBonds', 'G') + c.stock('indexedBonds', 'G')) / c.v('gdpTrailing12')) * 100, description: 'Government bonds outstanding relative to GDP over the past 12 months, as official statistics measure it. Rises with deficits and with indexation of indexed bonds.', drivers: ['bondIssue', 'deficit', 'bondIndexation', 'gdpTrailing12'], concepts: ['deficits-and-money', 'fiscal-rule'] }),
     I({ id: 'incomeTaxRate', label: 'Income-tax rate', group: 'Government and world', display: 'deviation-pp', compute: (c) => c.v('taxRate'), description: 'Average personal income-tax rate: baseline + your lever, plus the slow debt rule’s adjustment when stabilisers are Automatic.', drivers: ['taxRate', 'taxRuleAdjustment'], concepts: ['fiscal-rule'] }),
     I({ id: 'krona', label: 'Króna value', group: 'Government and world', display: 'deviation-pct', unit: '% vs baseline (+ stronger)', compute: (c) => 1 / c.v('exchangeRate'), description: 'What a króna buys in foreign currency. It moves toward a level set by prices, the interest gap with abroad, foreigners’ króna holdings and sentiment.', drivers: ['logExchangeRate'], concepts: ['floating-exchange-rate', 'carry-trade', 'purchasing-power-parity'] }),
     I({ id: 'currentAccount', label: 'Current account', group: 'Government and world', display: 'deviation', compute: (c) => (c.v('currentAccount') / c.v('nominalGDP')) * 100, description: 'Exports minus imports plus net income from abroad, % of GDP. Positive means Iceland lends to the world.', drivers: ['currentAccount', 'exportValue', 'importVolume'], concepts: ['current-account'] }),

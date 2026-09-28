@@ -59,3 +59,49 @@ describe('Iceland parameters: provenance says what the value is (audit L16)', ()
     expect(p.value).toBeCloseTo((11.9 + 3.4) / 4576.629 * 100, 2);
   });
 });
+
+describe('Iceland charts: one GDP base for every "% of GDP" chart (design L2/L3, audit L17)', () => {
+  const unit = (id: string) => model.indicators.find((i) => i.id === id)!.unit;
+
+  test('GDP over the past 12 months is the average of this month’s and the 11 before, and equals GDP at baseline', () => {
+    const e = fresh();
+    expect(e.value('gdpTrailing12')).toBeCloseTo(e.value('nominalGDP'), 12);
+    e.fire('wageSettlement', 10);
+    e.step(18);
+    let total = 0;
+    for (let m = 7; m <= 18; m++) total += e.valueAt('nominalGDP', m);
+    expect(e.value('gdpTrailing12')).toBeCloseTo(total / 12, 12);
+    expect(e.value('gdpTrailing12')).not.toBeCloseTo(e.value('nominalGDP'), 3); // prices are rising, so it lags
+  });
+
+  test('credit-flow charts divide by nominal GDP and share the "pp of GDP" unit of their neighbours', () => {
+    const e = fresh();
+    e.fire('wageSettlement', 10);
+    e.setLever('lendingAppetite', 1);
+    e.step(14);
+    const Y = e.value('nominalGDP');
+    expect(Math.abs(Y - 100)).toBeGreaterThan(1); // the test means something only if GDP has moved
+    // a flow chart shows the change from baseline, where each flow is zero
+    expect(e.indicator('netMortgage')).toBeCloseTo((e.value('netMortgageLending') / Y) * 100, 12);
+    expect(e.indicator('creditImpulse')).toBeCloseTo((e.value('creditImpulse') / Y) * 100, 12);
+    expect(e.indicator('creditImpulseTotal')).toBeCloseTo((e.value('creditImpulseTotal') / Y) * 100, 12);
+    for (const id of ['netMortgage', 'creditImpulse', 'creditImpulseTotal', 'govBalance', 'currentAccount', 'mortgageDebt', 'govDebt']) expect(unit(id)).toBe('pp of GDP');
+  });
+
+  test('debt charts and the debt rule divide debt by GDP over the past 12 months', () => {
+    const e = fresh();
+    e.fire('wageSettlement', 10);
+    e.step(13);
+    const debtStart = e.stock('govBonds', 'G') + e.stock('indexedBonds', 'G');
+    const trailingLast = e.value('gdpTrailing12');
+    e.step(1);
+    const debt = e.stock('govBonds', 'G') + e.stock('indexedBonds', 'G');
+    const debt0 = e.baseStock('govBonds', 'G') + e.baseStock('indexedBonds', 'G');
+    expect(e.indicator('govDebt')).toBeCloseTo((debt / e.value('gdpTrailing12')) * 100 - debt0, 9);
+    const mort = ['mortgagesN', 'mortgagesI'].flatMap((i) => ['B', 'PF'].map((l) => e.stock(i, l))).reduce((a, b) => a + b, 0);
+    const mort0 = ['mortgagesN', 'mortgagesI'].flatMap((i) => ['B', 'PF'].map((l) => e.baseStock(i, l))).reduce((a, b) => a + b, 0);
+    expect(e.indicator('mortgageDebt')).toBeCloseTo((mort / e.value('gdpTrailing12')) * 100 - mort0, 9);
+    // the debt rule reads the ratio at the start of the month, over the year to last month
+    expect(e.value('debtRatio')).toBeCloseTo(debtStart / trailingLast, 12);
+  });
+});

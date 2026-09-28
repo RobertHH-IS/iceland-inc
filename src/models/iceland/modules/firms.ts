@@ -17,7 +17,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { EXPORT_OF, FIRMS, FIRM_NAME, isExporter, lastMonth, pickParams, sum, terms, type Firm } from '../util.ts';
+import { EXPORT_OF, FIRMS, FIRM_NAME, isExporter, lastMonth, pickParams, stepsIn, sum, terms, type Firm } from '../util.ts';
 
 /** Labour cost of a sector: wage × employment × (1 + employer contribution + payroll tax). Ids are
  *  built once per sector, not on every evaluation: several of these rules sit in the income–spending
@@ -377,6 +377,7 @@ const vars: VarDef[] = [
   { id: 'investmentReal', label: 'Investment (real)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base('investmentReal'), description: 'Business and public investment at baseline prices.' },
   { id: 'output', label: 'Output (real GDP)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base('output'), description: 'Everything produced in a year, at baseline prices.' },
   { id: 'nominalGDP', label: 'GDP (nominal)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('nominalGDP'), description: 'Everything produced in a year, at today’s prices (100 at baseline).' },
+  { id: 'gdpTrailing12', label: 'GDP over the past 12 months', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('nominalGDP'), description: 'What was produced over the past 12 months, at each month’s prices: what debt ratios divide by, as in official statistics (100 at baseline).' },
 ];
 
 const DIV_W = dividendsTo('W');
@@ -479,6 +480,23 @@ export const firms: ModuleDef = {
       explain: {
         what: 'Everything produced in a year at today’s prices (nominal GDP); 100 at baseline, the unit of the model.',
         rule: 'GDP = consumption + public services (staff pay with employer contributions, plus purchases) + investment + exports − imports. It is not imposed at 100: the baseline gets there because every income matches a spending.',
+      },
+    },
+    {
+      id: 'gdpTrailing12',
+      target: 'gdpTrailing12',
+      category: 'IDENTITY',
+      inputs: ['nominalGDP'],
+      lagInputs: ['nominalGDP'],
+      compute: (c) => {
+        const n = stepsIn(c, 1);
+        let total = c.v('nominalGDP');
+        for (let k = 1; k < n; k++) total += c.lag('nominalGDP', k);
+        return total / n;
+      },
+      explain: {
+        what: 'GDP over the past 12 months. Official statistics divide debts by the GDP of the past year, not by this month’s pace, which runs ahead of it while prices are rising.',
+        rule: 'Trailing GDP = the average of GDP (at an annual rate) in this month and the 11 months before it.',
       },
     },
   ],
