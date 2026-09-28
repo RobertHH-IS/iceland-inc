@@ -98,6 +98,8 @@ describe('compiler: showWhen, the stabiliser setting and stabilisers', () => {
     expect(bad({ suggestion: 'nope' })).toContain("suggests unknown variable 'nope'");
     expect(bad({ threshold: 0 })).toContain('needs a positive threshold');
     expect(bad({ lever: 'mode' })).toContain('acts on the stabiliser setting itself');
+    expect(bad({ offset: 'mode' })).toContain('offsets with the stabiliser setting itself');
+    expect(bad({ lever: 'mode', offset: undefined })).not.toContain('offsets with the stabiliser setting itself'); // reported once, as 'acts on'
     expect(bad({ feed: { raise: 'x', lower: 'y', indicator: 'nope' } })).toContain("feed opens unknown indicator 'nope'");
     expect(bad({ description: '' })).toContain('needs a description');
   });

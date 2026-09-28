@@ -44,7 +44,9 @@ import { nodeFor } from './hierarchy.ts';
 export interface EngineOptions {
   /** Throw when a rule reads something it did not declare (default true). */
   dev?: boolean;
-  /** What to do when an accounting check fails: record it (default) or throw. */
+  /** What to do when an accounting check fails: record it (default) or throw. A throw comes
+   *  after the month is fully recorded and its lever events applied, so the engine is in the
+   *  state a replay would reach. Position-sign violations never throw. */
   onCheckFailure?: 'record' | 'throw';
   /** Accounting tolerance (default 1e-9). */
   tolerance?: number;
@@ -397,8 +399,14 @@ class KEngine implements KernelEngine {
     this.record();
     this.updateFeed(true);
     if (M.t % this.every === 0) this.snaps.set(M.t, this.snap());
-    if (failed && this.options.onCheckFailure === 'throw') throw new Error(`accounting check failed at month ${M.t} in model '${m.def.id}': ${failed}`);
-    this.applyEventsAt(M.t);
+    // Arrive fully at month t (its events applied) before any throw, so a caller that catches
+    // the error and steps on stays on the path seek(), fork() and load() replay. The
+    // accounting error takes precedence over an error from an event.
+    try {
+      this.applyEventsAt(M.t);
+    } finally {
+      if (failed && this.options.onCheckFailure === 'throw') throw new Error(`accounting check failed at month ${M.t} in model '${m.def.id}': ${failed}`);
+    }
   }
 
   step(n = 1): void {
@@ -413,11 +421,21 @@ class KEngine implements KernelEngine {
     return l;
   }
 
+  /** A lever value the engine accepts: within min and max, and for a choice lever with options
+   *  the nearest option (a tie goes to the higher value, as Math.round and isAutomatic do). */
   private clamp(l: CLever, v: number): number {
     if (!Number.isFinite(v)) throw new Error(`lever '${l.def.id}': value must be a finite number`);
-    if (l.def.min !== undefined && v < l.def.min) return l.def.min;
-    if (l.def.max !== undefined && v > l.def.max) return l.def.max;
-    return v;
+    if (l.def.min !== undefined && v < l.def.min) v = l.def.min;
+    if (l.def.max !== undefined && v > l.def.max) v = l.def.max;
+    const opts = l.def.kind === 'choice' ? l.def.options : undefined;
+    if (!opts?.length) return v;
+    let best = opts[0].value;
+    for (const o of opts) {
+      const d = Math.abs(o.value - v),
+        db = Math.abs(best - v);
+      if (d < db || (d === db && o.value > best)) best = o.value;
+    }
+    return best;
   }
 
   private applyEvent(e: ScenarioEvent): void {

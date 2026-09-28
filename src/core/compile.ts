@@ -794,6 +794,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     const lever = settingLever(s.lever, where, 'acts on');
     const offset = s.offset === undefined ? lever : settingLever(s.offset, where, 'offsets with');
     if (lever >= 0 && lever === modeLever) err(`${where} acts on the stabiliser setting itself`);
+    if (offset >= 0 && offset === modeLever && offset !== lever) err(`${where} offsets with the stabiliser setting itself`);
     const suggestion = varIndex.get(s.suggestion) ?? -1;
     if (suggestion < 0) err(`${where} suggests unknown variable '${s.suggestion}'`);
     if (s.feed) {

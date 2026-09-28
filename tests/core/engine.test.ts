@@ -229,6 +229,32 @@ describe('levers and shocks', () => {
     expect(() => e.fire('taxRate', 1)).toThrow(/setting/);
   });
 
+  test('a choice lever takes the nearest option; a tie goes to the higher one', () => {
+    const e = fresh();
+    e.setLever('stabilisers', 0.4);
+    expect(e.leverValue('stabilisers')).toBe(0);
+    e.setLever('stabilisers', 0.5); // as Math.round and isAutomatic read it: Automatic
+    expect(e.leverValue('stabilisers')).toBe(1);
+    expect(e.stabilisers()[0].automatic).toBe(true);
+    e.setLever('stabilisers', 7); // clamped to the range first
+    expect(e.leverValue('stabilisers')).toBe(1);
+    e.load({ modelId: 'reference', events: [{ t: 0, lever: 'stabilisers', value: 0.3 }], months: 1 });
+    expect(e.events).toEqual([{ t: 0, lever: 'stabilisers', value: 0 }]);
+    const withOptions: ModuleDef = {
+      id: 'choice',
+      label: 'x',
+      description: 'x',
+      levers: [
+        { id: 'pick', label: 'x', group: 'Policy', kind: 'choice', unit: 'x', default: 0, min: -10, max: 10, options: [{ value: 0, label: 'a' }, { value: 2, label: 'b' }, { value: 5, label: 'c' }], description: 'x', definition: 'x' },
+      ],
+    };
+    const t = createEngine(tinyModel([withOptions]));
+    for (const [v, want] of [[0.9, 0], [1, 2], [3.4, 2], [3.5, 5], [9, 5], [-4, 0]]) {
+      t.setLever('pick', v);
+      expect(t.leverValue('pick')).toBe(want);
+    }
+  });
+
   test('a one-off shock changes a lagged state variable and is felt this step', () => {
     const e = fresh();
     e.fire('wageSettlement', 10);
@@ -308,6 +334,32 @@ describe('runtime guards', () => {
     expect(rep.failures!.map((f) => f.id)).toContain('stock-reconciliation');
     const strict = createEngine(model, { baseline: base.baselineData, testHooks: tamper, onCheckFailure: 'throw' });
     expect(() => strict.step(5)).toThrow(/accounting check failed at month 3/);
+  });
+
+  test('after a throw the month is complete, its events applied: stepping on matches a replay', () => {
+    // move a little money between two depositors behind the ledger's back, once: month 3 fails
+    // stock reconciliation and net worth, and every later month balances again
+    const dep = model.instrumentIndex.get('deposits')! * model.NP;
+    const [a, b] = ['HH', 'F'].map((p) => dep + model.playerIndex.get(p)!);
+    const tamper = {
+      afterPost: (L: { pos: Float64Array }, step: number) => {
+        if (step !== 3) return;
+        L.pos[a] += 1e-6;
+        L.pos[b] -= 1e-6;
+      },
+    };
+    const events: ScenarioEvent[] = [
+      { t: 3, lever: 'govSpending', value: 1.5 },
+      { t: 3, lever: 'wageSettlement', value: 5, fire: true },
+    ];
+    const strict = createEngine(model, { baseline: base.baselineData, testHooks: tamper, onCheckFailure: 'throw' });
+    expect(() => strict.load({ modelId: 'reference', events, months: 12 })).toThrow(/accounting check failed at month 3/);
+    expect(strict.t).toBe(3);
+    expect(strict.leverValue('govSpending')).toBe(1.5);
+    strict.step(9);
+    const replay = createEngine(model, { baseline: base.baselineData, testHooks: tamper });
+    replay.load({ modelId: 'reference', events, months: 12 });
+    expect(allVars(strict, 12)).toEqual(allVars(replay, 12));
   });
 });
 
