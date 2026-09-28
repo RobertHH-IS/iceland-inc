@@ -16,8 +16,10 @@ The economy is **money flowing between the balance sheets of players**: househol
 6. **Accounting is enforced, not trusted.** Stocks cannot be written directly. Every step, the kernel checks that:
    - flows sum to zero;
    - every instrument balances across holders and issuers;
-   - every change in net worth equals saving plus revaluations;
+   - every change in net worth equals saving plus revaluations and write-offs;
    - every stock change is explained by cash, accrual, revaluation and write-off postings.
+
+   Beside these four identities, a diagnostic watches every position's sign: an overdrawn asset or a liability that has turned into a claim balances perfectly, but no real sector could hold it (§4.4).
 7. **The baseline is computed.** A steady state is *solved*: closed-form where a module provides it, then polished with Newton. It is published as an output, and the harness fails if it drifts over 20 years.
 8. **Deterministic, replayable, forkable.** The state is plain data and a scenario is a list of lever events. The same scenario always gives the same numbers. That makes time travel, shareable scenarios, video rendering and honest counterfactuals possible: counterfactuals compare shocked and unshocked runs *within the same model variant*.
 9. **Modules compose the economy.** Players, instruments, flows, rules, levers, indicators, concepts and tests arrive together in modules. A more detailed module replaces a simpler one explicitly (`replaces`), so growth is additive and reviewable.
@@ -98,7 +100,7 @@ Lagged inputs never create loops, so gradual adjustment is also the cheapest way
 1. Apply the lever events scheduled for this month (settings change parameters or exogenous variables; one-offs call `fire` through the restricted `ShockApi`).
 2. Evaluate the schedule in order. Simultaneous blocks are solved by Gauss–Seidel iteration to tolerance, with Newton as a fallback. Record every term, the desired value and the regime.
 3. Post every leg (amount × dt) through the **payment system** and the posting rules.
-4. Run the accounting checks.
+4. Run the accounting checks, and the position-sign diagnostic beside them.
 5. Record history: variables, legs, terms and indicators. Take a full-state snapshot every 12 months for fast `seek`.
 
 ### 4.3 The payment system
@@ -117,8 +119,12 @@ Because this is implemented once, *money creation is never computed by a formula
 |---|---|
 | Flow balance | Every flow's legs sum to zero by construction; row sums are re-checked on the posted values |
 | Instrument balance | For every financial instrument, the sum held as assets equals the sum owed as liabilities |
-| Net worth | Each player's change in net worth equals its income minus spending on current and capital account, plus revaluations. Financial transactions change composition, not net worth |
+| Net worth | Each player's change in net worth equals its saving plus revaluations and write-offs. Saving is income received minus income paid and current spending, including accrued interest; a seller's sales count as income. Buying a real asset (investment, homes) swaps money for the asset and does not change the buyer's net worth, and financial transactions change composition; neither changes net worth. Saving minus investment would be net lending, which this check does not use |
 | Stock reconciliation | Every position's change equals cash + accrual + revaluation + write-off postings for that position |
+
+A failed check is recorded in `checks().failures`, or thrown with `onCheckFailure: 'throw'`. A throw comes after the month is recorded and its lever events applied, so the engine is where a replay would be.
+
+**Position signs (a diagnostic, tolerance 1e-6).** The four checks prove that nothing leaks, but they pass just as well when a household's deposits go below zero, a pension fund sells bonds it does not have, or a firm's capital stock turns negative. So every step, the engine also checks each position's sign against its role: a holder's asset must be at least −1e-6, an issuer's liability at least −1e-6 (in the `Ctx.stock` convention, where both are positive), and a real asset, which has holders only, at least −1e-6. The first month each position breaks this is recorded in `checks().signViolations` (instrument, player, role, month, value). It is not an accounting failure: it never throws and never appears in `failures`, and it has its own tolerance (`EngineOptions.signTolerance`), because a position a millionth of a unit below zero is a rounding matter, not an accounting one. A model that deliberately lets a position take either sign (a net position, such as an overdraft facility) declares it with `InstrumentDef.mayGoNegative`, which needs a reason. Decision record [0005](decisions/0005-position-signs.md) has the details.
 
 ### 4.5 Baseline
 
@@ -128,6 +134,8 @@ The steady-state spec gives:
 - the same number of targets, such as "mortgage debt = 72% of GDP" or "deposits of older households = 42% of household deposits".
 
 The kernel first uses the module's closed-form solver if there is one. It then polishes with damped Newton on the fixed-point condition *state(t+1) = state(t)* plus the targets. The solved baseline, including every flow, is written to a report.
+
+The engine starts every run from the solved baseline. `lag()` before month 0 reads a lag history that `Machine.initHistory` sets up: month 0's values, and optionally earlier months for some variables. From the steady state the history is flat, because a steady state has no past to speak of. A start from today's data will pass its own months before month 0 ([design](design/start-from-today.md) §2.5). The engine's `lagWindow` option reaches the baseline solver too, so a rule may look back further than two years.
 
 The engine is ready for a **balanced-growth baseline**. Variables carry a `scale` of `nominal`, `real` or `none`, so the solver can work on ratios to nominal GDP. That is needed for real growth with 2.5% inflation (roadmap v2), which also fixes v1's overstated pension payouts.
 
@@ -155,7 +163,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 
 1. **Compilation:** unique ids, one rule per variable, every reference resolved, schedule built, and warnings listed.
 2. **Contract unit tests:** each module's `tests` (amortisation, indexation, debt-service test arithmetic, payment-system cases).
-3. **Accounting:** all four checks across every scenario, with the maximum residual reported.
+3. **Accounting:** all four checks across every scenario, with the maximum residual reported. The position-sign diagnostic (§4.4) runs on the same engines; its violations are available from `checks().signViolations` but do not yet fail the harness (decision 0005).
 4. **Baseline:** 240 months with no shock; the maximum drift of every variable and stock must be below 1e-9.
 5. **Calibration:** the model's `CalibrationCheck`s, each a scenario, a measure and a plausible range with a source. The result is a PASS/FAIL table.
 6. **Robustness:**

@@ -99,6 +99,13 @@ export interface InstrumentDef {
   valuation: 'nominal' | 'cpi-indexed' | 'fx' | 'price-index' | 'at-cost';
   description: string;
   concepts?: Id[];
+  /** Opt out of the position-sign diagnostic (CheckReport.signViolations) for positions the
+   *  model knowingly lets take the other sign: a holder's asset below zero (an overdraft) or an
+   *  issuer's liability below zero (a net claim), in the Ctx.stock sign convention. `players`
+   *  limits it to those holders or issuers (default: every position of the instrument). The
+   *  `reason` is required and says why the sign is free, e.g. "non-residents' króna deposits
+   *  are a net position: below zero is an overdraft at domestic banks". Decision 0005. */
+  mayGoNegative?: { reason: string; players?: Id[] };
 }
 
 /* ---------------------------------------------------------------- variables */
@@ -223,7 +230,15 @@ export type Posting =
  *   A revalue between two different HOLDERS of the same instrument is a reclassification: value
  *   moves from one holder to the other with no cash and no income (retirement moving pension
  *   rights, households taking their homes with them as they age).
- * A negative amount reverses the posting (a negative issue is a repayment).
+ * A negative amount reverses the posting (a negative issue is a repayment). Postings are linear
+ * in the amount, so every negative amount keeps the accounting exact, but it may not mean what
+ * the flow's name says:
+ *   purchase < 0 un-produces the real asset: the buyer's asset shrinks and the seller pays the
+ *     buyer and books negative income. It is not a resale; move a used asset between holders
+ *     with a `trade`. Model authors should floor gross investment at zero (a `combine` with a
+ *     named `regime`), so that capital shrinks only through depreciation.
+ * The position-sign diagnostic (CheckReport.signViolations) reports a stock that such a
+ * reversal drives below zero.
  * Pipes on the flow map are drawn from `from` to `to`; particles move with the cash.
  */
 export interface LegDef {
@@ -548,6 +563,46 @@ export interface CheckReport {
   tolerance?: number;
   /** Every check that exceeded the tolerance since the last reset, oldest first. */
   failures?: { t: number; id: Id; residual: number }[];
+  /** Position-sign diagnostic, separate from the four accounting checks: the first month each
+   *  position had the wrong sign since the last reset, oldest first. A holder's asset below
+   *  −signTolerance or an issuer's liability below −signTolerance (a real asset has holders
+   *  only). `value` is the position in the Ctx.stock sign convention, so it is negative.
+   *  Positions exempted by InstrumentDef.mayGoNegative are left out. Never a failure: the
+   *  accounting still balances, but the balance sheet is one no real sector could have. */
+  signViolations?: SignViolation[];
+  /** Tolerance of the sign diagnostic (1e-6 by default). */
+  signTolerance?: number;
+}
+
+/** One position that went to the wrong sign (CheckReport.signViolations). */
+export interface SignViolation {
+  instrument: Id;
+  player: Id;
+  /** 'holder' (an asset below zero) or 'issuer' (a liability below zero). */
+  role: 'holder' | 'issuer';
+  /** First month the position was beyond the tolerance. */
+  t: number;
+  /** The position that month, Ctx.stock sign convention (negative). */
+  value: number;
+}
+
+/** A feed message (Engine.feed()). `message` is the finished English sentence; the other
+ *  fields let an interface build it in another language. */
+export interface FeedEntry {
+  t: number;
+  message: string;
+  indicator: Id;
+  concept?: Id;
+  /** A threshold message: the FeedRule's id. */
+  rule?: Id;
+  /** A stabiliser message: the stabiliser's id (Manual mode, it started calling for action). */
+  stabiliser?: Id;
+  /** Stabiliser messages: +1 when the rule would raise the lever (its `raise` text), −1 lower. */
+  dir?: 1 | -1;
+  /** Stabiliser messages: the suggestion ({value}) and the size of the gap ({change}), in the
+   *  lever's units, rounded to two decimals exactly as the message shows them. */
+  value?: number;
+  change?: number;
 }
 
 export interface Engine {
@@ -585,9 +640,10 @@ export interface Engine {
    *  (a group end stands for all its players). */
   ideasAtPlay(scope?: Id): { concept: Id; weight: number; via: Id[] }[];
   checks(): CheckReport;
-  /** Narration: feed rules crossing their thresholds, and (Manual mode) stabilisers that start
-   *  calling for action, marked with the stabiliser's id. */
-  feed(): { t: number; message: string; indicator: Id; concept?: Id; stabiliser?: Id }[];
+  /** Narration: feed rules crossing their thresholds (marked with the rule's id), and (Manual
+   *  mode) stabilisers that start calling for action (marked with the stabiliser's id, the
+   *  direction and the numbers in the message). */
+  feed(): FeedEntry[];
   /** Every declared stabiliser now, in declaration order: what it suggests, and whether it acts
    *  (Automatic) or calls for action (Manual, gap above its threshold). */
   stabilisers(): StabiliserState[];

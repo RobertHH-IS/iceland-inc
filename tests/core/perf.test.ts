@@ -25,7 +25,9 @@ test('a ~200-variable model steps in well under 1 ms', () => {
   const us = timeSteps(e, 1000);
   console.log(`synthetic model: ${m.NV} variables, ${m.clegs.length} legs, largest block ${Math.max(...m.schedule.map((b) => b.rules.length))} rules: ${us.toFixed(1)} µs per step`);
   expect(us).toBeLessThan(500 * PERF_SLACK);
-  expect(e.checks().maxResidual).toBeLessThan(1e-9);
+  // every step, not only the last
+  expect(e.checks().failures).toEqual([]);
+  expect(Math.max(...e.maxResiduals().map((r) => r.residual))).toBeLessThan(1e-9);
 });
 
 test('the reference model steps in microseconds', () => {

@@ -98,6 +98,8 @@ describe('compiler: showWhen, the stabiliser setting and stabilisers', () => {
     expect(bad({ suggestion: 'nope' })).toContain("suggests unknown variable 'nope'");
     expect(bad({ threshold: 0 })).toContain('needs a positive threshold');
     expect(bad({ lever: 'mode' })).toContain('acts on the stabiliser setting itself');
+    expect(bad({ offset: 'mode' })).toContain('offsets with the stabiliser setting itself');
+    expect(bad({ lever: 'mode', offset: undefined })).not.toContain('offsets with the stabiliser setting itself'); // reported once, as 'acts on'
     expect(bad({ feed: { raise: 'x', lower: 'y', indicator: 'nope' } })).toContain("feed opens unknown indicator 'nope'");
     expect(bad({ description: '' })).toContain('needs a description');
   });
@@ -140,7 +142,8 @@ describe('engine: stabilisers() and their narration', () => {
     const s = e.stabilisers()[0];
     expect(s.gap).toBeCloseTo(0.5, 12);
     expect(s.calling).toBe(true);
-    expect(e.feed().filter((f) => f.stabiliser)).toEqual([{ t: 2, message: 'The rule would raise the rate to 3.5%', indicator: 'rateNow', stabiliser: 'theRule' }]);
+    // the message, and the parts an interface needs to write it in another language
+    expect(e.feed().filter((f) => f.stabiliser)).toEqual([{ t: 2, message: 'The rule would raise the rate to 3.5%', indicator: 'rateNow', stabiliser: 'theRule', dir: 1, value: 3.5, change: 0.5 }]);
   });
 
   test('Applying the suggestion stops the call; Automatic never calls', () => {
@@ -175,6 +178,8 @@ describe('engine: stabilisers() and their narration', () => {
     }
     const msgs = e.feed().filter((f) => f.stabiliser);
     expect(msgs.map((f) => f.message)).toEqual(['The rule would cut the rate to 2% (1 pp)']);
+    expect(msgs[0]).toMatchObject({ dir: -1, value: 2, change: 1 });
+    expect(msgs[0].rule).toBeUndefined();
     e.step(12);
     e.setLever('pressure', -1);
     e.step(1);

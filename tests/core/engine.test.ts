@@ -5,6 +5,7 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { createEngine, type KernelEngine } from '../../src/core/engine.ts';
 import { compile } from '../../src/core/compile.ts';
+import { Machine } from '../../src/core/machine.ts';
 import type { ModuleDef, ScenarioEvent } from '../../src/core/types.ts';
 import { referenceModel } from '../../src/models/reference/index.ts';
 import { param, rule, tinyModel, variable } from './fixtures.ts';
@@ -35,7 +36,9 @@ describe('baseline', () => {
       p0 = e.positionsAt(0);
     for (let j = 0; j < pos.length; j++) worst = Math.max(worst, Math.abs(pos[j] - p0[j]));
     expect(worst).toBeLessThan(1e-9);
-    expect(e.checks().maxResidual).toBeLessThan(1e-9);
+    // every step, not only the last: failures are cumulative
+    expect(e.checks().failures).toEqual([]);
+    expect(Math.max(...e.maxResiduals().map((r) => r.residual))).toBeLessThan(1e-9);
   });
 
   test('the baseline report publishes every variable, stock and leg', () => {
@@ -228,6 +231,32 @@ describe('levers and shocks', () => {
     expect(() => e.fire('taxRate', 1)).toThrow(/setting/);
   });
 
+  test('a choice lever takes the nearest option; a tie goes to the higher one', () => {
+    const e = fresh();
+    e.setLever('stabilisers', 0.4);
+    expect(e.leverValue('stabilisers')).toBe(0);
+    e.setLever('stabilisers', 0.5); // as Math.round and isAutomatic read it: Automatic
+    expect(e.leverValue('stabilisers')).toBe(1);
+    expect(e.stabilisers()[0].automatic).toBe(true);
+    e.setLever('stabilisers', 7); // clamped to the range first
+    expect(e.leverValue('stabilisers')).toBe(1);
+    e.load({ modelId: 'reference', events: [{ t: 0, lever: 'stabilisers', value: 0.3 }], months: 1 });
+    expect(e.events).toEqual([{ t: 0, lever: 'stabilisers', value: 0 }]);
+    const withOptions: ModuleDef = {
+      id: 'choice',
+      label: 'x',
+      description: 'x',
+      levers: [
+        { id: 'pick', label: 'x', group: 'Policy', kind: 'choice', unit: 'x', default: 0, min: -10, max: 10, options: [{ value: 0, label: 'a' }, { value: 2, label: 'b' }, { value: 5, label: 'c' }], description: 'x', definition: 'x' },
+      ],
+    };
+    const t = createEngine(tinyModel([withOptions]));
+    for (const [v, want] of [[0.9, 0], [1, 2], [3.4, 2], [3.5, 5], [9, 5], [-4, 0]]) {
+      t.setLever('pick', v);
+      expect(t.leverValue('pick')).toBe(want);
+    }
+  });
+
   test('a one-off shock changes a lagged state variable and is felt this step', () => {
     const e = fresh();
     e.fire('wageSettlement', 10);
@@ -308,6 +337,67 @@ describe('runtime guards', () => {
     const strict = createEngine(model, { baseline: base.baselineData, testHooks: tamper, onCheckFailure: 'throw' });
     expect(() => strict.step(5)).toThrow(/accounting check failed at month 3/);
   });
+
+  test('after a throw the month is complete, its events applied: stepping on matches a replay', () => {
+    // move a little money between two depositors behind the ledger's back, once: month 3 fails
+    // stock reconciliation and net worth, and every later month balances again
+    const dep = model.instrumentIndex.get('deposits')! * model.NP;
+    const [a, b] = ['HH', 'F'].map((p) => dep + model.playerIndex.get(p)!);
+    const tamper = {
+      afterPost: (L: { pos: Float64Array }, step: number) => {
+        if (step !== 3) return;
+        L.pos[a] += 1e-6;
+        L.pos[b] -= 1e-6;
+      },
+    };
+    const events: ScenarioEvent[] = [
+      { t: 3, lever: 'govSpending', value: 1.5 },
+      { t: 3, lever: 'wageSettlement', value: 5, fire: true },
+    ];
+    const strict = createEngine(model, { baseline: base.baselineData, testHooks: tamper, onCheckFailure: 'throw' });
+    expect(() => strict.load({ modelId: 'reference', events, months: 12 })).toThrow(/accounting check failed at month 3/);
+    expect(strict.t).toBe(3);
+    expect(strict.leverValue('govSpending')).toBe(1.5);
+    strict.step(9);
+    const replay = createEngine(model, { baseline: base.baselineData, testHooks: tamper });
+    replay.load({ modelId: 'reference', events, months: 12 });
+    expect(allVars(strict, 12)).toEqual(allVars(replay, 12));
+  });
+});
+
+describe('lag history', () => {
+  const lags: ModuleDef = {
+    id: 'lags',
+    label: 'x',
+    description: 'x',
+    vars: [variable('long', 10), variable('past', 10)],
+    rules: [
+      rule({ id: 'long', target: 'long', lagInputs: ['spend'], compute: (c) => c.lag('spend', 40) }),
+      rule({ id: 'past', target: 'past', lagInputs: ['spend'], compute: (c) => c.lag('spend', 3) }),
+    ],
+  };
+
+  test('EngineOptions.lagWindow reaches the baseline solver too', () => {
+    const e = createEngine(tinyModel([lags]), { lagWindow: 48 });
+    expect(e.baseline('long')).toBe(10);
+    e.step(40);
+    expect(e.value('long')).toBe(10);
+    // without it, the solver's error names the real cause
+    expect(() => createEngine(tinyModel([lags]))).toThrow(/first step from the initial guess failed \(lag\(spend, 40\): k must be a whole number from 1 to 25\)/);
+  });
+
+  test('initHistory: month 0 is lag 1, the history lag 2 onwards, and older slots keep its oldest value', () => {
+    const m = compile(tinyModel([lags]), {});
+    const M = new Machine(m, { lagWindow: 48 });
+    const spend = m.varIndex.get('spend')!;
+    const now = new Float64Array(m.NV).fill(7);
+    M.initHistory(now, new Map([[spend, [6, 5, 4]]]));
+    expect([1, 2, 3, 4, 5, 48].map((k) => M.lagValue(spend, k))).toEqual([7, 6, 5, 4, 4, 4]);
+    const tax = m.varIndex.get('tax')!;
+    expect([1, 2, 48].map((k) => M.lagValue(tax, k))).toEqual([7, 7, 7]); // no history: flat
+    expect(() => M.initHistory(now, new Map([[spend, new Array(48).fill(1)]]))).toThrow(/reaches back only 47 months/);
+    expect(() => M.initHistory(now, new Map([[spend, [1, NaN]]]))).toThrow(/'spend' at month -2 is not a finite number/);
+  });
 });
 
 describe('views', () => {
@@ -330,6 +420,15 @@ describe('views', () => {
     const l = bs.liabilities.reduce((s, x) => s + x.value, 0);
     expect(bs.netWorth).toBeCloseTo(a - l, 12);
     expect(bs.netWorth).toBeCloseTo(e.value('bankEquity'), 9);
+  });
+
+  test('feed messages carry the id of the feed rule behind them', () => {
+    const e = fresh();
+    e.setLever('keyRateAddon', 1);
+    e.step(6);
+    const up = e.feed().find((f) => f.message === 'The central bank raises its key rate');
+    expect(up).toMatchObject({ rule: 'rateUp', indicator: 'keyRate', concept: 'taylor-rule' });
+    expect(up!.stabiliser).toBeUndefined();
   });
 
   test('indicators are shown as deviations from baseline', () => {

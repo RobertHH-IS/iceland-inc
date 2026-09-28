@@ -8,7 +8,7 @@
  *   2. evaluate the schedule; simultaneous blocks by Gauss–Seidel (Newton as a fallback);
  *      record every term, desired value and regime;
  *   3. post every leg (amount × dt) through the payment system;
- *   4. run the four accounting checks;
+ *   4. run the four accounting checks, and the position-sign diagnostic beside them;
  *   5. record history, and take a full snapshot every 12 months for fast seek().
  *
  * Events at month t are applied on arrival at t, after that month's snapshot, so replaying
@@ -19,6 +19,7 @@ import type {
   CheckReport,
   ConceptDef,
   Engine,
+  FeedEntry,
   Id,
   Influence,
   IndicatorCtx,
@@ -30,13 +31,14 @@ import type {
   Scenario,
   ScenarioEvent,
   ShockApi,
+  SignViolation,
   StabiliserState,
 } from './types.ts';
 import { compile, isAutomatic, isCompiled, ROLE_ISSUER, type CLever, type KModel } from './compile.ts';
 import { Machine, type MachineState } from './machine.ts';
 import type { Ledger } from './ledger.ts';
 import { baselineReport, solveBaseline, type Baseline, type BaselineReport } from './steady.ts';
-import { CHECKS, DEFAULT_TOLERANCE, measureChecks, type CheckSpec } from './checks.ts';
+import { CHECKS, DEFAULT_SIGN_TOLERANCE, DEFAULT_TOLERANCE, measureChecks, measureSigns, type CheckSpec, type SignSpec } from './checks.ts';
 import { ideasAtPlay, influenceOf, type InfluenceSource } from './influence.ts';
 import { toDisplay } from './format.ts';
 import { nodeFor } from './hierarchy.ts';
@@ -44,10 +46,14 @@ import { nodeFor } from './hierarchy.ts';
 export interface EngineOptions {
   /** Throw when a rule reads something it did not declare (default true). */
   dev?: boolean;
-  /** What to do when an accounting check fails: record it (default) or throw. */
+  /** What to do when an accounting check fails: record it (default) or throw. A throw comes
+   *  after the month is fully recorded and its lever events applied, so the engine is in the
+   *  state a replay would reach. Position-sign violations never throw. */
   onCheckFailure?: 'record' | 'throw';
   /** Accounting tolerance (default 1e-9). */
   tolerance?: number;
+  /** Tolerance of the position-sign diagnostic (default 1e-6). */
+  signTolerance?: number;
   /** Gauss–Seidel tolerance for simultaneous blocks (default 1e-12). */
   solverTol?: number;
   /** Gauss–Seidel iteration guard before Newton (default 200). */
@@ -110,8 +116,6 @@ interface StabiliserFeedState {
   lastDir: Int8Array;
 }
 
-type FeedEntry = { t: number; message: string; indicator: Id; concept?: Id; stabiliser?: Id };
-
 interface Snapshot {
   machine: MachineState;
   feedPrev: Uint8Array;
@@ -126,8 +130,10 @@ const cloneStabFeed = (s: StabiliserFeedState): StabiliserFeedState => ({
   lastDir: new Int8Array(s.lastDir),
 });
 
-/** A number in a stabiliser's feed message: at most two decimals, no trailing zeros. */
-const feedNumber = (x: number) => String(Number(x.toFixed(2))).replace('-', '−');
+/** A number in a stabiliser's feed message: rounded to two decimals ... */
+const feedRound = (x: number) => Number(x.toFixed(2));
+/** ... and written with no trailing zeros and a true minus sign. */
+const feedNumber = (x: number) => String(x).replace('-', '−');
 
 class KEngine implements KernelEngine {
   readonly model: KModel;
@@ -136,6 +142,8 @@ class KEngine implements KernelEngine {
   readonly warnings: string[];
   private readonly M: Machine;
   private readonly tol: number;
+  private readonly signTol: number;
+  private readonly signSpec: SignSpec;
   private readonly every: number;
   private readonly checkSpec: CheckSpec;
   private readonly baseInd: Float64Array;
@@ -157,6 +165,10 @@ class KEngine implements KernelEngine {
   private feedPrev: Uint8Array;
   private stabFeed: StabiliserFeedState;
   private failures: { t: number; id: Id; residual: number }[] = [];
+  /** First wrong-sign month of each position (signSeen marks the positions already reported). */
+  private signViolations: SignViolation[] = [];
+  private signSeen: Uint8Array;
+  private readonly signBuf: number[] = [];
   private stepCount = 0;
   private stepMillis = 0;
   private maxIters = 0;
@@ -166,8 +178,9 @@ class KEngine implements KernelEngine {
     this.options = opts;
     const m = model;
     this.tol = opts.tolerance ?? DEFAULT_TOLERANCE;
+    this.signTol = opts.signTolerance ?? DEFAULT_SIGN_TOLERANCE;
     this.every = Math.max(1, Math.round(opts.snapshotEvery ?? 12));
-    const base = opts.baseline ?? solveBaseline(m, { params: opts.params, dev: opts.dev });
+    const base = opts.baseline ?? solveBaseline(m, { params: opts.params, dev: opts.dev, lagWindow: opts.lagWindow });
     this.baselineData = base;
     this.warnings = [...m.warnings, ...base.warnings];
     const M = new Machine(m, { dev: opts.dev, tol: opts.solverTol, maxIter: opts.maxIter, lagWindow: opts.lagWindow });
@@ -190,6 +203,8 @@ class KEngine implements KernelEngine {
       financial: new Uint8Array(m.instruments.map((i) => (i.kind === 'financial' ? 1 : 0))),
       exemptFlows: new Uint8Array(m.flows.map((_, f) => (m.clegs.some((l) => l.flow === f && l.oneSided) ? 1 : 0))),
     };
+    this.signSpec = { role: m.role, exempt: m.signExempt };
+    this.signSeen = new Uint8Array(m.NI * m.NP);
     const NP = m.NP;
     const signed = (pos: Float64Array, ins: Id, pl: Id) => {
       const i = m.instrumentIndex.get(ins),
@@ -286,7 +301,7 @@ class KEngine implements KernelEngine {
     M.ledger.begin();
     M.cur.set(b.vars);
     M.initLevers();
-    M.fillRing(M.cur);
+    M.initHistory(M.cur);
     M.termVal.set(b.terms);
     M.desired.set(b.desired);
     b.regimes.forEach((r, j) => (M.regimes[j] = r));
@@ -301,14 +316,38 @@ class KEngine implements KernelEngine {
     this.hChecks = [];
     this.feedLog = [];
     this.failures = [];
+    this.signViolations = [];
+    this.signSeen.fill(0);
     this.checkBuf.fill(0);
     this.feedPrev.fill(0);
     this.stabFeed.prev.fill(0);
     this.stabFeed.lastT.fill(-Infinity);
     this.stabFeed.lastDir.fill(0);
     this.record();
+    this.checkSigns();
     this.updateFeed(false);
     this.snaps.set(0, this.snap());
+  }
+
+  /** The position-sign diagnostic for the current month: record each position's first breach. */
+  private checkSigns(): void {
+    const { M, model: m } = this;
+    const out = this.signBuf;
+    out.length = 0;
+    const pos = M.ledger.pos;
+    measureSigns(pos, this.signSpec, this.signTol, out);
+    for (const j of out) {
+      if (this.signSeen[j]) continue;
+      this.signSeen[j] = 1;
+      const issuer = m.role[j] === ROLE_ISSUER;
+      this.signViolations.push({
+        instrument: m.instruments[Math.floor(j / m.NP)].id,
+        player: m.players[j % m.NP].id,
+        role: issuer ? 'issuer' : 'holder',
+        t: M.t,
+        value: issuer ? -pos[j] : pos[j],
+      });
+    }
   }
 
   private snap(): Snapshot {
@@ -340,7 +379,7 @@ class KEngine implements KernelEngine {
       const i = m.indicatorIndex.get(f.indicator)!;
       const v = toDisplay(m.indicators[i].display, ind[i], this.baseInd[i]);
       const on = (f.above !== undefined && v > f.above) || (f.below !== undefined && v < f.below) ? 1 : 0;
-      if (log && on && !this.feedPrev[j]) this.feedLog.push({ t, message: f.message, indicator: f.indicator, concept: f.concept });
+      if (log && on && !this.feedPrev[j]) this.feedLog.push({ t, message: f.message, indicator: f.indicator, concept: f.concept, rule: f.id });
       this.feedPrev[j] = on;
     });
     if (m.stabilisers.length) this.updateStabiliserFeed(log);
@@ -364,8 +403,10 @@ class KEngine implements KernelEngine {
       const touched = !Object.is(lv, sf.lever[j]) || !Object.is(modeVal, sf.mode[j]);
       const dir = s.gap > 0 ? 1 : -1;
       if (log && def.feed && s.calling && !sf.prev[j] && !touched && !(sf.lastDir[j] === dir && t - sf.lastT[j] < year)) {
-        const message = (dir > 0 ? def.feed.raise : def.feed.lower).replace(/\{value\}/g, feedNumber(s.suggested)).replace(/\{change\}/g, feedNumber(Math.abs(s.gap)));
-        this.feedLog.push({ t, message, indicator: def.feed.indicator, concept: def.concepts?.[0], stabiliser: def.id });
+        const value = feedRound(s.suggested),
+          change = feedRound(Math.abs(s.gap));
+        const message = (dir > 0 ? def.feed.raise : def.feed.lower).replace(/\{value\}/g, feedNumber(value)).replace(/\{change\}/g, feedNumber(change));
+        this.feedLog.push({ t, message, indicator: def.feed.indicator, concept: def.concepts?.[0], stabiliser: def.id, dir, value, change });
         sf.lastT[j] = t;
         sf.lastDir[j] = dir;
       }
@@ -395,10 +436,17 @@ class KEngine implements KernelEngine {
         failed ??= `${CHECKS[k].id} residual ${r[k]} > ${this.tol}`;
       }
     this.record();
+    this.checkSigns();
     this.updateFeed(true);
     if (M.t % this.every === 0) this.snaps.set(M.t, this.snap());
-    if (failed && this.options.onCheckFailure === 'throw') throw new Error(`accounting check failed at month ${M.t} in model '${m.def.id}': ${failed}`);
-    this.applyEventsAt(M.t);
+    // Arrive fully at month t (its events applied) before any throw, so a caller that catches
+    // the error and steps on stays on the path seek(), fork() and load() replay. The
+    // accounting error takes precedence over an error from an event.
+    try {
+      this.applyEventsAt(M.t);
+    } finally {
+      if (failed && this.options.onCheckFailure === 'throw') throw new Error(`accounting check failed at month ${M.t} in model '${m.def.id}': ${failed}`);
+    }
   }
 
   step(n = 1): void {
@@ -413,11 +461,21 @@ class KEngine implements KernelEngine {
     return l;
   }
 
+  /** A lever value the engine accepts: within min and max, and for a choice lever with options
+   *  the nearest option (a tie goes to the higher value, as Math.round and isAutomatic do). */
   private clamp(l: CLever, v: number): number {
     if (!Number.isFinite(v)) throw new Error(`lever '${l.def.id}': value must be a finite number`);
-    if (l.def.min !== undefined && v < l.def.min) return l.def.min;
-    if (l.def.max !== undefined && v > l.def.max) return l.def.max;
-    return v;
+    if (l.def.min !== undefined && v < l.def.min) v = l.def.min;
+    if (l.def.max !== undefined && v > l.def.max) v = l.def.max;
+    const opts = l.def.kind === 'choice' ? l.def.options : undefined;
+    if (!opts?.length) return v;
+    let best = opts[0].value;
+    for (const o of opts) {
+      const d = Math.abs(o.value - v),
+        db = Math.abs(best - v);
+      if (d < db || (d === db && o.value > best)) best = o.value;
+    }
+    return best;
   }
 
   private applyEvent(e: ScenarioEvent): void {
@@ -510,6 +568,10 @@ class KEngine implements KernelEngine {
     this.checkBuf.set(this.hChecks[best]);
     this.feedLog = this.feedLog.filter((f) => f.t <= best);
     this.failures = this.failures.filter((f) => f.t <= best);
+    this.signViolations = this.signViolations.filter((v) => v.t <= best);
+    this.signSeen.fill(0);
+    const m = this.model;
+    for (const v of this.signViolations) this.signSeen[m.instrumentIndex.get(v.instrument)! * m.NP + m.playerIndex.get(v.player)!] = 1;
     for (const t of [...this.snaps.keys()]) if (t > best) this.snaps.delete(t);
     this.applyEventsAt(best);
     this.step(target - best);
@@ -706,6 +768,8 @@ class KEngine implements KernelEngine {
       items: CHECKS.map((c, k) => ({ id: c.id, label: c.label, residual: r[k] })),
       tolerance: this.tol,
       failures: this.failures.map((f) => ({ ...f })),
+      signViolations: this.signViolations.map((v) => ({ ...v })),
+      signTolerance: this.signTol,
     };
   }
 

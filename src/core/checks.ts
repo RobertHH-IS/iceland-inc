@@ -7,9 +7,15 @@
  *   stock-reconciliation   each position's change = its cash + accrual + revaluation + write-off postings
  *
  * Residuals are absolute (units of the model: % of baseline GDP). NaN counts as infinite.
+ *
+ * Separately, `measureSigns` is a plausibility diagnostic, not an accounting identity: it finds
+ * positions with the wrong sign for their role (an overdrawn asset, a liability that became a
+ * claim). The accounting can balance exactly with such positions, so they are reported beside
+ * the checks and never count as failures (decision 0005).
  */
 import type { Id } from './types.ts';
 import { KIND_COUNT, type Ledger } from './ledger.ts';
+import { ROLE_HOLDER, ROLE_ISSUER } from './compile.ts';
 
 export const CHECKS: { id: Id; label: string }[] = [
   { id: 'flow-balance', label: 'Every flow sums to zero across players' },
@@ -76,4 +82,47 @@ export function instrumentImbalance(pos: Float64Array, NI: number, NP: number, f
     out.push({ ins: i, residual: Math.abs(s) });
   }
   return out;
+}
+
+/* ------------------------------------------------------------ position signs */
+
+/** Default tolerance of the sign diagnostic: far above rounding, far below any real position. */
+export const DEFAULT_SIGN_TOLERANCE = 1e-6;
+
+export interface SignSpec {
+  /** role[ins * NP + player]: 0 none, 1 holder, 2 issuer (KModel.role). */
+  role: Uint8Array;
+  /** 1 for positions declared free to take either sign (InstrumentDef.mayGoNegative). */
+  exempt: Uint8Array;
+}
+
+/**
+ * How far a signed position is on the wrong side of zero for its role: a holder's asset below
+ * zero, or an issuer's liability below zero (a signed position above zero). Real assets have
+ * holders only, so they are covered by the holder rule. 0 when the sign is right.
+ */
+export function signBreach(role: number, pos: number): number {
+  if (role === ROLE_HOLDER) return pos < 0 ? -pos : 0;
+  if (role === ROLE_ISSUER) return pos > 0 ? pos : 0;
+  return 0;
+}
+
+/**
+ * The position-sign diagnostic over signed positions ([ins * NP + player], asset +). Pushes the
+ * index of every non-exempt position whose breach exceeds `tol` into `out` (if given) and
+ * returns the largest such breach (0 when there is none). A NaN position is left to the
+ * accounting checks, which already count NaN as a failure.
+ */
+export function measureSigns(pos: Float64Array, spec: SignSpec, tol: number, out?: number[]): number {
+  const { role, exempt } = spec;
+  let worst = 0;
+  for (let j = 0; j < pos.length; j++) {
+    if (!role[j] || exempt[j]) continue;
+    const b = signBreach(role[j], pos[j]);
+    if (b > tol) {
+      out?.push(j);
+      if (b > worst) worst = b;
+    }
+  }
+  return worst;
 }
