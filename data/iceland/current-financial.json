@@ -1,0 +1,327 @@
+{
+  "asOf": "2026-09-28",
+  "series": {
+    "policyRate": {
+      "value": 8.0,
+      "unit": "% per year",
+      "period": "in force since 2026-08-19 (value on 2026-09-28)",
+      "source": "Central Bank of Iceland (CBI), rate on 7-day term deposits (key rate), CSV service cb.is/xmltimeseries TimeSeriesID=75",
+      "note": "Verified: 8.00% since 19 Aug 2026 (+0.25 pp, 4 of 5 MPC members for). Decision history from the same series: 9.25 (23 Aug 2023), 9.00 (2 Oct 2024), 8.50 (20 Nov 2024), 8.00 (5 Feb 2025), 7.75 (19 Mar 2025), 7.50 (21 May 2025), 7.25 (19 Nov 2025), 7.50 (18 Mar 2026), 7.75 (20 May 2026), 8.00 (19 Aug 2026). Dates are the dates the new rate took effect in the series."
+    },
+    "cbCurrentAccountRate": {
+      "value": 7.75,
+      "unit": "% per year",
+      "period": "2026-09-28",
+      "source": "CBI, rate on current accounts of deposit institutions, cb.is/xmltimeseries TimeSeriesID=28",
+      "note": "Floor of the CBI rate corridor (key rate minus 0.25 pp). Reserve-requirement deposits also 7.75% (TimeSeriesID=3459)."
+    },
+    "cbOvernightLendingRate": {
+      "value": 9.75,
+      "unit": "% per year",
+      "period": "2026-09-28",
+      "source": "CBI, overnight lending rate, cb.is/xmltimeseries TimeSeriesID=24",
+      "note": "Ceiling of the corridor (key rate plus 1.75 pp). 7-day collateralised loans: 8.75% (TimeSeriesID=55)."
+    },
+    "cbRealRate": {
+      "value": 3.2,
+      "unit": "% per year",
+      "period": "mid-August 2026",
+      "source": "CBI, Monetary Bulletin (Peningamál) 2026/3, 19 Aug 2026, section on domestic rates",
+      "note": "Key rate in real terms, average over several measures of inflation and 1-year inflation expectations, at the 7.75% key rate in force before the 19 Aug hike. Measured against actual inflation: 2.3%. Not recomputed for 8.00%."
+    },
+    "reibor3m": {
+      "value": 8.338,
+      "unit": "% per year",
+      "period": "2026-09-28",
+      "source": "CBI, REIBOR 3 months, cb.is/xmltimeseries TimeSeriesID=15",
+      "note": "Interbank ask rate. REIBID 3m 7.838 (ID 6); REIBOR overnight 7.888 (ID 12)."
+    },
+    "mortgageRateNonIndexedVariable": {
+      "value": 9.9,
+      "unit": "% per year",
+      "period": "rate sheets valid 1-24 Sep 2026",
+      "source": "Rate tables of the three systemically important banks: Landsbankinn (valid 1 Sep 2026), Islandsbanki (valid 3 Sep 2026), Arion banki (24 Sep 2026)",
+      "note": "Simple average of the three banks' variable non-indexed mortgage rate at loan-to-value up to 50%: Arion 9.69, Islandsbanki 9.50 (8.00 base + 1.50), Landsbankinn 10.50 (key rate on the 1st of the month + 2.50, any LTV to 90%). Higher LTV adds up to about 0.4 pp at Islandsbanki. Pension funds rarely offer this product (Birta 9.10)."
+    },
+    "mortgageRateNonIndexedFixed": {
+      "value": 8.75,
+      "unit": "% per year",
+      "period": "rate sheets valid 1-24 Sep 2026",
+      "source": "Rate tables of Landsbankinn (1 Sep 2026), Islandsbanki (3 Sep 2026), Arion banki (24 Sep 2026)",
+      "note": "Non-indexed rate fixed for 3 years, LTV up to 50-55%: identical 8.75% at all three banks. 5-year fixed: Islandsbanki 8.45, Landsbankinn 8.35. 1-year fixed: Landsbankinn 9.20. Pension-fund 3-year fixed non-indexed: 8.74-8.85 (Aurbjorg)."
+    },
+    "mortgageRateIndexed": {
+      "value": 4.4,
+      "unit": "% per year, real (on top of CPI indexation)",
+      "period": "rates advertised on 2026-09-29",
+      "source": "Aurbjorg.is mortgage rate table for all 19 lenders (daily monitoring, 50% LTV), big-three banks checked against their own rate sheets",
+      "note": "Median of the lowest CPI-indexed rate offered by each of 18 lenders offering indexed loans. Pension funds (now the main indexed lenders) fixed for the loan term: Gildi 4.30, LSR 4.40, Almenni 4.40, SL 4.40, Frjalsi 4.59, Bru 4.10, Stapi 4.10, Festa 3.70, Birta 3.60 (variable 3.30); LV 4.40 fixed 5y. Banks: Landsbankinn 4.45 (fixed for term, LTV to 75%), Islandsbanki 4.55 (fixed 5y), Arion 4.94 (fixed 3y). Banks no longer offer variable-rate indexed loans (FS 2026/2)."
+    },
+    "mortgageRateIndexedBanks": {
+      "value": 4.65,
+      "unit": "% per year, real",
+      "period": "rate sheets valid 1-24 Sep 2026",
+      "source": "Rate tables of Landsbankinn, Islandsbanki, Arion banki",
+      "note": "Simple average of 4.45, 4.55 and 4.94 (lowest-LTV band)."
+    },
+    "hhDebtPctGDP": {
+      "value": 70.55,
+      "unit": "% of GDP (4-quarter rolling)",
+      "period": "2026Q2 (end-June 2026)",
+      "source": "CBI, Financial Stability (Fjarmalastodugleiki) 2026/2, 23 Sep 2026, chart data I-29",
+      "note": "CBI definition, all lenders. End-2025: 69.78 (revised from 69.9 in FS 2026/1). Real growth of household debt 0.9% y/y in 2026Q2 (chart I-28)."
+    },
+    "hhDebtPctDisposableIncome": {
+      "value": 137.8,
+      "unit": "% of disposable income",
+      "period": "2026Q2",
+      "source": "CBI, Financial Stability 2026/2, chart data I-29",
+      "note": "Uses the CBI's baseline forecast of disposable-income growth for 2026Q2."
+    },
+    "hhDebtISKbn": {
+      "value": 3625.5,
+      "unit": "ISK bn",
+      "period": "end-June 2026",
+      "source": "Derived: CBI FS 2026/2 ratio (70.55% of GDP) x Hagstofa THJ01601 nominal GDP 2025Q3-2026Q2 (5,138.9 bn ISK)",
+      "note": "DERIVED, not published as a level. The CBI's own GDP denominator may differ slightly. Check: banks 2,326.5 + pension funds 840.7 = 3,167.2 bn in June 2026; the rest is ÍL-sjóður, HMS, the student loan fund and other lenders."
+    },
+    "hhDebtIndexedShare": {
+      "value": 64.4,
+      "unit": "% of residential mortgages held by banks and pension funds",
+      "period": "end-July 2026",
+      "source": "Derived from CBI databank: deposit institutions' loans to households (library item 3227486f, sheet IV) and pension funds' loans by sector (IS2_EXT/LIF_BALANCE_SHEETS_LOANS_SECTOR_TOTAL)",
+      "note": "Indexed mortgages: banks 1,232.1 + pension funds 651.7 bn, of 2,925.0 bn. Excludes ÍL-sjóður/HMS legacy loans (almost all indexed), so the true share is somewhat higher. FS 2026/1 reported 65.0% of all household housing loans indexed in Jan 2026. For all household loans from banks and pension funds (incl. overdrafts, car loans) the indexed share is 59.8%."
+    },
+    "hhMortgagePensionFundShare": {
+      "value": 29.1,
+      "unit": "% of residential mortgages held by banks and pension funds",
+      "period": "end-July 2026",
+      "source": "Derived from CBI databank (as hhDebtIndexedShare)",
+      "note": "Pension funds 851.2 bn vs banks 2,073.7 bn (banks' share 70.9%). Pension funds' mortgages are 76.6% indexed; banks' 59.4%. Of total household debt (derived, June 2026): banks 64.2%, pension funds 23.2%, others about 12.6%."
+    },
+    "hhMortgageBankShare": {
+      "value": 70.9,
+      "unit": "% of residential mortgages held by banks and pension funds",
+      "period": "end-July 2026",
+      "source": "Derived from CBI databank (as hhDebtIndexedShare)",
+      "note": "Complement of hhMortgagePensionFundShare."
+    },
+    "hhLoansBanksISKbn": {
+      "value": 2359.2,
+      "unit": "ISK bn",
+      "period": "end-August 2026 (preliminary)",
+      "source": "CBI databank, deposit institutions' lending to households (library item 3227486f-fd21-4635-b8e0-7b0ab7210bd4, sheet IV)",
+      "note": "Of which residential mortgages 2,085.1 bn (indexed 1,236.6; non-indexed ISK 848.5). +5.0% y/y."
+    },
+    "hhLoansPensionFundsISKbn": {
+      "value": 851.3,
+      "unit": "ISK bn",
+      "period": "end-July 2026",
+      "source": "CBI databank SDMX table IS2_EXT/LIF_BALANCE_SHEETS_LOANS_SECTOR_TOTAL",
+      "note": "Indexed 651.7, non-indexed 199.6 bn; almost all residential mortgages. +12.7% y/y."
+    },
+    "hhDepositsISKbn": {
+      "value": 1996.2,
+      "unit": "ISK bn",
+      "period": "end-August 2026 (preliminary)",
+      "source": "CBI databank, deposits by sector (library item 19c3efc3-28e8-4850-a4ef-9795b5ca5cde, sheet I)",
+      "note": "Household deposits in deposit institutions, +11.6% y/y. Non-financial companies: 834.9 bn."
+    },
+    "corpDebtPctGDP": {
+      "value": 76.5,
+      "unit": "% of GDP (4-quarter rolling)",
+      "period": "2026Q2 (estimate)",
+      "source": "Derived: bank loans to non-financial companies (CBI databank, June 2026) / banks' share of corporate debt (CBI FS 2026/2 chart I-34) / Hagstofa THJ01601 GDP",
+      "note": "ESTIMATE. Same method gives 75.2% at end-2025 against the published 75.5% (FS 2026/1 chart I-27), so the error is about 0.3 pp. FS 2026/2 says the ratio rose slightly in 2026Q2; real growth of corporate debt 4.4% y/y (chart I-28). About one third of corporate debt is in foreign currency."
+    },
+    "corpDebtISKbn": {
+      "value": 3933.1,
+      "unit": "ISK bn",
+      "period": "end-June 2026 (estimate)",
+      "source": "Derived: 2,221.8 bn bank loans to non-financial companies / 0.5649 bank share (FS 2026/2 I-34)",
+      "note": "ESTIMATE. Lender shares 2026Q2: deposit institutions 56.49%, pension funds 15.99%, foreign lenders 14.86%, other financial firms 12.65%."
+    },
+    "corpLoansBanksISKbn": {
+      "value": 2231.1,
+      "unit": "ISK bn",
+      "period": "end-August 2026 (preliminary)",
+      "source": "CBI databank, deposit institutions' loans to non-financial companies (library item 3227486f, sheet V)",
+      "note": "+9.0% y/y. Foreign-currency loans 574.2 bn (25.7%). Construction 456.6 bn (+35% y/y), real-estate companies 589.8 bn."
+    },
+    "netNewMortgageLendingISKbnMonth": {
+      "value": 16.13,
+      "unit": "ISK bn per month",
+      "period": "July 2026",
+      "source": "CBI, Financial Stability 2026/2, chart data I-30",
+      "note": "Net new mortgage loans to households (new loans less prepayments) by banks, pension funds, HMS and ÍL-sjóður, at constant prices (August 2026 price level, so close to nominal). Banks non-indexed 7.38, banks indexed 1.46, pension funds non-indexed 1.10, pension funds indexed 6.19. Average of the 12 months Aug 2025-Jul 2026: 13.69 bn per month (164.3 bn in total)."
+    },
+    "netNewMortgageLendingBanksISKbnMonth": {
+      "value": 7.67,
+      "unit": "ISK bn per month (nominal)",
+      "period": "August 2026 (preliminary)",
+      "source": "CBI databank, deposit institutions' new lending less prepayments (library item b73e42d6-ba32-4eb3-b39e-1c70d2e45aec)",
+      "note": "Residential mortgages of households: floating-rate -12.68, fixed-rate +20.34 bn (non-indexed 7.00, indexed 0.67). July 2026: 9.18 bn. Pension funds' August figure not yet published (July: 7.28 bn, IS2_EXT/LIF_NEW_LOANS_TOTAL)."
+    },
+    "netNewLendingFirmsISKbnMonth": {
+      "value": 25.38,
+      "unit": "ISK bn per month",
+      "period": "June 2026 (3-month moving average)",
+      "source": "CBI, Monetary Bulletin 2026/3, chart data 6",
+      "note": "Net new lending to firms by the credit system. Households on the same basis: 16.55 bn."
+    },
+    "m3ISKbn": {
+      "value": 3586.8,
+      "unit": "ISK bn",
+      "period": "end-August 2026 (preliminary)",
+      "source": "CBI broad money (library item 76230f67-d5ae-4eb2-8469-0b5c282a7d70); also NSDP series cb.is/xmltimeseries TimeSeriesID=82",
+      "note": "M3 +12.0% y/y (Aug 2025 revised: 3,201.6 bn); +9.4% y/y in June. M2 2,537.0 bn; M1 707.1 bn; base money M0 129.9 bn. July jump partly base effects of the Islandsbanki share sale in 2025 (MB 2026/3). M3 = 69.8% of 4-quarter GDP."
+    },
+    "bankAssetsISKbn": {
+      "value": 6582.3,
+      "unit": "ISK bn",
+      "period": "end-August 2026 (preliminary)",
+      "source": "CBI databank SDMX table IS2_EXT/INN_BALANCE_SHEETS_TOTAL (balance sheet of deposit institutions)",
+      "note": "All deposit institutions. End-June 2026: 6,449.2 bn (FS 2026/2 table 2), of which commercial banks 6,373 bn. Domestic loans 4,868.3 bn gross."
+    },
+    "bankDepositsISKbn": {
+      "value": 3802.0,
+      "unit": "ISK bn",
+      "period": "end-August 2026 (preliminary)",
+      "source": "CBI databank IS2_EXT/INN_BALANCE_SHEETS_TOTAL and deposits by sector workbook",
+      "note": "Residents 3,620.9 bn (households 1,996.2; non-financial companies 834.9; financial companies 542.9; government 130.1; NPISH 116.8) + non-residents 181.1 bn."
+    },
+    "bankEquityISKbn": {
+      "value": 830.1,
+      "unit": "ISK bn",
+      "period": "end-August 2026 (preliminary)",
+      "source": "CBI databank IS2_EXT/INN_BALANCE_SHEETS_TOTAL",
+      "note": "Equity of all deposit institutions, 12.6% of assets. The three systemically important banks (D-SIBs): 752 bn at end-June 2026 (FS 2026/2)."
+    },
+    "bankCapitalRatio": {
+      "value": 23.3,
+      "unit": "% of risk-weighted assets",
+      "period": "end-June 2026",
+      "source": "CBI, Financial Stability 2026/2, text and table 7",
+      "note": "Combined total capital ratio of the three D-SIBs, after deducting 37 bn of planned dividends; +0.6 pp y/y. Arion 21.6, Islandsbanki 23.0, Landsbankinn 24.7 (chart II-7); CBI requirement 19.5-20%. Leverage ratio 12.2%; LCR 227%."
+    },
+    "fxReservesISKbn": {
+      "value": 949,
+      "unit": "ISK bn",
+      "period": "end-August 2026",
+      "source": "CBI, Financial Stability 2026/2 (text); USD figure from IMF SDDS/NSDP series cb.is/xmltimeseries TimeSeriesID=130",
+      "note": "USD 7,814.6 m official reserve assets (of which foreign currency 6,842.9 m), x 121.42 ISK/USD = 948.8 bn. Down 19 bn since the start of the year; 121% of the IMF reserve metric and 169% of short-term external debt (2026Q2)."
+    },
+    "pfAssetsISKbn": {
+      "value": 9326.3,
+      "unit": "ISK bn",
+      "period": "end-July 2026",
+      "source": "CBI databank SDMX table IS2_EXT/LIF_BALANCE_SHEETS_TOTAL",
+      "note": "Pension funds' total assets (+11.3% y/y). FS 2026/2: 9,341 bn at end-June; with other pension-savings custodians about 9,800 bn, nearly 200% of GDP."
+    },
+    "pfForeignShare": {
+      "value": 41.9,
+      "unit": "% of pension-fund assets",
+      "period": "end-July 2026",
+      "source": "CBI databank IS2_EXT/LIF_BALANCE_SHEETS_TOTAL; FS 2026/2 text gives 42% at end-July",
+      "note": "Foreign assets 3,909.8 bn of 9,326.3 bn. Legal ceiling 54.5%. Net FX purchases by pension funds 72 bn in Jan-Aug 2026."
+    },
+    "housePriceIndex": {
+      "value": 113.6,
+      "unit": "index (HMS house price index)",
+      "period": "August 2026",
+      "source": "HMS (Housing and Construction Authority), house price index release of 15 Sep 2026, as quoted in search-index extracts; hms.is itself blocked automated download (HTTP 429 / bot challenge)",
+      "note": "+0.09% m/m (third month in a row). Capital area -0.18% m/m. Base period of the new HMS index not verified."
+    },
+    "housePriceNominal12m": {
+      "value": 2.25,
+      "unit": "% y/y",
+      "period": "August 2026",
+      "source": "HMS house price index (whole country), release 15 Sep 2026, via search-index extracts; cross-checked with CBI MB 2026/3 chart 7 (July 2026: 1.61%)",
+      "note": "Up from 1.61% in July. Direct fetch of hms.is failed; value not read from the HMS CSV."
+    },
+    "housePriceReal12m": {
+      "value": -3.2,
+      "unit": "% y/y, deflated by CPI",
+      "period": "August 2026",
+      "source": "HMS release 15 Sep 2026 via search-index extracts; consistent with 1.0225/1.0563 - 1 = -3.20% using Hagstofa CPI",
+      "note": "July: -3.46%. FS 2026/2: capital-area real prices down 'rúmlega 3%' y/y in August and about 8% below the mid-2022 peak."
+    },
+    "cpiInflation12m": {
+      "value": 5.6,
+      "unit": "% y/y",
+      "period": "August 2026",
+      "source": "Hagstofa CPI via CBI series cb.is/xmltimeseries TimeSeriesID=2 (index ID=1: 694.6)",
+      "note": "6-month annualised (Feb-Aug): 6.0%. CPI excluding housing 5.2%. Underlying inflation (CBI average of 5 measures) 4.17% in July. September CPI due 29 Sep 2026 (Landsbankinn forecast 5.8%)."
+    },
+    "expInflHouseholds2y": {
+      "value": 5.0,
+      "unit": "% per year",
+      "period": "Gallup summer survey, June 2026",
+      "source": "CBI, Monetary Bulletin 2026/3 (19 Aug 2026), section on inflation",
+      "note": "Households expect 5% inflation in two years and 5% on average over the next five years; up sharply since the previous survey."
+    },
+    "expInflFirms2y": {
+      "value": 4.0,
+      "unit": "% per year",
+      "period": "latest firm survey reported in MB 2026/3 (summer 2026)",
+      "source": "CBI, Monetary Bulletin 2026/3",
+      "note": "Unchanged from the previous survey. Firms' 5-year average expectation also 4%."
+    },
+    "expInflMarket2y": {
+      "value": 3.5,
+      "unit": "% per year",
+      "period": "CBI market participants' survey, 10-12 Aug 2026",
+      "source": "CBI, Monetary Bulletin 2026/3",
+      "note": "Median. 5-year average 3.3%; 10-year average 3.0% (MB chart 20, 2026Q3). The same survey expects the key rate at 8% in 2026Q3 and 6.25% in two years."
+    },
+    "breakeven5y": {
+      "value": 3.97,
+      "unit": "% per year",
+      "period": "August 2026 monthly average (data to 14 Aug)",
+      "source": "CBI, Monetary Bulletin 2026/3, chart data 20",
+      "note": "Bond-market inflation compensation, 5 years. 10-year 3.83%; 5-year 5 years ahead 3.71%. July: 4.00 / 3.80 / 3.60. No later reading found; FS 2026/2 says long domestic yields have changed little since."
+    },
+    "eurIsk": {
+      "value": 137.0,
+      "unit": "ISK per EUR",
+      "period": "2026-09-28",
+      "source": "CBI official mid rate, cb.is/xmltimeseries TimeSeriesID=4064",
+      "note": "One year earlier (29 Sep 2025): 142.00, so -3.5% (stronger krona). USD 120.41 (ID 4055); GBP 159.70; DKK 18.327."
+    },
+    "tradeWeightedIndex": {
+      "value": 177.95,
+      "unit": "index, narrow trade basket (higher = weaker krona)",
+      "period": "2026-09-28",
+      "source": "CBI exchange rate index (Gengisvisitala, vidskiptavog throng), cb.is/xmltimeseries TimeSeriesID=4118",
+      "note": "The index used in Monetary Bulletin charts (184.1 on 14 Aug 2026). Broad trade basket index (ID 4116): 163.67."
+    },
+    "tradeWeightedIndex12m": {
+      "value": -1.9,
+      "unit": "% change over 12 months (negative = krona appreciation)",
+      "period": "2025-09-29 to 2026-09-28",
+      "source": "CBI, TimeSeriesID=4118",
+      "note": "181.40 -> 177.95. Krona about 1.9% stronger on a trade-weighted basis. Broad basket: -2.0%."
+    },
+    "fxReservesUSDm": {
+      "value": 7814.6,
+      "unit": "USD m",
+      "period": "end-August 2026",
+      "source": "IMF SDDS National Summary Data Page series NSDP.EXS.BPINRE.XXX.USD, cb.is/xmltimeseries TimeSeriesID=130",
+      "note": "Foreign-currency reserves 6,842.9 m (ID 131); gold 284.2 m; SDR 591.7 m; IMF reserve position 95.8 m."
+    },
+    "gdpRolling4qISKbn": {
+      "value": 5138.9,
+      "unit": "ISK bn",
+      "period": "2025Q3-2026Q2",
+      "source": "Hagstofa, THJ01601 Quarterly GDP, current prices",
+      "note": "Denominator used for the derived ratios here. Quarters: 1,306.1; 1,250.6; 1,295.4; 1,286.8. Calendar 2025: 4,941.2 bn. Real GDP fell 1.1% y/y in 2026Q2 (Landsbankinn, citing Hagstofa)."
+    },
+    "wageAgreementInflationCeiling": {
+      "value": 4.7,
+      "unit": "% y/y CPI in August 2026 (review-clause threshold)",
+      "period": "review point 1 Sep 2026",
+      "source": "ASI via Eining-Idja news item on the 2024-2028 'Stability and Welfare' agreements; SA explainer; CBI MB 2026/3",
+      "note": "STATUS: the price condition FAILED. 12-month CPI inflation in Aug 2026 was 5.6% (ceiling 4.7%) and Mar-Aug annualised 6.0% (alternative test 4.4%). The wage and conditions committee (forsendunefnd) must agree a response. If none is agreed, a party that wants out must give notice by 16:00 on 8 Oct 2026, and the agreements then lapse on 31 Oct 2026. No outcome found as of 28 Sep 2026. The CBI (MB 2026/3) flagged that the clause was likely to trigger."
+    }
+  }
+}
