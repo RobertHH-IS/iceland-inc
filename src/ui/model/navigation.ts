@@ -43,6 +43,8 @@ export function navCurrent(n: NavState): Selection | null {
  *  After a close, the new selection is added after the one that was closed. */
 export function navPush(n: NavState, s: Selection, limit = 50): NavState {
   if (sameSelection(navCurrent(n), s)) return n;
+  // Reopening the item just closed goes back to it rather than adding it a second time.
+  if (n.index < 0 && n.stack.length && sameSelection(n.stack[n.stack.length - 1], s)) return { ...n, index: n.stack.length - 1 };
   const keep = n.index < 0 ? n.stack.length : n.index + 1;
   const stack = [...n.stack.slice(0, keep), s];
   const over = Math.max(0, stack.length - limit);

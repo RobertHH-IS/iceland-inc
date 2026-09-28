@@ -56,6 +56,11 @@ describe('breadcrumb navigation', () => {
     // Opening something after a close adds to the history instead of wiping it.
     expect(navPush(n, c).stack).toEqual([a, b, c]);
     expect(navCurrent(navBack(navPush(n, c)))).toEqual(b);
+    // Reopening the item just closed returns to it: no second copy, and Back goes to the one before.
+    const again = navPush(n, b);
+    expect(again.stack).toEqual([a, b]);
+    expect(navCurrent(again)).toEqual(b);
+    expect(navCurrent(navBack(again))).toEqual(a);
     // Closing in the middle of the history drops what was ahead of the closed item.
     const mid = navClear(navBack(navPush(navPush(navPush(EMPTY_NAV, a), b), c)));
     expect(mid.stack).toEqual([a, b]);
