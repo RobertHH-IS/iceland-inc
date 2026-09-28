@@ -243,9 +243,63 @@ function ownHint(info: ModelInfo, base: Map<Id, Pt>, id: Id): { hint: Pt; own: b
   return { hint, own: false };
 }
 
-/** Would full cards at these hints overlap (frames between them included) on a map with this
- *  usable area (default: nominal)? */
+/** A card placed on a map: its centre and height in map units, and the open groups around it. */
+interface PlacedCard extends Pt {
+  h: number;
+  frames?: readonly Id[];
+}
+
+/**
+ * Does a card sit inside the frame of an open group it does not belong to? A frame is the box
+ * around its members' cards and inner frames, plus padding and room for its label (as
+ * frameBoxes draws it). Keeping cards clear of each other is not enough: a card can sit in an
+ * empty corner of another group's frame and then looks like one of its members.
+ */
+export function cardInForeignFrame(cards: readonly PlacedCard[], cardW: number): boolean {
+  const box = new Map<Id, { x0: number; y0: number; x1: number; y1: number }>();
+  const grow = (id: Id, x0: number, y0: number, x1: number, y1: number) => {
+    const b = box.get(id);
+    if (!b) box.set(id, { x0, y0, x1, y1 });
+    else {
+      b.x0 = Math.min(b.x0, x0);
+      b.y0 = Math.min(b.y0, y0);
+      b.x1 = Math.max(b.x1, x1);
+      b.y1 = Math.max(b.y1, y1);
+    }
+  };
+  const depth = new Map<Id, number>(),
+    parent = new Map<Id, Id>();
+  for (const c of cards) {
+    const f = c.frames ?? [];
+    f.forEach((id, d) => {
+      depth.set(id, d);
+      if (d > 0) parent.set(id, f[d - 1]);
+    });
+    if (f.length) grow(f[f.length - 1], c.x - cardW / 2, c.y - c.h / 2, c.x + cardW / 2, c.y + c.h / 2);
+  }
+  // Inner frames first: each frame, padded, grows the one around it.
+  const frames = [...depth.keys()].sort((a, b) => depth.get(b)! - depth.get(a)!);
+  const rects = new Map<Id, { x0: number; y0: number; x1: number; y1: number }>();
+  for (const id of frames) {
+    const b = box.get(id);
+    if (!b) continue;
+    const r = { x0: b.x0 - FRAME_PAD, y0: b.y0 - FRAME_TOP, x1: b.x1 + FRAME_PAD, y1: b.y1 + FRAME_PAD };
+    rects.set(id, r);
+    const up = parent.get(id);
+    if (up) grow(up, r.x0, r.y0, r.x1, r.y1);
+  }
+  for (const c of cards)
+    for (const [id, r] of rects) {
+      if (c.frames?.includes(id)) continue;
+      if (c.x + cardW / 2 > r.x0 && c.x - cardW / 2 < r.x1 && c.y + c.h / 2 > r.y0 && c.y - c.h / 2 < r.y1) return true;
+    }
+  return false;
+}
+
+/** Would full cards at these hints overlap (frames between them included), or sit inside the
+ *  frame of a group they are not in, on a map with this usable area (default: nominal)? */
 export function hintsOverlap(items: { hint: Pt; extraH: number; frames?: readonly Id[] }[], area: Area = NOMINAL): boolean {
+  if (cardInForeignFrame(items.map((it) => ({ x: it.hint.x * area.w, y: it.hint.y * area.h, h: CARD_H + it.extraH, frames: it.frames })), CARD_W)) return true;
   for (let i = 0; i < items.length; i++)
     for (let j = i + 1; j < items.length; j++) {
       const a = items[i],

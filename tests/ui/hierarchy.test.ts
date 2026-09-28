@@ -6,7 +6,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createEngine } from '../../src/core/engine.ts';
 import type { Id, ModelDef } from '../../src/core/types.ts';
-import { CARD_FULL, GROUP_EXTRA_H, fitMap, frameBoxes, hintsOverlap, layoutView, nodeRect, spreadHints, viewFitItems, viewHints, viewLayoutHints, type NodeBox } from '../../src/ui/model/geometry.ts';
+import { CARD_FULL, GROUP_EXTRA_H, cardInForeignFrame, fitMap, frameBoxes, hintsOverlap, layoutView, nodeRect, spreadHints, viewFitItems, viewHints, viewLayoutHints, type NodeBox } from '../../src/ui/model/geometry.ts';
 import {
   aggregatePipes,
   cleanExpanded,
@@ -267,6 +267,39 @@ describe('node placement', () => {
           }
       }
     }
+  });
+
+  test('a card never sits inside the frame of a group it is not in (Pension funds inside Firms, L20)', () => {
+    // A card clear of the other cards can still sit in an empty corner of another group's frame.
+    const card = (x: number, y: number, frames: Id[] = []) => ({ x, y, h: 64, frames });
+    expect(cardInForeignFrame([card(0, 0, ['g']), card(400, 200, ['g']), card(40, 200)], 164)).toBe(true);
+    expect(cardInForeignFrame([card(0, 0, ['g']), card(400, 200, ['g']), card(400, 400)], 164)).toBe(false);
+    // Nested frames: a card of the outer group is not inside the inner frame's box.
+    expect(cardInForeignFrame([card(0, 0, ['g', 'h']), card(0, 100, ['g', 'h']), card(300, 0, ['g'])], 164)).toBe(false);
+    expect(cardInForeignFrame([card(0, 0, ['g', 'h']), card(0, 300, ['g', 'h']), card(60, 150, ['g'])], 164)).toBe(true);
+
+    // Every view of Iceland, drawn in a wide range of containers, including the short, wide one
+    // (800 × 300) where Pension funds used to sit in the corner of the open Firms frame.
+    const iceland = models.find((m) => m.id === 'iceland')!;
+    const e = createEngine(iceland);
+    const ice = describeModel(e.model, (id) => e.baseline(id));
+    const ex = expandableGroups(ice);
+    for (const [cw, ch] of [[800, 300], [1000, 640], [1400, 800], [700, 500], [380, 600], [1600, 400], [600, 900]])
+      for (let m = 0; m < 1 << ex.length; m++) {
+        const tree = viewTree(ice, effectiveExpanded(ice, ex.filter((_, i) => m & (1 << i))));
+        if (!tree.frames.length) continue;
+        const hints = viewLayoutHints(ice, tree, cw, ch);
+        const box = fitMap(viewFitItems(tree, hints), cw, ch);
+        const nodes = layoutView(ice, tree, hints, { width: box.w, height: box.h, cardW: box.card.w, cardH: box.card.h });
+        const frames = frameBoxes(tree, new Map(nodes.map((n) => [n.id, n])), box);
+        for (const f of frames)
+          for (const n of nodes) {
+            if (n.frames!.includes(f.id)) continue;
+            const r = nodeRect(n);
+            const inside = r.x < f.x + f.w && r.x + r.w > f.x && r.y < f.y + f.h && r.y + r.h > f.y;
+            expect(inside ? `${cw}x${ch}: ${n.id} inside ${f.id}` : '').toBe('');
+          }
+      }
   });
 
   test('hints are spread to use the whole map, never closer together', () => {
