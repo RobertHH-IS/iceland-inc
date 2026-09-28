@@ -1,0 +1,106 @@
+/**
+ * Balance sheets stay possible (audit H1, H2, H6, H7, M6, M9, M10, M11): under the lever settings
+ * that used to break them, no holder's asset goes below zero and no issuer's liability turns into
+ * an asset for 20 years, in either stabiliser mode. Real capital counts as a holder's asset.
+ */
+import { describe, expect, test } from 'bun:test';
+import { compile } from '../../src/core/compile.ts';
+import { createEngine } from '../../src/core/engine.ts';
+import { icelandModel } from '../../src/models/iceland/index.ts';
+import { withConcepts } from '../../src/models/index.ts';
+
+const model = compile(withConcepts(icelandModel));
+const base = createEngine(model);
+const TOL = 1e-6;
+const HOLDER = 1;
+
+type Setting = [lever: string, value: number];
+
+/** Every position with the wrong sign over `months`, as 'instrument/player'. */
+function wrongSigns(settings: Setting[], automatic: boolean, months = 240): string[] {
+  const e = createEngine(model, { baseline: base.baselineData, dev: false });
+  if (automatic) e.setLever('stabilisers', 1);
+  for (const [id, v] of settings) {
+    if (model.levers.find((l) => l.id === id)!.kind === 'oneoff') e.fire(id, v);
+    else e.setLever(id, v);
+  }
+  const bad = new Set<string>();
+  for (let m = 1; m <= months; m++) {
+    e.step(1);
+    const pos = e.positionsAt(m);
+    for (let k = 0; k < pos.length; k++) {
+      const role = model.role[k];
+      if (!role) continue;
+      const breach = role === HOLDER ? -pos[k] : pos[k];
+      if (!(breach <= TOL)) bad.add(`${model.instruments[Math.floor(k / model.NP)].id}/${model.players[k % model.NP].id}`);
+    }
+  }
+  return [...bad].sort();
+}
+
+// The worst cases of the lever-range sweep before the floors (each lever alone at its min or max,
+// and the bond buyers with a large deficit), with what went wrong then.
+const WORST: [string, Setting[], boolean][] = [
+  ['tourism −60: fisheries repaid more than they owed', [['tourism', -60]], false],
+  ['income tax +10 on Automatic: bonds bought back from banks that had none', [['incomeTax', 10]], true],
+  ['foreign allocation +20: funds overdrew deposits, then shorted bonds', [['pfForeign', 20]], false],
+  ['foreign allocation +20 on Automatic', [['pfForeign', 20]], true],
+  ['foreign allocation −20: banks shorted bonds, non-residents overdrew', [['pfForeign', -20]], true],
+  ['key rate held at 15%: funds overdrew deposits buying new bonds', [['keyRateFixed', 15]], false],
+  ['key rate held at 0%: bonds bought back from banks that had none', [['keyRateFixed', 0]], false],
+  ['aluminium −40%: smelters scrapped capital into negative', [['aluminiumPrice', -40]], false],
+  ['VAT +10: working-age households overdrew deposits', [['vat', 10]], false],
+  ['tourism −60 on Automatic: working-age households overdrew deposits', [['tourism', -60]], true],
+  ['króna −25%: non-residents overdrew deposits', [['kronaShock', -25]], true],
+  ['foreign allocation −20 with króna −25%: non-residents ran out of krónur', [['pfForeign', -20], ['kronaShock', -25]], false],
+  ['pension funds as sole buyers of a large deficit', [['bondBuyers', 3], ['health', 3], ['education', 3]], false],
+  ['older households as sole buyers of a large deficit', [['bondBuyers', 4], ['health', 3], ['education', 3]], true],
+  ['pension funds as sole buyers with the key rate at 15%', [['bondBuyers', 3], ['keyRateFixed', 15]], false],
+  ['central bank as buyer, surplus on Automatic', [['bondBuyers', 2], ['incomeTax', 10]], true],
+];
+
+describe('Iceland model: balance sheets stay possible', () => {
+  for (const [label, settings, automatic] of WORST)
+    test(`${label} (${automatic ? 'Automatic' : 'Manual'}): no position with the wrong sign in 20 years`, () => {
+      expect(wrongSigns(settings, automatic)).toEqual([]);
+    });
+
+  test('every lever alone at its min and at its max (every option of a choice), 20 years, both modes: only the known gap below', () => {
+    const found: string[] = [];
+    for (const l of model.levers) {
+      if (l.id === 'stabilisers') continue;
+      const values = l.kind === 'choice' ? (l.options ?? []).map((o) => o.value).filter((v) => v !== l.default) : [l.min!, l.max!];
+      for (const v of values) for (const automatic of [false, true]) for (const pos of wrongSigns([[l.id, v]], automatic)) found.push(`${l.id}=${v} ${automatic ? 'Automatic' : 'Manual'}: ${pos}`);
+    }
+    expect(found).toEqual(['incomeTax=10 Manual: reserves/B', 'incomeTax=10 Manual: reserves/CB', 'publicInvestment=-3 Manual: reserves/B', 'publicInvestment=-3 Manual: reserves/CB']);
+  }, 30_000);
+
+  test('known gap: a surplus held on Manual after every bond is repaid overdraws banks’ reserves at the central bank, and nothing else', () => {
+    // decision 0002 §6: the treasury account keeps the surplus, which drains reserves one for one.
+    expect(wrongSigns([['incomeTax', 10]], false)).toEqual(['reserves/B', 'reserves/CB']);
+  });
+
+  test('the floors do not bind at the baseline, in either mode', () => {
+    for (const automatic of [false, true]) {
+      const e = createEngine(model, { baseline: base.baselineData });
+      if (automatic) e.setLever('stabilisers', 1);
+      e.step(12);
+      const rules = ['investmentXA', 'borrowingXA', 'bondIssue', 'bondIssuePF', 'bondIssueHO', 'foreignAssetPurchases', 'bankBondPurchases', 'bondPurchasesPF', 'bondPurchasesHO', 'bondPurchasesW', 'consumptionW', 'consumptionO', 'depositRate'];
+      for (const id of rules) expect(`${id}: ${e.influences(id).regime ?? 'none'}`).toBe(`${id}: none`);
+    }
+  });
+
+  test('households spend no more cash than they have: working-age deposits run down toward zero, never below, under income tax +10 held on Manual', () => {
+    const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    e.setLever('incomeTax', 10);
+    let lowest = Infinity,
+      limited = 0;
+    for (let m = 1; m <= 240; m++) {
+      e.step(1);
+      lowest = Math.min(lowest, e.stock('deposits', 'HW'));
+      if (e.influences('consumptionW').regime === 'Spending limited by cash in hand') limited++;
+    }
+    expect(lowest).toBeGreaterThan(-1e-9); // the solver's tolerance, not an overdraft
+    expect(limited).toBeGreaterThan(0);
+  });
+});
