@@ -50,8 +50,6 @@ export interface LeverReportSpec {
   policy: PolicyInstrument[];
   /** Headline topics the model does not have, named in the report so their absence is visible. */
   missing?: string[];
-  /** Report units for indicators whose model unit is ambiguous, with the reason. */
-  indicatorUnits?: Record<Id, { unit: string; why: string }>;
   /** Companion shocks, by lever id. */
   companions?: Record<Id, Companion>;
 }
@@ -94,9 +92,6 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
       { variable: 'taxRate', label: 'debt rule’s income-tax rate', levers: [] },
     ],
     missing: ['the króna', 'exports', 'imports', 'the current account', 'house prices (a closed economy without housing)'],
-    indicatorUnits: {
-      creditImpulse: { unit: 'pp of baseline GDP', why: 'the indicator is the credit-impulse flow itself (baseline GDP = 100), not divided by current GDP, although the model labels it pp of GDP' },
-    },
   },
   iceland: {
     headlines: [

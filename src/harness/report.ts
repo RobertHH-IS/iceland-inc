@@ -18,7 +18,9 @@ export function renderReport(r: HarnessResult): string {
   L.push('| # | Layer | Result | Summary |', '|---|---|---|---|');
   for (const l of r.layers) L.push(`| ${l.n} | ${l.title} | ${l.pass ? 'PASS' : '**FAIL**'} | ${l.summary} |`);
   const tm = r.timing;
-  L.push('', `Step time: ${r.microsPerStep.toFixed(1)} µs per month${tm ? ` (mean over ${tm.runs} runs of ${tm.months} months, each from ${tm.shock} at month 0; up to ${tm.maxIterations} solver iteration(s) in a month)` : ''}.`, '');
+  // The step time depends on the machine and its load, so it is printed by `bun run harness` and
+  // kept out of the committed report, which then changes only when results do.
+  L.push('', `Step time: printed by \`bun run harness\`, not stored here since it depends on the machine${tm ? ` (the mean over ${tm.runs} runs of ${tm.months} months, each from ${tm.shock} at month 0; up to ${tm.maxIterations} solver iteration(s) in a month)` : ''}.`, '');
   for (const l of r.layers) {
     L.push(`## ${l.n}. ${l.title}: ${l.pass ? 'PASS' : 'FAIL'}`, '');
     L.push(...l.body, '');

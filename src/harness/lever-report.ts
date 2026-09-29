@@ -74,10 +74,15 @@ export const LEVER_THRESHOLDS = {
    *  final 12 months. */
   settleAbs: 0.02,
   settleRel: 0.02,
-  /** Explosive: not settled, and the final effect is at least explodeFactor times the largest
-   *  effect in the first half of the run and at least explodeFloor. */
+  /** Explosive: not settled, the final effect at least explodeFactor times the largest effect in
+   *  the first half of the run and at least explodeFloor, and still accelerating: its move over the
+   *  final 12 months at least explodeAccel times its move over the 12 months five years earlier. A
+   *  level that grows steadily (a price level whose inflation has settled at an offset) is only
+   *  unsettled. */
   explodeFactor: 2,
   explodeFloor: 1,
+  explodeAccel: 1.2,
+  explodeLookback: 60,
   /** Asymmetry at month `asymMonth`: the responses per unit of lever to the moderate up and down
    *  steps differ in sign or by more than a factor asymRatio, the larger effect at least asymFloor. */
   asymMonth: 12,
@@ -120,7 +125,7 @@ export const FLAG_KINDS: { kind: FlagKind; title: string; meaning: string }[] = 
   { kind: 'jump', title: 'Month-1 jump', meaning: `A headline that should adjust gradually has ${100 * LEVER_THRESHOLDS.jumpShare}% or more of its peak effect already in month 1 (peak at least ${LEVER_THRESHOLDS.jumpFloor}).` },
   { kind: 'sawtooth', title: 'Sawtooth', meaning: `In the first ${LEVER_THRESHOLDS.sawWindow} months, ${LEVER_THRESHOLDS.sawRun} or more sign alternations in a row of month-to-month changes, each above max(${LEVER_THRESHOLDS.sawAbs}, ${100 * LEVER_THRESHOLDS.sawRel}% of the peak).` },
   { kind: 'unsettled', title: 'Unsettled', meaning: `Still moving at the end: the effect changed by more than max(${LEVER_THRESHOLDS.settleAbs}, ${100 * LEVER_THRESHOLDS.settleRel}% of the peak) over the final 12 months.` },
-  { kind: 'explosive', title: 'Explosive', meaning: `Unsettled, and the final effect is at least ${LEVER_THRESHOLDS.explodeFactor}× the largest effect in the first half of the run and at least ${LEVER_THRESHOLDS.explodeFloor}.` },
+  { kind: 'explosive', title: 'Explosive', meaning: `Unsettled, the final effect at least ${LEVER_THRESHOLDS.explodeFactor}× the largest effect in the first half of the run and at least ${LEVER_THRESHOLDS.explodeFloor}, and still accelerating: it moved at least ${LEVER_THRESHOLDS.explodeAccel}× as much in the final 12 months as in the 12 months ${LEVER_THRESHOLDS.explodeLookback / 12} years earlier. A level that grows steadily, such as a price level whose inflation has settled at an offset, is only unsettled.` },
   { kind: 'asymmetry', title: 'Asymmetry', meaning: `At month ${LEVER_THRESHOLDS.asymMonth}, the effects per unit of lever of the moderate up and down steps differ in sign or by more than ${LEVER_THRESHOLDS.asymRatio}× (larger effect at least ${LEVER_THRESHOLDS.asymFloor}). Caps and floors that bind one way are the usual cause.` },
   { kind: 'modeSign', title: 'Mode sign', meaning: `At month ${LEVER_THRESHOLDS.modeMonth}, Manual and Automatic move a non-policy headline in opposite directions (each at least ${LEVER_THRESHOLDS.modeFloor}).` },
   { kind: 'flicker', title: 'Flicker', meaning: `A rule's regime label changed ${LEVER_THRESHOLDS.flickerSwitches} or more times within ${LEVER_THRESHOLDS.sawWindow} months: a floor or cap switching on and off.` },
@@ -263,8 +268,6 @@ export interface LeverReport {
   missing: string[];
   /** Units used in the report, with their meaning (UNIT_MEANINGS). */
   units: { unit: string; meaning: string }[];
-  /** Indicators whose unit the report states differently from the model, with the reason. */
-  unitNotes: { id: Id; unit: string; why: string }[];
   /** Rules with a non-additive combine (a min, a max, a cap) but no regime label: when their
    *  kinks bind, the Regimes and Flicker flags cannot see it. */
   untraced: Id[];
@@ -441,7 +444,7 @@ export function trackedSeries(m: KModel, base: KernelEngine, spec: LeverReportSp
     return {
       id: ind.id,
       label: over.label ?? ind.label,
-      unit: spec.indicatorUnits?.[ind.id]?.unit ?? effectUnit(ind.unit),
+      unit: effectUnit(ind.unit),
       display: ind.display,
       gradual: !!over.gradual,
       policy: !!over.policy,
@@ -539,7 +542,9 @@ export function pathFlags(tr: Pick<Tracked, 'gradual'>, path: ArrayLike<number>,
     if (moved > Math.max(T.settleAbs, T.settleRel * peak)) {
       let early = 0;
       for (let t = 1; t <= Math.floor(n / 2); t++) early = Math.max(early, Math.abs(path[t]));
-      const explosive = Math.abs(path[n]) >= T.explodeFloor && Math.abs(path[n]) >= T.explodeFactor * early;
+      const back = n - T.explodeLookback;
+      const accelerating = back < 12 || Math.abs(path[n] - path[n - 12]) >= T.explodeAccel * Math.abs(path[back] - path[back - 12]);
+      const explosive = Math.abs(path[n]) >= T.explodeFloor && Math.abs(path[n]) >= T.explodeFactor * early && accelerating;
       out.push({ kind: explosive ? 'explosive' : 'unsettled', detail: `moved ${num(path[n] - path[n - 12])} in the last 12 months, ${num(path[n])} at month ${n}` });
     }
   }
@@ -829,7 +834,6 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
     policy: spec.policy,
     missing: spec.missing ?? [],
     units: [...new Set([...headlines, ...indicators].map((t) => t.unit))].map((unit) => ({ unit, meaning: UNIT_MEANINGS[unit] })),
-    unitNotes: Object.entries(spec.indicatorUnits ?? {}).map(([id, x]) => ({ id, unit: x.unit, why: x.why })),
     untraced: untracedRules(m),
     noChange,
     levers: sections,

@@ -2,11 +2,12 @@
  * Reference economy: what theory predicts for each lever, marked ✓ or ✗ in the lever report
  * (bun run levers; docs/authoring.md section 12). The harness (bun run harness, robustness layer)
  * fails when one does not hold. The short- and medium-run signs come from the lever vetting of 29
- * September 2026 (docs/audit/lever-vetting.md). The long-run entries record behaviour that is
- * intended, so a reviewer does not read it as a defect: with expectations partly anchored to the
- * target, a lasting boom leaves output above capacity and inflation steadily above target
- * (decision 0008), a one-off wage settlement leaves the price level higher for good, and a large
- * lasting cut in spending holds the key rate at zero for years (a liquidity trap).
+ * September 2026 (docs/audit/lever-vetting.md). The long-run entries are signs theory gives any
+ * inflation-targeting economy: a one-off wage settlement leaves the price level higher for good, and
+ * a large lasting cut in spending holds the key rate at zero for years (a liquidity trap). What
+ * rests only on this model's fixed anchor for expectations (decision 0008), such as a lasting boom
+ * leaving output above capacity, is not an expectation: module tests pin it as a known limitation
+ * (tests/models/reference-review.test.ts; lever-vetting open item 10).
  */
 import type { LeverExpectation } from '../../harness/lever-report.ts';
 
@@ -22,11 +23,6 @@ export const expectations: LeverExpectation[] = [
     source: 'Biggs, Mayer & Pick (2010)',
   },
   {
-    lever: 'lendingAppetite', setting: 'max', mode: 'Automatic', variable: 'output', fromMonth: 229, toMonth: 240, sign: 1,
-    theory: 'Intended: the boost fades from its peak (about 2.1% after a year and a half; a module test checks it falls by more than a third) but output stays about 1% higher for good. The extra loans stay in the economy as household deposits, and the interest on the extra debt and on a higher key rate reaches households as income, which they spend (the stock-flow view of credit: a lasting rise in lending leaves a lasting rise in money).',
-    source: 'Godley & Lavoie (2007, ch. 7); Keen (2011)',
-  },
-  {
     lever: 'keyRateAddon', setting: 'max', mode: 'Automatic', variable: 'output', fromMonth: 6, toMonth: 60, sign: -1,
     theory: 'A tighter policy rate lowers demand and output.',
     source: 'Christiano, Eichenbaum & Evans (1999)',
@@ -35,16 +31,6 @@ export const expectations: LeverExpectation[] = [
     lever: 'keyRateAddon', setting: 'max', mode: 'Automatic', variable: 'inflation', fromMonth: 12, toMonth: 240, sign: -1,
     theory: 'A lasting offset works partly like a lower inflation target: inflation settles lower.',
     source: 'Taylor (1993); Woodford (2003, ch. 4)',
-  },
-  {
-    lever: 'govSpending', setting: 'max', mode: 'Automatic', variable: 'output', fromMonth: 229, toMonth: 240, sign: 1,
-    theory: 'Intended: with expectations anchored to the target, a lasting boom raises inflation by a steady amount rather than ever faster, so the Taylor rule leaves some output above capacity (the "back to the 1960s" Phillips curve). Were expectations to drift with inflation, output would return to capacity (Friedman 1968); the model keeps the anchor fixed.',
-    source: 'Blanchard (2016)',
-  },
-  {
-    lever: 'govSpending', setting: 'max', mode: 'Automatic', variable: 'inflation', fromMonth: 229, toMonth: 240, sign: 1,
-    theory: 'Output above capacity keeps inflation above target.',
-    source: 'Phillips (1958); Blanchard (2016)',
   },
   {
     lever: 'govSpending', setting: 'min', mode: 'Automatic', variable: 'keyRate', fromMonth: 48, toMonth: 180, sign: -1,

@@ -95,25 +95,40 @@ describe('Iceland model: structure', () => {
     e.setLever('incomeTax', applied); // Apply
     e.step(1);
     const manual = e.value('taxRate');
-    const adjustment = e.value('taxRuleAdjustment');
+    const heading = e.value('taxRuleTarget');
     const values = info.map((l) => e.leverValue(l.id));
     for (const r of resetsWhenSetting(info, values, 'stabilisers', 1)) e.setLever(r.id, r.value);
     e.setLever('stabilisers', 1);
     expect(e.leverValue('incomeTax')).toBe(0);
     e.step(1);
     const tau0 = e.influences('taxRate').params.find((p) => p.id === 'tau0')!.value;
+    const k = 1 - Math.exp(-e.influences('taxRuleAdjustment').params.find((p) => p.id === 'lamTau')!.value / 12);
     // Automatic: the baseline rate plus the rule's adjustment, and nothing from the Manual lever.
     expect(e.value('taxRate')).toBeCloseTo(tau0 + e.value('taxRuleAdjustment'), 15);
-    // So the rate moves only by the half-point rounding of "Apply" and the rule's drift that month,
-    // not by the whole adjustment a second time.
-    const drift = Math.abs(e.value('taxRuleAdjustment') - adjustment);
-    expect(Math.abs(e.value('taxRate') - manual)).toBeLessThanOrEqual(Math.abs(applied / 100 - adjustment) + drift + 1e-12);
-    expect(Math.abs(applied / 100 - adjustment)).toBeLessThanOrEqual(0.0025 + 1e-12);
-    expect(Math.abs(e.value('taxRate') - manual)).toBeLessThan(adjustment / 2);
+    // The rule steps from the rate in force (the applied lever), so the rate moves by one smoothed
+    // step toward where the rule is heading, not by the whole adjustment a second time.
+    expect(Math.abs(applied / 100 - heading)).toBeLessThanOrEqual(0.0025 + 1e-12);
+    expect(Math.abs(e.value('taxRate') - manual - k * (e.value('taxRuleTarget') - applied / 100))).toBeLessThan(1e-12);
+    expect(Math.abs(e.value('taxRate') - manual)).toBeLessThan(applied / 100 / 2);
   });
 
-  test('v1’s 34 charts, with the same ids, in four tabs, plus 17 charts by firm sector in a fifth', () => {
-    expect(model.indicators.map((i) => i.id).sort()).toEqual([...V1_SERIES, ...SECTOR_SERIES].sort());
+  test('switching to Automatic after a Manual tax cut moves the tax rate one small step from the rate you held, not to the debt rule’s path (lever review MON-2 item 6)', () => {
+    const e = createEngine(model, { dev: false });
+    e.setLever('incomeTax', -3);
+    e.step(60);
+    const held = e.value('taxRate');
+    e.setLever('incomeTax', 0);
+    e.setLever('stabilisers', 1);
+    e.step(1);
+    const k = 1 - Math.exp(-e.influences('taxRuleAdjustment').params.find((p) => p.id === 'lamTau')!.value / 12);
+    const move = e.value('taxRate') - held;
+    // before the anchor, the rate jumped from 35.53% to 39.38% in this month
+    expect(Math.abs(move - k * (e.value('taxRuleTarget') + 0.03))).toBeLessThan(1e-12);
+    expect(Math.abs(move)).toBeLessThan(0.005);
+  });
+
+  test('v1’s 34 charts, with the same ids, in four tabs, plus all jobs (lever review EXPECTATION-GAPS) and 17 charts by firm sector in a fifth', () => {
+    expect(model.indicators.map((i) => i.id).sort()).toEqual([...V1_SERIES, 'employment', ...SECTOR_SERIES].sort());
     expect([...new Set(model.indicators.map((i) => i.group))]).toEqual(['Overview', 'People', 'Money and credit', 'Government and world', 'Firms by sector']);
   });
 
@@ -215,7 +230,7 @@ describe('Iceland model: the steady state matches engine v1', () => {
 const PERF_SLACK = process.env.CI ? 10 : 1;
 
 describe('Iceland model: speed', () => {
-  test('a shocked month steps in well under 200 µs', () => {
+  test('a shocked month steps in well under 250 µs', () => {
     const e = createEngine(model, { dev: false });
     e.fire('wageSettlement', 10);
     e.step(50); // warm up the JIT
@@ -223,6 +238,8 @@ describe('Iceland model: speed', () => {
     e.step(600);
     const us = ((performance.now() - t0) * 1000) / 600;
     console.log(`Iceland model: ${model.NV} variables, ${model.clegs.length} legs, block of ${Math.max(...model.schedule.map((b) => b.rules.length))} rules: ${us.toFixed(1)} µs per step`);
-    expect(us).toBeLessThan(200 * PERF_SLACK);
+    // About 150–180 µs alone with 413 variables; 250 leaves room for another test run sharing the
+    // machine (it measured 205 µs under load at 200, lever review perf-test-flaky).
+    expect(us).toBeLessThan(250 * PERF_SLACK);
   });
 });

@@ -227,3 +227,37 @@ describe('the zero lower bound (review of the deposit-rate floor)', () => {
       expect(zeroMonths(pair(AUTOMATIC, [{ t: 0, lever, value }], 240)[0])).toBe(0);
   });
 });
+
+// Behaviour that rests on this model's limitations rather than on theory: pinned here, not in the
+// lever expectations (docs/audit/lever-vetting.md open item 10; decision 0008). If one of these
+// fails, the limitation has changed: update the lever texts and the vetting record.
+describe('known limitations, pinned (lever review REF-LA-INTENDED-LONGRUN and REF-KRF-LONGRUN-REVERSAL)', () => {
+  const gap = (e: KernelEngine, r: KernelEngine, id: string, t: number) => 100 * (e.valueAt(id, t) / r.valueAt(id, t) - 1);
+  const mean = (f: (t: number) => number, a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => f(a + i)).reduce((s, x) => s + x, 0) / (b - a + 1);
+
+  test('with expectations anchored to the target, a lasting boom leaves output above capacity and inflation above target for good (Automatic)', () => {
+    const [e, r] = pair(AUTOMATIC, [{ t: 0, lever: 'govSpending', value: 3 }], 240);
+    expect(mean((t) => gap(e, r, 'output', t), 229, 240)).toBeGreaterThan(0);
+    const infl = (x: KernelEngine, t: number) => Math.log(x.valueAt('price', t) / x.valueAt('price', t - 12));
+    expect(mean((t) => infl(e, t) - infl(r, t), 229, 240)).toBeGreaterThan(0);
+  });
+
+  test('the lending appetite’s lasting gain is an Automatic result; on Manual the boost reverses after about twelve years', () => {
+    const [a, ra] = pair(AUTOMATIC, [{ t: 0, lever: 'lendingAppetite', value: 2 }], 240);
+    expect(mean((t) => gap(a, ra, 'output', t), 229, 240)).toBeGreaterThan(0.7);
+    const [m, rm] = pair(MANUAL, [{ t: 0, lever: 'lendingAppetite', value: 2 }], 240);
+    expect(mean((t) => gap(m, rm, 'output', t), 25, 48)).toBeGreaterThan(2);
+    expect(mean((t) => gap(m, rm, 'output', t), 229, 240)).toBeLessThan(0);
+  });
+
+  test('a key rate held above neutral on Manual cools output for several years, then lifts it: the reversal the definition describes', () => {
+    const [e, r] = pair(MANUAL, [{ t: 0, lever: 'keyRateFixed', value: 4.75 }], 240);
+    expect(mean((t) => gap(e, r, 'output', t), 24, 48)).toBeLessThan(-1);
+    // about +3% over months 180–240 (the interest paid out is spent); a held cut mirrors it
+    expect(mean((t) => gap(e, r, 'output', t), 180, 240)).toBeGreaterThan(1);
+    const [c, rc] = pair(MANUAL, [{ t: 0, lever: 'keyRateFixed', value: 0 }], 240);
+    expect(mean((t) => gap(c, rc, 'output', t), 180, 240)).toBeLessThan(-1);
+    const def = base.model.levers.find((l) => l.id === 'keyRateFixed')!.definition;
+    expect(def).toMatch(/reverses, after about eight years/);
+  });
+});

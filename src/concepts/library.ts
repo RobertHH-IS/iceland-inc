@@ -180,6 +180,14 @@ const ref = {
     title: 'Taylor (1993), "Discretion versus policy rules in practice", Carnegie-Rochester Conference Series on Public Policy 39',
     url: 'https://web.stanford.edu/~johntayl/Papers/Discretion.PDF',
   },
+  laubachWilliams2003: {
+    title: 'Laubach & Williams (2003), "Measuring the natural rate of interest", Review of Economics and Statistics 85(4)',
+    url: 'https://doi.org/10.1162/003465303772815934',
+  },
+  orphanidesWilliams2002: {
+    title: 'Orphanides & Williams (2002), "Robust monetary policy rules with unknown natural rates", Brookings Papers on Economic Activity 2002(2)',
+    url: 'https://doi.org/10.1353/eca.2003.0007',
+  },
   fedRules: {
     title: 'Federal Reserve Board, "Policy rules and how policymakers use them"',
     url: 'https://www.federalreserve.gov/monetarypolicy/policy-rules-and-how-policymakers-use-them.htm',
@@ -902,7 +910,20 @@ export const concepts: ConceptDef[] = [
     ),
     school: 'new-keynesian',
     references: [ref.taylor1993, ref.fedRules, ref.cbiMb2026],
-    related: ['policy-lags', 'anchored-expectations', 'interest-distribution', 'capacity-utilisation', 'adaptive-expectations', 'carry-trade'],
+    related: ['policy-lags', 'anchored-expectations', 'interest-distribution', 'capacity-utilisation', 'adaptive-expectations', 'carry-trade', 'neutral-rate'],
+  },
+  {
+    id: 'neutral-rate',
+    title: 'Neutral interest rate',
+    oneLiner: 'The real interest rate that neither heats nor cools the economy. Nobody observes it, so central banks estimate it and revise their estimates.',
+    body: p(
+      `Knut Wicksell called it the *natural rate*: the real interest rate at which spending matches what the economy can produce with inflation steady. Above it, policy cools the economy; below it, policy heats it. A Taylor rule starts from it.`,
+      `The neutral rate cannot be seen, and it moves: with productivity, population, saving habits, public debt and rates abroad. Laubach and Williams (2003) estimate it from how output and inflation behave, and find that it drifts over decades. Orphanides and Williams (2002) show that a rule built on a wrong, fixed estimate leaves inflation off target for as long as the error lasts.`,
+      `So central banks revise their estimate when inflation or unemployment stays away from normal for long. That makes the rule an *integral* controller: a lasting gap keeps nudging the rate until the gap is gone. The revision is slow, so a one-off shock hardly moves it. In Iceland Inc., the rule's neutral rate is revised a little each month and kept within a band.`,
+    ),
+    school: 'new-keynesian',
+    references: [ref.laubachWilliams2003, ref.orphanidesWilliams2002, ref.cbiMb2026],
+    related: ['taylor-rule', 'anchored-expectations', 'wage-phillips-curve'],
   },
   {
     id: 'interest-rate-channel',
@@ -1353,7 +1374,7 @@ export const conceptThemes: { theme: string; ids: Id[] }[] = [
       'migration-buffer',
     ],
   },
-  { theme: 'Policy', ids: ['taylor-rule', 'interest-rate-channel', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'debt-feedback', 'macroprudential-policy', 'bond-buyers'] },
+  { theme: 'Policy', ids: ['taylor-rule', 'neutral-rate', 'interest-rate-channel', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'debt-feedback', 'macroprudential-policy', 'bond-buyers'] },
   {
     theme: 'External',
     ids: [

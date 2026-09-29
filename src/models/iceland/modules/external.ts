@@ -17,7 +17,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, TermDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { EXPORTERS, FIRM_NAME, gapRate, gapShare, pickParams, sum, terms, lastMonth, type Exporter } from '../util.ts';
+import { EXPORTERS, FIRM_NAME, gapRate, gapShare, pickParams, sum, terms, lastMonth, type Exporter, liquidRate } from '../util.ts';
 import { bondsBanksCanSell } from './banks.ts';
 
 /** Export lines: [key, seller, baseline volume, elasticity, what, price in foreign currency (null: krónur)]. */
@@ -82,6 +82,10 @@ const exportRules: RuleDef[] = EXPORTS.flatMap(([k, seller, base0, elas, what, p
       ],
     ),
     combine: (t) => t.normal * Math.max(0, t.demand) * t.competitiveness,
+    // Floors: foreign demand cannot go below none, and profitability or the real exchange rate
+    // below a millionth (guards on the power); neither binds within the levers' ranges.
+    regime: (c, _v, t) =>
+      t.demand <= 0 ? 'No foreign demand left: exports stop' : c.v(price ? profitabilityOf(k) : 'realExchangeRate') < 1e-6 ? 'Competitiveness at its floor' : null,
     concepts: ['export-sectors', 'real-exchange-rate'],
     explain: {
       what: `Volume of ${what} exports, sold by ${FIRM_NAME[seller]}, at baseline prices.`,
@@ -135,7 +139,7 @@ const wCarry = (c: Ctx) => gapRate(c.p('lamBW'), c.dt) * c.p('bW0') * c.v('nomin
  *  negative: the bonds they sell to rebuild their deposits, closing the same share of the shortfall,
  *  and always at least enough to keep the deposits from going below zero. One smooth limit for
  *  buying and selling, so they do not switch between the two from month to month (review E1). */
-const wCash = (c: Ctx) => Math.min(gapRate(c.p('liquiditySpeed'), c.dt) * (wDepositsBeforeTrade(c) - wDepositFloor(c)), wDepositsBeforeTrade(c) / c.dt);
+const wCash = (c: Ctx) => Math.min(liquidRate(c) * (wDepositsBeforeTrade(c) - wDepositFloor(c)), wDepositsBeforeTrade(c) / c.dt);
 /** Government bonds banks can still sell non-residents this month, after the buyback and the
  *  purchases of pension funds and older households. */
 const wFromBanks = (c: Ctx) => Math.max(0, bondsBanksCanSell(c) - Math.max(0, c.v('bondPurchasesPF')) - Math.max(0, c.v('bondPurchasesHO')));
@@ -581,7 +585,7 @@ export const external: ModuleDef = {
       ],
       terms: terms(
         ['shortfall', 'What this month’s payments and bond trade would overdraw (negative: deposits left)', 'endogenous-money', (c) => -wDepositsAfterTrade(c) / c.dt],
-        ['repayable', 'About 63% of deposits above what they keep (negative: below it)', 'money-destruction', (c) => gapRate(c.p('liquiditySpeed'), c.dt) * (wDepositsAfterTrade(c) - wDepositFloor(c))],
+        ['repayable', 'About 63% of deposits above what they keep (negative: below it)', 'money-destruction', (c) => liquidRate(c) * (wDepositsAfterTrade(c) - wDepositFloor(c))],
         ['owed', 'What they owe', 'endogenous-money', (c) => c.stock('kronaLoansW', 'W') / c.dt],
       ),
       // Borrow exactly what would be overdrawn; otherwise repay from deposits above what they keep,
@@ -745,7 +749,7 @@ export const external: ModuleDef = {
       binds: { param: 'tourismShift', mode: 'add', scale: 0.01 },
       description: 'Foreign visitors’ spending: it drives the tourism sector.',
       definition:
-        'Level shift in tourism export volume (what foreign visitors buy), in percent of baseline, persistent while set. A rise reaches visitor numbers over a few quarters (95% within a year), limited by flights, hotel rooms and staff; a fall hits within a month or so, as in 2010 and 2020. Tourism firms’ revenue, jobs and imports follow. Held for many years, a lasting change in exports also changes the króna for good: non-residents’ krónur keep draining (or piling up) until the current account closes, so a rise ends in a stronger real króna that takes back other exports, and a fall in a weaker one (decision 0002 §6). On Automatic output and unemployment end near baseline (at +30 unemployment about 0.1 point higher after 20 years). With the key rate held (Manual) the króna keeps strengthening and prices keep falling after a rise, so after about ten years output ends below baseline and unemployment above it (+30: output 2.1% lower and unemployment 0.8 point higher; +10: 0.6% and 0.2 point after 20 years), and the reverse after a fall: a known gap in how the current account closes, not a lasting cost of exporting more. Setting it back to 0 ends it the same way.',
+        'Level shift in tourism export volume (what foreign visitors buy), in percent of baseline, persistent while set. A rise reaches visitor numbers over a few quarters (95% within a year), limited by flights, hotel rooms and staff; a fall hits within a month or so, as in 2010 and 2020. Tourism firms’ revenue, jobs and imports follow. Held for many years, a lasting change in exports also changes the króna for good: non-residents’ krónur keep draining (or piling up) until the current account closes, so a rise ends in a stronger real króna that takes back other exports, and a fall in a weaker one (decision 0002 §6). On Automatic output and unemployment end near baseline (at +30 unemployment about 0.1 point higher after 20 years). A very large fall is different: at −60, about the 2020 collapse, the key rate hits zero within about half a year and stays there for twenty years, prices fall (8% lower after 20 years, inflation still about 0.2 point below target) and output is still about 1% lower and unemployment 0.6 point higher after twenty years. The debt rule raises no taxes meanwhile (its escape clause); without that clause it raised income tax by over 3 points and output ended almost 4% lower. With the key rate held (Manual) the króna keeps strengthening and prices keep falling after a rise, so after about ten years output ends below baseline and unemployment above it (+30: output 1.4% lower and unemployment 0.5 point higher; +10: 0.4% and 0.15 point after 20 years), and the reverse after a fall: a known gap in how the current account closes, not a lasting cost of exporting more. Setting it back to 0 ends it the same way.',
       concepts: ['export-sectors'],
     },
     {
@@ -761,7 +765,7 @@ export const external: ModuleDef = {
       step: 1,
       description: 'A one-off shift in what investors think the króna is worth. Negative means a weaker króna.',
       definition:
-        'One-off shift in the króna’s target value by this percentage (−10: a target 10% weaker), fired once. The króna falls by most of it within a quarter (−10: about 9% by month 3). At first the current account worsens: imports are invoiced in foreign currency, so the import bill in krónur rises at once, while volumes take months to respond (a J-curve). Then portfolio balance pulls the króna back. Pension funds sell some of their foreign assets, now worth more in krónur, to get back to their target share (about 1.5–2% of GDP a year at first), and once trade has turned, the surplus the weaker króna brings drains krónur too. With fewer krónur to hold, non-residents accept a stronger króna. On Automatic the central bank also raises the key rate, and the wider rate gap adds to the pull; on Manual the key rate does not move. About a quarter of the fall is gone after a year (−10: about 7% weaker at month 12 on Automatic, 8% on Manual), two-thirds after two years on Automatic and half on Manual. The shift in the target itself fades at only about 10% of its size a year, so the króna recovers well before it has faded. No one here owes foreign currency (pension funds and the central bank hold foreign assets), so a weaker króna raises residents’ net worth; the squeeze comes from dearer imports cutting real wages and from CPI indexation of mortgages and government debt. Before 2008, firms’ and households’ foreign-currency loans made a fall in the króna far more damaging (Krugman 1999; Céspedes, Chang and Velasco 2004). Prices, rates and trade respond.',
+        'One-off shift in the króna’s target value by this percentage (−10: a target 10% weaker), fired once. The króna falls by most of it within a quarter (−10: about 9% by month 3). At first the current account worsens: imports are invoiced in foreign currency, so the import bill in krónur rises at once, while volumes take months to respond (a J-curve). Then portfolio balance pulls the króna back. Pension funds sell some of their foreign assets, now worth more in krónur, to get back to their target share (about 1.5–2% of GDP a year at first), and once trade has turned, the surplus the weaker króna brings drains krónur too. With fewer krónur to hold, non-residents accept a stronger króna. On Automatic the central bank also raises the key rate, and the wider rate gap adds to the pull; on Manual the key rate does not move. Part of the fall is gone after a year: about 30% on Automatic and a sixth on Manual (−10: about 6.5% weaker at month 12 on Automatic, 8% on Manual); two-thirds after two years on Automatic and half on Manual. The shift in the target itself fades at only about 10% of its size a year, so the króna recovers well before it has faded. No one here owes foreign currency (pension funds and the central bank hold foreign assets), so a weaker króna raises residents’ net worth; the squeeze comes from dearer imports cutting real wages and from CPI indexation of mortgages and government debt. Before 2008, firms’ and households’ foreign-currency loans made a fall in the króna far more damaging (Krugman 1999; Céspedes, Chang and Velasco 2004). Prices, rates and trade respond.',
       concepts: ['floating-exchange-rate', 'exchange-rate-pass-through'],
       fire: (s, size) => s.setLagged('sentimentShock', s.get('sentimentShock') - Math.log(1 + size / 100)),
     },
@@ -813,7 +817,7 @@ export const external: ModuleDef = {
       binds: { param: 'fishPriceShift', mode: 'add', scale: 0.01 },
       description: 'What foreign buyers pay for Icelandic fish, in foreign currency.',
       definition:
-        'Level shift in the world price of marine products, in percent, on top of the world-prices lever; applied at once and persistent while set. Quotas cap the catch, so most of the change goes into fisheries’ revenue and profit; volume moves only a little (about 3% at +30), through fuller use of quotas, the product mix and aquaculture, and the stronger króna that follows takes back part of the gain. A third of fisheries’ profit above normal goes to the state as the fishing fee two years later. Held for many years, a rise keeps strengthening the króna, which takes back other exports: at +30 output is about 0.4% lower and unemployment 0.4 point higher after 20 years on Automatic, and 2.7% lower and 1.1 points higher with the key rate held (Manual), a known gap in how the current account closes (decision 0002 §6). Setting it back to 0 ends it.',
+        'Level shift in the world price of marine products, in percent, on top of the world-prices lever; applied at once and persistent while set. Quotas cap the catch, so most of the change goes into fisheries’ revenue and profit; volume moves only a little (about 3% at +30), through fuller use of quotas, the product mix and aquaculture, and the stronger króna that follows takes back part of the gain. A third of any change in fisheries’ profit goes to or comes back from the state as the fishing fee two years later, so a fall in prices lowers the fee as a rise raises it. Fisheries normally pay out only about 4% of their profit, so their payout sits close to zero: a small fall in their profit, or even an unrelated shock that raises their debt a little, stops dividends or has owners putting money in for years, which makes their responses lopsided (a known gap: recalibrating the baseline payout needs a new steady-state target, decision 0003). Held for many years, a rise keeps strengthening the króna, which takes back other exports: at +30 output is about 0.2% higher but unemployment 0.2 point higher after 20 years on Automatic, and output 2.6% lower and unemployment 1.1 points higher with the key rate held (Manual), a known gap in how the current account closes (decision 0002 §6). Setting it back to 0 ends it.',
       concepts: ['terms-of-trade', 'export-sectors', 'resource-rent', 'dutch-disease'],
     },
     {

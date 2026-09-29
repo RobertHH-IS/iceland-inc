@@ -207,6 +207,9 @@ describe('flags', () => {
     expect(flagsOf(creeping).map((f) => f.kind)).toContain('unsettled');
     const exploding = Array.from({ length: 241 }, (_, t) => 0.1 * Math.exp(t / 40));
     expect(flagsOf(exploding).map((f) => f.kind)).toContain('explosive');
+    // a price level whose inflation has settled at a steady offset grows linearly: unsettled, not explosive
+    const drifting = Array.from({ length: 241 }, (_, t) => 0.05 * t);
+    expect(flagsOf(drifting).map((f) => f.kind)).toEqual(['unsettled']);
   });
 
   test('a regime switching on and off month after month is counted, with the months it differs', () => {
@@ -366,24 +369,20 @@ describe('units', () => {
     expect(run.headlines[k].at[HORIZONS.indexOf(240)]).toBeCloseTo(ratio(shocked, 240) - ratio(none, 240), 9);
     // the credit impulse is a nominal flow, and the report says so
     expect(r.indicators.find((h) => h.id === 'creditImpulse')!.unit).toBe('pp of baseline GDP');
-    expect(r.unitNotes.map((n) => n.id)).toEqual(['creditImpulse']);
   });
 });
 
 describe('what the report cannot see, and levers that need help', () => {
   test('rules that combine terms non-additively without a regime label are listed as kinks not traced', () => {
+    // every floor and cap in both models now carries a regime label (review UNTRACED-KINKS)
     expect(untracedRules(ref)).toEqual([]);
-    const u = untracedRules(ice);
-    expect(u).toContain('employmentFC');
-    expect(u).toContain('exportVolumeTourism');
-    for (const id of u) {
-      const rule = ice.rules.find((r) => r.id === id)!;
-      expect(rule.combine).toBeDefined();
-      expect(rule.regime).toBeUndefined();
-    }
+    expect(untracedRules(ice)).toEqual([]);
+    const floor = { ...ice.rules.find((r) => r.id === 'employmentFC')!, regime: undefined };
+    expect(untracedRules({ rules: [floor] })).toEqual(['employmentFC']);
     const r = leverReport(ice, { months: 12, levers: ['vat'], expectations: null });
-    expect(r.untraced).toEqual(u);
-    expect(renderLeverMarkdown(r)).toContain('Kinks not traced: ');
+    expect(r.untraced).toEqual([]);
+    expect(renderLeverMarkdown(r)).not.toContain('Kinks not traced: ');
+    expect(renderLeverMarkdown({ ...r, untraced: ['employmentFC'] })).toContain('Kinks not traced: `employmentFC`');
   });
 
   test('a lever that moves nothing is inert; its companion shock gives it something to act on', () => {
@@ -449,6 +448,5 @@ test('every model has a headline list whose variables exist', () => {
       expect(m.leverIndex.has(id)).toBe(true);
       expect(m.leverIndex.has(c.lever)).toBe(true);
     }
-    for (const id of Object.keys(spec.indicatorUnits ?? {})) expect(m.indicatorIndex.has(id)).toBe(true);
   }
 });

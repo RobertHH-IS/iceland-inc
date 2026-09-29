@@ -77,6 +77,8 @@ function groupRules(g: B): RuleDef[] {
         ['housePrice', 'Real house prices', 'credit-and-house-prices', (c) => Math.pow(Math.max(1e-6, c.v('realHousePrice')), c.p('betaMH'))],
       ),
       combine: (t) => t.income * t.rate * t.housePrice,
+      // Real house prices are floored at a millionth (a guard on the power); it never binds.
+      regime: (c) => (c.v('realHousePrice') < 1e-6 ? 'House prices at their floor' : null),
       explain: {
         what: `The mortgage debt the ${who} would like to have.`,
         rule: `Desired debt = {mR${g}} × lasting income × last month’s CPI × (1 − {betaM} × (real mortgage rate − baseline)) × (real house price)^{betaMH}. Lasting income follows gross income with a lag of about a year, so households borrow more after a pay rise only as it proves to last.`,
@@ -468,7 +470,7 @@ export const mortgages: ModuleDef = {
       step: 1,
       binds: { param: 'dstiShift', mode: 'add', scale: 0.01 },
       description: 'Shifts the payment-to-income caps on new mortgages (40% for first-time buyers, 35% for others).',
-      definition: 'Level shift in both debt-service caps, in percentage points of income, applied to new lending at once and persistent while set. Borrowers whose payments would take more than the cap borrow up to it, so a tightening trims the loans of those who borrow most and a loosening lets them borrow a little more. Existing loans are unaffected. Setting it back to 0 restores the Rules 1300/2025 caps.',
+      definition: 'Level shift in both debt-service caps, in percentage points of income, applied to new lending at once and persistent while set. Borrowers whose payments would take more than the cap borrow up to it, so a tightening trims the loans of those who borrow most and a loosening lets them borrow a little more. Existing loans are unaffected. The fall in borrowing and spending lasts: on Automatic, where the central bank eases to offset it, a cut of 15 points still leaves output about 0.15% lower and unemployment 0.06 point higher after 20 years, because the rule measures slack against a fixed capacity and learns its neutral rate only slowly; on Manual about 0.1% lower. Setting it back to 0 restores the Rules 1300/2025 caps.',
       concepts: ['debt-service-constraint', 'macroprudential-policy'],
     },
     {
@@ -485,7 +487,7 @@ export const mortgages: ModuleDef = {
       binds: { param: 'ltvLimit', mode: 'replace', scale: 0.01 },
       description: `Today 80% (first-time buyers ${Math.round(100 * ALL_PARAMS.ltvYExtra.value)} points more). New mortgages may pay for at most this share of the price of the home bought; lower tightens.`,
       definition:
-        'Level of the loan-to-value cap in percent, persistent while set, applied at once to every new loan as it is made (the loans of people buying from older households and from each other); first-time buyers (the young) get 10 points more. Buyers who want to borrow more than the cap allows borrow up to it; the rest are unaffected, so a small change trims the buyers who borrow most and a large cut trims many. Loans already made are never tested. 80 is the rule in force (Rules 1131/2025); setting it back to 80 restores it.',
+        'Level of the loan-to-value cap in percent, persistent while set, applied at once to every new loan as it is made (the loans of people buying from older households and from each other); first-time buyers (the young) get 10 points more. Buyers who want to borrow more than the cap allows borrow up to it; the rest are unaffected, so a small change trims the buyers who borrow most and a large cut trims many. Loans already made are never tested. The fall in borrowing and spending lasts: at a 50% cap output is about 0.35% lower after five years and 0.3% lower after twenty on Automatic, where the central bank eases to offset it but measures slack against a fixed capacity and learns its neutral rate only slowly, and 0.2% lower on Manual. 80 is the rule in force (Rules 1131/2025); setting it back to 80 restores it.',
       concepts: ['loan-to-value', 'macroprudential-policy'],
     },
   ],

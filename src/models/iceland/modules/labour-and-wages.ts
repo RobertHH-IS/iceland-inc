@@ -6,7 +6,8 @@
  * any change is met by migration, which moves the labour force too. When a group runs short of
  * unemployed people, extra jobs are filled more and more by people arriving from abroad, so
  * unemployment approaches a frictional floor but never goes below it. More generous unemployment
- * benefits make people search longer, and a net-immigration lever adds job-seekers from abroad.
+ * benefits make people search longer, and a net-immigration lever adds people to the labour force
+ * for good.
  * Wages grow with expected inflation and a tight labour market (a wage Phillips curve), and slow
  * while they are high relative to the value-added price, domestic prices less the imported inputs
  * in them (the Nordic main-course error correction, as bargainers see it, with a lag). A wage
@@ -38,10 +39,16 @@ function smoothFloor(x: number, lo: number, join: number): number {
 /** Last month's unemployment rate without the extra people searching longer because benefits are
  *  more generous than normal: unemployed × (1 + s) out of a labour force grown by the same people,
  *  so the rate without them is u ÷ (1 + s × (1 − u)). They do not hold wages back. */
-const restrainingUnemployment = (c: Ctx) => {
+export const restrainingUnemployment = (c: Ctx) => {
   const u = lastMonth(c, 'unemployment'),
     s = lastMonth(c, 'benefitSearch');
   return u / (1 + s * (1 - u));
+};
+/** Newcomers of the net-immigration lever as a share of the baseline labour force (0 at baseline). */
+export const newcomerShare = (c: Ctx): number => {
+  let lf = 0;
+  for (const g of AGES) lf += c.p(`U0${g}`) + c.p(`emp0${g}`);
+  return c.lag('labourInflow') / lf;
 };
 /** The value-added price never falls below this share of domestic prices, and bends smoothly toward
  *  that floor from twice it (only when imported inputs cost about 60% more than domestic goods). */
@@ -84,15 +91,15 @@ const byAge: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
         ['normal', 'Unemployed at baseline', undefined, (c) => c.p(u0)],
         ['jobs', 'Jobs gained or lost', 'okun-law', (c) => -(c.v(emp) / c.p(wb) - c.p(emp0))],
         ['migration', 'Workers arriving or leaving', 'migration-buffer', (c) => c.p('mig') * (c.v(emp) / c.p(wb) - c.p(emp0))],
-        ['search', 'Higher benefits: people search longer', 'reservation-wage', (c) => c.v('benefitSearch') * (c.p(u0) + (c.p('mig') - 1) * (c.v(emp) / c.p(wb) - c.p(emp0)))],
-        ['arrivals', 'Workers arriving from abroad, still looking for work', 'migration-buffer', (c) => c.p(inflow) * c.v('labourInflow')],
+        ['search', 'Higher benefits: people search longer', 'reservation-wage', (c) => c.v('benefitSearch') * (c.p(u0) + (c.p('mig') - 1) * (c.v(emp) / c.p(wb) - c.p(emp0) - c.p(inflow) * c.v('labourInflow')))],
+        ['arrivals', 'Newcomers from abroad not yet in work (the net-immigration lever)', 'migration-buffer', (c) => (1 - c.p('mig')) * c.p(inflow) * c.v('labourInflow')],
       ),
       combine: (t, c) => flooredUnemployed(t.normal + t.jobs + t.migration + t.search + t.arrivals, c.p(u0), c.p('uFloor'), c.p('uFloorStart')),
       regime: (c, _v, t) => (t.normal + t.jobs + t.migration + t.search + t.arrivals < c.p('uFloorStart') * c.p(u0) ? 'Few unemployed left: extra jobs go to people arriving from abroad' : null),
       concepts: ['migration-buffer', 'reservation-wage'],
       explain: {
         what: `People aged ${g === 'Y' ? '18–34' : g === 'W' ? '35–66' : '67+'} who want a job but have none, in thousands.`,
-        rule: `Unemployed = [baseline unemployed − (workers − baseline workers) × (1 − {mig})] × (1 + the benefit search effect) + a share {inflowSh${g}} of newcomers from abroad still looking for work (the net-immigration lever). Workers = jobs ÷ the wage per worker; a share {mig} of any change in jobs is met by people arriving or leaving, so it does not change unemployment. When benefits are more generous than normal, people out of work take longer to find a job they will accept, so more of them are unemployed at any time; they join the labour force rather than leave a job. When that would take the group below {uFloorStart} of its normal number of unemployed, the migration share rises: more and more of the extra jobs are filled by people arriving from abroad, so unemployment approaches {uFloor} of normal (people between jobs) but never goes below it, and never below zero. The newcomers join the labour force.`,
+        rule: `Unemployed = [baseline unemployed − (workers − baseline workers) × (1 − {mig})] × (1 + the benefit search effect) + (1 − {mig}) × a share {inflowSh${g}} of the newcomers from abroad (the net-immigration lever). Newcomers join the labour force for good and take the first new jobs, so the buffer counts jobs against a labour force that includes them: while there are too few jobs for them, a share {mig} of the shortfall moves on and the rest are unemployed. Workers = jobs ÷ the wage per worker; a share {mig} of any change in jobs is met by people arriving or leaving, so it does not change unemployment. When benefits are more generous than normal, people out of work take longer to find a job they will accept, so more of them are unemployed at any time; they join the labour force rather than leave a job. When that would take the group below {uFloorStart} of its normal number of unemployed, the migration share rises: more and more of the extra jobs are filled by people arriving from abroad, so unemployment approaches {uFloor} of normal (people between jobs) but never goes below it, and never below zero. The newcomers join the labour force.`,
       },
     },
     {
@@ -156,6 +163,8 @@ function employmentRule(j: Firm): RuleDef {
       ['realWage', 'Wages relative to what firms earn per unit of value added', 'real-wages', (c) => Math.pow(c.v('wage') / c.v('valueAddedPrice'), -c.p('sigW'))],
     ),
     combine: (t) => t.normal * t.output * t.realWage,
+    // The output term is floored at a millionth of baseline (a guard on the power); it never binds.
+    regime: (c) => (c.v(va) / c.p(va0) < 1e-6 ? 'Output at its floor' : null),
     concepts: ['okun-law', 'profit-squeeze'],
     explain: {
       what: `Jobs in ${FIRM_NAME[j]}, measured as their wage bill at baseline wages.`,
@@ -176,7 +185,7 @@ const vars: VarDef[] = [
     initial: 1,
     description: 'What firms earn per unit of their own value added: domestic prices less the imported inputs in each unit (1 at baseline). Wages are measured against it.',
   },
-  { id: 'labourInflow', label: 'Newcomers looking for work', unit: 'thousand persons', kind: 'quantity', scale: 'none', initial: 0, description: 'Workers arrived from abroad (the net-immigration lever) who are still looking for work.' },
+  { id: 'labourInflow', label: 'Newcomers in the labour force', unit: 'thousand persons', kind: 'quantity', scale: 'none', initial: 0, description: 'People who have arrived from abroad through the net-immigration lever and joined the labour force for good.' },
   { id: 'benefitSearch', label: 'Longer job search from benefits', unit: 'fraction', kind: 'ratio', scale: 'none', initial: 0, description: 'Extra unemployed because benefits are more generous than normal, as a share of the unemployed.' },
   { id: 'wageGapSeen', label: 'Wage gap at the bargaining table', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'How far wages are above what firms earn per unit of value added, as wage bargainers see it.' },
   { id: 'settlementJump', label: 'Wage settlement this month', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'The one-off jump of a collective agreement, in log points; zero in every month without one.' },
@@ -197,7 +206,7 @@ export const labourAndWages: ModuleDef = {
   description: 'Employment in the six firm sectors and by age group, unemployment with a migration buffer, and a wage Phillips curve with error correction.',
   requires: ['structure', 'prices', 'external', 'government', 'households'],
   params: pickParams(ALL_PARAMS, [
-    'phiU', 'phiW', 'lamWG', 'epsSearch', 'lamSearch', 'uBenefit', 'lamInflow', 'inflowShY', 'inflowShW', 'inflowShO', 'lamN', 'okun', 'sigW', 'mig', 'uFloor', 'uFloorStart', 'cEe', 'compTotal', 'compFC', 'compXF', 'compXA', 'compXT', 'compXO', 'youthTiltXT',
+    'phiU', 'phiW', 'lamWG', 'epsSearch', 'lamSearch', 'uBenefit', 'inflowShY', 'inflowShW', 'inflowShO', 'lamN', 'okun', 'sigW', 'mig', 'uFloor', 'uFloorStart', 'cEe', 'compTotal', 'compFC', 'compXF', 'compXA', 'compXT', 'compXO', 'youthTiltXT',
     ...AGES.flatMap((g) => [`pop${g}`, `er${g}`, `u0${g}`, `wsh${g}`, `cyc${g}`]), 'uBase', 'Ntot0', ...FIRMS.map((j) => `N${j}0`),
     ...AGES.flatMap((g) => [`Ng0${g}`, `cycSh${g}`, `U0${g}`, `emp0${g}`, `wb${g}`]),
   ]),
@@ -242,14 +251,14 @@ export const labourAndWages: ModuleDef = {
     {
       id: 'labourInflow',
       target: 'labourInflow',
-      category: 'BEHAVIOUR',
-      label: 'Newcomers still looking for work',
-      adjust: { speed: 'lamInflow', form: 'exponential' },
-      terms: terms(['settled', 'Newcomers find work or move on', 'migration-buffer', () => 0]),
+      category: 'IDENTITY',
+      label: 'Newcomers in the labour force',
+      lagInputs: ['labourInflow'],
+      terms: terms(['previous', 'Newcomers who have arrived so far', 'migration-buffer', (c) => c.lag('labourInflow')]),
       concepts: ['migration-buffer'],
       explain: {
-        what: 'People who arrived from abroad through the net-immigration lever and are still looking for work, in thousands.',
-        rule: 'The lever adds arrivals at once. They then find work or move on at speed {lamInflow} a year, so half are gone within about a year and a half. Until then they are unemployed and count in the labour force.',
+        what: 'People who have arrived from abroad through the net-immigration lever (or left, below zero), in thousands. They stay: they join the labour force for good.',
+        rule: 'The lever adds arrivals at once, and they stay. They arrive looking for work, so at first they add to the unemployed; they find jobs as the jobs appear, when their spending, their housing demand and slower wage growth raise demand for labour. The central bank counts them in the economy’s capacity (the key-rate rule’s output gap).',
       },
     },
     {
@@ -276,8 +285,8 @@ export const labourAndWages: ModuleDef = {
       terms: terms(['gap', 'Wages relative to what firms earn', 'wage-bargaining', (c) => Math.log(lastMonth(c, 'wage') / lastMonth(c, 'valueAddedPrice'))]),
       concepts: ['wage-bargaining'],
       explain: {
-        what: 'How far wages are above what firms earn per unit of value added, as the parties to wage agreements see it (log points; 0 at baseline).',
-        rule: 'Moves toward the log of last month’s wage rate ÷ value-added price at speed {lamWG} a year. Agreements run for a year or more, so a gap opened by a settlement is bargained away over the following rounds, not in the next month.',
+        what: 'How far wages are above what firms earn per unit of value added, as the parties to wage agreements see it (a fraction: 0.01 means wages about 1% higher; 0 at baseline).',
+        rule: 'Moves toward how far last month’s wage rate is above the value-added price, at speed {lamWG} a year. Agreements run for a year or more, so a gap opened by a settlement is bargained away over the following rounds, not in the next month.',
       },
     },
     {
@@ -308,7 +317,7 @@ export const labourAndWages: ModuleDef = {
       compute: () => 0,
       concepts: ['wage-bargaining'],
       explain: {
-        what: 'A collective agreement signed this month, in log points (0.095 for +10%).',
+        what: 'A collective agreement signed this month, as a fraction (about 0.095 for +10%; strictly the natural log of 1.10).',
         rule: 'Zero in every month without a settlement; the wage-settlement lever sets it for the month it is fired, and the wage rate carries it from then on.',
       },
     },
@@ -375,7 +384,7 @@ export const labourAndWages: ModuleDef = {
       step: 0.5,
       description: 'A one-off jump in nominal wage rates, as after a collective agreement.',
       definition:
-        'One-off level shift: the wage rate, private and public, jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages follow the Phillips curve. Firms price the pay rise in within a few months, so at first the real-wage gain erodes mainly through prices (+10% on Manual: consumer prices about 2.8% higher after a year, wages about 1.9 points below their new level). Wage bargainers then work the rest off over the following rounds (the error correction, with a lag of about a year), until wages are back in line with what firms earn per unit of value added. With labour about half of unit cost, domestic prices rise by only about two-thirds of the wage rise at a given exchange rate, so in the end wages give back most of the settlement: on Automatic the price level is about 3.3% higher after six years and about 2.5% after twenty, with wages a little above it.',
+        'One-off level shift: the wage rate, private and public, jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages follow the Phillips curve. Firms price the pay rise in within a few months, so at first the real-wage gain erodes mainly through prices (+10% on Manual: consumer prices about 2.7% higher after a year, wages about 2 points below their new level). Wage bargainers then work the rest off over the following rounds (the error correction, with a lag of about a year), until wages are back in line with what firms earn per unit of value added. With labour about half of unit cost, domestic prices rise by only about two-thirds of the wage rise at a given exchange rate, so in the end wages give back most of the settlement: on Automatic the price level is about 3.5% higher after six years and about 3.1% after twenty, with wages a little above it.',
       concepts: ['wage-bargaining', 'cost-pass-through', 'profit-squeeze'],
       fire: (s, size) => s.setLagged('settlementJump', s.get('settlementJump') + Math.log(1 + size / 100)),
     },
@@ -392,7 +401,7 @@ export const labourAndWages: ModuleDef = {
       step: 0.5,
       description: 'A wave of workers arriving from abroad (or leaving), looking for work.',
       definition:
-        'One-off shift in the labour force, in thousands of people of working age, in the month the lever is fired (5 thousand is about 2% of the labour force). They arrive looking for work, so unemployment rises at once, mostly among the young and working age; wage growth slows through the Phillips curve and their benefits add to spending. They then find work or move on: half within about a year and a half, so the extra unemployment fades over a few years. The shift is not reversed otherwise. It does not change the migration buffer, which applies to changes in jobs.',
+        'One-off shift in the labour force, in thousands of people of working age, in the month the lever is fired (5 thousand is about 2% of the labour force). They stay. They arrive looking for work, so unemployment rises at once, mostly among the young and working age; wage growth slows through the Phillips curve, their benefits add to spending and they need homes. They take the first new jobs as demand grows with them, and while jobs are short a part of the shortfall moves on again (the migration buffer). At 5 thousand, unemployment is about 1.4 points higher at first. On Automatic, where the central bank counts them in the economy’s capacity and eases, unemployment is 0.3 point higher after 20 years, with jobs 1.5%, output 2.8% and real house prices 4.8% higher; on Manual unemployment stays about 0.8 point higher, and jobs end 0.9%, output 1.2% and house prices 1.2% higher. A negative value is emigration, with the reverse effects. To size the share of job changes met by migration, use the migration buffer.',
       concepts: ['migration-buffer', 'wage-phillips-curve'],
       fire: (s, size) => s.setLagged('labourInflow', s.get('labourInflow') + size),
     },

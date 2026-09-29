@@ -122,12 +122,13 @@ describe('Iceland model: the foreign interest rate (review E3)', () => {
 });
 
 describe('Iceland model: the króna-shock lever does what its definition says (review M21, lever review FX-2 and FX-5)', () => {
-  test('−10: about 9% weaker by month 3, about a fifth of that gone after a year, half after two to three years', () => {
+  test('−10: about 9% weaker by month 3, a sixth to a third of that gone after a year, half after two to three years', () => {
     for (const automatic of [false, true]) {
       const krona = series(run('kronaShock', -10, automatic, 36), 'krona');
       expect(krona[3]).toBeGreaterThan(-10);
       expect(krona[3]).toBeLessThan(-8.5);
-      expect(krona[12] / krona[3]).toBeGreaterThan(0.7);
+      // Automatic about 0.69 since the króna is as sensitive to the key rate as QMM's (betaI 0.5, MON-5); Manual about 0.84
+      expect(krona[12] / krona[3]).toBeGreaterThan(0.65);
       expect(krona[12] / krona[3]).toBeLessThan(0.95);
       expect(krona[automatic ? 24 : 36] / krona[3]).toBeLessThan(0.55); // about half gone
     }

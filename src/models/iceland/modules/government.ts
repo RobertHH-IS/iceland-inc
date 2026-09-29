@@ -7,14 +7,17 @@
  * Revenue comes from income tax, VAT, payroll tax, corporate tax, the central bank's profit and
  * the state's bank dividends. A slow debt-tied rule works out how far it would move the income-tax
  * rate when debt drifts from baseline; it acts only when stabilisers are Automatic, and is a
- * suggestion on the income-tax lever when they are Manual (decision 0004). The government borrows its cash deficit by selling bonds, and a lever decides
+ * suggestion on the income-tax lever when they are Manual (decision 0004). Like the key-rate rule it
+ * steps from the rate in force, and it raises no taxes while the key rate is stuck at zero (an
+ * escape clause). The government borrows its cash deficit by selling bonds, and a lever decides
  * who buys them: banks and the central bank pay with new money, pension funds and older
  * households with money that already exists.
  */
 import type { Ctx, Id, LeverDef, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth, automatic, AUTOMATIC, MANUAL, STABILISERS } from '../util.ts';
+import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, gapShare, pickParams, terms, lastMonth, automatic, AUTOMATIC, MANUAL, STABILISERS } from '../util.ts';
 import { cashToSpend } from './banks.ts';
+import { zeroBoundWeight } from './central-bank.ts';
 import { PF_CASH, pfCashForNewBonds } from './pensions.ts';
 
 type Channel = { id: string; label: string; level: Id; share: Id; lever: string; channel: string; what: string };
@@ -199,8 +202,10 @@ const vars: VarDef[] = [
   { id: 'vatFR', label: 'VAT passed on by retail and service firms', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'vatFC', label: 'VAT passed on by builders (home repairs)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'debtRatio', label: 'Government debt ratio', unit: 'ratio', kind: 'ratio', scale: 'none', initial: base('debtRatio'), description: 'Government bonds (nominal and indexed), less any treasury cash above its target balance, ÷ GDP over the 12 months to last month.' },
-  { id: 'taxRuleAdjustment', label: 'Debt-rule tax adjustment', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'How far the debt rule would move the income-tax rate. Computed in both stabiliser modes; added to the rate only on Automatic.' },
-  { id: 'taxRuleSuggestion', label: 'Income-tax shift the debt rule suggests', unit: 'pp', kind: 'rate', scale: 'none', description: 'The debt rule’s adjustment in percentage points: comparable with the income-tax lever.' },
+  { id: 'taxRuleTarget', label: 'Tax shift the debt rule is heading for', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'Where the debt rule would put the income-tax rate (as a shift from its baseline) if it moved there at once. Computed in both stabiliser modes.' },
+  { id: 'taxRuleAnchor', label: 'Tax shift the debt rule steps from', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'The shift the debt rule starts next month’s step from: its own adjustment while it is in charge (Automatic), the income-tax lever’s shift (Manual).' },
+  { id: 'taxRuleAdjustment', label: 'Debt-rule tax adjustment', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'How far the debt rule moves the income-tax rate this month: one smoothed step from the shift in force toward where it is heading. Computed in both stabiliser modes; added to the rate only on Automatic.' },
+  { id: 'taxRuleSuggestion', label: 'Income-tax shift the debt rule suggests', unit: 'pp', kind: 'rate', scale: 'none', description: 'Where the debt rule is heading, in percentage points: comparable with the income-tax lever.' },
   { id: 'taxRate', label: 'Income-tax rate', unit: 'fraction', kind: 'rate', scale: 'none', initial: base('taxRate') },
   ...AGES.map((g): VarDef => ({ id: `incomeTax${g}`, label: `Income tax, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`incomeTax${g}`) })),
   ...FIRMS.flatMap((j): VarDef[] => [
@@ -344,20 +349,61 @@ const rules: RuleDef[] = [
     },
   },
   {
+    id: 'taxRuleTarget',
+    target: 'taxRuleTarget',
+    category: 'POLICY',
+    label: 'Debt-tied tax rule: where it is heading',
+    inputs: ['debtRatio'],
+    lagInputs: ['ruleTarget', 'taxRuleAnchor'],
+    params: ['phiTau', 'debtR0', 'escapeBand'],
+    terms: terms(['debt', 'Debt above its baseline ratio', 'debt-feedback', (c) => c.p('phiTau') * (c.v('debtRatio') - c.p('debtR0'))]),
+    // Escape clause (a stabiliser interaction, decision 0004): while the central bank's rule is
+    // heading below zero, the debt rule does not raise taxes above the shift in force. It fades in
+    // over the first escapeBand of the shortfall, so the switch is smooth.
+    combine: (t, c) => t.debt - zeroBoundWeight(c) * Math.max(0, t.debt - c.lag('taxRuleAnchor')),
+    regime: (c, _v, t) => (zeroBoundWeight(c) > 0 && t.debt > c.lag('taxRuleAnchor') ? 'Escape clause: no tax rise while the key rate is stuck at zero' : null),
+    concepts: ['debt-feedback'],
+    explain: {
+      what: 'Where the debt rule would put the income-tax rate, as a shift from its baseline, if it moved there at once. The rule itself moves toward it gradually.',
+      rule: 'Target = {phiTau} × (debt ratio − {debtR0}): ten points more debt means 2.5 points more tax. Escape clause: while the central bank’s inflation rule is heading for a key rate below zero, interest rates cannot be cut any further to cushion a tax rise, so the debt rule does not raise the rate above the shift in force; it can still cut it. The clause phases in over the first {escapeBand%} point of that shortfall. Fiscal rules in Iceland and the EU have such clauses for severe downturns.',
+    },
+  },
+  {
+    id: 'taxRuleAnchor',
+    target: 'taxRuleAnchor',
+    category: 'POLICY',
+    label: 'The tax shift in force, which the debt rule steps from',
+    inputs: ['taxRuleAdjustment'],
+    params: ['incomeTaxShift'],
+    levers: [STABILISERS],
+    terms: terms(
+      ['rule', 'The rule’s own adjustment (Automatic)', 'gradual-adjustment', (c) => (automatic(c) ? c.v('taxRuleAdjustment') : 0)],
+      ['held', 'The shift you set on the income-tax lever (Manual)', 'gradual-adjustment', (c) => (automatic(c) ? 0 : c.p('incomeTaxShift'))],
+    ),
+    concepts: ['gradual-adjustment'],
+    explain: {
+      what: 'The tax shift the debt rule starts next month’s step from: the shift it was actually in charge of.',
+      rule: 'Automatic: the rule’s own adjustment this month (your offset is not part of it). Manual: the shift you set on the income-tax lever. So when you switch to Automatic the rule starts from the rate you held, not from a path it was never in charge of.',
+    },
+  },
+  {
     id: 'taxRuleAdjustment',
     target: 'taxRuleAdjustment',
     category: 'POLICY',
-    label: 'Debt-tied tax rule',
-    inputs: ['debtRatio'],
-    params: ['phiTau', 'debtR0'],
+    label: 'Debt-tied tax rule, smoothed',
+    inputs: ['taxRuleTarget'],
+    lagInputs: ['taxRuleAnchor'],
+    params: ['lamTau'],
     levers: [STABILISERS],
-    adjust: { speed: 'lamTau', form: 'exponential' },
-    terms: terms(['debt', 'Debt above its baseline ratio', 'debt-feedback', (c) => c.p('phiTau') * (c.v('debtRatio') - c.p('debtR0'))]),
+    terms: terms(
+      ['inForce', 'Where the rule stands: the shift in force last month', 'gradual-adjustment', (c) => (1 - gapShare(c.p('lamTau'), c.dt)) * c.lag('taxRuleAnchor')],
+      ['target', 'A step toward where the rule is heading', 'debt-feedback', (c) => gapShare(c.p('lamTau'), c.dt) * c.v('taxRuleTarget')],
+    ),
     regime: (c) => (automatic(c) ? null : 'Suggestion only (Manual)'),
-    concepts: ['debt-feedback'],
+    concepts: ['debt-feedback', 'gradual-adjustment'],
     explain: {
-      what: 'How far the debt rule would move the income-tax rate: added to the rate (with your offset) when stabilisers are Automatic, only suggested on the income-tax lever when they are Manual.',
-      rule: 'Moves toward {phiTau} × (debt ratio − {debtR0}) at speed {lamTau} a year, in both modes. Ten points more debt eventually means about 2.5 points more tax.',
+      what: 'How far the debt rule moves the income-tax rate: added to the rate (with your offset) when stabilisers are Automatic; on Manual it is what the rule would do next if you switched.',
+      rule: 'Adjustment = the shift in force last month + a share of the gap between it and where the rule is heading, at speed {lamTau} a year (about 4% of the gap a month). The shift in force is the rule’s own while it is in charge (Automatic) and the income-tax lever’s shift (Manual), so switching to Automatic moves the tax rate one small step from your rate, not straight to a path the rule was never in charge of. It is worked out every month in both modes.',
     },
   },
   {
@@ -365,12 +411,12 @@ const rules: RuleDef[] = [
     target: 'taxRuleSuggestion',
     category: 'POLICY',
     label: 'The debt rule’s suggestion, in lever units',
-    inputs: ['taxRuleAdjustment'],
-    compute: (c) => 100 * c.v('taxRuleAdjustment'),
+    inputs: ['taxRuleTarget'],
+    compute: (c) => 100 * c.v('taxRuleTarget'),
     concepts: ['debt-feedback'],
     explain: {
-      what: 'The income-tax shift the debt rule would set now, in percentage points from the baseline rate: the same units as the income-tax lever. In Manual mode the lever turns red when it is more than a quarter point away, and “Apply” sets the lever to it, rounded to half a point.',
-      rule: 'Suggestion = the debt rule’s adjustment × 100. It is the whole shift the rule would want given today’s debt, so a lever already set there satisfies it.',
+      what: 'The income-tax shift the debt rule is heading for, in percentage points from the baseline rate: the same units as the income-tax lever. In Manual mode the lever turns red when it is more than a quarter point away, and “Apply” sets the lever to it, rounded to half a point.',
+      rule: 'Suggestion = where the debt rule is heading × 100. It is the whole shift the rule would want given today’s debt, so a lever already set there satisfies it.',
     },
   },
   {
@@ -511,7 +557,7 @@ const rules: RuleDef[] = [
       ['vatChange', 'VAT: your change to the rate', 'multiplier', (c) => -(c.v('vat') - vatShare(c.p('vat0')) * c.v('consumption'))],
       ['payrollTax', 'Payroll tax', undefined, (c) => -sumV(PAYROLL)(c)],
       ['corporateTax', 'Corporate tax', 'automatic-stabilisers', (c) => -sumV(CORP)(c)],
-      ['fishingFee', 'Fishing fee on profit above normal', 'export-sectors', (c) => -c.v('fishingFee')],
+      ['fishingFee', 'Fishing fee: change with fisheries’ profit', 'export-sectors', (c) => -c.v('fishingFee')],
       ['centralBank', 'Central-bank profit', undefined, (c) => -c.v('cbProfit')],
       ['bankDividends', 'Dividends from state-owned banks', undefined, (c) => -c.v('bankDividendsG')],
     ),
@@ -593,7 +639,7 @@ const rules: RuleDef[] = [
  *  good (trade-nominal-drift, decision 0002 §6): their definitions say so. */
 const DRIFTS = new Set(['incomeTax', 'vat', 'health', 'education', 'otherServices', 'publicInvestment', 'oldAgeTransfers', 'familyBenefits', 'unemploymentBenefits']);
 const HELD_RATE =
-  ' With the key rate held (Manual), a lasting change that keeps unemployment off its normal rate keeps inflation off target, and the price level drifts: expectations are only half anchored to the target, so the long-run Phillips curve is not vertical (decision 0002 §6). On Automatic the central bank’s rule pulls inflation mostly back within a few years, but its neutral rate and potential output are fixed, so a small gap can remain: after 20 years about 0.1 point for VAT ±2.5 or the income-tax offset ±2.5, about 0.2 for benefits ±30 points, and up to about 1 point for spending ±3% of GDP.';
+  ' With the key rate held (Manual), a lasting change that keeps unemployment off its normal rate keeps inflation off target, and output and unemployment keep drifting too, for decades: expectations are only half anchored to the target, so the long-run Phillips curve is not vertical (decision 0002 §6), and the króna follows domestic prices. After 20 years on Manual, income tax +2.5 points leaves output about 3.8% lower (0.6% after a year, 2.1% after five) and unemployment 1.2 points higher, both still moving, with the price level 16% lower and the króna 23% stronger; VAT +2.5 points leaves output 2.1% lower and the price level 7% lower, so on Manual a VAT rise ends up lowering prices; health spending −3% of GDP leaves output 6% lower and unemployment 3.4 points higher; public investment −3% leaves output 9% lower. Treat Manual effects beyond a few years as a picture of an economy without its nominal anchor. On Automatic the central bank’s rule, which slowly learns its neutral rate, brings inflation back: after 20 years within about 0.05 point for VAT and the income-tax offset ±2.5, about 0.05 for transfers, but benefits +30 points leave unemployment about 1 point higher, and public spending ±3% of GDP about ±0.2 (investment) to ±0.8 point (education) of inflation and unemployment 0.3–1.3 points off normal, because public services move jobs more than output and the rule’s estimate of the neutral rate reaches its limit.';
 const heldRateNote = (l: LeverDef): LeverDef => (DRIFTS.has(l.id) ? { ...l, definition: `${l.definition}${HELD_RATE}` } : l);
 
 const leverFor = (id: string, label: string, param: Id, unit: string, min: number, max: number, step: number, description: string, definition: string, concepts: Id[], scale?: number) => ({
@@ -620,7 +666,7 @@ export const government: ModuleDef = {
   requires: ['stabilisers', 'structure', 'labour-and-wages', 'prices', 'central-bank', 'banks', 'households', 'firms'],
   params: pickParams(ALL_PARAMS, [
     'gHealth', 'gEdu', 'gOther', 'gInv', 'wsHealth', 'wsEdu', 'wsOther', 'trOA', 'oaShareY', 'oaShareO', 'trFam', 'famShareY', 'famTaxableShare', 'rr', 'rrShift',
-    'vat0', 'vatShift', 'tau0', 'incomeTaxShift', 'phiTau', 'lamTau', 'debtR0', 'css', 'tauF', 'sB', 'bondMaturity', 'rBI0', 'tga', 'treasuryTopUp', 'bondMixBankShare',
+    'vat0', 'vatShift', 'tau0', 'incomeTaxShift', 'phiTau', 'lamTau', 'escapeBand', 'debtR0', 'css', 'tauF', 'sB', 'bondMaturity', 'rBI0', 'tga', 'treasuryTopUp', 'bondMixBankShare',
     'compG', 'ueTarget', 'vatTarget', 'citTarget', 'govDebt', 'govIdxShare',
   ]),
   vars,
@@ -789,10 +835,10 @@ export const government: ModuleDef = {
     leverFor('health', 'Health spending', 'gHealth', '% of GDP', -3, 3, 0.1, 'Real change in public health spending: staff pay and purchases.', 'Level shift in real health spending, % of baseline GDP a year, split between staff and purchases as at baseline; persistent while set. Nominal spending also rises with wages and prices. Setting it back to 0 returns spending to baseline; the debt built up meanwhile remains.', ['multiplier']),
     leverFor('education', 'Education spending', 'gEdu', '% of GDP', -3, 3, 0.1, 'Real change in public education spending.', 'Level shift in real education spending, % of baseline GDP a year, persistent while set, split between staff and purchases as at baseline. Setting it back to 0 returns spending to baseline.', ['multiplier']),
     leverFor('otherServices', 'Other public services', 'gOther', '% of GDP', -3, 3, 0.1, 'Real change in other public services: administration, police, culture, roads.', 'Level shift in real spending on other public services, % of baseline GDP a year, persistent while set, split between staff and purchases as at baseline. Setting it back to 0 returns spending to baseline.', ['multiplier']),
-    leverFor('publicInvestment', 'Public investment', 'gInv', '% of GDP', -3, 3, 0.1, 'Real change in public investment bought from domestic firms.', 'Level shift in real public investment, % of baseline GDP a year, persistent while set; nominal spending moves with domestic prices. Setting it back to 0 returns it to baseline.', ['multiplier']),
+    leverFor('publicInvestment', 'Public investment', 'gInv', '% of GDP', -3, 3, 0.1, 'Real change in public investment: roads, buildings and equipment, bought from builders, who import part of it.', 'Level shift in real public investment, % of baseline GDP a year, persistent while set; nominal spending moves with domestic prices. The government pays builders, who import part of what they install at the import share of all investment. Public capital is not modelled, so the road or school adds nothing to what the economy can produce, and on Manual a lasting rise crowds out private spending through prices: +0.8% of GDP leaves real household consumption about 0.2% lower after three years and still lower after twenty. Setting it back to 0 returns it to baseline.', ['multiplier']),
     leverFor('oldAgeTransfers', 'Old-age and disability transfers', 'trOA', '% of GDP', -2, 2, 0.1, 'Real change in public pensions and disability benefits (mostly to older people).', 'Level shift in real old-age and disability transfers, % of baseline GDP a year, indexed to the CPI and split by age as at baseline; persistent while set. Setting it back to 0 ends it.', ['multiplier', 'consumption-function', 'intergenerational-flows']),
     leverFor('familyBenefits', 'Family and housing benefits', 'trFam', '% of GDP', -2, 2, 0.1, 'Real change in child, parental-leave and housing benefits (young and working age).', 'Level shift in real family and housing benefits, % of baseline GDP a year, indexed to the CPI and split by age as at baseline; persistent while set. Setting it back to 0 ends it.', ['multiplier', 'consumption-function', 'borrowers-and-savers']),
-    leverFor('unemploymentBenefits', 'Unemployment-benefit rate', 'rrShift', 'pp of wage', -30, 30, 5, 'Changes the replacement rate paid automatically to the unemployed.', 'Level shift in the replacement rate, in percentage points of the average wage, applied to everyone unemployed at once and persistent while set. It works two ways. At once, the unemployed have more to spend, which supports demand and jobs (an automatic stabiliser). Within about a year, people out of work search longer before taking a job and workers hold out for more pay, so normal unemployment rises: +30 points raises unemployment by about 0.5–0.8 points after a few years. Setting it back to 0 ends it the same way.', ['automatic-stabilisers', 'reservation-wage'], 0.01),
+    leverFor('unemploymentBenefits', 'Unemployment-benefit rate', 'rrShift', 'pp of wage', -30, 30, 5, 'Changes the replacement rate paid automatically to the unemployed.', 'Level shift in the replacement rate, in percentage points of the average wage, applied to everyone unemployed at once and persistent while set. It works two ways. At once, the unemployed have more to spend, which supports demand and jobs (an automatic stabiliser). Within about a year, people out of work search longer before taking a job and workers hold out for more pay, so normal unemployment rises: +30 points raises unemployment by about 0.6 points over years 5–20 on Manual and 0.9 on Automatic. Who ends up working depends on the mode. On Automatic the central bank leans against the higher normal unemployment, so fewer people work: jobs about 0.2% and output about 0.4% lower after twenty years. On Manual, with the key rate held, the benefits’ support to demand wins: jobs end about 0.3% and output 0.85% higher, while more people search longer (a known gap: search and bargaining theory predict fewer jobs). Setting it back to 0 ends it the same way.', ['automatic-stabilisers', 'reservation-wage'], 0.01),
     {
       id: 'bondBuyers',
       label: 'Who buys new government bonds',
@@ -824,11 +870,11 @@ export const government: ModuleDef = {
       lever: 'incomeTax',
       offset: 'incomeTaxOffset',
       suggestion: 'taxRuleSuggestion',
-      shadow: ['taxRuleAdjustment'],
+      shadow: ['taxRuleAdjustment', 'taxRuleTarget', 'taxRuleAnchor'],
       // Half the lever's half-point step: it calls exactly when "Apply" would move the lever.
       threshold: 0.25,
       description:
-        'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually. On Automatic it sets the income-tax rate, and your offset lever adds to or subtracts from it; on Manual it suggests a value for the income-tax lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step.',
+        'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually from the rate in force. It raises no taxes while the key rate is stuck at zero (an escape clause). On Automatic it sets the income-tax rate, and your offset lever adds to or subtracts from it; on Manual it suggests a value for the income-tax lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step.',
       concepts: ['debt-feedback'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'incomeTaxRate' },
     },

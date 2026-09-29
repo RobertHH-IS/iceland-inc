@@ -50,6 +50,7 @@ export const indicators: ModuleDef = {
     I({ id: 'profitsFD', label: 'Profits, domestic firms (real)', group: 'Overview', display: 'deviation-pct', compute: (c) => realProfit(c, DOMESTIC), description: 'After-tax profits of builders and of retail and service firms together, adjusted for prices.', drivers: DOMESTIC.flatMap((j) => [`profits${j}`, `corporateTax${j}`]), concepts: ['profit-squeeze'] }),
     I({ id: 'profitsFX', label: 'Profits, exporters (real)', group: 'Overview', display: 'deviation-pct', compute: (c) => realProfit(c, EXPORTERS), description: 'After-tax profits of fisheries, aluminium smelters, tourism and other exporters together, adjusted for prices. A weaker króna lifts fish and aluminium revenue at once.', drivers: EXPORTERS.flatMap((j) => [`profits${j}`, `corporateTax${j}`]), concepts: ['profit-squeeze', 'export-sectors'] }),
     /* -------------------------------------------------------------- People */
+    I({ id: 'employment', label: 'Jobs, all sectors', group: 'People', display: 'deviation-pct', compute: (c) => c.v('employmentTotal'), description: 'All jobs, in firms and public services, measured at baseline wages. Unemployment can rise while jobs do too, when more people join the labour force.', drivers: ['employmentTotal', ...FIRMS.map((j) => `employment${j}`), 'publicEmployment'], concepts: ['okun-law', 'migration-buffer'] }),
     ...AGES.map((g) =>
       I({
         id: `unemployment${g}`,

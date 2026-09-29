@@ -282,7 +282,7 @@ describe('Iceland calibration: each check runs the experiment its source describ
     expect(KNOWN_GAPS['rate-output-timing']).toBeUndefined();
     expect(check('rate-inflation-trough').source).not.toMatch(/drops about 1\.5 pp in month 13/);
     // the inflation trough is near QMM's −0.24 pp since housing costs follow market rents (MON-4);
-    // the output trough is about 40% deeper than QMM's −0.41%, and says so (known gap)
+    // the output trough is about 25% deeper than QMM's −0.41%, and says so (known gap)
     expect(KNOWN_GAPS['rate-inflation-trough']).toBeUndefined();
     expect(Math.abs(v + 0.24)).toBeLessThan(0.03);
     expect(KNOWN_GAPS['rate-output-trough']!.cited).toEqual([-0.41, -0.41]);

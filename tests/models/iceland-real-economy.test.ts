@@ -122,7 +122,7 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
     const def = (id: string) => model.levers.find((l) => l.id === id)!.definition;
     for (const id of ['incomeTax', 'vat', 'health', 'education', 'otherServices', 'publicInvestment', 'oldAgeTransfers', 'familyBenefits', 'unemploymentBenefits'])
       expect(def(id)).toMatch(/long-run Phillips curve is not vertical/);
-    expect(def('keyRateAddon')).toMatch(/departure from long-run neutrality/);
+    expect(def('keyRateAddon')).toMatch(/learns a lower neutral rate/);
     expect(def('stabilisers')).toMatch(/nothing anchors inflation/);
   });
 });
@@ -327,12 +327,22 @@ describe('labour-LAB-2: a wage settlement erodes mostly through prices', () => {
 });
 
 describe('labour-LAB-6: net immigration', () => {
-  test('5 thousand people arriving raise unemployment and slow wages at first; unemployment is back near normal within ten years', () => {
-    const r = twins([['netImmigration', 5]], false, 120);
-    expect(r.pp('unemployment', 1)).toBeGreaterThan(1);
-    expect(r.pp('unemployment', 24)).toBeGreaterThan(0);
-    expect(r.pct('wage', 24)).toBeLessThan(0);
-    expect(Math.abs(r.pp('unemployment', 120))).toBeLessThan(0.1);
+  test('5 thousand people arriving raise unemployment and slow wages at first; they stay, so output, jobs and house prices end higher (review NETIMM-VANISHES)', () => {
+    for (const automatic of [false, true]) {
+      const r = twins([['netImmigration', 5]], automatic, 240);
+      expect(r.pp('unemployment', 1)).toBeGreaterThan(1);
+      expect(r.pp('unemployment', 24)).toBeGreaterThan(0);
+      expect(r.pct('wage', 24)).toBeLessThan(0);
+      expect(r.s.value('labourInflow')).toBe(5);
+      // before, the newcomers left again: employment +0.02% and output +0.04% after 20 years on
+      // Automatic, and house prices back at baseline
+      expect(r.pct('employmentTotal', 240)).toBeGreaterThan(0.5);
+      expect(r.pct('output', 240)).toBeGreaterThan(1);
+      expect(r.pct('realHousePrice', 240)).toBeGreaterThan(1);
+    }
+    // on Automatic the central bank counts them in capacity and eases until most have found work
+    const a = twins([['netImmigration', 5]], true, 240);
+    expect(a.pp('unemployment', 240)).toBeLessThan(0.5 * a.pp('unemployment', 1));
   });
 
   test('the migration buffer on its own changes nothing, and its definition says so', () => {
@@ -381,5 +391,60 @@ describe('monetary-MON-11: investment is planned before it is spent', () => {
     const low = (a: number[]) => a.indexOf(Math.min(...a.slice(1)));
     expect(low(inv)).toBeGreaterThan(12);
     expect(low(inv)).toBeGreaterThan(low(cons));
+  });
+});
+
+describe('the key-rate rule learns its neutral rate (lever review AUTO-FIXED-NEUTRAL, trade-taylor-fixed-potential)', () => {
+  const mean = (f: (t: number) => number, a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => f(a + i)).reduce((s, x) => s + x, 0) / (b - a + 1);
+
+  test('at baseline the estimate is the normal neutral rate, and it stays within its band', () => {
+    expect(base.baseline('neutralRate')).toBeCloseTo(param(base, 'neutralRate', 'i0'), 15);
+    const band = param(base, 'neutralRate', 'rStarBand');
+    for (const settings of [[['health', 3]], [['tourism', -60]]] as Setting[][]) {
+      const r = twins(settings, true, 240);
+      for (let t = 0; t <= 240; t += 12) expect(Math.abs(r.s.valueAt('neutralRate', t) - param(base, 'neutralRate', 'i0'))).toBeLessThanOrEqual(band + 1e-15);
+    }
+  });
+
+  test('a one-off wage settlement hardly moves it: the inflation and labour-market terms offset', () => {
+    const r = twins([['wageSettlement', 10]], true, 72);
+    for (let t = 0; t <= 72; t++) expect(Math.abs(r.s.valueAt('neutralRate', t) - r.b.valueAt('neutralRate', t))).toBeLessThan(0.005);
+  });
+
+  test('lasting credit shocks on Automatic leave smaller gaps after twenty years than with a fixed neutral rate', () => {
+    // with the fixed neutral rate, months 180–240: output −0.58% (ltvCap 50), −0.53% (lendingAppetite −3); inflation −0.29 pp after fish +30
+    const ltv = twins([['ltvCap', 50]], true, 240);
+    expect(ltv.pct('output', 240)).toBeGreaterThan(-0.45);
+    const la = twins([['lendingAppetite', -3]], true, 240);
+    expect(Math.abs(la.pct('output', 240))).toBeLessThan(0.3);
+    const fish = twins([['fishPrices', 30]], true, 240);
+    expect(Math.abs(mean((t) => fish.pp('inflation12', t), 180, 240))).toBeLessThan(0.2);
+  });
+});
+
+describe('the debt rule’s escape clause (lever review ZLB-DEBT-RULE)', () => {
+  test('tourism −60 on Automatic: while the key rate is stuck at zero the debt rule raises no taxes, and output recovers far more', () => {
+    // before: income tax up to 3.3 points higher and output 3.85% lower after 20 years
+    const r = twins([['tourism', -60]], true, 240);
+    const tau0 = param(base, 'taxRate', 'tau0');
+    for (let t = 1; t <= 240; t++) {
+      if (r.s.valueAt('ruleTarget', t - 1) < -param(base, 'taxRuleTarget', 'escapeBand')) expect(r.s.valueAt('taxRate', t)).toBeLessThanOrEqual(tau0 + Math.max(0, r.s.valueAt('taxRuleAnchor', t - 1)) + 1e-12);
+    }
+    expect(r.s.valueAt('keyRate', 240)).toBeLessThan(1e-12);
+    expect(r.pct('output', 240)).toBeGreaterThan(-2);
+    expect(r.s.influences('taxRuleTarget').regime).toBe('Escape clause: no tax rise while the key rate is stuck at zero');
+  });
+});
+
+describe('the fishing fee follows profit both ways (lever review FISHFEE-ONESIDED)', () => {
+  test('a fall in fish prices lowers the fee about as much as a rise raises it, and the whole fee never goes below zero', () => {
+    // before, fish −8 and −30 left the fee unchanged at every horizon
+    const up = twins([['fishPrices', 8]], false, 60),
+      down = twins([['fishPrices', -8]], false, 60);
+    expect(down.s.valueAt('fishingFee', 36)).toBeLessThan(0);
+    expect(Math.abs(down.s.valueAt('fishingFee', 36) / up.s.valueAt('fishingFee', 36) + 1)).toBeLessThan(0.1);
+    const crash = twins([['fishPrices', -30]], false, 120);
+    const normalFee = (param(base, 'fishingFee', 'fishFee') * param(base, 'fishingFee', 'piXF0')) / (1 - param(base, 'fishingFee', 'tauF'));
+    for (let t = 0; t <= 120; t += 6) expect(crash.s.valueAt('fishingFee', t)).toBeGreaterThanOrEqual(-normalFee * crash.s.valueAt('cpi', t) - 1e-12);
   });
 });

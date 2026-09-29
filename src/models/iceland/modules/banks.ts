@@ -8,7 +8,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { FIRMS, FIRM_NAME, gapRate, pickParams, terms, lastMonth } from '../util.ts';
+import { FIRMS, FIRM_NAME, pickParams, terms, lastMonth, liquidRate } from '../util.ts';
 
 /**
  * Nobody pays with money they do not have. A player that buys assets (or, for households, spends
@@ -17,7 +17,7 @@ import { FIRMS, FIRM_NAME, gapRate, pickParams, terms, lastMonth } from '../util
  * is the deposits a player can spend this month beyond its income (a yearly rate). Declare
  * params ['liquiditySpeed'] and stocks [['deposits', player]].
  */
-export const cashToSpend = (c: Ctx, player: Id): number => gapRate(c.p('liquiditySpeed'), c.dt) * Math.max(0, c.stock('deposits', player));
+export const cashToSpend = (c: Ctx, player: Id): number => liquidRate(c) * Math.max(0, c.stock('deposits', player));
 /** Government bonds banks can still sell this month, after the government has bought back its
  *  share of theirs (a yearly rate). Declare inputs ['bondIssueB'] and stocks [['govBonds', 'B']]. */
 export const bondsBanksCanSell = (c: Ctx): number => Math.max(0, c.stock('govBonds', 'B') / c.dt + Math.min(0, c.v('bondIssueB')));
@@ -364,7 +364,7 @@ export const banks: ModuleDef = {
       binds: { param: 'lendingAppetite', mode: 'add' },
       description: 'Extra (or less) mortgage lending banks are willing to push each year.',
       definition:
-        'Level shift in households’ desired new mortgage borrowing, % of baseline GDP a year, split between the young and working age by their share of mortgage debt; persistent while set and still subject to the debt-service and loan-to-value caps. Setting it back to 0 ends the push; loans already made are repaid over their term.',
+        'Level shift in households’ desired new mortgage borrowing, % of baseline GDP a year, split between the young and working age by their share of mortgage debt; persistent while set and still subject to the debt-service and loan-to-value caps. A lasting push has a lasting effect: at −3, output is about 0.7% lower after five years and still about 0.2% lower after twenty on Automatic, where the central bank eases but learns its neutral rate only slowly; on Manual the fall is deeper at first (1.7% after five years) and then turns into a small rise. Setting it back to 0 ends the push; loans already made are repaid over their term.',
       concepts: ['endogenous-money', 'credit-impulse'],
     },
   ],

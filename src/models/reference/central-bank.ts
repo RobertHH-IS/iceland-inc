@@ -47,8 +47,8 @@ const params: ParamDef[] = [
     category: 'POLICY',
     description: 'The central bank’s own capital (its bonds minus the reserves and treasury balance it owes) that it keeps; it hands the government its profit plus anything above this.',
     provenance: {
-      basis: 'assumed',
-      note: 'Where the baseline solver used to leave it. Before this target nothing pinned the central bank’s capital, so the solved baseline (government spending, the tax rate, who holds the bonds) shifted with unrelated settings such as adjustment speeds.',
+      basis: 'derived',
+      note: 'The central bank’s capital (its bonds − reserves − the treasury balance) in the reference steady state as the baseline solver found it before this target existed: bonds about 18.0 − reserves about 8.8 − the treasury balance 2.0 = 7.2% of GDP, set by the reserve target (reserveRatio) and the two solved targets (GDP 100, government debt 55% of GDP). Before this target nothing pinned the central bank’s capital, so the solved baseline (government spending, the tax rate, who holds the bonds) shifted with unrelated settings such as adjustment speeds.',
     },
   },
   { id: 'cbPayoutSpeed', value: 1, unit: 'per year', category: 'POLICY', description: 'How fast the central bank pays out capital above its target (or keeps profit back when below).', provenance: assumed },
@@ -176,7 +176,7 @@ export const centralBank: ModuleDef = {
     {
       id: 'cbProfit',
       target: 'cbProfit',
-      category: 'POLICY',
+      category: 'CONTRACT',
       inputs: ['bondInterestCB', 'reserveInterest'],
       stocks: [
         ['bonds', 'CB'],
@@ -195,7 +195,7 @@ export const centralBank: ModuleDef = {
       ],
       explain: {
         what: 'The central bank’s profit, handed to the government.',
-        rule: 'Payment = interest on its bonds − interest paid on reserves, plus {cbPayoutSpeed} × a year of any capital above {cbCapitalTarget}% of GDP (minus if below). At the baseline its capital is on target, so it hands over exactly its profit.',
+        rule: 'Payment = interest on its bonds − interest paid on reserves, plus {cbPayoutSpeed} × a year of any capital above {cbCapitalTarget}% of GDP (minus if below). At the baseline its capital is on target, so it hands over exactly its profit. This is the law that governs the central bank’s accounts, not a policy setting: it works the same on Manual and Automatic.',
       },
     },
   ],
@@ -260,9 +260,9 @@ export const centralBank: ModuleDef = {
       max: 10,
       step: 0.25,
       showWhen: { lever: 'stabilisers', equals: MANUAL },
-      description: 'The key interest rate, held where you set it (stabilisers on Manual). Held for years, a rate below neutral feeds inflation that the rule would have stopped.',
+      description: 'The key interest rate, held where you set it (stabilisers on Manual). A rise cools the economy for several years; held for longer, its effect reverses, because the interest it pays out is spent.',
       definition:
-        'Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual); the Taylor rule only suggests. The default, 3%, is the neutral rate. A rate held away from what the rule suggests is not corrected by anything else: rising inflation lowers the real interest rate and feeds more spending (Wicksell’s cumulative process), so effects beyond two or three years show an economy without its nominal anchor. It has no effect on Automatic.',
+        'Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual); the Taylor rule only suggests. The default, 3%, is the neutral rate. For the first years a higher rate works as textbooks say: at 4.75%, output is about 2.6% lower after three years. Held for longer, the effect reverses, after about eight years (month 102 at 4.75%, sooner for bigger moves: month 85 at 10%): the interest on government bonds and on deposits is income for households, and the higher rate also means more of it on a larger stock of deposits, so they spend more and more of it, while anchored expectations keep inflation from running away. At 4.75% output is about 3% higher after 20 years and inflation about 1.1 points higher; at 10%, 13% and 5.5 points, with the price level 46% higher; at 0%, 2.4% lower. The same stock-flow channel reverses a held Iceland key rate (MON-1). So effects beyond a few years show the interest-income channel of an economy without a policy rule, not what a central bank would do. It has no effect on Automatic.',
       concepts: ['taylor-rule'],
     },
   ],

@@ -8,21 +8,30 @@
  * to Automatic starts it from your rate (interest-rate smoothing). Who sets the key rate depends on
  * the stabiliser setting (decision 0004): in Manual you do, and the rule only suggests where it is
  * heading; in Automatic the rule does, and your lever is an offset to it. It never goes below zero.
+ * The rule's neutral rate is an estimate the central bank revises slowly while inflation or
+ * unemployment stays away from normal, so a lasting shock does not leave inflation off target for
+ * good (an integral term, clamped to a band).
  * The central bank pays the key rate on banks' reserves, earns interest on its bonds and foreign
  * reserves, and hands its profit to the government. It sells the normal yield on its foreign reserves
  * for krónur and slowly brings the reserves back toward their target share of GDP.
  */
-import type { ModuleDef } from '../../../core/types.ts';
+import type { Ctx, ModuleDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
+import { newcomerShare, restrainingUnemployment } from './labour-and-wages.ts';
 import { gapShare, pickParams, terms, lastMonth, automatic, AUTOMATIC, MANUAL, STABILISERS } from '../util.ts';
+
+/** How far the rule is heading below zero, as a share of escapeBand (0 to 1): at 1 the rule is
+ *  stuck at the zero lower bound. The debt rule's escape clause (government.ts) uses the same. */
+export const zeroBoundWeight = (c: Ctx): number => Math.min(1, Math.max(0, -c.lag('ruleTarget') / c.p('escapeBand')));
 
 export const centralBank: ModuleDef = {
   id: 'central-bank',
   label: 'Central bank',
   description: 'The key rate (set by you, or by a smoothed Taylor-type rule plus your offset), interest on reserves and the profit remitted to the government.',
   requires: ['stabilisers', 'structure', 'prices', 'government', 'external'],
-  params: pickParams(ALL_PARAMS, ['i0', 'piT', 'aPi', 'aPiA', 'aY', 'lamPol', 'iFXR', 'lamRes', 'potentialOutput', 'bondCB', 'fxr', 'eqCB']),
+  params: pickParams(ALL_PARAMS, ['i0', 'kappaR', 'kappaU', 'rStarBand', 'piT', 'aPi', 'aPiA', 'aY', 'lamPol', 'iFXR', 'lamRes', 'potentialOutput', 'bondCB', 'fxr', 'eqCB']),
   vars: [
+    { id: 'neutralRate', label: 'Neutral real rate, as the central bank estimates it', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: ALL_PARAMS.i0.value, description: 'The real key rate the central bank thinks neither heats nor cools the economy. It starts at its normal level and is revised slowly while inflation stays off target.' },
     { id: 'ruleTarget', label: 'Key rate the rule is heading for', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'Where the central bank’s inflation rule would put the key rate if it moved there at once, before your offset. Computed in both stabiliser modes.' },
     { id: 'ruleAnchor', label: 'Key rate the rule steps from', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'The rate the rule starts next month’s step from: its own rate while it is in charge (Automatic), the key rate you hold (Manual).' },
     { id: 'ruleRate', label: 'Key rate the rule calls for', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'The key rate the central bank’s inflation rule sets this month, before your offset: one smoothed step from the rate in force toward where it is heading. Computed in both stabiliser modes.' },
@@ -36,22 +45,47 @@ export const centralBank: ModuleDef = {
   ],
   rules: [
     {
+      id: 'neutralRate',
+      target: 'neutralRate',
+      category: 'POLICY',
+      label: 'Neutral rate, learned slowly',
+      lagInputs: ['neutralRate', 'inflation12ExTax', 'unemployment', 'benefitSearch'],
+      params: ['i0', 'kappaR', 'kappaU', 'rStarBand', 'piT', 'uBase', 'uBenefit', 'rrShift'],
+      terms: terms(
+        ['previous', 'Last month’s estimate', 'gradual-adjustment', (c) => c.lag('neutralRate')],
+        ['inflation', 'Inflation still above (or below) target', 'neutral-rate', (c) => c.p('kappaR') * c.dt * (lastMonth(c, 'inflation12ExTax') - c.p('piT'))],
+        [
+          'labourMarket',
+          'Unemployment still below (or above) normal',
+          'neutral-rate',
+          (c) => c.p('kappaU') * c.dt * (c.p('uBase') + c.p('uBenefit') * c.p('rrShift') - restrainingUnemployment(c)),
+        ],
+      ),
+      combine: (t, c) => Math.min(c.p('i0') + c.p('rStarBand'), Math.max(c.p('i0') - c.p('rStarBand'), t.previous + t.inflation + t.labourMarket)),
+      regime: (c, _v, t) => (Math.abs(t.previous + t.inflation + t.labourMarket - c.p('i0')) > c.p('rStarBand') ? 'Estimate at its limit' : null),
+      concepts: ['neutral-rate', 'taylor-rule'],
+      explain: {
+        what: 'The real interest rate the central bank thinks neither heats nor cools the economy (the neutral rate), as it estimates it. It starts at the normal {i0%} and is revised slowly while inflation or unemployment stays away from normal, so a lasting shock does not leave inflation off target for good.',
+        rule: 'Estimate = last month’s + {kappaR} × one month × (inflation over the past year at constant VAT − the target) + {kappaU} × one month × (normal unemployment − last month’s unemployment), kept within {rStarBand%} points of {i0%}. A point of inflation above target that lasts a year raises it {kappaR} points; so does a year with unemployment a point below normal. Normal unemployment is the rate at which wages grow only with expected inflation: {uBase%}, plus the part more generous benefits add; people searching longer because of the benefits are not counted. It is worked out every month in both modes, so switching to Automatic starts from it.',
+      },
+    },
+    {
       id: 'ruleTarget',
       target: 'ruleTarget',
       category: 'POLICY',
       label: 'Taylor-type rule: where it is heading',
-      lagInputs: ['expectedInflation', 'inflation12ExTax', 'output'],
-      params: ['i0', 'piT', 'aPi', 'aPiA', 'aY', 'potentialOutput', 'chi'],
+      lagInputs: ['expectedInflation', 'inflation12ExTax', 'output', 'neutralRate', 'labourInflow'],
+      params: ['piT', 'aPi', 'aPiA', 'aY', 'potentialOutput', 'chi', 'U0Y', 'U0W', 'U0O', 'emp0Y', 'emp0W', 'emp0O'],
       terms: terms(
-        ['neutral', 'Neutral rate (real neutral + inflation target)', 'taylor-rule', (c) => c.p('i0') + c.p('piT')],
+        ['neutral', 'Neutral rate (its estimate of the real neutral rate + the inflation target)', 'neutral-rate', (c) => lastMonth(c, 'neutralRate') + c.p('piT')],
         ['expectedInflation', 'Expected inflation above target', 'taylor-rule', (c) => c.p('aPi') * (lastMonth(c, 'expectedInflation') - c.p('piT'))],
         ['actualInflation', 'Inflation over the past year at constant VAT, above target', 'taylor-rule', (c) => c.p('aPiA') * (lastMonth(c, 'inflation12ExTax') - c.p('piT'))],
-        ['outputGap', 'Output above capacity', 'capacity-utilisation', (c) => c.p('aY') * (lastMonth(c, 'output') / c.p('potentialOutput') - 1)],
+        ['outputGap', 'Output above capacity', 'capacity-utilisation', (c) => c.p('aY') * (lastMonth(c, 'output') / (c.p('potentialOutput') * (1 + newcomerShare(c))) - 1)],
       ),
       concepts: ['taylor-rule'],
       explain: {
         what: 'Where the central bank’s inflation rule would put the key rate if it moved there at once. The rule itself moves toward it gradually (the key rate the rule calls for).',
-        rule: 'Target = neutral nominal rate (the neutral real rate {i0%} + the inflation target {piT%}) + {aPi} × (expected inflation − target) + {aPiA} × (inflation over the past year at constant VAT − target) + {aY} × the output gap (last month’s output ÷ capacity − 1). Like the Central Bank of Iceland, the rule looks through the first, one-off price effect of a change in VAT: its actual-inflation term leaves VAT out of the CPI, while expected inflation, which a VAT change does lift, still counts in full. With expectations half anchored to the target ({chi}), a lasting point of inflation raises expected inflation about half a point, so the target rises {aPi} × (1 − {chi}) + {aPiA} points per point of actual inflation, more than one for one (the Taylor principle): the real interest rate people plan with, the key rate minus expected inflation, rises when inflation does.',
+        rule: 'Target = the neutral rate + {aPi} × (expected inflation − target) + {aPiA} × (inflation over the past year − target) + {aY} × the output gap. The neutral rate is the inflation target {piT%} plus the real rate the central bank thinks neither heats nor cools the economy: normally {i0%}, revised slowly while inflation or unemployment stays away from normal (see the neutral rate). The output gap is how far last month’s output is above capacity, in percent; capacity grows with the newcomers of the net-immigration lever. Like the Central Bank of Iceland, the rule looks through the one-off price effect of a VAT change: its inflation term leaves VAT out of the CPI, while expected inflation, which a VAT change does lift, counts in full. Expectations are half anchored to the target ({chi}), so a lasting point of inflation raises expected inflation about half a point, and the target by {aPi} × (1 − {chi}) + {aPiA} points in all: more than one for one (the Taylor principle), so the real interest rate people plan with rises when inflation does.',
       },
     },
     {
@@ -86,7 +120,7 @@ export const centralBank: ModuleDef = {
       concepts: ['taylor-rule', 'gradual-adjustment'],
       explain: {
         what: 'The key interest rate the central bank’s inflation rule sets this month. With stabilisers on Automatic it is the key rate (plus your offset); on Manual it is what the rule would do next if you switched. The rule moves gradually rather than jumping, as central banks do.',
-        rule: 'Rate = the rate in force last month + a share of the gap between it and where the rule is heading. The share is 1 − e^(−{lamPol}/12) a month: about a tenth of the gap each month and 30% a quarter, so about 70% of last quarter’s rate carries over, as estimated policy rules find. The rate in force is the rule’s own rate while it is in charge (Automatic) and the rate you hold (Manual), so switching to Automatic moves the key rate one step from your rate, not straight to a path the rule was never in charge of. It is worked out every month in both modes.',
+        rule: 'Rate = the rate in force last month + a share of the gap between it and where the rule is heading: about a tenth of the gap each month ({lamPol} a year) and 30% a quarter, so about 70% of last quarter’s rate carries over, as estimated policy rules find. The rate in force is the rule’s own rate while it is in charge (Automatic) and the rate you hold (Manual), so switching to Automatic moves the key rate one step from your rate, not straight to a path the rule was never in charge of. It is worked out every month in both modes.',
       },
     },
     {
@@ -95,7 +129,9 @@ export const centralBank: ModuleDef = {
       category: 'POLICY',
       label: 'The rule’s suggestion, in lever units',
       inputs: ['ruleTarget'],
-      compute: (c) => Math.max(0, 100 * c.v('ruleTarget')),
+      terms: terms(['rule', 'Where the rule is heading', 'taylor-rule', (c) => 100 * c.v('ruleTarget')]),
+      combine: (t) => Math.max(0, t.rule),
+      regime: (_c, _v, t) => (t.rule < 0 ? 'Suggestion at the zero floor' : null),
       concepts: ['taylor-rule'],
       explain: {
         what: 'Where the central bank’s inflation rule is heading, in percent a year. In Manual mode the key-rate lever turns red when you are more than an eighth of a point away from it, and “Apply” sets the lever to it, rounded to a quarter point. On Automatic the rule would get there gradually, about a tenth of the way each month.',
@@ -158,8 +194,10 @@ export const centralBank: ModuleDef = {
     {
       id: 'fxReserveSales',
       target: 'fxReserveSales',
-      category: 'POLICY',
-      label: 'Reserve management',
+      // An operating rule of the central bank, like its profit remittance, not a policy setting a
+      // user holds: it acts the same in both stabiliser modes (decision 0009).
+      category: 'CONTRACT',
+      label: 'Reserve management (an operating rule)',
       params: ['iFXR', 'fxr', 'lamRes'],
       stocks: [['fxReserves', 'CB']],
       lagInputs: ['gdpTrailing12'],
@@ -175,7 +213,7 @@ export const centralBank: ModuleDef = {
       concepts: ['reserves-and-payments'],
       explain: {
         what: 'Foreign currency the central bank sells to non-residents for krónur, out of its reserves (below zero when it buys).',
-        rule: 'Sales = the normal reserve yield {iFXR%} × the reserves’ value in krónur + {lamRes} a year × (the reserves − their target of {fxr}% of GDP over the past 12 months). The central bank turns the normal return on its reserves into krónur, which it hands to the government with the rest of its profit. Anything the reserves earn above that, when rates abroad rise, first builds up the reserves in foreign currency, so it takes no krónur from non-residents at once. The bank then sells reserves above its target slowly back into krónur, and buys when they are below it, so the reserves settle near {fxr}% of GDP instead of growing without end. Non-residents pay out of their króna deposits.',
+        rule: 'Sales = the normal reserve yield {iFXR%} × the reserves’ value in krónur + {lamRes} a year × (the reserves − their target of {fxr}% of GDP over the past 12 months). The central bank turns the normal return on its reserves into krónur, which it hands to the government with the rest of its profit. Anything the reserves earn above that, when rates abroad rise, first builds up the reserves in foreign currency, so it takes no krónur from non-residents at once. The bank then sells reserves above its target slowly back into krónur, and buys when they are below it, so the reserves settle near {fxr}% of GDP instead of growing without end. Non-residents pay out of their króna deposits. This is how the central bank runs its balance sheet under its reserve-adequacy mandate, not a policy setting: no lever holds it, and it works the same on Manual and Automatic.',
       },
     },
     {
@@ -261,7 +299,7 @@ export const centralBank: ModuleDef = {
       showWhen: { lever: STABILISERS, equals: MANUAL },
       description: 'The central bank’s key interest rate, held where you set it. The central bank’s inflation rule only suggests a rate beside the lever.',
       definition:
-        'Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual). Nothing in the model moves it. The default, 3%, is the neutral rate, so the baseline is unchanged. Any lasting move held with taxes and spending also held (Manual) reverses its effect on output after about ten years, roughly in proportion to its size: a rise first cools the economy, but the government then pays more interest every year, as its bonds are refinanced at the higher rate (about a fifth of them a year) and on a debt that grows with that interest, and the interest is income for households and pension funds, who spend it. At 4%, output is about 0.5% below baseline after a year and about 0.8% below at the trough early in the fourth year, back above it from about month 130 and about 0.7% above after 20 years; bigger moves reverse a little sooner and further (at 15%, month 107). A cut mirrors this. It has no effect while stabilisers are Automatic, when the rule sets the key rate and the debt rule leans against the debt.',
+        'Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual). Nothing in the model moves it. The default, 3%, is the neutral rate, so the baseline is unchanged. Any lasting move held with taxes and spending also held (Manual) reverses its effect on output after about ten years, roughly in proportion to its size: a rise first cools the economy, but the government then pays more interest every year, as its bonds are refinanced at the higher rate (about a fifth of them a year) and on a debt that grows with that interest, and the interest is income for households and pension funds, who spend it. At 4%, output is about 0.5% below baseline after a year and about 0.7% below at the trough early in the fourth year, back above it from about month 136 and about 0.7% above after 20 years; bigger moves reverse sooner and much further. At 6%, output is 2.2% lower at the trough, above baseline from month 124 and 2.8% higher after 20 years, with inflation 0.9 point higher. At the top of the range the run becomes explosive: at 15%, output falls 9.5% by the fourth year, is above baseline from month 110, and after 20 years is 28% higher with unemployment 3 points lower, the price level 46% higher, real wages 26% lower, government debt 350 points of GDP higher and the deficit 45% of GDP, still accelerating. That is fiscal dominance: a government that neither taxes nor cuts spending pays for its interest by borrowing, and the interest it pays is spent. A cut mirrors this. It has no effect while stabilisers are Automatic, when the rule sets the key rate and the debt rule leans against the debt.',
       concepts: ['taylor-rule'],
     },
     {
@@ -278,7 +316,7 @@ export const centralBank: ModuleDef = {
       showWhen: { lever: STABILISERS, equals: AUTOMATIC },
       description: 'Sets the key rate this many points above (or below) what the central bank’s inflation rule says.',
       definition:
-        'Level shift in the key rate, in percentage points on top of the rule’s rate, applied in the month it is set and persistent while set (stabilisers on Automatic). The rule keeps reacting to inflation and output underneath it. A lasting offset acts partly like a lower inflation target (inflation stays about 0.13 pp below baseline per point) and partly as a lasting drag on output (about 0.45% per point after 20 years): expectations are only half anchored, and a higher rate moves interest income between borrowers and savers for good. That lasting output effect is a stock-flow departure from long-run neutrality, like the one a rate held high on Manual shows (decision 0002 §6). Setting it back to 0 returns the key rate to the rule’s rate that month. It has no effect while stabilisers are Manual.',
+        'Level shift in the key rate, in percentage points on top of the rule’s rate, applied in the month it is set and persistent while set (stabilisers on Automatic). The rule keeps reacting to inflation and output underneath it. A lasting offset works at first like a lower inflation target and a drag on output (per point, inflation about 0.1 pp lower over years 2–5 and output 0.34% lower after five years). Over the following years the rule learns a lower neutral rate from the slack and the low inflation, which takes back most of the offset: after 20 years the key rate is only about 0.2 point higher per point, output about 0.2% lower and inflation about 0.07 pp lower. Setting it back to 0 returns the key rate to the rule’s rate that month. It has no effect while stabilisers are Manual.',
       concepts: ['taylor-rule', 'interest-rate-channel'],
     },
   ],
@@ -289,11 +327,11 @@ export const centralBank: ModuleDef = {
       lever: 'keyRateFixed',
       offset: 'keyRateAddon',
       suggestion: 'keyRateSuggestion',
-      shadow: ['ruleRate', 'ruleTarget', 'ruleAnchor'],
+      shadow: ['ruleRate', 'ruleTarget', 'ruleAnchor', 'neutralRate'],
       // Half the lever's quarter-point step: it calls exactly when "Apply" would move the lever.
       threshold: 0.125,
       description:
-        'A Taylor-type rule: the key rate the central bank is heading for, from expected inflation, inflation over the past year at constant VAT and the output gap. It moves there gradually from the rate in force, about a tenth of the way each month. On Automatic it sets the key rate; on Manual it suggests where it is heading, and the key-rate lever turns red when that is more than an eighth of a point away from your rate, so that applying it would move the lever a quarter-point step. Switching to Automatic starts the rule from the rate you held.',
+        'A Taylor-type rule: the key rate the central bank is heading for, from expected inflation, inflation over the past year at constant VAT and the output gap. It moves there gradually from the rate in force, about a tenth of the way each month, and revises its estimate of the neutral rate slowly while inflation or unemployment stays off normal. On Automatic it sets the key rate; on Manual it suggests where it is heading, and the key-rate lever turns red when that is more than an eighth of a point away from your rate, so that applying it would move the lever a quarter-point step. Switching to Automatic starts the rule from the rate you held.',
       concepts: ['taylor-rule', 'gradual-adjustment'],
       feed: { raise: 'The central bank’s rule would raise the key rate to {value}%', lower: 'The central bank’s rule would cut the key rate to {value}%', indicator: 'keyRate' },
     },

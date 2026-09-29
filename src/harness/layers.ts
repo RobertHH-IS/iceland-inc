@@ -342,7 +342,6 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   }
   // 6b. lever extremes
   {
-    const t0 = performance.now();
     const runs = leverExtremeRuns(m);
     let ok = 0;
     const bad: string[] = [];
@@ -361,7 +360,6 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
         rows.push(`| ${x.lever} | ${x.value} | ${x.mode || '–'} | ${b.what} (${b.rule}) | ${b.first} | ${f(b.worst, 4)} |`);
       }
     }
-    const seconds = (performance.now() - t0) / 1000;
     const pass = ok === runs.length;
     pass6 &&= pass;
     sum6.push(`extremes ${ok}/${runs.length} (${nBreach} breach(es))`);
@@ -369,7 +367,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Lever extremes',
       '',
-      `Every lever alone at its min and at its max (a choice: each option other than its default), from month 0 for ${opts.extremeMonths} months${modes}: ${runs.length} runs in ${f(seconds, 1)} s. Every variable, stock and chart must stay finite and every accounting check must pass. ${plausibleNote}. ${ok}/${runs.length} pass: ${verdict(pass)}.`,
+      `Every lever alone at its min and at its max (a choice: each option other than its default), from month 0 for ${opts.extremeMonths} months${modes}: ${runs.length} runs. Every variable, stock and chart must stay finite and every accounting check must pass. ${plausibleNote}. ${ok}/${runs.length} pass: ${verdict(pass)}.`,
       '',
       ...bad.slice(0, 10),
       '',

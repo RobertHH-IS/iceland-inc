@@ -102,7 +102,6 @@ export function renderLeverMarkdown(r: LeverReport): string {
   );
   for (const u of r.units) L.push(`- **${u.unit}**: ${u.meaning}.`);
   L.push('');
-  for (const n of r.unitNotes) L.push(`\`${n.id}\` is reported in ${n.unit}: ${esc(n.why)}.`, '');
   if (r.untraced.length)
     L.push(
       `Kinks not traced: ${r.untraced.map((x) => `\`${x}\``).join(', ')} combine their terms non-additively (a min, a max, a cap) but carry no regime label, so the Regimes and Flicker flags cannot show when they bind or switch.`,

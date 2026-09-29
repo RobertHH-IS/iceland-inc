@@ -139,6 +139,8 @@ export const housing: ModuleDef = {
       ),
       // the terms are log points; the target is the rent level they give
       combine: (t) => Math.exp(t.prices + t.housePrice + t.income),
+      // Real income is floored at a millionth of baseline (a guard on the log); it never binds.
+      regime: (c) => (lastMonth(c, 'realDisposableIncome') / c.p('ydH0') < 1e-6 ? 'Income at its floor' : null),
       concepts: ['credit-and-house-prices'],
       explain: {
         what: 'The housing component of the CPI: market rents, which since June 2024 Statistics Iceland also uses for owner-occupiers’ imputed rent (rental equivalence, from the HMS rental register).',

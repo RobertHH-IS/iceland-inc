@@ -11,7 +11,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { FIRMS, FIRM_NAME, gapRate, pickParams, terms, lastMonth } from '../util.ts';
+import { FIRMS, FIRM_NAME, gapRate, pickParams, terms, lastMonth, liquidRate } from '../util.ts';
 import { dividendsTo } from './firms.ts';
 import { bondsBanksCanSell } from './banks.ts';
 
@@ -75,7 +75,7 @@ const CASH_STOCKS: [Id, Id][] = [['deposits', 'PF']];
 const pfFloor = (c: Ctx) => c.p('pfLiquidityFloorShare') * c.p('dPF0') * (1 + domesticShift(c)) * c.v('pensionFundAssets');
 /** Cash the funds can still put into assets this month after the purchases `spent` (a yearly rate;
  *  negative: cash they must raise). A sale among `spent` adds its proceeds. */
-const pfCash = (c: Ctx, spent: Id[]) => gapRate(c.p('liquiditySpeed'), c.dt) * (c.stock('deposits', 'PF') - pfFloor(c)) - spent.reduce((s, id) => s + c.v(id), 0);
+const pfCash = (c: Ctx, spent: Id[]) => liquidRate(c) * (c.stock('deposits', 'PF') - pfFloor(c)) - spent.reduce((s, id) => s + c.v(id), 0);
 /** What the funds can pay for new government bonds this month (government.ts, bondIssuePF): the
  *  limit before any purchase, and nothing when their deposits are below the buffer. A reader
  *  declares PF_CASH (inputs, params and stocks). */
@@ -96,7 +96,7 @@ const foreignHeld = (c: Ctx) => pos(c.stock('foreignAssets', 'PF') + c.v('revalu
 /** What non-residents can pay for foreign assets the funds sell them this month (a yearly rate):
  *  the share 1 − e^(−liquiditySpeed × dt) of their króna deposits and bonds, after this month's
  *  current account. They raise it by selling bonds to banks (external.ts, bondPurchasesW). */
-const kronurAbroad = (c: Ctx) => gapRate(c.p('liquiditySpeed'), c.dt) * pos(c.stock('deposits', 'W') + c.stock('govBonds', 'W') - c.dt * (c.v('currentAccount') - c.v('reserveIncomeKept')));
+const kronurAbroad = (c: Ctx) => liquidRate(c) * pos(c.stock('deposits', 'W') + c.stock('govBonds', 'W') - c.dt * (c.v('currentAccount') - c.v('reserveIncomeKept')));
 /** Bank-bond purchases toward their usual share, and the lever's shift of that share. */
 const bankBondTarget = (c: Ctx) => gapRate(c.p('lamReb'), c.dt) * (c.p('bbSh0') * c.v('pensionFundAssets') - c.stock('bankBonds', 'PF'));
 const bankBondShift = (c: Ctx) => gapRate(c.p('lamReb'), c.dt) * c.p('bbSh0') * domesticShift(c) * c.v('pensionFundAssets');

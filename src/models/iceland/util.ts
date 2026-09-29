@@ -16,6 +16,12 @@ export const gapShare = (lam: number, dt: number): number => 1 - Math.exp(-lam *
 /** A gap closed at speed λ per year, expressed as a flow per year: (1 − e^(−λ·dt)) / dt. */
 export const gapRate = (lam: number, dt: number): number => (1 - Math.exp(-lam * dt)) / dt;
 
+/** How fast any holder can draw down deposits (or króna holdings) to pay for something, as a yearly
+ *  rate: the share 1 − e^(−liquiditySpeed·dt) of them in a step, ÷ dt. Every liquidity limit in the
+ *  model (households' cash in hand, the pension funds' and non-residents' cash for purchases,
+ *  non-residents' repayments) uses it; a rule that calls it declares params ['liquiditySpeed']. */
+export const liquidRate = (c: Ctx): number => gapRate(c.p('liquiditySpeed'), c.dt);
+
 /** Annuity factor: the yearly payment per króna of a loan at rate r over T years. */
 export const annuity = (r: number, T: number): number => (Math.abs(r) < 1e-12 ? 1 / T : r / (1 - Math.pow(1 + r, -T)));
 

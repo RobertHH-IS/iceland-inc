@@ -357,6 +357,10 @@ function dividendsRule(j: Firm): RuleDef {
   };
 }
 
+/** The fishing fee on fisheries' normal profit, at today's prices: the part of the fee inside their
+ *  baseline costs. */
+const normalFishFee = (c: Ctx): number => (c.p('fishFee') * c.p('piXF0') * c.v('cpi')) / (1 - c.p('tauF'));
+
 function firmRules(j: Firm): RuleDef[] {
   const who = FIRM_NAME[j];
   return [
@@ -442,7 +446,7 @@ const vars: VarDef[] = [
       ...OWNERS[j].map((to): VarDef => ({ id: `dividends${j}_${to}`, label: `Dividends, ${who} → ${WHO[to]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' })),
     ];
   }),
-  { id: 'fishingFee', label: 'Fishing fee (above normal)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0, description: 'The part of the fishing fee (veiðigjald) that follows fisheries’ profit above normal, two years later.' },
+  { id: 'fishingFee', label: 'Fishing fee (change)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0, description: 'The change in the fishing fee (veiðigjald) from its baseline: it follows fisheries’ profit, two years later.' },
   { id: 'salesFC', label: 'Builders’ sales (real)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', description: 'Machines and buildings for business and public investment, plus home repairs after VAT, at baseline prices.' },
   { id: 'constructionInputs', label: 'Builders’ purchases at home', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', description: 'Materials, engineering and transport builders buy from retail and service firms.' },
   { id: 'dividendsAbroad', label: 'Dividends paid abroad', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('dividendsAbroad'), description: 'Profits exporters pay their foreign owners: the smelters’ parents and others.' },
@@ -505,12 +509,15 @@ export const firms: ModuleDef = {
         'export-sectors',
         (c) => (c.p('fishFee') * (c.lag('profitsXFSmoothed', stepsIn(c, 2)) - c.p('piXF0')) * c.v('cpi')) / (1 - c.p('tauF')),
       ]),
-      combine: (t) => Math.max(0, t.rent),
-      regime: (_c, _v, t) => (t.rent < 0 ? 'No fee: profit at or below normal' : null),
+      // The whole fee (the baseline fee in normal costs plus this change) never goes below zero:
+      // the change is floored at minus the fee on normal profit, far from baseline, so it is
+      // symmetric around it (lever review FISHFEE-ONESIDED).
+      combine: (t, c) => Math.max(-normalFishFee(c), t.rent),
+      regime: (c, _v, t) => (t.rent < -normalFishFee(c) ? 'No fee: fisheries make no profit' : null),
       concepts: ['export-sectors'],
       explain: {
-        what: 'What fisheries pay the state for the right to fish, on top of corporate tax (only the part that changes with their profit).',
-        rule: 'Fee = {fishFee%} of fisheries’ profit above normal two years earlier (their smoothed real profit before tax, less the baseline, at today’s prices), never below zero. The fishing fee law (nr. 145/2018) sets the fee at a third of the fleet’s profit from fishing, measured from its accounts two years before. The fee paid at baseline is part of the normal costs of fisheries and of government revenue, so only the change is shown here. It is paid before corporate tax.',
+        what: 'What fisheries pay the state for the right to fish, on top of corporate tax: the change from the fee they pay at baseline, which rises and falls with their profit.',
+        rule: 'Change in the fee = {fishFee%} of the change in fisheries’ profit two years earlier (their smoothed real profit before tax, less the baseline, at today’s prices). The fishing fee law (nr. 145/2018) sets the fee at a third of the fleet’s profit from fishing, measured from its accounts two years before, so a fall in profit lowers it as a rise raises it. The fee paid at baseline is part of the normal costs of fisheries and of government revenue, so only the change is shown here; the whole fee never goes below zero. It is paid before corporate tax.',
       },
     },
     {

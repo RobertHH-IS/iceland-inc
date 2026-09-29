@@ -12,7 +12,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, automatic, FIRM_NAME, gapRate, HH, pickParams, STABILISERS, sumTerms, terms, type Age, lastMonth } from '../util.ts';
+import { AGE_LABEL, AGES, automatic, FIRM_NAME, gapRate, gapShare, HH, pickParams, STABILISERS, sumTerms, terms, type Age, lastMonth } from '../util.ts';
 import { dividendsTo } from './firms.ts';
 import { bondsBanksCanSell, cashToSpend } from './banks.ts';
 
@@ -82,7 +82,7 @@ function consumptionRule(g: Age): RuleDef {
   const realGap = (c: Ctx) => c.v('keyRate') - lastMonth(c, 'expectedInflation') - c.p('i0');
   const self = `consumption${g}`;
   const spendingCap = (c: Ctx) => {
-    const k = 1 - Math.exp(-c.p('lamC') * c.dt);
+    const k = gapShare(c.p('lamC'), c.dt);
     return c.lag(self) + (cashLimit(c, g, nli, pi, nml) - c.lag(self)) / k;
   };
   return {

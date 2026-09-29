@@ -9,8 +9,6 @@ Columns m1 … m240 are the effect in those months; *Peak* is the largest effect
 - **pp of GDP**: the difference, in percentage points, of a ratio to nominal GDP: this month’s GDP at an annual rate, or GDP over the past 12 months, as the variable’s definition says. A ratio does not grow with the price level.
 - **pp of baseline GDP**: the difference in a nominal amount, in % of baseline annual GDP (baseline GDP = 100). It is not divided by current GDP, so it grows with the price level.
 
-`creditImpulse` is reported in pp of baseline GDP: the indicator is the credit-impulse flow itself (baseline GDP = 100), not divided by current GDP, although the model labels it pp of GDP.
-
 The JSON file beside this one has the same data, every indicator at the same horizons, and the thresholds. How to read and vet the report: `docs/authoring.md`, “Vetting levers”.
 
 ## Flags
@@ -26,7 +24,7 @@ The JSON file beside this one has the same data, every indicator at the same hor
 | Month-1 jump | A headline that should adjust gradually has 75% or more of its peak effect already in month 1 (peak at least 0.05). |
 | Sawtooth | In the first 60 months, 4 or more sign alternations in a row of month-to-month changes, each above max(0.001, 1% of the peak). |
 | Unsettled | Still moving at the end: the effect changed by more than max(0.02, 2% of the peak) over the final 12 months. |
-| Explosive | Unsettled, and the final effect is at least 2× the largest effect in the first half of the run and at least 1. |
+| Explosive | Unsettled, the final effect at least 2× the largest effect in the first half of the run and at least 1, and still accelerating: it moved at least 1.2× as much in the final 12 months as in the 12 months 5 years earlier. A level that grows steadily, such as a price level whose inflation has settled at an offset, is only unsettled. |
 | Asymmetry | At month 12, the effects per unit of lever of the moderate up and down steps differ in sign or by more than 3× (larger effect at least 0.05). Caps and floors that bind one way are the usual cause. |
 | Mode sign | At month 12, Manual and Automatic move a non-policy headline in opposite directions (each at least 0.02). |
 | Flicker | A rule's regime label changed 6 or more times within 60 months: a floor or cap switching on and off. |
@@ -39,12 +37,12 @@ Number of runs with each flag (comparisons between runs count once per pair; an 
 
 | Lever | Runs | Non-finite | Residual | Sign | Implausible | Extreme | Policy moved | Month-1 jump | Sawtooth | Unsettled | Explosive | Asymmetry | Mode sign | Flicker | Inert | Regimes | Expectations ✓/✗ |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| [Wage settlement](#wage-settlement-wagesettlement) (`wageSettlement`) | 8 |  |  |  |  | 2 |  |  |  | 8 |  |  | 4 |  |  |  | 9/0 |
-| [Bank lending appetite](#bank-lending-appetite-lendingappetite) (`lendingAppetite`) | 8 |  |  |  |  |  |  |  |  | 8 | 2 |  | 2 |  |  | 3 | 11/0 |
-| [Key rate: your offset to the rule](#key-rate-your-offset-to-the-rule-keyrateaddon) (`keyRateAddon`) | 4 |  |  |  |  |  |  |  |  | 2 | 4 |  |  |  |  |  | 9/0 |
-| [Key interest rate](#key-interest-rate-keyratefixed) (`keyRateFixed`) | 4 |  |  |  |  | 1 |  |  |  | 4 | 4 |  |  |  |  | 3 | 8/0 |
-| [Government spending](#government-spending-govspending) (`govSpending`) | 8 |  |  |  |  | 1 |  |  |  | 6 | 3 |  | 3 |  |  | 5 | 11/0 |
-| [Income-tax rate](#income-tax-rate-taxrate) (`taxRate`) | 8 |  |  |  |  | 1 |  |  |  | 7 | 4 |  | 4 |  |  | 4 | 8/0 |
+| [Wage settlement](#wage-settlement-wagesettlement) (`wageSettlement`) | 8 |  |  |  |  | 2 |  |  |  | 8 |  |  | 4 |  |  | 1 | 9/0 |
+| [Bank lending appetite](#bank-lending-appetite-lendingappetite) (`lendingAppetite`) | 8 |  |  |  |  |  |  |  |  | 8 |  |  | 2 |  |  | 3 | 10/0 |
+| [Key rate: your offset to the rule](#key-rate-your-offset-to-the-rule-keyrateaddon) (`keyRateAddon`) | 4 |  |  |  |  |  |  |  |  | 4 |  |  |  |  |  |  | 9/0 |
+| [Key interest rate](#key-interest-rate-keyratefixed) (`keyRateFixed`) | 4 |  |  |  |  | 1 |  |  |  | 4 | 1 |  |  |  |  | 3 | 8/0 |
+| [Government spending](#government-spending-govspending) (`govSpending`) | 8 |  |  |  |  | 1 |  |  |  | 8 |  |  | 3 |  |  | 5 | 9/0 |
+| [Income-tax rate](#income-tax-rate-taxrate) (`taxRate`) | 8 |  |  |  |  | 1 |  |  |  | 8 |  |  | 4 |  |  | 4 | 8/0 |
 
 The stabiliser setting (`stabilisers`) is not run as a lever: its values are the modes every other lever runs in.
 
@@ -77,12 +75,12 @@ Policy instruments checked on Manual: the key rate (`keyRate`, moved only by `ke
 
 ## No-change runs
 
-- Manual: largest move of a headline from its baseline 1.11e-11 (display units). Flags: none.
-- Automatic: largest move of a headline from its baseline 5.73e-12 (display units). Flags: none.
+- Manual: largest move of a headline from its baseline 9.38e-12 (display units). Flags: none.
+- Automatic: largest move of a headline from its baseline 5.51e-12 (display units). Flags: none.
 
 ## Expectations
 
-56 of 56 expectations hold (src/models/reference/expectations.ts). Each lever's section lists its own; the harness fails when one does not hold.
+53 of 53 expectations hold (src/models/reference/expectations.ts). Each lever's section lists its own; the harness fails when one does not hold.
 
 ## Wage settlement (`wageSettlement`)
 
@@ -90,72 +88,72 @@ Policy instruments checked on Manual: the key rate (`keyRate`, moved only by `ke
 
 A one-off jump in wage rates, as after a collective agreement.
 
-**Definition.** One-off level shift: the wage rate jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages grow by the Phillips curve again. Prices follow wages up within a year or two (the first round). Because wage demands pass on expected inflation, and expectations learn partly from the inflation that follows, part of the lasting rise in prices comes in later rounds: after +10% wages, prices end about 14% higher. On Automatic the Taylor rule looks partly through the jump: it reads a blend of 12-month and expected inflation, and raises the key rate by about 2 points within a year. That, and the squeeze on firms’ profits while prices catch up with wages, is most of the fall in output, about 4.7% at the trough. The slack limits the spiral, but the central bank targets inflation, not the price level, so it does not bring prices back down. On Manual the key rate stays where you set it and the rule only suggests.
+**Definition.** One-off level shift: the wage rate jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages grow by the Phillips curve again. Prices follow wages up within a year or two (the first round). Because wage demands pass on expected inflation, and expectations learn partly from the inflation that follows, part of the lasting rise in prices comes in later rounds: on Automatic, after +10% wages, prices end about 14% higher. There the Taylor rule looks partly through the jump: it reads a blend of 12-month and expected inflation, and raises the key rate by about 2 points within a year. That, and the squeeze on firms’ profits while prices catch up with wages, is most of the fall in output, about 5% at the trough. Firms smooth their dividends, so the squeeze reaches households over months rather than in the next month. The slack limits the spiral, but the central bank targets inflation, not the price level, so it does not bring prices back down. On Manual the key rate stays where you set it and the rule only suggests: prices peak about 12% higher after about four years and then drift slowly back, to about 7.5% higher after twenty, because the lower real value of households’ deposits holds their spending back (a real-balance effect).
 
 Runs: -5 % (min, -half); 5 % (half); 10 % (default); 15 % (max). A one-off fires once, before month 1.
 
 Comparisons between runs:
 
-- **Mode sign**: -5 % (min, -half): Investment (real) -1.16 on Manual, 0.90 on Automatic.
-- **Mode sign**: 5 % (half): Investment (real) 1.16 on Manual, -0.97 on Automatic.
-- **Mode sign**: 10 % (default): Investment (real) 2.30 on Manual, -2.00 on Automatic.
-- **Mode sign**: 15 % (max): Investment (real) 3.45 on Manual, -3.08 on Automatic.
+- **Mode sign**: -5 % (min, -half): Investment (real) -1.42 on Manual, 1.00 on Automatic.
+- **Mode sign**: 5 % (half): Investment (real) 1.40 on Manual, -1.06 on Automatic.
+- **Mode sign**: 10 % (default): Investment (real) 2.78 on Manual, -2.17 on Automatic.
+- **Mode sign**: 15 % (max): Investment (real) 4.13 on Manual, -3.34 on Automatic.
 
 Expectations:
 
 - ✓ priceLevel rises over months 229–240 (default, Automatic): 10, Automatic: 13.9. An inflation-targeting central bank lets bygones be bygones: it does not bring the price level back down after a one-off cost shock. (Woodford (2003))
 - ✓ priceLevel rises over months 1–240 (max, any): 15, Manual: 14.5; 15, Automatic: 18.9. Markup pricing and cost pass-through: higher unit labour costs raise prices, and a one-off level shift is not reversed. (Kalecki (1954); Blanchard (1986) QJE)
-- ✓ priceLevel falls over months 3–60 (min, any): -5, Manual: -5.24; -5, Automatic: -5.16. Cost pass-through in reverse: lower unit labour costs lower prices. (Kalecki (1954); Blanchard (1986))
-- ✓ inflation rises over months 1–12 (max, any): 15, Manual: 8.32; 15, Automatic: 8.32. Pass-through of the cost jump raises measured inflation over the following year. (Bernanke & Blanchard (2023))
-- ✓ realWage rises over months 1–12 (max, any): 15, Manual: 7.00; 15, Automatic: 6.98. Nominal wages jump before prices adjust, so real wages rise at first. (Blanchard (1986))
-- ✓ realProfit falls over months 1–12 (max, any): 15, Manual: -46.0; 15, Automatic: -49.9. Profit squeeze: wage costs rise before prices catch up. (Glyn & Sutcliffe (1972); Goodwin (1967))
-- ✓ keyRate rises over months 3–24 (max, Automatic): 15, Automatic: 2.00. Taylor rule: the central bank reacts to higher inflation. (Taylor (1993))
-- ✓ output falls over months 12–36 (max, Automatic): 15, Automatic: -5.13. Cost-push shock plus a policy response gives stagflation: output falls as real rates and real incomes adjust. (Blanchard, Macroeconomics (AS–AD); Galí (2015), ch. 5)
-- ✓ unemployment rises over months 12–36 (max, Automatic): 15, Automatic: 2.55. Okun’s law following the policy-induced slowdown. (Okun (1962))
+- ✓ priceLevel falls over months 3–60 (min, any): -5, Manual: -5.26; -5, Automatic: -5.16. Cost pass-through in reverse: lower unit labour costs lower prices. (Kalecki (1954); Blanchard (1986))
+- ✓ inflation rises over months 1–12 (max, any): 15, Manual: 8.35; 15, Automatic: 8.34. Pass-through of the cost jump raises measured inflation over the following year. (Bernanke & Blanchard (2023))
+- ✓ realWage rises over months 1–12 (max, any): 15, Manual: 7.04; 15, Automatic: 7.02. Nominal wages jump before prices adjust, so real wages rise at first. (Blanchard (1986))
+- ✓ realProfit falls over months 1–12 (max, any): 15, Manual: -43.5; 15, Automatic: -47.7. Profit squeeze: wage costs rise before prices catch up. (Glyn & Sutcliffe (1972); Goodwin (1967))
+- ✓ keyRate rises over months 3–24 (max, Automatic): 15, Automatic: 2.28. Taylor rule: the central bank reacts to higher inflation. (Taylor (1993))
+- ✓ output falls over months 12–36 (max, Automatic): 15, Automatic: -5.66. Cost-push shock plus a policy response gives stagflation: output falls as real rates and real incomes adjust. (Blanchard, Macroeconomics (AS–AD); Galí (2015), ch. 5)
+- ✓ unemployment rises over months 12–36 (max, Automatic): 15, Automatic: 2.75. Okun’s law following the policy-induced slowdown. (Okun (1962))
 
 ### -5 % (min, -half), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | 0.74 | 1.41 | 1.87 | 1.65 | 1.30 | 0.93 | 0.51 | 0.07 | 1.89 | 14 | 0.08 |
-| Inflation (12 months) (pp) | -0.63 | -1.66 | -2.81 | -4.24 | -1.30 | -0.45 | 0.09 | 0.24 | 0.06 | -4.24 | 12 | 0.06 |
-| Price level (%) | -0.63 | -1.66 | -2.81 | -4.24 | -5.49 | -5.91 | -5.91 | -4.83 | -3.57 | -6.00 | 47 | -3.59 |
-| Unemployment rate (pp) | 0 | -0.16 | -0.47 | -0.83 | -0.81 | -0.64 | -0.45 | -0.25 | -0.04 | -0.88 | 17 | -0.04 |
-| Real wage (%) | -4.40 | -3.45 | -2.45 | -1.32 | -0.45 | -0.14 | 0.08 | 0.13 | 0.03 | -4.40 | 1 | 0.03 |
-| Consumption (real) (%) | 0.03 | 1.19 | 2.27 | 2.99 | 2.54 | 1.89 | 1.19 | 0.57 | 0.07 | 3.00 | 13 | 0.08 |
-| Investment (real) (%) | -0.13 | -0.51 | -0.92 | -1.16 | -0.62 | 0.06 | 0.79 | 0.84 | 0.16 | -1.16 | 12 | 0.18 |
-| Private debt (pp of GDP) | 0.30 | 0.43 | 0.63 | 0.99 | 1.43 | 1.53 | 1.28 | 0.46 | -0.01 | 1.53 | 35 | 0 |
-| Broad money (%) | 0.05 | -0.02 | -0.17 | -0.54 | -1.24 | -1.76 | -2.42 | -3.15 | -3.44 | -3.44 | 240 | -3.44 |
-| Government deficit (to GDP) (pp of GDP) | 0.60 | -0.28 | -0.38 | -0.40 | -0.28 | -0.18 | -0.09 | -0.04 | -0.01 | 0.60 | 1 | -0.01 |
-| Government debt (pp of GDP) | 0.40 | 0.53 | 0.72 | 1.10 | 1.62 | 1.85 | 1.82 | 1.11 | 0.39 | 1.89 | 45 | 0.40 |
-| Bank equity (to GDP) (pp of GDP) | 0.04 | 0.05 | 0.08 | 0.14 | 0.21 | 0.22 | 0.18 | 0.06 | 0 | 0.22 | 35 | 0 |
-| Disposable income (real) (%) | -3.25 | 1.70 | 2.35 | 2.59 | 1.96 | 1.37 | 0.82 | 0.42 | 0.06 | -3.25 | 1 | 0.07 |
-| Firms’ cash profit (real) (%) | 18.4 | 18.6 | 17.5 | 14.1 | 8.50 | 5.13 | 2.15 | 0.53 | 0.01 | 18.7 | 2 | 0.02 |
+| Output (real GDP) (%) | 0 | 0.47 | 1.04 | 1.69 | 1.84 | 1.52 | 0.96 | 0.48 | 0.08 | 1.88 | 19 | 0.09 |
+| Inflation (12 months) (pp) | -0.63 | -1.66 | -2.81 | -4.26 | -1.34 | -0.44 | 0.13 | 0.22 | 0.06 | -4.26 | 12 | 0.06 |
+| Price level (%) | -0.63 | -1.66 | -2.81 | -4.26 | -5.54 | -5.96 | -5.88 | -4.79 | -3.58 | -6.01 | 44 | -3.60 |
+| Unemployment rate (pp) | 0 | -0.10 | -0.34 | -0.71 | -0.88 | -0.75 | -0.47 | -0.23 | -0.04 | -0.88 | 22 | -0.04 |
+| Real wage (%) | -4.40 | -3.45 | -2.46 | -1.35 | -0.46 | -0.12 | 0.10 | 0.13 | 0.03 | -4.40 | 1 | 0.03 |
+| Consumption (real) (%) | 0.03 | 0.81 | 1.76 | 2.77 | 2.82 | 2.17 | 1.20 | 0.52 | 0.08 | 2.99 | 17 | 0.09 |
+| Investment (real) (%) | -0.13 | -0.54 | -1.07 | -1.42 | -0.61 | 0.25 | 0.90 | 0.78 | 0.17 | -1.42 | 11 | 0.18 |
+| Private debt (pp of GDP) | 0.30 | 0.56 | 0.81 | 1.08 | 1.35 | 1.43 | 1.26 | 0.47 | -0.01 | 1.43 | 37 | 0 |
+| Broad money (%) | 0.05 | 0.03 | -0.08 | -0.45 | -1.21 | -1.79 | -2.47 | -3.15 | -3.44 | -3.44 | 240 | -3.44 |
+| Government deficit (to GDP) (pp of GDP) | 0.60 | -0.06 | -0.28 | -0.42 | -0.35 | -0.22 | -0.09 | -0.04 | -0.01 | 0.60 | 1 | -0.01 |
+| Government debt (pp of GDP) | 0.40 | 0.71 | 1.01 | 1.30 | 1.59 | 1.73 | 1.72 | 1.10 | 0.40 | 1.77 | 47 | 0.41 |
+| Bank equity (to GDP) (pp of GDP) | 0.04 | 0.07 | 0.10 | 0.15 | 0.20 | 0.21 | 0.18 | 0.06 | 0 | 0.21 | 35 | 0 |
+| Disposable income (real) (%) | -3.25 | 0.47 | 1.79 | 2.69 | 2.35 | 1.63 | 0.80 | 0.37 | 0.07 | -3.25 | 1 | 0.07 |
+| Firms’ cash profit (real) (%) | 18.4 | 17.3 | 16.0 | 13.9 | 9.40 | 5.76 | 2.04 | 0.46 | 0.02 | 18.4 | 1 | 0.03 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
 Flags:
 
-- **Unsettled**: Investment (real): moved -0.04 in the last 12 months, 0.16 at month 240.
+- **Unsettled**: Investment (real): moved -0.04 in the last 12 months, 0.17 at month 240.
 
 ### 5 % (half), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | -0.71 | -1.34 | -1.73 | -1.52 | -1.21 | -0.86 | -0.45 | -0.08 | -1.74 | 13 | -0.08 |
-| Inflation (12 months) (pp) | 0.63 | 1.66 | 2.82 | 4.26 | 1.24 | 0.43 | -0.08 | -0.21 | -0.05 | 4.26 | 12 | -0.06 |
-| Price level (%) | 0.63 | 1.66 | 2.82 | 4.26 | 5.55 | 6.00 | 6.02 | 4.93 | 3.70 | 6.10 | 47 | 3.72 |
-| Unemployment rate (pp) | 0 | 0.15 | 0.45 | 0.77 | 0.75 | 0.60 | 0.42 | 0.22 | 0.04 | 0.81 | 16 | 0.04 |
-| Real wage (%) | 4.35 | 3.34 | 2.33 | 1.24 | 0.43 | 0.14 | -0.07 | -0.12 | -0.03 | 4.35 | 1 | -0.03 |
-| Consumption (real) (%) | -0.03 | -1.15 | -2.15 | -2.78 | -2.36 | -1.77 | -1.10 | -0.50 | -0.08 | -2.79 | 13 | -0.08 |
-| Investment (real) (%) | 0.12 | 0.51 | 0.90 | 1.16 | 0.64 | -0.03 | -0.72 | -0.74 | -0.16 | 1.16 | 12 | -0.17 |
-| Private debt (pp of GDP) | -0.30 | -0.42 | -0.61 | -0.95 | -1.31 | -1.39 | -1.17 | -0.44 | 0 | -1.39 | 34 | 0 |
-| Broad money (%) | -0.05 | 0.02 | 0.17 | 0.54 | 1.26 | 1.80 | 2.49 | 3.24 | 3.53 | 3.53 | 240 | 3.53 |
-| Government deficit (to GDP) (pp of GDP) | -0.59 | 0.28 | 0.37 | 0.39 | 0.27 | 0.17 | 0.08 | 0.04 | 0.01 | -0.59 | 1 | 0.01 |
-| Government debt (pp of GDP) | -0.39 | -0.52 | -0.70 | -1.05 | -1.49 | -1.67 | -1.63 | -1.03 | -0.40 | -1.70 | 44 | -0.42 |
-| Bank equity (to GDP) (pp of GDP) | -0.04 | -0.05 | -0.08 | -0.13 | -0.19 | -0.20 | -0.16 | -0.06 | 0 | -0.20 | 34 | 0 |
-| Disposable income (real) (%) | 3.21 | -1.65 | -2.23 | -2.40 | -1.82 | -1.29 | -0.76 | -0.36 | -0.06 | 3.21 | 1 | -0.07 |
-| Firms’ cash profit (real) (%) | -18.2 | -18.0 | -16.6 | -13.1 | -7.94 | -4.85 | -2.01 | -0.44 | -0.03 | -18.3 | 2 | -0.04 |
+| Output (real GDP) (%) | 0 | -0.46 | -0.99 | -1.56 | -1.69 | -1.41 | -0.89 | -0.42 | -0.08 | -1.73 | 19 | -0.09 |
+| Inflation (12 months) (pp) | 0.63 | 1.66 | 2.82 | 4.28 | 1.28 | 0.42 | -0.11 | -0.20 | -0.05 | 4.28 | 12 | -0.06 |
+| Price level (%) | 0.63 | 1.66 | 2.82 | 4.28 | 5.61 | 6.05 | 5.99 | 4.89 | 3.72 | 6.12 | 45 | 3.74 |
+| Unemployment rate (pp) | 0 | 0.10 | 0.32 | 0.66 | 0.81 | 0.69 | 0.44 | 0.20 | 0.04 | 0.81 | 22 | 0.04 |
+| Real wage (%) | 4.35 | 3.34 | 2.34 | 1.26 | 0.44 | 0.12 | -0.09 | -0.11 | -0.03 | 4.35 | 1 | -0.03 |
+| Consumption (real) (%) | -0.03 | -0.79 | -1.67 | -2.59 | -2.60 | -2.02 | -1.12 | -0.46 | -0.08 | -2.77 | 17 | -0.09 |
+| Investment (real) (%) | 0.12 | 0.53 | 1.05 | 1.40 | 0.64 | -0.20 | -0.83 | -0.69 | -0.16 | 1.40 | 12 | -0.18 |
+| Private debt (pp of GDP) | -0.30 | -0.54 | -0.78 | -1.03 | -1.25 | -1.31 | -1.15 | -0.45 | 0 | -1.31 | 36 | 0 |
+| Broad money (%) | -0.05 | -0.03 | 0.08 | 0.45 | 1.24 | 1.83 | 2.55 | 3.24 | 3.53 | 3.53 | 240 | 3.53 |
+| Government deficit (to GDP) (pp of GDP) | -0.59 | 0.06 | 0.27 | 0.40 | 0.33 | 0.22 | 0.08 | 0.03 | 0.01 | -0.59 | 1 | 0.01 |
+| Government debt (pp of GDP) | -0.39 | -0.70 | -0.97 | -1.24 | -1.47 | -1.58 | -1.55 | -1.02 | -0.41 | -1.60 | 45 | -0.42 |
+| Bank equity (to GDP) (pp of GDP) | -0.04 | -0.07 | -0.10 | -0.14 | -0.18 | -0.19 | -0.16 | -0.06 | 0 | -0.19 | 34 | 0 |
+| Disposable income (real) (%) | 3.21 | -0.46 | -1.70 | -2.50 | -2.16 | -1.52 | -0.75 | -0.32 | -0.07 | 3.21 | 1 | -0.07 |
+| Firms’ cash profit (real) (%) | -18.2 | -16.7 | -15.2 | -12.9 | -8.73 | -5.42 | -1.93 | -0.38 | -0.04 | -18.2 | 1 | -0.05 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
@@ -167,73 +165,73 @@ Flags:
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | -1.41 | -2.61 | -3.34 | -2.93 | -2.35 | -1.66 | -0.85 | -0.15 | -3.35 | 13 | -0.17 |
-| Inflation (12 months) (pp) | 1.25 | 3.32 | 5.64 | 8.54 | 2.42 | 0.84 | -0.15 | -0.40 | -0.10 | 8.54 | 12 | -0.11 |
-| Price level (%) | 1.25 | 3.32 | 5.64 | 8.54 | 11.2 | 12.1 | 12.1 | 9.95 | 7.53 | 12.3 | 47 | 7.58 |
-| Unemployment rate (pp) | 0 | 0.30 | 0.88 | 1.49 | 1.44 | 1.16 | 0.81 | 0.41 | 0.07 | 1.56 | 16 | 0.08 |
-| Real wage (%) | 8.64 | 6.58 | 4.55 | 2.40 | 0.83 | 0.27 | -0.14 | -0.23 | -0.05 | 8.64 | 1 | -0.06 |
-| Consumption (real) (%) | -0.05 | -2.28 | -4.21 | -5.39 | -4.57 | -3.43 | -2.12 | -0.93 | -0.15 | -5.40 | 13 | -0.17 |
-| Investment (real) (%) | 0.25 | 1.01 | 1.80 | 2.30 | 1.29 | -0.03 | -1.39 | -1.40 | -0.31 | 2.30 | 12 | -0.34 |
-| Private debt (pp of GDP) | -0.59 | -0.84 | -1.21 | -1.85 | -2.53 | -2.65 | -2.23 | -0.87 | 0 | -2.66 | 34 | -0.01 |
-| Broad money (%) | -0.10 | 0.03 | 0.34 | 1.09 | 2.55 | 3.65 | 5.05 | 6.56 | 7.14 | 7.14 | 240 | 7.14 |
-| Government deficit (to GDP) (pp of GDP) | -1.17 | 0.55 | 0.73 | 0.76 | 0.53 | 0.34 | 0.17 | 0.07 | 0.02 | -1.17 | 1 | 0.02 |
-| Government debt (pp of GDP) | -0.78 | -1.02 | -1.39 | -2.04 | -2.88 | -3.20 | -3.11 | -2.00 | -0.81 | -3.24 | 44 | -0.84 |
-| Bank equity (to GDP) (pp of GDP) | -0.07 | -0.11 | -0.16 | -0.26 | -0.37 | -0.38 | -0.32 | -0.12 | 0 | -0.38 | 33 | 0 |
-| Disposable income (real) (%) | 6.37 | -3.26 | -4.34 | -4.64 | -3.52 | -2.50 | -1.47 | -0.68 | -0.13 | 6.37 | 1 | -0.14 |
-| Firms’ cash profit (real) (%) | -36.2 | -35.4 | -32.3 | -25.3 | -15.4 | -9.44 | -3.90 | -0.81 | -0.08 | -36.2 | 1 | -0.09 |
+| Output (real GDP) (%) | 0 | -0.90 | -1.93 | -3.01 | -3.24 | -2.72 | -1.72 | -0.78 | -0.16 | -3.32 | 19 | -0.17 |
+| Inflation (12 months) (pp) | 1.25 | 3.32 | 5.64 | 8.58 | 2.49 | 0.83 | -0.22 | -0.38 | -0.10 | 8.58 | 12 | -0.11 |
+| Price level (%) | 1.25 | 3.32 | 5.64 | 8.58 | 11.3 | 12.2 | 12.1 | 9.89 | 7.56 | 12.3 | 45 | 7.61 |
+| Unemployment rate (pp) | 0 | 0.19 | 0.62 | 1.27 | 1.55 | 1.34 | 0.85 | 0.38 | 0.08 | 1.56 | 22 | 0.08 |
+| Real wage (%) | 8.64 | 6.58 | 4.56 | 2.45 | 0.85 | 0.24 | -0.18 | -0.21 | -0.06 | 8.64 | 1 | -0.06 |
+| Consumption (real) (%) | -0.05 | -1.55 | -3.27 | -5.00 | -5.02 | -3.90 | -2.16 | -0.86 | -0.16 | -5.33 | 17 | -0.18 |
+| Investment (real) (%) | 0.25 | 1.06 | 2.08 | 2.78 | 1.29 | -0.34 | -1.59 | -1.30 | -0.32 | 2.78 | 12 | -0.35 |
+| Private debt (pp of GDP) | -0.59 | -1.08 | -1.53 | -2.01 | -2.40 | -2.50 | -2.20 | -0.89 | 0 | -2.50 | 35 | -0.01 |
+| Broad money (%) | -0.10 | -0.06 | 0.17 | 0.91 | 2.50 | 3.71 | 5.16 | 6.57 | 7.15 | 7.15 | 240 | 7.15 |
+| Government deficit (to GDP) (pp of GDP) | -1.17 | 0.11 | 0.53 | 0.78 | 0.65 | 0.43 | 0.17 | 0.06 | 0.02 | -1.17 | 1 | 0.02 |
+| Government debt (pp of GDP) | -0.78 | -1.38 | -1.91 | -2.41 | -2.84 | -3.02 | -2.96 | -1.98 | -0.83 | -3.05 | 44 | -0.85 |
+| Bank equity (to GDP) (pp of GDP) | -0.07 | -0.13 | -0.20 | -0.28 | -0.35 | -0.37 | -0.31 | -0.12 | 0 | -0.37 | 33 | 0 |
+| Disposable income (real) (%) | 6.37 | -0.90 | -3.31 | -4.82 | -4.15 | -2.94 | -1.45 | -0.60 | -0.14 | 6.37 | 1 | -0.15 |
+| Firms’ cash profit (real) (%) | -36.2 | -32.9 | -29.6 | -24.9 | -16.9 | -10.5 | -3.75 | -0.69 | -0.09 | -36.2 | 1 | -0.11 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
 Flags:
 
-- **Unsettled**: Investment (real): moved 0.06 in the last 12 months, -0.31 at month 240.
+- **Unsettled**: Investment (real): moved 0.06 in the last 12 months, -0.32 at month 240.
 
 ### 15 % (max), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | -2.08 | -3.81 | -4.84 | -4.24 | -3.41 | -2.40 | -1.20 | -0.23 | -4.85 | 13 | -0.25 |
-| Inflation (12 months) (pp) | 1.87 | 4.98 | 8.46 | 12.8 | 3.54 | 1.24 | -0.21 | -0.57 | -0.15 | 12.8 | 12 | -0.16 |
-| Price level (%) | 1.87 | 4.98 | 8.46 | 12.8 | 16.8 | 18.3 | 18.4 | 15.1 | 11.5 | 18.6 | 48 | 11.5 |
-| Unemployment rate (pp) | 0 | 0.45 | 1.29 | 2.15 | 2.08 | 1.68 | 1.17 | 0.58 | 0.11 | 2.26 | 16 | 0.12 |
-| Real wage (%) | 12.9 | 9.72 | 6.66 | 3.49 | 1.21 | 0.40 | -0.20 | -0.32 | -0.08 | 12.9 | 1 | -0.09 |
-| Consumption (real) (%) | -0.08 | -3.36 | -6.16 | -7.82 | -6.62 | -4.98 | -3.06 | -1.32 | -0.23 | -7.84 | 13 | -0.25 |
-| Investment (real) (%) | 0.37 | 1.50 | 2.68 | 3.45 | 1.96 | 0 | -2.00 | -1.98 | -0.46 | 3.45 | 12 | -0.50 |
-| Private debt (pp of GDP) | -0.87 | -1.24 | -1.79 | -2.71 | -3.65 | -3.81 | -3.21 | -1.27 | 0 | -3.82 | 33 | -0.02 |
-| Broad money (%) | -0.16 | 0.05 | 0.51 | 1.65 | 3.85 | 5.53 | 7.68 | 9.96 | 10.8 | 10.8 | 240 | 10.8 |
-| Government deficit (to GDP) (pp of GDP) | -1.75 | 0.81 | 1.07 | 1.12 | 0.79 | 0.51 | 0.25 | 0.09 | 0.02 | -1.75 | 1 | 0.02 |
-| Government debt (pp of GDP) | -1.16 | -1.52 | -2.05 | -3.00 | -4.16 | -4.59 | -4.45 | -2.89 | -1.23 | -4.65 | 43 | -1.26 |
-| Bank equity (to GDP) (pp of GDP) | -0.11 | -0.16 | -0.24 | -0.38 | -0.53 | -0.55 | -0.45 | -0.17 | 0 | -0.55 | 33 | 0 |
-| Disposable income (real) (%) | 9.50 | -4.81 | -6.35 | -6.73 | -5.10 | -3.64 | -2.14 | -0.95 | -0.20 | 9.50 | 1 | -0.21 |
-| Firms’ cash profit (real) (%) | -54.0 | -52.3 | -47.1 | -36.7 | -22.3 | -13.8 | -5.69 | -1.12 | -0.13 | -54.0 | 1 | -0.15 |
+| Output (real GDP) (%) | 0 | -1.33 | -2.82 | -4.36 | -4.67 | -3.94 | -2.49 | -1.10 | -0.24 | -4.79 | 19 | -0.26 |
+| Inflation (12 months) (pp) | 1.87 | 4.98 | 8.47 | 12.9 | 3.65 | 1.22 | -0.31 | -0.54 | -0.15 | 12.9 | 12 | -0.16 |
+| Price level (%) | 1.87 | 4.98 | 8.47 | 12.9 | 17.0 | 18.4 | 18.3 | 15.0 | 11.5 | 18.7 | 45 | 11.6 |
+| Unemployment rate (pp) | 0 | 0.29 | 0.92 | 1.85 | 2.24 | 1.93 | 1.23 | 0.54 | 0.12 | 2.25 | 22 | 0.13 |
+| Real wage (%) | 12.9 | 9.73 | 6.69 | 3.56 | 1.24 | 0.36 | -0.26 | -0.30 | -0.08 | 12.9 | 1 | -0.09 |
+| Consumption (real) (%) | -0.08 | -2.30 | -4.79 | -7.27 | -7.26 | -5.65 | -3.13 | -1.21 | -0.24 | -7.72 | 17 | -0.26 |
+| Investment (real) (%) | 0.37 | 1.58 | 3.10 | 4.13 | 1.97 | -0.44 | -2.29 | -1.85 | -0.47 | 4.13 | 12 | -0.51 |
+| Private debt (pp of GDP) | -0.87 | -1.60 | -2.26 | -2.94 | -3.48 | -3.60 | -3.16 | -1.31 | -0.01 | -3.60 | 35 | -0.03 |
+| Broad money (%) | -0.16 | -0.09 | 0.25 | 1.38 | 3.78 | 5.63 | 7.86 | 9.98 | 10.9 | 10.9 | 240 | 10.9 |
+| Government deficit (to GDP) (pp of GDP) | -1.75 | 0.17 | 0.78 | 1.15 | 0.95 | 0.63 | 0.25 | 0.08 | 0.02 | -1.75 | 1 | 0.02 |
+| Government debt (pp of GDP) | -1.16 | -2.05 | -2.82 | -3.53 | -4.12 | -4.35 | -4.23 | -2.87 | -1.25 | -4.38 | 43 | -1.28 |
+| Bank equity (to GDP) (pp of GDP) | -0.11 | -0.20 | -0.29 | -0.41 | -0.51 | -0.53 | -0.45 | -0.18 | 0 | -0.53 | 33 | 0 |
+| Disposable income (real) (%) | 9.50 | -1.34 | -4.85 | -6.98 | -6.00 | -4.27 | -2.12 | -0.84 | -0.21 | 9.50 | 1 | -0.22 |
+| Firms’ cash profit (real) (%) | -54.0 | -48.6 | -43.2 | -36.1 | -24.5 | -15.4 | -5.48 | -0.94 | -0.16 | -54.0 | 1 | -0.17 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
 Flags:
 
 - **Extreme**: Firms’ cash profit (real) -54.0 % at month 1.
-- **Unsettled**: Investment (real): moved 0.09 in the last 12 months, -0.46 at month 240.
+- **Unsettled**: Investment (real): moved 0.09 in the last 12 months, -0.47 at month 240.
 
 ### -5 % (min, -half), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | 0.79 | 1.59 | 2.40 | 2.04 | 0.60 | -0.23 | -0.10 | -0.06 | 2.57 | 16 | -0.06 |
-| Inflation (12 months) (pp) | -0.63 | -1.66 | -2.81 | -4.23 | -1.21 | -0.35 | -0.16 | -0.06 | -0.02 | -4.23 | 12 | -0.02 |
-| Price level (%) | -0.63 | -1.66 | -2.81 | -4.23 | -5.39 | -5.72 | -6.02 | -6.48 | -6.78 | -6.78 | 240 | -6.77 |
-| Unemployment rate (pp) | 0 | -0.17 | -0.52 | -1.02 | -1.05 | -0.39 | 0.11 | 0.05 | 0.03 | -1.19 | 18 | 0.03 |
-| Key interest rate (pp) | -0.05 | -0.25 | -0.51 | -0.93 | -0.14 | 0.26 | -0.28 | -0.20 | -0.08 | -0.95 | 13 | -0.08 |
-| Real wage (%) | -4.40 | -3.45 | -2.45 | -1.30 | -0.37 | -0.12 | -0.09 | -0.03 | -0.01 | -4.40 | 1 | -0.01 |
-| Consumption (real) (%) | 0.03 | 1.22 | 2.37 | 3.31 | 2.68 | 0.98 | -0.35 | -0.25 | -0.12 | 3.40 | 15 | -0.11 |
-| Investment (real) (%) | -0.10 | -0.30 | -0.21 | 0.90 | 1.37 | -0.48 | 0.03 | 0.43 | 0.15 | 1.82 | 19 | 0.15 |
-| Private debt (pp of GDP) | 0.30 | 0.41 | 0.55 | 0.79 | 1.37 | 1.98 | 1.98 | 1.33 | 0.54 | 2.12 | 46 | 0.56 |
-| Broad money (%) | 0.05 | -0.03 | -0.23 | -0.78 | -1.92 | -2.70 | -3.88 | -5.91 | -7.07 | -7.07 | 240 | -7.04 |
-| Government deficit (to GDP) (pp of GDP) | 0.58 | -0.38 | -0.62 | -0.93 | -0.68 | -0.34 | -0.32 | -0.13 | -0.01 | -0.96 | 14 | -0.01 |
-| Government debt (pp of GDP) | 0.39 | 0.49 | 0.56 | 0.53 | 0.54 | 1.06 | 1.12 | 0.13 | -0.02 | 1.28 | 48 | -0.02 |
-| Bank equity (to GDP) (pp of GDP) | 0.04 | 0.05 | 0.07 | 0.11 | 0.19 | 0.27 | 0.27 | 0.18 | 0.07 | 0.29 | 47 | 0.08 |
-| Disposable income (real) (%) | -3.30 | 1.53 | 2.04 | 2.11 | 1.72 | 0.38 | -1.10 | -0.60 | -0.20 | -3.30 | 1 | -0.20 |
-| Firms’ cash profit (real) (%) | 18.6 | 19.3 | 18.9 | 16.8 | 8.00 | 1.57 | -0.60 | -0.67 | -0.33 | 19.3 | 4 | -0.33 |
-| Income-tax rate (charged) (pp) | 0 | 0.01 | 0.05 | 0.16 | 0.32 | 0.38 | 0.37 | 0.11 | -0.02 | 0.39 | 44 | -0.02 |
+| Output (real GDP) (%) | 0 | 0.52 | 1.22 | 2.27 | 2.36 | 0.79 | -0.37 | -0.11 | -0.06 | 2.69 | 18 | -0.06 |
+| Inflation (12 months) (pp) | -0.63 | -1.66 | -2.81 | -4.25 | -1.24 | -0.31 | -0.15 | -0.06 | -0.02 | -4.25 | 12 | -0.02 |
+| Price level (%) | -0.63 | -1.66 | -2.81 | -4.25 | -5.44 | -5.73 | -5.98 | -6.47 | -6.78 | -6.78 | 240 | -6.77 |
+| Unemployment rate (pp) | 0 | -0.11 | -0.38 | -0.92 | -1.18 | -0.50 | 0.18 | 0.05 | 0.03 | -1.25 | 20 | 0.03 |
+| Key interest rate (pp) | -0.05 | -0.26 | -0.59 | -1.10 | -0.12 | 0.47 | -0.31 | -0.20 | -0.08 | -1.12 | 13 | -0.08 |
+| Real wage (%) | -4.40 | -3.45 | -2.46 | -1.33 | -0.37 | -0.09 | -0.10 | -0.03 | -0.01 | -4.40 | 1 | -0.01 |
+| Consumption (real) (%) | 0.03 | 0.83 | 1.84 | 3.09 | 3.09 | 1.30 | -0.52 | -0.25 | -0.12 | 3.47 | 18 | -0.11 |
+| Investment (real) (%) | -0.10 | -0.32 | -0.28 | 1.00 | 1.67 | -0.64 | -0.14 | 0.41 | 0.15 | 2.14 | 19 | 0.15 |
+| Private debt (pp of GDP) | 0.30 | 0.54 | 0.73 | 0.86 | 1.25 | 1.90 | 2.00 | 1.32 | 0.54 | 2.13 | 48 | 0.56 |
+| Broad money (%) | 0.05 | 0.02 | -0.14 | -0.71 | -1.97 | -2.80 | -3.89 | -5.89 | -7.06 | -7.06 | 240 | -7.04 |
+| Government deficit (to GDP) (pp of GDP) | 0.58 | -0.15 | -0.53 | -1.00 | -0.80 | -0.32 | -0.27 | -0.13 | -0.01 | -1.07 | 15 | -0.01 |
+| Government debt (pp of GDP) | 0.39 | 0.68 | 0.84 | 0.68 | 0.34 | 0.85 | 1.19 | 0.14 | -0.02 | 1.28 | 52 | -0.02 |
+| Bank equity (to GDP) (pp of GDP) | 0.04 | 0.07 | 0.09 | 0.12 | 0.17 | 0.26 | 0.28 | 0.18 | 0.07 | 0.30 | 49 | 0.08 |
+| Disposable income (real) (%) | -3.30 | 0.26 | 1.35 | 2.05 | 2.36 | 0.83 | -1.34 | -0.61 | -0.20 | -3.30 | 1 | -0.20 |
+| Firms’ cash profit (real) (%) | 18.6 | 17.9 | 17.5 | 16.8 | 9.12 | 1.77 | -0.93 | -0.69 | -0.33 | 18.6 | 1 | -0.33 |
+| Income-tax rate (charged) (pp) | 0 | 0.01 | 0.05 | 0.17 | 0.33 | 0.38 | 0.35 | 0.12 | -0.02 | 0.38 | 39 | -0.02 |
 
 Flags:
 
@@ -243,22 +241,22 @@ Flags:
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | -0.76 | -1.51 | -2.26 | -1.96 | -0.64 | 0.24 | 0.10 | 0.06 | -2.43 | 16 | 0.05 |
-| Inflation (12 months) (pp) | 0.63 | 1.66 | 2.82 | 4.25 | 1.14 | 0.32 | 0.14 | 0.06 | 0.02 | 4.25 | 12 | 0.02 |
-| Price level (%) | 0.63 | 1.66 | 2.82 | 4.25 | 5.44 | 5.77 | 6.07 | 6.57 | 6.90 | 6.90 | 240 | 6.89 |
-| Unemployment rate (pp) | 0 | 0.16 | 0.50 | 0.96 | 1.00 | 0.40 | -0.11 | -0.05 | -0.03 | 1.13 | 18 | -0.03 |
-| Key interest rate (pp) | 0.05 | 0.25 | 0.51 | 0.97 | 0.18 | -0.27 | 0.24 | 0.20 | 0.08 | 1.00 | 13 | 0.08 |
-| Real wage (%) | 4.35 | 3.34 | 2.33 | 1.22 | 0.35 | 0.10 | 0.08 | 0.03 | 0.01 | 4.35 | 1 | 0.01 |
-| Consumption (real) (%) | -0.03 | -1.18 | -2.25 | -3.09 | -2.53 | -1.02 | 0.33 | 0.24 | 0.11 | -3.17 | 15 | 0.11 |
-| Investment (real) (%) | 0.10 | 0.30 | 0.19 | -0.97 | -1.49 | 0.39 | 0.08 | -0.42 | -0.15 | -1.93 | 19 | -0.15 |
-| Private debt (pp of GDP) | -0.29 | -0.40 | -0.54 | -0.74 | -1.26 | -1.78 | -1.78 | -1.20 | -0.50 | -1.90 | 46 | -0.52 |
-| Broad money (%) | -0.05 | 0.03 | 0.23 | 0.79 | 1.95 | 2.76 | 3.94 | 5.99 | 7.18 | 7.18 | 240 | 7.15 |
-| Government deficit (to GDP) (pp of GDP) | -0.58 | 0.37 | 0.60 | 0.92 | 0.67 | 0.31 | 0.27 | 0.11 | 0.01 | 0.96 | 14 | 0.01 |
-| Government debt (pp of GDP) | -0.39 | -0.48 | -0.55 | -0.48 | -0.42 | -0.87 | -0.98 | -0.10 | 0.01 | -1.09 | 49 | 0.02 |
-| Bank equity (to GDP) (pp of GDP) | -0.04 | -0.05 | -0.07 | -0.10 | -0.17 | -0.24 | -0.25 | -0.16 | -0.07 | -0.26 | 47 | -0.07 |
-| Disposable income (real) (%) | 3.26 | -1.49 | -1.94 | -1.94 | -1.64 | -0.48 | 0.99 | 0.56 | 0.19 | 3.26 | 1 | 0.19 |
-| Firms’ cash profit (real) (%) | -18.3 | -18.6 | -17.9 | -15.6 | -7.55 | -1.73 | 0.69 | 0.66 | 0.32 | -18.6 | 3 | 0.32 |
-| Income-tax rate (charged) (pp) | 0 | -0.01 | -0.05 | -0.15 | -0.29 | -0.34 | -0.32 | -0.10 | 0.02 | -0.35 | 42 | 0.02 |
+| Output (real GDP) (%) | 0 | -0.50 | -1.16 | -2.13 | -2.25 | -0.83 | 0.36 | 0.11 | 0.05 | -2.54 | 18 | 0.05 |
+| Inflation (12 months) (pp) | 0.63 | 1.66 | 2.82 | 4.27 | 1.17 | 0.28 | 0.12 | 0.06 | 0.02 | 4.27 | 12 | 0.02 |
+| Price level (%) | 0.63 | 1.66 | 2.82 | 4.27 | 5.49 | 5.79 | 6.02 | 6.55 | 6.89 | 6.89 | 240 | 6.88 |
+| Unemployment rate (pp) | 0 | 0.11 | 0.37 | 0.87 | 1.12 | 0.51 | -0.17 | -0.05 | -0.03 | 1.18 | 20 | -0.03 |
+| Key interest rate (pp) | 0.05 | 0.26 | 0.59 | 1.13 | 0.17 | -0.46 | 0.24 | 0.19 | 0.08 | 1.16 | 13 | 0.08 |
+| Real wage (%) | 4.35 | 3.34 | 2.34 | 1.24 | 0.35 | 0.07 | 0.08 | 0.03 | 0.01 | 4.35 | 1 | 0.01 |
+| Consumption (real) (%) | -0.03 | -0.81 | -1.76 | -2.89 | -2.90 | -1.33 | 0.47 | 0.24 | 0.11 | -3.22 | 18 | 0.11 |
+| Investment (real) (%) | 0.10 | 0.32 | 0.26 | -1.06 | -1.78 | 0.52 | 0.27 | -0.42 | -0.15 | -2.23 | 19 | -0.15 |
+| Private debt (pp of GDP) | -0.29 | -0.52 | -0.71 | -0.81 | -1.15 | -1.71 | -1.79 | -1.20 | -0.50 | -1.90 | 48 | -0.52 |
+| Broad money (%) | -0.05 | -0.02 | 0.14 | 0.71 | 1.99 | 2.85 | 3.95 | 5.97 | 7.17 | 7.17 | 240 | 7.14 |
+| Government deficit (to GDP) (pp of GDP) | -0.58 | 0.15 | 0.52 | 0.98 | 0.78 | 0.31 | 0.23 | 0.11 | 0.01 | 1.06 | 15 | 0.01 |
+| Government debt (pp of GDP) | -0.39 | -0.66 | -0.81 | -0.63 | -0.24 | -0.68 | -1.04 | -0.11 | 0.01 | -1.09 | 53 | 0.02 |
+| Bank equity (to GDP) (pp of GDP) | -0.04 | -0.07 | -0.09 | -0.11 | -0.16 | -0.23 | -0.25 | -0.16 | -0.07 | -0.26 | 49 | -0.07 |
+| Disposable income (real) (%) | 3.26 | -0.25 | -1.29 | -1.88 | -2.20 | -0.91 | 1.19 | 0.56 | 0.19 | 3.26 | 1 | 0.19 |
+| Firms’ cash profit (real) (%) | -18.3 | -17.3 | -16.6 | -15.6 | -8.57 | -2.05 | 1.01 | 0.67 | 0.32 | -18.3 | 1 | 0.32 |
+| Income-tax rate (charged) (pp) | 0 | -0.01 | -0.05 | -0.16 | -0.30 | -0.34 | -0.31 | -0.10 | 0.02 | -0.34 | 37 | 0.02 |
 
 Flags:
 
@@ -268,22 +266,22 @@ Flags:
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.01 | -1.50 | -2.95 | -4.40 | -3.83 | -1.30 | 0.47 | 0.20 | 0.11 | -4.72 | 16 | 0.11 |
-| Inflation (12 months) (pp) | 1.25 | 3.32 | 5.64 | 8.51 | 2.22 | 0.61 | 0.26 | 0.12 | 0.04 | 8.51 | 12 | 0.04 |
-| Price level (%) | 1.25 | 3.32 | 5.64 | 8.51 | 10.9 | 11.6 | 12.2 | 13.2 | 13.9 | 13.9 | 240 | 13.9 |
-| Unemployment rate (pp) | 0 | 0.32 | 0.98 | 1.87 | 1.96 | 0.81 | -0.22 | -0.10 | -0.05 | 2.19 | 18 | -0.05 |
-| Key interest rate (pp) | 0.11 | 0.49 | 1.03 | 1.98 | 0.39 | -0.56 | 0.42 | 0.39 | 0.15 | 2.03 | 13 | 0.15 |
-| Real wage (%) | 8.64 | 6.58 | 4.54 | 2.36 | 0.67 | 0.20 | 0.15 | 0.07 | 0.02 | 8.64 | 1 | 0.02 |
-| Consumption (real) (%) | -0.05 | -2.32 | -4.40 | -5.99 | -4.93 | -2.06 | 0.64 | 0.48 | 0.22 | -6.13 | 15 | 0.22 |
-| Investment (real) (%) | 0.19 | 0.59 | 0.37 | -2.00 | -3.09 | 0.69 | 0.24 | -0.85 | -0.30 | -3.96 | 19 | -0.30 |
-| Private debt (pp of GDP) | -0.58 | -0.79 | -1.06 | -1.44 | -2.42 | -3.39 | -3.38 | -2.29 | -0.96 | -3.61 | 46 | -1.00 |
-| Broad money (%) | -0.10 | 0.06 | 0.45 | 1.58 | 3.94 | 5.57 | 7.93 | 12.1 | 14.5 | 14.5 | 240 | 14.4 |
-| Government deficit (to GDP) (pp of GDP) | -1.14 | 0.73 | 1.20 | 1.82 | 1.33 | 0.60 | 0.50 | 0.22 | 0.01 | 1.91 | 14 | 0.01 |
-| Government debt (pp of GDP) | -0.77 | -0.95 | -1.08 | -0.92 | -0.73 | -1.57 | -1.84 | -0.18 | 0.02 | -2.01 | 50 | 0.03 |
-| Bank equity (to GDP) (pp of GDP) | -0.07 | -0.10 | -0.14 | -0.20 | -0.32 | -0.46 | -0.47 | -0.31 | -0.13 | -0.50 | 47 | -0.13 |
-| Disposable income (real) (%) | 6.47 | -2.94 | -3.78 | -3.74 | -3.19 | -1.04 | 1.87 | 1.08 | 0.37 | 6.47 | 1 | 0.37 |
-| Firms’ cash profit (real) (%) | -36.4 | -36.6 | -34.8 | -30.1 | -14.7 | -3.60 | 1.42 | 1.31 | 0.62 | -36.8 | 2 | 0.63 |
-| Income-tax rate (charged) (pp) | 0 | -0.03 | -0.10 | -0.29 | -0.57 | -0.65 | -0.60 | -0.18 | 0.03 | -0.66 | 41 | 0.03 |
+| Output (real GDP) (%) | -0.01 | -0.99 | -2.27 | -4.15 | -4.39 | -1.69 | 0.71 | 0.21 | 0.11 | -4.93 | 18 | 0.11 |
+| Inflation (12 months) (pp) | 1.25 | 3.32 | 5.64 | 8.56 | 2.28 | 0.55 | 0.22 | 0.12 | 0.04 | 8.56 | 12 | 0.04 |
+| Price level (%) | 1.25 | 3.32 | 5.64 | 8.56 | 11.0 | 11.6 | 12.1 | 13.2 | 13.9 | 13.9 | 240 | 13.9 |
+| Unemployment rate (pp) | 0 | 0.21 | 0.72 | 1.69 | 2.18 | 1.02 | -0.32 | -0.10 | -0.05 | 2.29 | 20 | -0.05 |
+| Key interest rate (pp) | 0.11 | 0.52 | 1.19 | 2.30 | 0.38 | -0.91 | 0.42 | 0.38 | 0.15 | 2.35 | 13 | 0.15 |
+| Real wage (%) | 8.64 | 6.58 | 4.56 | 2.41 | 0.67 | 0.14 | 0.15 | 0.07 | 0.02 | 8.64 | 1 | 0.02 |
+| Consumption (real) (%) | -0.05 | -1.59 | -3.43 | -5.59 | -5.62 | -2.68 | 0.89 | 0.48 | 0.22 | -6.22 | 18 | 0.22 |
+| Investment (real) (%) | 0.19 | 0.63 | 0.51 | -2.17 | -3.65 | 0.93 | 0.65 | -0.84 | -0.30 | -4.55 | 19 | -0.30 |
+| Private debt (pp of GDP) | -0.58 | -1.04 | -1.39 | -1.57 | -2.22 | -3.25 | -3.41 | -2.28 | -0.96 | -3.60 | 48 | -1.00 |
+| Broad money (%) | -0.10 | -0.04 | 0.29 | 1.43 | 4.01 | 5.75 | 7.95 | 12.0 | 14.4 | 14.4 | 240 | 14.4 |
+| Government deficit (to GDP) (pp of GDP) | -1.14 | 0.30 | 1.02 | 1.95 | 1.55 | 0.59 | 0.41 | 0.22 | 0.01 | 2.10 | 15 | 0.01 |
+| Government debt (pp of GDP) | -0.77 | -1.30 | -1.60 | -1.21 | -0.39 | -1.21 | -1.94 | -0.20 | 0.03 | -2.02 | 54 | 0.03 |
+| Bank equity (to GDP) (pp of GDP) | -0.07 | -0.13 | -0.18 | -0.22 | -0.30 | -0.44 | -0.47 | -0.30 | -0.13 | -0.50 | 49 | -0.13 |
+| Disposable income (real) (%) | 6.47 | -0.50 | -2.51 | -3.62 | -4.26 | -1.88 | 2.22 | 1.09 | 0.36 | 6.47 | 1 | 0.37 |
+| Firms’ cash profit (real) (%) | -36.4 | -34.1 | -32.4 | -30.2 | -16.6 | -4.30 | 2.04 | 1.33 | 0.62 | -36.4 | 1 | 0.63 |
+| Income-tax rate (charged) (pp) | 0 | -0.03 | -0.10 | -0.30 | -0.58 | -0.65 | -0.58 | -0.18 | 0.03 | -0.65 | 37 | 0.03 |
 
 Flags:
 
@@ -293,81 +291,85 @@ Flags:
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.01 | -2.22 | -4.33 | -6.42 | -5.64 | -1.99 | 0.70 | 0.30 | 0.16 | -6.90 | 16 | 0.16 |
-| Inflation (12 months) (pp) | 1.87 | 4.98 | 8.46 | 12.8 | 3.24 | 0.88 | 0.35 | 0.19 | 0.06 | 12.8 | 12 | 0.06 |
-| Price level (%) | 1.87 | 4.98 | 8.46 | 12.8 | 16.5 | 17.5 | 18.3 | 19.9 | 21.1 | 21.1 | 240 | 21.0 |
-| Unemployment rate (pp) | 0 | 0.48 | 1.44 | 2.74 | 2.88 | 1.22 | -0.31 | -0.15 | -0.08 | 3.21 | 18 | -0.08 |
-| Key interest rate (pp) | 0.16 | 0.74 | 1.56 | 3.03 | 0.64 | -0.84 | 0.57 | 0.58 | 0.23 | 3.11 | 13 | 0.22 |
-| Real wage (%) | 12.9 | 9.72 | 6.65 | 3.43 | 0.97 | 0.28 | 0.22 | 0.10 | 0.04 | 12.9 | 1 | 0.04 |
-| Consumption (real) (%) | -0.08 | -3.43 | -6.44 | -8.70 | -7.19 | -3.11 | 0.91 | 0.72 | 0.33 | -8.91 | 15 | 0.33 |
-| Investment (real) (%) | 0.29 | 0.88 | 0.54 | -3.08 | -4.78 | 0.92 | 0.49 | -1.27 | -0.44 | -6.09 | 19 | -0.44 |
-| Private debt (pp of GDP) | -0.87 | -1.18 | -1.57 | -2.10 | -3.50 | -4.86 | -4.84 | -3.28 | -1.39 | -5.15 | 46 | -1.45 |
-| Broad money (%) | -0.15 | 0.09 | 0.68 | 2.38 | 5.95 | 8.42 | 12.0 | 18.2 | 21.9 | 21.9 | 240 | 21.8 |
-| Government deficit (to GDP) (pp of GDP) | -1.70 | 1.09 | 1.78 | 2.73 | 1.98 | 0.88 | 0.69 | 0.31 | 0.02 | 2.85 | 14 | 0.02 |
-| Government debt (pp of GDP) | -1.15 | -1.41 | -1.59 | -1.32 | -0.96 | -2.14 | -2.60 | -0.25 | 0.03 | -2.80 | 50 | 0.04 |
-| Bank equity (to GDP) (pp of GDP) | -0.11 | -0.15 | -0.21 | -0.29 | -0.47 | -0.66 | -0.67 | -0.44 | -0.19 | -0.71 | 47 | -0.19 |
-| Disposable income (real) (%) | 9.65 | -4.34 | -5.52 | -5.40 | -4.66 | -1.66 | 2.66 | 1.58 | 0.54 | 9.65 | 1 | 0.54 |
-| Firms’ cash profit (real) (%) | -54.3 | -54.1 | -50.9 | -43.6 | -21.4 | -5.57 | 2.16 | 1.96 | 0.92 | -54.6 | 2 | 0.93 |
-| Income-tax rate (charged) (pp) | 0 | -0.04 | -0.15 | -0.43 | -0.82 | -0.93 | -0.85 | -0.25 | 0.05 | -0.93 | 40 | 0.05 |
+| Output (real GDP) (%) | -0.01 | -1.47 | -3.33 | -6.06 | -6.43 | -2.56 | 1.02 | 0.30 | 0.16 | -7.20 | 18 | 0.16 |
+| Inflation (12 months) (pp) | 1.87 | 4.98 | 8.47 | 12.9 | 3.33 | 0.79 | 0.30 | 0.18 | 0.06 | 12.9 | 12 | 0.06 |
+| Price level (%) | 1.87 | 4.98 | 8.47 | 12.9 | 16.6 | 17.5 | 18.2 | 19.9 | 21.0 | 21.0 | 240 | 21.0 |
+| Unemployment rate (pp) | 0 | 0.31 | 1.06 | 2.47 | 3.19 | 1.53 | -0.46 | -0.14 | -0.08 | 3.34 | 20 | -0.08 |
+| Key interest rate (pp) | 0.16 | 0.77 | 1.79 | 3.49 | 0.63 | -1.35 | 0.54 | 0.58 | 0.23 | 3.57 | 13 | 0.22 |
+| Real wage (%) | 12.9 | 9.72 | 6.68 | 3.50 | 0.97 | 0.19 | 0.21 | 0.10 | 0.04 | 12.9 | 1 | 0.04 |
+| Consumption (real) (%) | -0.08 | -2.35 | -5.03 | -8.12 | -8.17 | -4.02 | 1.25 | 0.72 | 0.33 | -9.02 | 18 | 0.33 |
+| Investment (real) (%) | 0.29 | 0.94 | 0.73 | -3.34 | -5.61 | 1.25 | 1.12 | -1.27 | -0.44 | -6.95 | 19 | -0.44 |
+| Private debt (pp of GDP) | -0.87 | -1.54 | -2.05 | -2.30 | -3.22 | -4.67 | -4.86 | -3.27 | -1.40 | -5.13 | 48 | -1.45 |
+| Broad money (%) | -0.15 | -0.05 | 0.43 | 2.16 | 6.06 | 8.69 | 12.0 | 18.1 | 21.8 | 21.8 | 240 | 21.7 |
+| Government deficit (to GDP) (pp of GDP) | -1.70 | 0.44 | 1.51 | 2.89 | 2.30 | 0.87 | 0.57 | 0.32 | 0.02 | 3.13 | 15 | 0.01 |
+| Government debt (pp of GDP) | -1.15 | -1.94 | -2.36 | -1.75 | -0.46 | -1.62 | -2.73 | -0.27 | 0.04 | -2.82 | 55 | 0.05 |
+| Bank equity (to GDP) (pp of GDP) | -0.11 | -0.19 | -0.26 | -0.31 | -0.43 | -0.63 | -0.68 | -0.44 | -0.19 | -0.71 | 49 | -0.19 |
+| Disposable income (real) (%) | 9.65 | -0.74 | -3.67 | -5.23 | -6.18 | -2.88 | 3.12 | 1.58 | 0.53 | 9.65 | 1 | 0.53 |
+| Firms’ cash profit (real) (%) | -54.3 | -50.4 | -47.3 | -43.8 | -24.1 | -6.72 | 3.04 | 1.97 | 0.92 | -54.3 | 1 | 0.93 |
+| Income-tax rate (charged) (pp) | 0 | -0.04 | -0.15 | -0.44 | -0.84 | -0.93 | -0.82 | -0.26 | 0.05 | -0.93 | 36 | 0.05 |
 
 Flags:
 
-- **Extreme**: Firms’ cash profit (real) -54.6 % at month 2.
-- **Unsettled**: Private debt: moved 0.11 in the last 12 months, -1.39 at month 240.
+- **Extreme**: Firms’ cash profit (real) -54.3 % at month 1.
+- **Unsettled**: Private debt: moved 0.11 in the last 12 months, -1.40 at month 240.
+- **Regimes**: ruleRate.
+
+Regimes that differ from the no-change run:
+
+- `ruleRate`: “Zero lower bound binds” instead of “–”, months 26; its label changed 2 time(s) in the run
 
 ## Bank lending appetite (`lendingAppetite`)
 
 *Setting, unit % of GDP/yr, default 0, range -2 to 2 in steps of 0.25.*
 
-Extra (or less) lending the bank is willing to give firms each year, which firms invest. The boost is biggest while credit is accelerating and fades as firms repay the extra debt, but output stays about 1% higher for good: the loans leave households with more deposits and more interest income, which they spend.
+Extra (or less) lending the bank is willing to give firms each year, which firms invest. The boost is biggest while credit is accelerating and fades as firms repay the extra debt. On Automatic output stays about 1% higher for good, because expectations are anchored; on Manual the boost reverses after about twelve years.
 
-**Definition.** Level shift in the bank’s willingness to lend, % of baseline GDP a year of extra new loans, persistent while set. Firms take up the extra credit as fast as they turn plans into spending and spend the net new credit (the extra lending minus repayments on the extra debt) on investment, so new loans and the spending they pay for move together. As the extra debt builds up toward the loan term’s worth of the extra lending, repayments absorb more and more of it: the credit impulse turns negative after about two years and the extra investment fades, leaving firms with more debt and higher interest costs. Output does not fall all the way back: at +2 it peaks about 2.1% higher after a year and a half and settles about 1.2% higher. The loans that paid for the extra investment stay in the economy as household deposits (about 10% of GDP more at +2), and the interest firms pay on the extra debt, through the bank, and on a key rate about 1.7 points higher reaches households as income, so they keep spending more; inflation stays about 0.5 points above target. Setting it back to 0 ends the extra lending; firms then repay the extra loans over the loan term, and investment falls below normal until they have (payback).
+**Definition.** Level shift in the bank’s willingness to lend, % of baseline GDP a year of extra new loans, persistent while set. Firms take up the extra credit as fast as they turn plans into spending and spend the net new credit (the extra lending minus repayments on the extra debt) on investment, so new loans and the spending they pay for move together. As the extra debt builds up toward the loan term’s worth of the extra lending, repayments absorb more and more of it: the credit impulse turns negative after about two years and the extra investment fades, leaving firms with more debt and higher interest costs. On Automatic output does not fall all the way back: at +2 it peaks about 2.1% higher after a year and a half and settles about 1.2% higher, with inflation about 0.5 points above target. The loans that paid for the extra investment stay in the economy as household deposits (about 10% of GDP more at +2), and the interest firms pay on the extra debt, through the bank, and on a key rate about 1.7 points higher reaches households as income, so they keep spending more. That lasting gain rests on expectations anchored to the target (decision 0008): the Taylor rule then tolerates a steady inflation gap, so it leaves some output above capacity; with expectations free to drift, output would fall back to capacity while inflation kept rising (lever-vetting open item 10). On Manual, with the key rate held and no rule to anchor prices, the boost is larger and then reverses after about twelve years: at +2 output is about 4.4% higher after three years but about 1.2% lower after twenty, with the price level about 11% higher; −2 mirrors it (about 1.7% higher after twenty years). Setting it back to 0 ends the extra lending; firms then repay the extra loans over the loan term, and investment falls below normal until they have (payback).
 
 Runs: -2 % of GDP/yr (min); -0.5 % of GDP/yr (down); 0.5 % of GDP/yr (up); 2 % of GDP/yr (max). Each is set before month 1 and held.
 
 Comparisons between runs:
 
-- **Mode sign**: -2 % of GDP/yr (min): Government deficit (to GDP) 0.30 on Manual, -0.08 on Automatic.
-- **Mode sign**: 2 % of GDP/yr (max): Government deficit (to GDP) -0.28 on Manual, 0.07 on Automatic.
+- **Mode sign**: -2 % of GDP/yr (min): Government deficit (to GDP) 0.31 on Manual, -0.05 on Automatic.
+- **Mode sign**: 2 % of GDP/yr (max): Government deficit (to GDP) -0.29 on Manual, 0.05 on Automatic.
 
 Expectations:
 
-- ✓ investment rises over months 1–24 (max, Automatic): 2, Automatic: 9.36. More credit supply finances more investment while net credit is flowing. (Bank of England (McLeay, Radia & Thomas 2014))
+- ✓ investment rises over months 1–24 (max, Automatic): 2, Automatic: 9.34. More credit supply finances more investment while net credit is flowing. (Bank of England (McLeay, Radia & Thomas 2014))
 - ✓ creditImpulse falls over months 24–48 (max, Automatic): 2, Automatic: -0.20. Credit impulse: once the extra lending is flowing, repayments on the extra debt slow net credit, so the impulse turns negative and the boost to demand fades. (Biggs, Mayer & Pick (2010))
-- ✓ output rises over months 229–240 (max, Automatic): 2, Automatic: 1.19. Intended: the boost fades from its peak (about 2.1% after a year and a half; a module test checks it falls by more than a third) but output stays about 1% higher for good. The extra loans stay in the economy as household deposits, and the interest on the extra debt and on a higher key rate reaches households as income, which they spend (the stock-flow view of credit: a lasting rise in lending leaves a lasting rise in money). (Godley & Lavoie (2007, ch. 7); Keen (2011))
-- ✓ broadMoney rises over months 1–60 (max, any): 2, Manual: 3.00; 2, Automatic: 4.27. Endogenous money: new bank loans create deposits. (McLeay, Radia & Thomas (2014) BoE Quarterly Bulletin)
-- ✓ broadMoney falls over months 1–60 (min, any): -2, Manual: -2.99; -2, Automatic: -4.26. Money destruction: less new lending while repayments continue shrinks deposits. (McLeay, Radia & Thomas (2014))
-- ✓ investment rises over months 1–24 (max, any): 2, Manual: 11.5; 2, Automatic: 9.36. Credit-supply expansion finances extra investment. (Gilchrist & Zakrajšek (2012) AER; Bernanke & Gertler (1995))
-- ✓ output rises over months 1–24 (max, any): 2, Manual: 2.37; 2, Automatic: 1.72. Credit impulse: accelerating credit adds to demand. (Biggs, Mayer & Pick (2010); Mian, Sufi & Verner (2017) QJE)
-- ✓ output falls over months 1–24 (min, any): -2, Manual: -2.38; -2, Automatic: -1.72. A negative credit impulse subtracts from demand. (Biggs, Mayer & Pick (2010); Gilchrist & Zakrajšek (2012))
-- ✓ privateDebt rises over months 12–60 (max, any): 2, Manual: 2.03; 2, Automatic: 2.83. More lending raises the stock of private debt relative to GDP. (Jordà, Schularick & Taylor (2013))
-- ✓ unemployment falls over months 3–24 (max, any): 2, Manual: -1.06; 2, Automatic: -0.79. Okun’s law following the credit-driven boom. (Okun (1962))
-- ✓ keyRate rises over months 6–36 (max, Automatic): 2, Automatic: 1.50. Taylor rule leans against the boom. (Taylor (1993))
+- ✓ broadMoney rises over months 1–60 (max, any): 2, Manual: 3.01; 2, Automatic: 4.27. Endogenous money: new bank loans create deposits. (McLeay, Radia & Thomas (2014) BoE Quarterly Bulletin)
+- ✓ broadMoney falls over months 1–60 (min, any): -2, Manual: -3.00; -2, Automatic: -4.26. Money destruction: less new lending while repayments continue shrinks deposits. (McLeay, Radia & Thomas (2014))
+- ✓ investment rises over months 1–24 (max, any): 2, Manual: 11.6; 2, Automatic: 9.34. Credit-supply expansion finances extra investment. (Gilchrist & Zakrajšek (2012) AER; Bernanke & Gertler (1995))
+- ✓ output rises over months 1–24 (max, any): 2, Manual: 2.39; 2, Automatic: 1.76. Credit impulse: accelerating credit adds to demand. (Biggs, Mayer & Pick (2010); Mian, Sufi & Verner (2017) QJE)
+- ✓ output falls over months 1–24 (min, any): -2, Manual: -2.40; -2, Automatic: -1.77. A negative credit impulse subtracts from demand. (Biggs, Mayer & Pick (2010); Gilchrist & Zakrajšek (2012))
+- ✓ privateDebt rises over months 12–60 (max, any): 2, Manual: 2.05; 2, Automatic: 2.83. More lending raises the stock of private debt relative to GDP. (Jordà, Schularick & Taylor (2013))
+- ✓ unemployment falls over months 3–24 (max, any): 2, Manual: -1.07; 2, Automatic: -0.81. Okun’s law following the credit-driven boom. (Okun (1962))
+- ✓ keyRate rises over months 6–36 (max, Automatic): 2, Automatic: 1.54. Taylor rule leans against the boom. (Taylor (1993))
 
 ### -2 % of GDP/yr (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.34 | -0.88 | -1.48 | -2.42 | -3.87 | -4.64 | -4.55 | -1.45 | 1.71 | -4.80 | 46 | 1.68 |
-| Inflation (12 months) (pp) | 0 | 0 | -0.01 | -0.09 | -0.49 | -0.94 | -1.53 | -1.09 | 0.55 | -1.62 | 74 | 0.52 |
-| Price level (%) | 0 | 0 | -0.01 | -0.09 | -0.58 | -1.52 | -4.30 | -10.9 | -11.2 | -12.8 | 176 | -11.4 |
-| Unemployment rate (pp) | 0.05 | 0.23 | 0.52 | 1.00 | 1.74 | 2.16 | 2.19 | 0.74 | -0.81 | 2.28 | 48 | -0.79 |
-| Real wage (%) | 0 | -0.01 | -0.04 | -0.14 | -0.41 | -0.66 | -0.94 | -0.58 | 0.34 | -0.95 | 69 | 0.32 |
-| Consumption (real) (%) | -0.01 | -0.02 | -0.12 | -0.72 | -2.39 | -3.42 | -3.49 | -0.41 | 2.26 | -3.70 | 48 | 2.26 |
-| Investment (real) (%) | -2.22 | -5.75 | -9.33 | -12.9 | -14.9 | -15.3 | -14.4 | -7.78 | 1.06 | -15.3 | 37 | 0.90 |
-| Private debt (pp of GDP) | 0.13 | 0.27 | 0.27 | -0.07 | -1.10 | -2.29 | -4.82 | -10.5 | -16.8 | -16.8 | 240 | -16.6 |
-| Broad money (%) | -0.03 | -0.17 | -0.49 | -1.27 | -2.69 | -3.72 | -5.15 | -7.37 | -8.45 | -8.60 | 208 | -8.50 |
-| Government deficit (to GDP) (pp of GDP) | 0.01 | 0.01 | 0.08 | 0.30 | 0.69 | 0.90 | 0.99 | 0.64 | 0.18 | 0.99 | 54 | 0.19 |
-| Government debt (pp of GDP) | 0.19 | 0.49 | 0.85 | 1.54 | 3.20 | 5.06 | 8.71 | 15.5 | 16.9 | 17.6 | 186 | 17.0 |
-| Bank equity (to GDP) (pp of GDP) | 0.02 | 0.05 | 0.08 | 0.11 | 0.08 | -0.03 | -0.33 | -1.10 | -1.99 | -1.99 | 240 | -1.97 |
-| Disposable income (real) (%) | -0.04 | -0.08 | -0.43 | -1.58 | -3.51 | -4.36 | -4.16 | -0.92 | 2.26 | -4.49 | 44 | 2.23 |
-| Firms’ cash profit (real) (%) | 0.21 | 0.97 | 1.99 | 2.22 | -0.12 | -1.19 | 0.58 | 7.60 | 10.4 | 10.7 | 203 | 10.4 |
+| Output (real GDP) (%) | -0.34 | -0.88 | -1.51 | -2.47 | -3.83 | -4.56 | -4.55 | -1.46 | 1.70 | -4.76 | 47 | 1.68 |
+| Inflation (12 months) (pp) | 0 | 0 | -0.01 | -0.10 | -0.50 | -0.94 | -1.52 | -1.10 | 0.55 | -1.61 | 75 | 0.52 |
+| Price level (%) | 0 | 0 | -0.01 | -0.10 | -0.59 | -1.53 | -4.27 | -10.9 | -11.2 | -12.8 | 176 | -11.4 |
+| Unemployment rate (pp) | 0.05 | 0.23 | 0.52 | 1.03 | 1.73 | 2.12 | 2.18 | 0.75 | -0.81 | 2.26 | 49 | -0.79 |
+| Real wage (%) | 0 | -0.01 | -0.04 | -0.15 | -0.41 | -0.66 | -0.93 | -0.58 | 0.33 | -0.95 | 70 | 0.32 |
+| Consumption (real) (%) | -0.01 | -0.03 | -0.16 | -0.78 | -2.33 | -3.33 | -3.50 | -0.42 | 2.26 | -3.66 | 49 | 2.26 |
+| Investment (real) (%) | -2.22 | -5.76 | -9.34 | -12.9 | -14.9 | -15.3 | -14.4 | -7.80 | 1.05 | -15.3 | 36 | 0.90 |
+| Private debt (pp of GDP) | 0.13 | 0.28 | 0.29 | -0.05 | -1.12 | -2.32 | -4.82 | -10.5 | -16.8 | -16.8 | 240 | -16.6 |
+| Broad money (%) | -0.03 | -0.17 | -0.48 | -1.25 | -2.68 | -3.74 | -5.17 | -7.38 | -8.45 | -8.60 | 208 | -8.49 |
+| Government deficit (to GDP) (pp of GDP) | 0.01 | 0.02 | 0.10 | 0.31 | 0.67 | 0.89 | 0.99 | 0.64 | 0.18 | 0.99 | 56 | 0.19 |
+| Government debt (pp of GDP) | 0.19 | 0.49 | 0.87 | 1.58 | 3.19 | 5.00 | 8.66 | 15.5 | 16.9 | 17.6 | 187 | 17.0 |
+| Bank equity (to GDP) (pp of GDP) | 0.02 | 0.05 | 0.08 | 0.11 | 0.08 | -0.03 | -0.34 | -1.10 | -1.99 | -1.99 | 240 | -1.97 |
+| Disposable income (real) (%) | -0.04 | -0.12 | -0.54 | -1.63 | -3.39 | -4.26 | -4.19 | -0.93 | 2.26 | -4.45 | 46 | 2.23 |
+| Firms’ cash profit (real) (%) | 0.21 | 0.94 | 1.85 | 2.05 | 0.10 | -0.96 | 0.50 | 7.58 | 10.4 | 10.6 | 203 | 10.4 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
 Flags:
 
-- **Unsettled**: Inflation (12 months): moved 0.07 in the last 12 months, 0.55 at month 240; Price level: moved 0.49 in the last 12 months, -11.2 at month 240; Real wage: moved 0.03 in the last 12 months, 0.34 at month 240; Investment (real): moved 0.36 in the last 12 months, 1.06 at month 240; and 1 more.
+- **Unsettled**: Inflation (12 months): moved 0.07 in the last 12 months, 0.55 at month 240; Price level: moved 0.49 in the last 12 months, -11.2 at month 240; Real wage: moved 0.03 in the last 12 months, 0.33 at month 240; Investment (real): moved 0.36 in the last 12 months, 1.05 at month 240; and 1 more.
 - **Regimes**: ruleRate.
 
 Regimes that differ from the no-change run:
@@ -378,188 +380,186 @@ Regimes that differ from the no-change run:
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.08 | -0.22 | -0.37 | -0.61 | -0.96 | -1.15 | -1.10 | -0.31 | 0.37 | -1.18 | 44 | 0.37 |
-| Inflation (12 months) (pp) | 0 | 0 | 0 | -0.02 | -0.12 | -0.24 | -0.38 | -0.25 | 0.12 | -0.39 | 72 | 0.11 |
-| Price level (%) | 0 | 0 | 0 | -0.02 | -0.15 | -0.38 | -1.08 | -2.74 | -2.80 | -3.20 | 175 | -2.86 |
-| Unemployment rate (pp) | 0.01 | 0.06 | 0.13 | 0.25 | 0.43 | 0.53 | 0.53 | 0.16 | -0.18 | 0.56 | 46 | -0.17 |
-| Real wage (%) | 0 | 0 | -0.01 | -0.04 | -0.10 | -0.17 | -0.23 | -0.13 | 0.07 | -0.23 | 67 | 0.07 |
-| Consumption (real) (%) | 0 | 0 | -0.03 | -0.18 | -0.59 | -0.84 | -0.84 | -0.07 | 0.50 | -0.90 | 46 | 0.50 |
-| Investment (real) (%) | -0.56 | -1.44 | -2.33 | -3.22 | -3.72 | -3.79 | -3.49 | -1.77 | 0.22 | -3.79 | 35 | 0.19 |
-| Private debt (pp of GDP) | 0.03 | 0.07 | 0.07 | -0.02 | -0.27 | -0.55 | -1.12 | -2.38 | -3.87 | -3.87 | 240 | -3.83 |
-| Broad money (%) | -0.01 | -0.04 | -0.12 | -0.32 | -0.67 | -0.93 | -1.29 | -1.87 | -2.14 | -2.18 | 208 | -2.16 |
-| Government deficit (to GDP) (pp of GDP) | 0 | 0 | 0.02 | 0.07 | 0.17 | 0.22 | 0.23 | 0.14 | 0.04 | 0.23 | 52 | 0.05 |
-| Government debt (pp of GDP) | 0.05 | 0.12 | 0.21 | 0.38 | 0.77 | 1.21 | 2.03 | 3.49 | 3.91 | 3.99 | 196 | 3.93 |
+| Output (real GDP) (%) | -0.08 | -0.22 | -0.38 | -0.62 | -0.95 | -1.13 | -1.10 | -0.32 | 0.37 | -1.16 | 45 | 0.37 |
+| Inflation (12 months) (pp) | 0 | 0 | 0 | -0.02 | -0.12 | -0.24 | -0.37 | -0.25 | 0.12 | -0.39 | 73 | 0.11 |
+| Price level (%) | 0 | 0 | 0 | -0.02 | -0.15 | -0.38 | -1.08 | -2.73 | -2.81 | -3.21 | 175 | -2.86 |
+| Unemployment rate (pp) | 0.01 | 0.06 | 0.13 | 0.26 | 0.43 | 0.53 | 0.53 | 0.16 | -0.18 | 0.55 | 47 | -0.17 |
+| Real wage (%) | 0 | 0 | -0.01 | -0.04 | -0.10 | -0.16 | -0.23 | -0.13 | 0.07 | -0.23 | 68 | 0.07 |
+| Consumption (real) (%) | 0 | -0.01 | -0.04 | -0.20 | -0.58 | -0.82 | -0.84 | -0.07 | 0.50 | -0.89 | 48 | 0.50 |
+| Investment (real) (%) | -0.56 | -1.44 | -2.34 | -3.23 | -3.72 | -3.77 | -3.48 | -1.78 | 0.22 | -3.78 | 34 | 0.19 |
+| Private debt (pp of GDP) | 0.03 | 0.07 | 0.07 | -0.01 | -0.27 | -0.55 | -1.13 | -2.38 | -3.87 | -3.87 | 240 | -3.83 |
+| Broad money (%) | -0.01 | -0.04 | -0.12 | -0.31 | -0.67 | -0.94 | -1.30 | -1.87 | -2.14 | -2.18 | 207 | -2.15 |
+| Government deficit (to GDP) (pp of GDP) | 0 | 0.01 | 0.02 | 0.08 | 0.16 | 0.21 | 0.23 | 0.14 | 0.04 | 0.23 | 53 | 0.05 |
+| Government debt (pp of GDP) | 0.05 | 0.12 | 0.22 | 0.39 | 0.77 | 1.19 | 2.02 | 3.49 | 3.91 | 3.99 | 197 | 3.93 |
 | Bank equity (to GDP) (pp of GDP) | 0 | 0.01 | 0.02 | 0.03 | 0.02 | -0.01 | -0.08 | -0.25 | -0.46 | -0.46 | 240 | -0.45 |
-| Disposable income (real) (%) | -0.01 | -0.02 | -0.11 | -0.39 | -0.87 | -1.08 | -1.00 | -0.19 | 0.50 | -1.10 | 43 | 0.50 |
-| Firms’ cash profit (real) (%) | 0.05 | 0.24 | 0.50 | 0.56 | -0.02 | -0.27 | 0.20 | 1.81 | 2.34 | 2.38 | 203 | 2.35 |
+| Disposable income (real) (%) | -0.01 | -0.03 | -0.13 | -0.41 | -0.84 | -1.05 | -1.01 | -0.19 | 0.50 | -1.09 | 45 | 0.49 |
+| Firms’ cash profit (real) (%) | 0.05 | 0.23 | 0.46 | 0.51 | 0.03 | -0.21 | 0.18 | 1.81 | 2.33 | 2.38 | 204 | 2.35 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
 Flags:
 
-- **Unsettled**: Price level: moved 0.12 in the last 12 months, -2.80 at month 240; Investment (real): moved 0.08 in the last 12 months, 0.22 at month 240; Private debt: moved -0.09 in the last 12 months, -3.87 at month 240.
+- **Unsettled**: Price level: moved 0.12 in the last 12 months, -2.81 at month 240; Investment (real): moved 0.08 in the last 12 months, 0.22 at month 240; Private debt: moved -0.09 in the last 12 months, -3.87 at month 240.
 
 ### 0.5 % of GDP/yr (up), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.08 | 0.22 | 0.37 | 0.61 | 0.96 | 1.14 | 1.07 | 0.29 | -0.35 | 1.16 | 43 | -0.34 |
-| Inflation (12 months) (pp) | 0 | 0 | 0 | 0.02 | 0.12 | 0.24 | 0.38 | 0.24 | -0.11 | 0.39 | 71 | -0.11 |
-| Price level (%) | 0 | 0 | 0 | 0.02 | 0.15 | 0.38 | 1.09 | 2.75 | 2.81 | 3.21 | 174 | 2.87 |
-| Unemployment rate (pp) | -0.01 | -0.06 | -0.13 | -0.25 | -0.43 | -0.53 | -0.52 | -0.15 | 0.16 | -0.55 | 45 | 0.16 |
-| Real wage (%) | 0 | 0 | 0.01 | 0.04 | 0.10 | 0.16 | 0.23 | 0.13 | -0.07 | 0.23 | 66 | -0.07 |
-| Consumption (real) (%) | 0 | 0 | 0.03 | 0.18 | 0.59 | 0.84 | 0.81 | 0.05 | -0.46 | 0.89 | 46 | -0.46 |
-| Investment (real) (%) | 0.56 | 1.44 | 2.33 | 3.22 | 3.71 | 3.76 | 3.42 | 1.67 | -0.20 | 3.77 | 33 | -0.17 |
-| Private debt (pp of GDP) | -0.03 | -0.07 | -0.07 | 0.02 | 0.26 | 0.53 | 1.08 | 2.25 | 3.68 | 3.68 | 240 | 3.64 |
-| Broad money (%) | 0.01 | 0.04 | 0.12 | 0.32 | 0.67 | 0.93 | 1.29 | 1.88 | 2.16 | 2.20 | 207 | 2.17 |
-| Government deficit (to GDP) (pp of GDP) | 0 | 0 | -0.02 | -0.07 | -0.16 | -0.21 | -0.22 | -0.13 | -0.04 | -0.22 | 50 | -0.04 |
-| Government debt (pp of GDP) | -0.05 | -0.12 | -0.21 | -0.37 | -0.76 | -1.17 | -1.95 | -3.28 | -3.72 | -3.76 | 205 | -3.73 |
+| Output (real GDP) (%) | 0.08 | 0.22 | 0.38 | 0.62 | 0.95 | 1.12 | 1.07 | 0.29 | -0.35 | 1.15 | 44 | -0.34 |
+| Inflation (12 months) (pp) | 0 | 0 | 0 | 0.02 | 0.12 | 0.24 | 0.37 | 0.24 | -0.11 | 0.39 | 72 | -0.11 |
+| Price level (%) | 0 | 0 | 0 | 0.02 | 0.15 | 0.38 | 1.08 | 2.75 | 2.82 | 3.21 | 175 | 2.87 |
+| Unemployment rate (pp) | -0.01 | -0.06 | -0.13 | -0.26 | -0.43 | -0.52 | -0.52 | -0.15 | 0.16 | -0.54 | 46 | 0.16 |
+| Real wage (%) | 0 | 0 | 0.01 | 0.04 | 0.10 | 0.16 | 0.22 | 0.13 | -0.07 | 0.23 | 66 | -0.06 |
+| Consumption (real) (%) | 0 | 0.01 | 0.04 | 0.20 | 0.58 | 0.81 | 0.81 | 0.05 | -0.46 | 0.88 | 47 | -0.46 |
+| Investment (real) (%) | 0.56 | 1.44 | 2.33 | 3.23 | 3.71 | 3.75 | 3.42 | 1.68 | -0.20 | 3.76 | 32 | -0.17 |
+| Private debt (pp of GDP) | -0.03 | -0.07 | -0.07 | 0.01 | 0.26 | 0.54 | 1.08 | 2.25 | 3.68 | 3.68 | 240 | 3.64 |
+| Broad money (%) | 0.01 | 0.04 | 0.12 | 0.31 | 0.67 | 0.94 | 1.30 | 1.88 | 2.16 | 2.20 | 207 | 2.17 |
+| Government deficit (to GDP) (pp of GDP) | 0 | -0.01 | -0.02 | -0.07 | -0.16 | -0.20 | -0.22 | -0.13 | -0.04 | -0.22 | 52 | -0.04 |
+| Government debt (pp of GDP) | -0.05 | -0.12 | -0.21 | -0.38 | -0.75 | -1.16 | -1.94 | -3.28 | -3.72 | -3.76 | 206 | -3.73 |
 | Bank equity (to GDP) (pp of GDP) | 0 | -0.01 | -0.02 | -0.03 | -0.02 | 0.01 | 0.07 | 0.23 | 0.44 | 0.44 | 240 | 0.43 |
-| Disposable income (real) (%) | 0.01 | 0.02 | 0.11 | 0.39 | 0.87 | 1.07 | 0.97 | 0.17 | -0.47 | 1.09 | 42 | -0.46 |
-| Firms’ cash profit (real) (%) | -0.05 | -0.24 | -0.50 | -0.56 | 0.01 | 0.25 | -0.24 | -1.75 | -2.19 | -2.22 | 204 | -2.20 |
+| Disposable income (real) (%) | 0.01 | 0.03 | 0.13 | 0.41 | 0.84 | 1.04 | 0.98 | 0.17 | -0.46 | 1.08 | 44 | -0.46 |
+| Firms’ cash profit (real) (%) | -0.05 | -0.23 | -0.46 | -0.51 | -0.04 | 0.20 | -0.22 | -1.75 | -2.19 | -2.22 | 204 | -2.20 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
 Flags:
 
-- **Unsettled**: Price level: moved -0.12 in the last 12 months, 2.81 at month 240; Private debt: moved 0.09 in the last 12 months, 3.68 at month 240.
+- **Unsettled**: Price level: moved -0.11 in the last 12 months, 2.82 at month 240; Private debt: moved 0.09 in the last 12 months, 3.68 at month 240.
 
 ### 2 % of GDP/yr (max), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.34 | 0.88 | 1.48 | 2.42 | 3.83 | 4.50 | 4.12 | 1.01 | -1.24 | 4.57 | 42 | -1.22 |
-| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.09 | 0.49 | 0.94 | 1.48 | 0.89 | -0.40 | 1.53 | 70 | -0.38 |
-| Price level (%) | 0 | 0 | 0.01 | 0.09 | 0.59 | 1.54 | 4.38 | 11.1 | 11.3 | 12.9 | 174 | 11.5 |
-| Unemployment rate (pp) | -0.05 | -0.23 | -0.52 | -1.00 | -1.72 | -2.10 | -2.00 | -0.52 | 0.59 | -2.15 | 44 | 0.58 |
-| Real wage (%) | 0 | 0.01 | 0.04 | 0.14 | 0.41 | 0.65 | 0.88 | 0.46 | -0.24 | 0.89 | 64 | -0.23 |
-| Consumption (real) (%) | 0.01 | 0.02 | 0.12 | 0.71 | 2.36 | 3.30 | 3.11 | 0.12 | -1.66 | 3.47 | 45 | -1.66 |
-| Investment (real) (%) | 2.22 | 5.75 | 9.33 | 12.9 | 14.8 | 14.9 | 13.3 | 6.16 | -0.69 | 15.0 | 32 | -0.57 |
-| Private debt (pp of GDP) | -0.13 | -0.27 | -0.26 | 0.07 | 1.01 | 2.02 | 4.05 | 8.26 | 13.7 | 13.7 | 240 | 13.5 |
-| Broad money (%) | 0.03 | 0.17 | 0.49 | 1.27 | 2.69 | 3.73 | 5.18 | 7.60 | 8.76 | 8.93 | 207 | 8.81 |
-| Government deficit (to GDP) (pp of GDP) | -0.01 | -0.01 | -0.08 | -0.28 | -0.63 | -0.80 | -0.82 | -0.47 | -0.17 | -0.84 | 48 | -0.17 |
-| Government debt (pp of GDP) | -0.19 | -0.48 | -0.83 | -1.46 | -2.93 | -4.48 | -7.32 | -12.0 | -13.9 | -13.9 | 225 | -13.9 |
+| Output (real GDP) (%) | 0.34 | 0.88 | 1.51 | 2.47 | 3.79 | 4.43 | 4.13 | 1.01 | -1.24 | 4.52 | 43 | -1.21 |
+| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.10 | 0.50 | 0.94 | 1.47 | 0.90 | -0.40 | 1.52 | 70 | -0.38 |
+| Price level (%) | 0 | 0 | 0.01 | 0.10 | 0.60 | 1.54 | 4.36 | 11.1 | 11.3 | 12.9 | 174 | 11.5 |
+| Unemployment rate (pp) | -0.05 | -0.23 | -0.52 | -1.02 | -1.71 | -2.06 | -2.00 | -0.52 | 0.58 | -2.13 | 45 | 0.57 |
+| Real wage (%) | 0 | 0.01 | 0.04 | 0.15 | 0.41 | 0.65 | 0.88 | 0.46 | -0.24 | 0.88 | 65 | -0.23 |
+| Consumption (real) (%) | 0.01 | 0.03 | 0.16 | 0.78 | 2.30 | 3.21 | 3.12 | 0.12 | -1.66 | 3.42 | 46 | -1.65 |
+| Investment (real) (%) | 2.22 | 5.75 | 9.34 | 12.9 | 14.8 | 14.8 | 13.3 | 6.18 | -0.68 | 14.9 | 31 | -0.56 |
+| Private debt (pp of GDP) | -0.13 | -0.27 | -0.28 | 0.04 | 1.02 | 2.06 | 4.05 | 8.26 | 13.7 | 13.7 | 240 | 13.5 |
+| Broad money (%) | 0.03 | 0.17 | 0.48 | 1.25 | 2.68 | 3.75 | 5.20 | 7.60 | 8.76 | 8.93 | 206 | 8.80 |
+| Government deficit (to GDP) (pp of GDP) | -0.01 | -0.02 | -0.10 | -0.29 | -0.61 | -0.78 | -0.82 | -0.47 | -0.17 | -0.84 | 50 | -0.17 |
+| Government debt (pp of GDP) | -0.19 | -0.49 | -0.85 | -1.50 | -2.92 | -4.43 | -7.29 | -12.0 | -13.9 | -13.9 | 226 | -13.9 |
 | Bank equity (to GDP) (pp of GDP) | -0.02 | -0.05 | -0.08 | -0.11 | -0.07 | 0.03 | 0.28 | 0.86 | 1.63 | 1.63 | 240 | 1.60 |
-| Disposable income (real) (%) | 0.04 | 0.08 | 0.43 | 1.58 | 3.47 | 4.21 | 3.75 | 0.57 | -1.68 | 4.27 | 41 | -1.66 |
-| Firms’ cash profit (real) (%) | -0.21 | -0.97 | -1.99 | -2.23 | 0.01 | 0.89 | -1.15 | -6.67 | -8.01 | -8.07 | 206 | -8.02 |
+| Disposable income (real) (%) | 0.04 | 0.12 | 0.54 | 1.63 | 3.35 | 4.13 | 3.78 | 0.58 | -1.68 | 4.22 | 43 | -1.65 |
+| Firms’ cash profit (real) (%) | -0.21 | -0.94 | -1.85 | -2.06 | -0.20 | 0.68 | -1.06 | -6.67 | -8.01 | -8.05 | 207 | -8.02 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
 Flags:
 
-- **Unsettled**: Inflation (12 months): moved -0.05 in the last 12 months, -0.40 at month 240; Price level: moved -0.45 in the last 12 months, 11.3 at month 240; Real wage: moved -0.02 in the last 12 months, -0.24 at month 240; Private debt: moved 0.39 in the last 12 months, 13.7 at month 240; and 1 more.
+- **Unsettled**: Inflation (12 months): moved -0.05 in the last 12 months, -0.40 at month 240; Price level: moved -0.44 in the last 12 months, 11.3 at month 240; Real wage: moved -0.02 in the last 12 months, -0.24 at month 240; Private debt: moved 0.39 in the last 12 months, 13.7 at month 240; and 1 more.
 - **Regimes**: unemployment.
 
 Regimes that differ from the no-change run:
 
-- `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 32–59; its label changed 2 time(s) in the run
+- `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 33–59; its label changed 2 time(s) in the run
 
 ### -2 % of GDP/yr (min), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.34 | -0.87 | -1.40 | -1.94 | -2.10 | -1.89 | -1.72 | -1.20 | -1.26 | -2.14 | 20 | -1.26 |
-| Inflation (12 months) (pp) | 0 | 0 | -0.01 | -0.09 | -0.39 | -0.57 | -0.65 | -0.54 | -0.50 | -0.66 | 68 | -0.50 |
-| Price level (%) | 0 | 0 | -0.01 | -0.09 | -0.47 | -1.04 | -2.31 | -5.24 | -9.88 | -9.88 | 240 | -9.67 |
-| Unemployment rate (pp) | 0.05 | 0.23 | 0.50 | 0.84 | 1.00 | 0.91 | 0.82 | 0.57 | 0.60 | 1.01 | 22 | 0.60 |
-| Key interest rate (pp) | 0 | -0.08 | -0.31 | -0.89 | -1.85 | -2.26 | -2.41 | -1.86 | -1.78 | -2.42 | 57 | -1.78 |
-| Real wage (%) | 0 | -0.01 | -0.04 | -0.13 | -0.29 | -0.36 | -0.39 | -0.31 | -0.29 | -0.39 | 62 | -0.29 |
-| Consumption (real) (%) | -0.01 | -0.01 | -0.07 | -0.38 | -1.04 | -1.36 | -1.79 | -1.67 | -2.35 | -2.35 | 240 | -2.33 |
-| Investment (real) (%) | -2.22 | -5.70 | -9.00 | -11.2 | -9.26 | -6.43 | -3.27 | -0.38 | 2.31 | -11.3 | 13 | 2.23 |
-| Private debt (pp of GDP) | 0.13 | 0.27 | 0.23 | -0.27 | -1.75 | -3.10 | -5.13 | -8.73 | -12.5 | -12.5 | 240 | -12.4 |
-| Broad money (%) | -0.03 | -0.17 | -0.51 | -1.40 | -3.33 | -5.18 | -8.49 | -14.8 | -22.5 | -22.5 | 240 | -22.3 |
-| Government deficit (to GDP) (pp of GDP) | 0.01 | -0.01 | -0.03 | -0.08 | -0.24 | -0.38 | -0.44 | -0.28 | -0.27 | -0.44 | 58 | -0.27 |
-| Government debt (pp of GDP) | 0.19 | 0.48 | 0.78 | 1.10 | 1.25 | 1.13 | 0.91 | 0.46 | 0.78 | 1.26 | 21 | 0.77 |
-| Bank equity (to GDP) (pp of GDP) | 0.02 | 0.05 | 0.08 | 0.08 | -0.02 | -0.18 | -0.45 | -0.94 | -1.44 | -1.44 | 240 | -1.43 |
-| Disposable income (real) (%) | -0.04 | -0.13 | -0.59 | -1.84 | -3.41 | -3.75 | -3.82 | -3.00 | -3.19 | -3.84 | 51 | -3.18 |
-| Firms’ cash profit (real) (%) | 0.21 | 1.16 | 2.81 | 4.88 | 5.92 | 5.73 | 4.42 | 2.91 | 0.79 | 6.04 | 29 | 0.83 |
-| Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0 | 0.01 | 0.02 | 0.01 | -0.04 | 0.02 | -0.05 | 133 | 0.02 |
+| Output (real GDP) (%) | -0.34 | -0.87 | -1.43 | -2.03 | -2.10 | -1.85 | -1.65 | -1.22 | -1.26 | -2.19 | 18 | -1.26 |
+| Inflation (12 months) (pp) | 0 | 0 | -0.01 | -0.09 | -0.40 | -0.58 | -0.64 | -0.53 | -0.50 | -0.64 | 64 | -0.50 |
+| Price level (%) | 0 | 0 | -0.01 | -0.09 | -0.49 | -1.06 | -2.31 | -5.16 | -9.79 | -9.79 | 240 | -9.58 |
+| Unemployment rate (pp) | 0.05 | 0.23 | 0.50 | 0.88 | 1.01 | 0.89 | 0.79 | 0.58 | 0.60 | 1.03 | 21 | 0.60 |
+| Key interest rate (pp) | 0 | -0.08 | -0.31 | -0.92 | -1.90 | -2.27 | -2.35 | -1.84 | -1.78 | -2.36 | 52 | -1.78 |
+| Real wage (%) | 0 | -0.01 | -0.04 | -0.13 | -0.30 | -0.36 | -0.38 | -0.30 | -0.29 | -0.38 | 59 | -0.29 |
+| Consumption (real) (%) | -0.01 | -0.02 | -0.12 | -0.50 | -1.06 | -1.31 | -1.67 | -1.67 | -2.35 | -2.35 | 240 | -2.33 |
+| Investment (real) (%) | -2.22 | -5.70 | -9.00 | -11.2 | -9.18 | -6.35 | -3.35 | -0.48 | 2.30 | -11.3 | 13 | 2.23 |
+| Private debt (pp of GDP) | 0.13 | 0.27 | 0.25 | -0.23 | -1.73 | -3.11 | -5.15 | -8.77 | -12.5 | -12.5 | 240 | -12.4 |
+| Broad money (%) | -0.03 | -0.17 | -0.50 | -1.38 | -3.32 | -5.19 | -8.52 | -14.8 | -22.5 | -22.5 | 240 | -22.2 |
+| Government deficit (to GDP) (pp of GDP) | 0.01 | 0 | -0.01 | -0.05 | -0.26 | -0.40 | -0.43 | -0.26 | -0.27 | -0.44 | 50 | -0.27 |
+| Government debt (pp of GDP) | 0.19 | 0.49 | 0.81 | 1.17 | 1.28 | 1.11 | 0.84 | 0.48 | 0.77 | 1.31 | 20 | 0.77 |
+| Bank equity (to GDP) (pp of GDP) | 0.02 | 0.05 | 0.08 | 0.09 | -0.02 | -0.18 | -0.46 | -0.94 | -1.44 | -1.44 | 240 | -1.43 |
+| Disposable income (real) (%) | -0.04 | -0.19 | -0.74 | -2.03 | -3.42 | -3.65 | -3.68 | -2.98 | -3.18 | -3.70 | 50 | -3.18 |
+| Firms’ cash profit (real) (%) | 0.21 | 1.12 | 2.64 | 4.60 | 6.00 | 5.88 | 4.57 | 2.87 | 0.80 | 6.17 | 28 | 0.84 |
+| Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0 | 0.01 | 0.02 | 0.01 | -0.05 | 0.02 | -0.05 | 129 | 0.02 |
 
 Flags:
 
-- **Unsettled**: Price level: moved -0.45 in the last 12 months, -9.88 at month 240; Broad money: moved -0.65 in the last 12 months, -22.5 at month 240; Bank equity (to GDP): moved -0.03 in the last 12 months, -1.44 at month 240.
+- **Unsettled**: Price level: moved -0.45 in the last 12 months, -9.79 at month 240; Broad money: moved -0.64 in the last 12 months, -22.5 at month 240; Bank equity (to GDP): moved -0.03 in the last 12 months, -1.44 at month 240.
 - **Regimes**: depositRate.
 
 Regimes that differ from the no-change run:
 
-- `depositRate`: “Deposit rate at its floor: bank margin squeezed” instead of “–”, months 28–108; its label changed 2 time(s) in the run
+- `depositRate`: “Deposit rate at its floor: bank margin squeezed” instead of “–”, months 27–103; its label changed 2 time(s) in the run
 
 ### -0.5 % of GDP/yr (down), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.08 | -0.22 | -0.35 | -0.49 | -0.52 | -0.43 | -0.34 | -0.31 | -0.31 | -0.53 | 20 | -0.31 |
-| Inflation (12 months) (pp) | 0 | 0 | 0 | -0.02 | -0.10 | -0.14 | -0.14 | -0.13 | -0.12 | -0.15 | 46 | -0.12 |
-| Price level (%) | 0 | 0 | 0 | -0.02 | -0.12 | -0.26 | -0.55 | -1.21 | -2.42 | -2.42 | 240 | -2.37 |
-| Unemployment rate (pp) | 0.01 | 0.06 | 0.12 | 0.21 | 0.25 | 0.21 | 0.16 | 0.15 | 0.15 | 0.25 | 22 | 0.15 |
-| Key interest rate (pp) | 0 | -0.02 | -0.08 | -0.22 | -0.46 | -0.55 | -0.51 | -0.46 | -0.44 | -0.56 | 40 | -0.44 |
-| Real wage (%) | 0 | 0 | -0.01 | -0.03 | -0.07 | -0.09 | -0.08 | -0.07 | -0.07 | -0.09 | 40 | -0.07 |
-| Consumption (real) (%) | 0 | 0 | -0.02 | -0.10 | -0.26 | -0.29 | -0.29 | -0.43 | -0.58 | -0.58 | 240 | -0.57 |
-| Investment (real) (%) | -0.56 | -1.43 | -2.25 | -2.80 | -2.30 | -1.58 | -0.90 | -0.11 | 0.58 | -2.81 | 13 | 0.56 |
-| Private debt (pp of GDP) | 0.03 | 0.07 | 0.06 | -0.07 | -0.43 | -0.78 | -1.30 | -2.12 | -2.84 | -2.84 | 240 | -2.82 |
-| Broad money (%) | -0.01 | -0.04 | -0.13 | -0.35 | -0.83 | -1.30 | -2.13 | -3.65 | -5.59 | -5.59 | 240 | -5.51 |
-| Government deficit (to GDP) (pp of GDP) | 0 | 0 | -0.01 | -0.02 | -0.06 | -0.10 | -0.10 | -0.07 | -0.07 | -0.11 | 46 | -0.07 |
-| Government debt (pp of GDP) | 0.05 | 0.12 | 0.19 | 0.27 | 0.31 | 0.25 | 0.16 | 0.13 | 0.17 | 0.31 | 21 | 0.17 |
+| Output (real GDP) (%) | -0.08 | -0.22 | -0.36 | -0.51 | -0.53 | -0.42 | -0.33 | -0.31 | -0.31 | -0.55 | 18 | -0.31 |
+| Inflation (12 months) (pp) | 0 | 0 | 0 | -0.02 | -0.10 | -0.14 | -0.14 | -0.13 | -0.12 | -0.15 | 44 | -0.12 |
+| Price level (%) | 0 | 0 | 0 | -0.02 | -0.12 | -0.27 | -0.56 | -1.21 | -2.42 | -2.42 | 240 | -2.36 |
+| Unemployment rate (pp) | 0.01 | 0.06 | 0.13 | 0.22 | 0.25 | 0.21 | 0.16 | 0.15 | 0.15 | 0.26 | 21 | 0.15 |
+| Key interest rate (pp) | 0 | -0.02 | -0.08 | -0.23 | -0.47 | -0.56 | -0.51 | -0.45 | -0.43 | -0.56 | 38 | -0.43 |
+| Real wage (%) | 0 | 0 | -0.01 | -0.03 | -0.07 | -0.09 | -0.08 | -0.07 | -0.07 | -0.09 | 38 | -0.07 |
+| Consumption (real) (%) | 0 | -0.01 | -0.03 | -0.13 | -0.27 | -0.27 | -0.28 | -0.43 | -0.58 | -0.58 | 240 | -0.57 |
+| Investment (real) (%) | -0.56 | -1.43 | -2.25 | -2.81 | -2.28 | -1.56 | -0.92 | -0.11 | 0.58 | -2.81 | 13 | 0.56 |
+| Private debt (pp of GDP) | 0.03 | 0.07 | 0.06 | -0.06 | -0.42 | -0.78 | -1.30 | -2.12 | -2.84 | -2.84 | 240 | -2.82 |
+| Broad money (%) | -0.01 | -0.04 | -0.12 | -0.34 | -0.83 | -1.30 | -2.13 | -3.65 | -5.58 | -5.58 | 240 | -5.51 |
+| Government deficit (to GDP) (pp of GDP) | 0 | 0 | 0 | -0.01 | -0.06 | -0.10 | -0.10 | -0.06 | -0.07 | -0.11 | 44 | -0.07 |
+| Government debt (pp of GDP) | 0.05 | 0.12 | 0.20 | 0.29 | 0.31 | 0.25 | 0.15 | 0.13 | 0.17 | 0.32 | 20 | 0.17 |
 | Bank equity (to GDP) (pp of GDP) | 0 | 0.01 | 0.02 | 0.02 | -0.01 | -0.05 | -0.12 | -0.23 | -0.33 | -0.33 | 240 | -0.33 |
-| Disposable income (real) (%) | -0.01 | -0.03 | -0.15 | -0.46 | -0.85 | -0.89 | -0.78 | -0.75 | -0.77 | -0.90 | 32 | -0.77 |
-| Firms’ cash profit (real) (%) | 0.05 | 0.29 | 0.70 | 1.22 | 1.51 | 1.60 | 1.38 | 0.84 | 0.38 | 1.60 | 37 | 0.39 |
-| Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | -0.01 | 0 | -0.01 | 123 | 0 |
+| Disposable income (real) (%) | -0.01 | -0.05 | -0.19 | -0.51 | -0.86 | -0.87 | -0.77 | -0.74 | -0.77 | -0.89 | 30 | -0.77 |
+| Firms’ cash profit (real) (%) | 0.05 | 0.28 | 0.66 | 1.15 | 1.53 | 1.64 | 1.39 | 0.84 | 0.38 | 1.64 | 36 | 0.39 |
+| Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0 | 0 | 0.01 | 0 | -0.01 | 0 | -0.01 | 120 | 0 |
 
 Flags:
 
-- **Unsettled**: Price level: moved -0.12 in the last 12 months, -2.42 at month 240; Broad money: moved -0.16 in the last 12 months, -5.59 at month 240.
+- **Unsettled**: Price level: moved -0.12 in the last 12 months, -2.42 at month 240; Broad money: moved -0.16 in the last 12 months, -5.58 at month 240.
 
 ### 0.5 % of GDP/yr (up), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.08 | 0.22 | 0.35 | 0.49 | 0.52 | 0.43 | 0.33 | 0.31 | 0.30 | 0.53 | 20 | 0.30 |
-| Inflation (12 months) (pp) | 0 | 0 | 0 | 0.02 | 0.10 | 0.14 | 0.14 | 0.13 | 0.12 | 0.15 | 46 | 0.12 |
-| Price level (%) | 0 | 0 | 0 | 0.02 | 0.12 | 0.26 | 0.56 | 1.22 | 2.46 | 2.46 | 240 | 2.41 |
-| Unemployment rate (pp) | -0.01 | -0.06 | -0.12 | -0.21 | -0.25 | -0.21 | -0.16 | -0.15 | -0.14 | -0.25 | 22 | -0.14 |
-| Key interest rate (pp) | 0 | 0.02 | 0.08 | 0.22 | 0.46 | 0.55 | 0.51 | 0.45 | 0.43 | 0.56 | 40 | 0.43 |
-| Real wage (%) | 0 | 0 | 0.01 | 0.03 | 0.07 | 0.09 | 0.08 | 0.07 | 0.07 | 0.09 | 40 | 0.07 |
-| Consumption (real) (%) | 0 | 0 | 0.02 | 0.10 | 0.26 | 0.29 | 0.30 | 0.43 | 0.57 | 0.57 | 240 | 0.57 |
-| Investment (real) (%) | 0.56 | 1.43 | 2.25 | 2.80 | 2.30 | 1.57 | 0.88 | 0.09 | -0.58 | 2.81 | 13 | -0.57 |
-| Private debt (pp of GDP) | -0.03 | -0.07 | -0.06 | 0.07 | 0.42 | 0.76 | 1.27 | 2.05 | 2.66 | 2.66 | 240 | 2.65 |
-| Broad money (%) | 0.01 | 0.04 | 0.13 | 0.35 | 0.83 | 1.30 | 2.13 | 3.66 | 5.62 | 5.62 | 240 | 5.55 |
-| Government deficit (to GDP) (pp of GDP) | 0 | 0 | 0.01 | 0.02 | 0.06 | 0.10 | 0.10 | 0.06 | 0.07 | 0.10 | 46 | 0.06 |
-| Government debt (pp of GDP) | -0.05 | -0.12 | -0.19 | -0.27 | -0.30 | -0.25 | -0.16 | -0.12 | -0.16 | -0.31 | 21 | -0.16 |
+| Output (real GDP) (%) | 0.08 | 0.22 | 0.36 | 0.51 | 0.52 | 0.42 | 0.33 | 0.31 | 0.30 | 0.55 | 18 | 0.30 |
+| Inflation (12 months) (pp) | 0 | 0 | 0 | 0.02 | 0.10 | 0.14 | 0.14 | 0.13 | 0.12 | 0.15 | 44 | 0.12 |
+| Price level (%) | 0 | 0 | 0 | 0.02 | 0.12 | 0.27 | 0.56 | 1.22 | 2.46 | 2.46 | 240 | 2.40 |
+| Unemployment rate (pp) | -0.01 | -0.06 | -0.13 | -0.22 | -0.25 | -0.21 | -0.16 | -0.15 | -0.14 | -0.26 | 21 | -0.14 |
+| Key interest rate (pp) | 0 | 0.02 | 0.08 | 0.23 | 0.47 | 0.55 | 0.50 | 0.45 | 0.43 | 0.56 | 38 | 0.43 |
+| Real wage (%) | 0 | 0 | 0.01 | 0.03 | 0.07 | 0.09 | 0.08 | 0.07 | 0.07 | 0.09 | 38 | 0.07 |
+| Consumption (real) (%) | 0 | 0.01 | 0.03 | 0.13 | 0.27 | 0.27 | 0.29 | 0.43 | 0.57 | 0.57 | 240 | 0.57 |
+| Investment (real) (%) | 0.56 | 1.43 | 2.25 | 2.80 | 2.28 | 1.55 | 0.90 | 0.09 | -0.58 | 2.81 | 13 | -0.57 |
+| Private debt (pp of GDP) | -0.03 | -0.07 | -0.06 | 0.06 | 0.42 | 0.77 | 1.27 | 2.05 | 2.66 | 2.66 | 240 | 2.65 |
+| Broad money (%) | 0.01 | 0.04 | 0.12 | 0.34 | 0.83 | 1.30 | 2.14 | 3.66 | 5.62 | 5.62 | 240 | 5.54 |
+| Government deficit (to GDP) (pp of GDP) | 0 | 0 | 0 | 0.01 | 0.06 | 0.10 | 0.10 | 0.06 | 0.07 | 0.11 | 44 | 0.06 |
+| Government debt (pp of GDP) | -0.05 | -0.12 | -0.20 | -0.29 | -0.31 | -0.25 | -0.15 | -0.12 | -0.16 | -0.32 | 20 | -0.16 |
 | Bank equity (to GDP) (pp of GDP) | 0 | -0.01 | -0.02 | -0.02 | 0.01 | 0.05 | 0.11 | 0.22 | 0.31 | 0.31 | 240 | 0.31 |
-| Disposable income (real) (%) | 0.01 | 0.03 | 0.15 | 0.46 | 0.85 | 0.89 | 0.78 | 0.74 | 0.76 | 0.90 | 32 | 0.76 |
-| Firms’ cash profit (real) (%) | -0.05 | -0.29 | -0.70 | -1.23 | -1.53 | -1.64 | -1.44 | -0.92 | -0.48 | -1.64 | 38 | -0.49 |
-| Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0.01 | 0 | 0.01 | 125 | 0 |
+| Disposable income (real) (%) | 0.01 | 0.05 | 0.19 | 0.51 | 0.85 | 0.87 | 0.76 | 0.74 | 0.76 | 0.89 | 30 | 0.76 |
+| Firms’ cash profit (real) (%) | -0.05 | -0.28 | -0.66 | -1.16 | -1.55 | -1.68 | -1.45 | -0.92 | -0.48 | -1.68 | 37 | -0.49 |
+| Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0 | 0 | -0.01 | 0 | 0.01 | 0 | 0.01 | 122 | 0 |
 
 Flags:
 
-- **Unsettled**: Broad money: moved 0.17 in the last 12 months, 5.62 at month 240.
-- **Explosive**: Price level: moved 0.12 in the last 12 months, 2.46 at month 240.
+- **Unsettled**: Price level: moved 0.12 in the last 12 months, 2.46 at month 240; Broad money: moved 0.17 in the last 12 months, 5.62 at month 240.
 
 ### 2 % of GDP/yr (max), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.34 | 0.87 | 1.40 | 1.94 | 2.08 | 1.72 | 1.33 | 1.23 | 1.19 | 2.13 | 20 | 1.19 |
-| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.09 | 0.39 | 0.57 | 0.57 | 0.51 | 0.47 | 0.60 | 46 | 0.47 |
-| Price level (%) | 0 | 0 | 0.01 | 0.09 | 0.48 | 1.04 | 2.23 | 4.96 | 10.1 | 10.1 | 240 | 9.88 |
-| Unemployment rate (pp) | -0.05 | -0.23 | -0.50 | -0.84 | -1.00 | -0.85 | -0.64 | -0.58 | -0.57 | -1.00 | 22 | -0.57 |
-| Key interest rate (pp) | 0 | 0.08 | 0.31 | 0.89 | 1.84 | 2.21 | 2.04 | 1.79 | 1.69 | 2.22 | 40 | 1.69 |
-| Real wage (%) | 0 | 0.01 | 0.04 | 0.13 | 0.29 | 0.35 | 0.33 | 0.29 | 0.28 | 0.35 | 40 | 0.28 |
-| Consumption (real) (%) | 0.01 | 0.01 | 0.07 | 0.38 | 1.04 | 1.15 | 1.19 | 1.73 | 2.25 | 2.25 | 240 | 2.24 |
-| Investment (real) (%) | 2.22 | 5.70 | 8.99 | 11.2 | 9.15 | 6.21 | 3.42 | 0.26 | -2.34 | 11.2 | 13 | -2.28 |
-| Private debt (pp of GDP) | -0.13 | -0.26 | -0.23 | 0.26 | 1.66 | 2.99 | 4.93 | 7.77 | 9.68 | 9.68 | 240 | 9.65 |
-| Broad money (%) | 0.03 | 0.17 | 0.51 | 1.40 | 3.33 | 5.19 | 8.53 | 14.7 | 22.7 | 22.7 | 240 | 22.4 |
-| Government deficit (to GDP) (pp of GDP) | -0.01 | 0.01 | 0.03 | 0.07 | 0.23 | 0.38 | 0.38 | 0.26 | 0.26 | 0.42 | 46 | 0.25 |
-| Government debt (pp of GDP) | -0.19 | -0.47 | -0.76 | -1.06 | -1.19 | -0.99 | -0.60 | -0.46 | -0.60 | -1.20 | 21 | -0.60 |
+| Output (real GDP) (%) | 0.34 | 0.87 | 1.43 | 2.03 | 2.09 | 1.67 | 1.31 | 1.22 | 1.19 | 2.18 | 18 | 1.19 |
+| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.09 | 0.40 | 0.57 | 0.56 | 0.51 | 0.47 | 0.60 | 44 | 0.47 |
+| Price level (%) | 0 | 0 | 0.01 | 0.09 | 0.49 | 1.07 | 2.24 | 4.95 | 10.1 | 10.1 | 240 | 9.86 |
+| Unemployment rate (pp) | -0.05 | -0.23 | -0.50 | -0.88 | -1.01 | -0.83 | -0.62 | -0.58 | -0.57 | -1.03 | 21 | -0.57 |
+| Key interest rate (pp) | 0 | 0.08 | 0.31 | 0.92 | 1.89 | 2.21 | 2.00 | 1.79 | 1.69 | 2.22 | 38 | 1.69 |
+| Real wage (%) | 0 | 0.01 | 0.04 | 0.13 | 0.30 | 0.35 | 0.32 | 0.29 | 0.27 | 0.35 | 38 | 0.27 |
+| Consumption (real) (%) | 0.01 | 0.02 | 0.12 | 0.50 | 1.07 | 1.10 | 1.15 | 1.73 | 2.25 | 2.25 | 240 | 2.24 |
+| Investment (real) (%) | 2.22 | 5.70 | 9.00 | 11.2 | 9.06 | 6.13 | 3.48 | 0.26 | -2.34 | 11.2 | 13 | -2.28 |
+| Private debt (pp of GDP) | -0.13 | -0.27 | -0.24 | 0.22 | 1.64 | 3.00 | 4.94 | 7.78 | 9.69 | 9.69 | 240 | 9.66 |
+| Broad money (%) | 0.03 | 0.17 | 0.50 | 1.38 | 3.31 | 5.19 | 8.55 | 14.7 | 22.7 | 22.7 | 240 | 22.4 |
+| Government deficit (to GDP) (pp of GDP) | -0.01 | 0 | 0.01 | 0.05 | 0.25 | 0.40 | 0.38 | 0.25 | 0.26 | 0.43 | 44 | 0.25 |
+| Government debt (pp of GDP) | -0.19 | -0.48 | -0.78 | -1.13 | -1.22 | -0.97 | -0.58 | -0.45 | -0.60 | -1.25 | 20 | -0.60 |
 | Bank equity (to GDP) (pp of GDP) | -0.02 | -0.05 | -0.08 | -0.08 | 0.02 | 0.18 | 0.44 | 0.84 | 1.12 | 1.12 | 240 | 1.11 |
-| Disposable income (real) (%) | 0.04 | 0.14 | 0.59 | 1.84 | 3.39 | 3.55 | 3.12 | 2.93 | 2.99 | 3.59 | 32 | 2.98 |
-| Firms’ cash profit (real) (%) | -0.21 | -1.16 | -2.81 | -4.92 | -6.25 | -6.82 | -6.11 | -4.13 | -2.38 | -6.85 | 39 | -2.43 |
-| Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0 | -0.01 | -0.02 | 0 | 0.05 | 0.01 | 0.05 | 128 | 0.01 |
+| Disposable income (real) (%) | 0.04 | 0.19 | 0.74 | 2.03 | 3.42 | 3.47 | 3.04 | 2.92 | 2.98 | 3.54 | 30 | 2.98 |
+| Firms’ cash profit (real) (%) | -0.21 | -1.12 | -2.64 | -4.64 | -6.34 | -6.98 | -6.12 | -4.14 | -2.38 | -6.99 | 38 | -2.43 |
+| Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0 | -0.01 | -0.02 | 0 | 0.05 | 0.01 | 0.05 | 125 | 0.01 |
 
 Flags:
 
-- **Unsettled**: Broad money: moved 0.69 in the last 12 months, 22.7 at month 240.
-- **Explosive**: Price level: moved 0.52 in the last 12 months, 10.1 at month 240.
+- **Unsettled**: Price level: moved 0.52 in the last 12 months, 10.1 at month 240; Broad money: moved 0.69 in the last 12 months, 22.7 at month 240.
 
 ## Key rate: your offset to the rule (`keyRateAddon`)
 
@@ -577,123 +577,121 @@ Expectations:
 
 - ✓ output falls over months 6–60 (max, Automatic): 3, Automatic: -1.74. A tighter policy rate lowers demand and output. (Christiano, Eichenbaum & Evans (1999))
 - ✓ inflation falls over months 12–240 (max, Automatic): 3, Automatic: -0.71. A lasting offset works partly like a lower inflation target: inflation settles lower. (Taylor (1993); Woodford (2003, ch. 4))
-- ✓ keyRate rises over months 1–12 (up, Automatic): 0.75, Automatic: 0.27. A positive offset raises the rule’s target, so the key rate rises in the short run. (Taylor (1993))
+- ✓ keyRate rises over months 1–12 (up, Automatic): 0.75, Automatic: 0.28. A positive offset raises the rule’s target, so the key rate rises in the short run. (Taylor (1993))
 - ✓ output falls over months 6–36 (up, Automatic): 0.75, Automatic: -0.42. Monetary transmission: higher real rates reduce investment and consumption, with lags. (Christiano, Eichenbaum & Evans (1999); Ramey (2016))
 - ✓ output rises over months 6–36 (down, Automatic): -0.5, Automatic: 0.28. Monetary easing: lower real rates raise interest-sensitive demand. (Christiano, Eichenbaum & Evans (1999))
 - ✓ inflation falls over months 12–60 (up, Automatic): 0.75, Automatic: -0.10. Tighter policy lowers inflation after a lag, through the output gap and the Phillips curve. (Havranek & Rusnak (2013) IJCB)
 - ✓ unemployment rises over months 6–36 (up, Automatic): 0.75, Automatic: 0.18. Okun’s law following the monetary contraction. (Okun (1962); Ramey (2016))
-- ✓ investment falls over months 6–36 (up, Automatic): 0.75, Automatic: -1.24. User cost of capital: a higher real loan rate lowers investment. (Jorgenson (1963); Chirinko (1993))
-- ✓ priceLevel falls over months 24–120 (max, Automatic): 3, Automatic: -2.68. Persistent tightening (a lower implied inflation target) lowers the path of the price level. (Taylor (1993); Woodford (2003))
+- ✓ investment falls over months 6–36 (up, Automatic): 0.75, Automatic: -1.25. User cost of capital: a higher real loan rate lowers investment. (Jorgenson (1963); Chirinko (1993))
+- ✓ priceLevel falls over months 24–120 (max, Automatic): 3, Automatic: -2.66. Persistent tightening (a lower implied inflation target) lowers the path of the price level. (Taylor (1993); Woodford (2003))
 
 ### -2 pp (min), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.02 | 0.11 | 0.33 | 0.83 | 1.36 | 1.33 | 1.19 | 1.37 | 1.39 | 1.39 | 28 | 1.38 |
-| Inflation (12 months) (pp) | 0 | 0 | 0 | 0.02 | 0.16 | 0.32 | 0.43 | 0.52 | 0.55 | 0.55 | 240 | 0.55 |
-| Price level (%) | 0 | 0 | 0 | 0.02 | 0.18 | 0.50 | 1.34 | 3.80 | 9.58 | 9.58 | 240 | 9.31 |
-| Unemployment rate (pp) | 0 | -0.02 | -0.10 | -0.32 | -0.62 | -0.64 | -0.57 | -0.65 | -0.66 | -0.66 | 163 | -0.66 |
-| Key interest rate (pp) | -0.17 | -0.45 | -0.77 | -1.04 | -0.83 | -0.53 | -0.39 | -0.12 | -0.04 | -1.05 | 14 | -0.04 |
-| Real wage (%) | 0 | 0 | 0 | 0.04 | 0.14 | 0.22 | 0.25 | 0.30 | 0.32 | 0.32 | 240 | 0.32 |
-| Consumption (real) (%) | 0.01 | 0.06 | 0.22 | 0.61 | 1.13 | 1.17 | 1.11 | 1.48 | 1.55 | 1.55 | 240 | 1.55 |
-| Investment (real) (%) | 0.08 | 0.43 | 1.19 | 2.75 | 3.94 | 3.50 | 2.88 | 2.39 | 2.17 | 3.94 | 24 | 2.17 |
-| Private debt (pp of GDP) | -0.01 | -0.05 | -0.14 | -0.33 | -0.45 | -0.39 | -0.41 | -0.83 | -1.41 | -1.41 | 240 | -1.39 |
-| Broad money (%) | 0 | -0.03 | -0.08 | -0.25 | -0.57 | -0.76 | -0.72 | 1.11 | 7.03 | 7.03 | 240 | 6.75 |
-| Government deficit (to GDP) (pp of GDP) | -0.05 | -0.16 | -0.30 | -0.45 | -0.43 | -0.26 | -0.01 | 0.29 | 0.29 | -0.48 | 17 | 0.29 |
-| Government debt (pp of GDP) | -0.01 | -0.08 | -0.27 | -0.75 | -1.59 | -2.09 | -2.69 | -3.18 | -2.94 | -3.19 | 113 | -2.94 |
-| Bank equity (to GDP) (pp of GDP) | 0 | -0.01 | -0.02 | -0.05 | -0.07 | -0.07 | -0.07 | -0.12 | -0.20 | -0.20 | 240 | -0.20 |
-| Disposable income (real) (%) | -0.16 | -0.25 | -0.29 | -0.06 | 0.64 | 0.98 | 1.22 | 2.03 | 2.17 | 2.17 | 240 | 2.17 |
-| Firms’ cash profit (real) (%) | 0.39 | 1.18 | 2.22 | 3.42 | 3.34 | 2.46 | 2.08 | 2.58 | 2.80 | 3.65 | 17 | 2.80 |
-| Income-tax rate (charged) (pp) | 0 | 0 | 0 | -0.01 | -0.07 | -0.18 | -0.41 | -0.71 | -0.68 | -0.73 | 145 | -0.68 |
+| Output (real GDP) (%) | 0.02 | 0.10 | 0.30 | 0.77 | 1.37 | 1.37 | 1.18 | 1.37 | 1.38 | 1.42 | 29 | 1.38 |
+| Inflation (12 months) (pp) | 0 | 0 | 0 | 0.02 | 0.15 | 0.32 | 0.43 | 0.52 | 0.55 | 0.55 | 240 | 0.55 |
+| Price level (%) | 0 | 0 | 0 | 0.02 | 0.17 | 0.49 | 1.33 | 3.79 | 9.56 | 9.56 | 240 | 9.29 |
+| Unemployment rate (pp) | 0 | -0.02 | -0.09 | -0.29 | -0.62 | -0.66 | -0.56 | -0.65 | -0.66 | -0.67 | 32 | -0.66 |
+| Key interest rate (pp) | -0.17 | -0.45 | -0.77 | -1.06 | -0.86 | -0.52 | -0.39 | -0.12 | -0.04 | -1.07 | 14 | -0.04 |
+| Real wage (%) | 0 | 0 | 0 | 0.03 | 0.14 | 0.22 | 0.25 | 0.30 | 0.32 | 0.32 | 240 | 0.32 |
+| Consumption (real) (%) | 0.01 | 0.05 | 0.17 | 0.53 | 1.12 | 1.23 | 1.10 | 1.48 | 1.54 | 1.54 | 240 | 1.54 |
+| Investment (real) (%) | 0.08 | 0.43 | 1.19 | 2.74 | 4.01 | 3.55 | 2.84 | 2.39 | 2.17 | 4.01 | 24 | 2.17 |
+| Private debt (pp of GDP) | -0.01 | -0.04 | -0.12 | -0.30 | -0.45 | -0.40 | -0.40 | -0.83 | -1.40 | -1.40 | 240 | -1.38 |
+| Broad money (%) | 0 | -0.02 | -0.08 | -0.23 | -0.56 | -0.77 | -0.72 | 1.11 | 7.01 | 7.01 | 240 | 6.73 |
+| Government deficit (to GDP) (pp of GDP) | -0.05 | -0.15 | -0.28 | -0.44 | -0.45 | -0.28 | 0 | 0.29 | 0.29 | -0.49 | 18 | 0.29 |
+| Government debt (pp of GDP) | -0.01 | -0.08 | -0.25 | -0.71 | -1.58 | -2.11 | -2.68 | -3.18 | -2.94 | -3.19 | 113 | -2.94 |
+| Bank equity (to GDP) (pp of GDP) | 0 | -0.01 | -0.02 | -0.04 | -0.07 | -0.07 | -0.07 | -0.12 | -0.20 | -0.20 | 240 | -0.19 |
+| Disposable income (real) (%) | -0.16 | -0.32 | -0.40 | -0.19 | 0.65 | 1.06 | 1.20 | 2.02 | 2.16 | 2.16 | 240 | 2.16 |
+| Firms’ cash profit (real) (%) | 0.39 | 1.13 | 2.08 | 3.23 | 3.43 | 2.59 | 2.02 | 2.57 | 2.80 | 3.58 | 19 | 2.79 |
+| Income-tax rate (charged) (pp) | 0 | 0 | 0 | -0.01 | -0.07 | -0.17 | -0.41 | -0.71 | -0.68 | -0.73 | 145 | -0.68 |
 
 Flags:
 
-- **Unsettled**: Private debt: moved -0.03 in the last 12 months, -1.41 at month 240.
-- **Explosive**: Price level: moved 0.60 in the last 12 months, 9.58 at month 240; Broad money: moved 0.61 in the last 12 months, 7.03 at month 240.
+- **Unsettled**: Price level: moved 0.60 in the last 12 months, 9.56 at month 240; Private debt: moved -0.03 in the last 12 months, -1.40 at month 240; Broad money: moved 0.61 in the last 12 months, 7.01 at month 240.
 
 ### -0.5 pp (down), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | 0.03 | 0.08 | 0.21 | 0.34 | 0.33 | 0.30 | 0.34 | 0.35 | 0.35 | 240 | 0.35 |
+| Output (real GDP) (%) | 0 | 0.02 | 0.07 | 0.19 | 0.34 | 0.34 | 0.29 | 0.34 | 0.35 | 0.35 | 29 | 0.35 |
 | Inflation (12 months) (pp) | 0 | 0 | 0 | 0 | 0.04 | 0.08 | 0.11 | 0.13 | 0.14 | 0.14 | 240 | 0.14 |
-| Price level (%) | 0 | 0 | 0 | 0 | 0.04 | 0.12 | 0.33 | 0.94 | 2.33 | 2.33 | 240 | 2.26 |
-| Unemployment rate (pp) | 0 | -0.01 | -0.02 | -0.08 | -0.16 | -0.16 | -0.14 | -0.16 | -0.17 | -0.17 | 240 | -0.17 |
-| Key interest rate (pp) | -0.04 | -0.11 | -0.19 | -0.26 | -0.21 | -0.13 | -0.10 | -0.03 | 0 | -0.26 | 14 | 0 |
-| Real wage (%) | 0 | 0 | 0 | 0.01 | 0.04 | 0.05 | 0.06 | 0.08 | 0.08 | 0.08 | 240 | 0.08 |
-| Consumption (real) (%) | 0 | 0.02 | 0.05 | 0.15 | 0.28 | 0.29 | 0.28 | 0.37 | 0.40 | 0.40 | 240 | 0.40 |
-| Investment (real) (%) | 0.02 | 0.11 | 0.30 | 0.69 | 0.99 | 0.88 | 0.72 | 0.59 | 0.53 | 0.99 | 24 | 0.53 |
-| Private debt (pp of GDP) | 0 | -0.01 | -0.04 | -0.08 | -0.11 | -0.10 | -0.10 | -0.21 | -0.37 | -0.37 | 240 | -0.36 |
-| Broad money (%) | 0 | -0.01 | -0.02 | -0.06 | -0.14 | -0.19 | -0.18 | 0.26 | 1.71 | 1.71 | 240 | 1.64 |
-| Government deficit (to GDP) (pp of GDP) | -0.01 | -0.04 | -0.08 | -0.11 | -0.11 | -0.07 | 0 | 0.07 | 0.08 | -0.12 | 17 | 0.08 |
-| Government debt (pp of GDP) | 0 | -0.02 | -0.07 | -0.19 | -0.40 | -0.53 | -0.69 | -0.82 | -0.76 | -0.82 | 116 | -0.76 |
+| Price level (%) | 0 | 0 | 0 | 0 | 0.04 | 0.12 | 0.33 | 0.93 | 2.32 | 2.32 | 240 | 2.26 |
+| Unemployment rate (pp) | 0 | -0.01 | -0.02 | -0.07 | -0.15 | -0.16 | -0.14 | -0.16 | -0.17 | -0.17 | 32 | -0.17 |
+| Key interest rate (pp) | -0.04 | -0.11 | -0.19 | -0.26 | -0.22 | -0.13 | -0.10 | -0.03 | -0.01 | -0.27 | 14 | -0.01 |
+| Real wage (%) | 0 | 0 | 0 | 0.01 | 0.03 | 0.05 | 0.06 | 0.08 | 0.08 | 0.08 | 240 | 0.08 |
+| Consumption (real) (%) | 0 | 0.01 | 0.04 | 0.13 | 0.28 | 0.31 | 0.27 | 0.37 | 0.40 | 0.40 | 240 | 0.39 |
+| Investment (real) (%) | 0.02 | 0.11 | 0.30 | 0.69 | 1.00 | 0.89 | 0.71 | 0.60 | 0.53 | 1.00 | 24 | 0.53 |
+| Private debt (pp of GDP) | 0 | -0.01 | -0.03 | -0.08 | -0.11 | -0.10 | -0.10 | -0.21 | -0.36 | -0.36 | 240 | -0.36 |
+| Broad money (%) | 0 | -0.01 | -0.02 | -0.06 | -0.14 | -0.19 | -0.19 | 0.26 | 1.71 | 1.71 | 240 | 1.64 |
+| Government deficit (to GDP) (pp of GDP) | -0.01 | -0.04 | -0.07 | -0.11 | -0.12 | -0.07 | 0 | 0.07 | 0.08 | -0.12 | 18 | 0.08 |
+| Government debt (pp of GDP) | 0 | -0.02 | -0.06 | -0.18 | -0.40 | -0.54 | -0.68 | -0.82 | -0.76 | -0.82 | 115 | -0.76 |
 | Bank equity (to GDP) (pp of GDP) | 0 | 0 | 0 | -0.01 | -0.02 | -0.02 | -0.02 | -0.03 | -0.05 | -0.05 | 240 | -0.05 |
-| Disposable income (real) (%) | -0.04 | -0.06 | -0.07 | -0.02 | 0.16 | 0.24 | 0.30 | 0.51 | 0.56 | 0.56 | 240 | 0.56 |
-| Firms’ cash profit (real) (%) | 0.10 | 0.30 | 0.56 | 0.85 | 0.83 | 0.61 | 0.52 | 0.65 | 0.72 | 0.91 | 17 | 0.72 |
+| Disposable income (real) (%) | -0.04 | -0.08 | -0.10 | -0.05 | 0.16 | 0.26 | 0.30 | 0.51 | 0.56 | 0.56 | 240 | 0.56 |
+| Firms’ cash profit (real) (%) | 0.10 | 0.28 | 0.52 | 0.81 | 0.86 | 0.65 | 0.51 | 0.65 | 0.72 | 0.90 | 19 | 0.71 |
 | Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0 | -0.02 | -0.04 | -0.10 | -0.18 | -0.18 | -0.19 | 148 | -0.18 |
 
 Flags:
 
-- **Explosive**: Price level: moved 0.14 in the last 12 months, 2.33 at month 240; Broad money: moved 0.15 in the last 12 months, 1.71 at month 240.
+- **Unsettled**: Price level: moved 0.14 in the last 12 months, 2.32 at month 240; Broad money: moved 0.15 in the last 12 months, 1.71 at month 240.
 
 ### 0.75 pp (up), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.01 | -0.04 | -0.12 | -0.31 | -0.51 | -0.50 | -0.45 | -0.52 | -0.53 | -0.53 | 240 | -0.53 |
+| Output (real GDP) (%) | -0.01 | -0.04 | -0.11 | -0.29 | -0.51 | -0.51 | -0.44 | -0.52 | -0.53 | -0.53 | 240 | -0.53 |
 | Inflation (12 months) (pp) | 0 | 0 | 0 | -0.01 | -0.06 | -0.12 | -0.16 | -0.19 | -0.21 | -0.21 | 240 | -0.21 |
-| Price level (%) | 0 | 0 | 0 | -0.01 | -0.07 | -0.19 | -0.49 | -1.39 | -3.40 | -3.40 | 240 | -3.31 |
-| Unemployment rate (pp) | 0 | 0.01 | 0.04 | 0.12 | 0.23 | 0.24 | 0.21 | 0.25 | 0.25 | 0.25 | 240 | 0.25 |
-| Key interest rate (pp) | 0.06 | 0.17 | 0.29 | 0.39 | 0.31 | 0.20 | 0.15 | 0.04 | 0 | 0.39 | 14 | 0 |
-| Real wage (%) | 0 | 0 | 0 | -0.01 | -0.05 | -0.08 | -0.09 | -0.11 | -0.12 | -0.12 | 240 | -0.12 |
-| Consumption (real) (%) | 0 | -0.02 | -0.08 | -0.23 | -0.42 | -0.44 | -0.41 | -0.56 | -0.61 | -0.61 | 240 | -0.60 |
-| Investment (real) (%) | -0.03 | -0.16 | -0.45 | -1.03 | -1.48 | -1.32 | -1.09 | -0.89 | -0.78 | -1.48 | 24 | -0.78 |
-| Private debt (pp of GDP) | 0 | 0.02 | 0.05 | 0.12 | 0.17 | 0.15 | 0.15 | 0.32 | 0.57 | 0.57 | 240 | 0.56 |
-| Broad money (%) | 0 | 0.01 | 0.03 | 0.09 | 0.22 | 0.29 | 0.28 | -0.38 | -2.51 | -2.51 | 240 | -2.41 |
-| Government deficit (to GDP) (pp of GDP) | 0.02 | 0.06 | 0.11 | 0.17 | 0.17 | 0.10 | 0.01 | -0.12 | -0.12 | 0.19 | 17 | -0.12 |
-| Government debt (pp of GDP) | 0 | 0.03 | 0.10 | 0.29 | 0.61 | 0.80 | 1.05 | 1.27 | 1.18 | 1.27 | 118 | 1.18 |
+| Price level (%) | 0 | 0 | 0 | -0.01 | -0.06 | -0.18 | -0.49 | -1.39 | -3.40 | -3.40 | 240 | -3.30 |
+| Unemployment rate (pp) | 0 | 0.01 | 0.03 | 0.11 | 0.23 | 0.25 | 0.21 | 0.25 | 0.25 | 0.25 | 240 | 0.25 |
+| Key interest rate (pp) | 0.06 | 0.17 | 0.29 | 0.40 | 0.32 | 0.20 | 0.15 | 0.04 | 0 | 0.40 | 14 | 0 |
+| Real wage (%) | 0 | 0 | 0 | -0.01 | -0.05 | -0.08 | -0.10 | -0.11 | -0.12 | -0.12 | 240 | -0.12 |
+| Consumption (real) (%) | 0 | -0.02 | -0.06 | -0.20 | -0.42 | -0.46 | -0.41 | -0.56 | -0.60 | -0.60 | 240 | -0.60 |
+| Investment (real) (%) | -0.03 | -0.16 | -0.45 | -1.03 | -1.50 | -1.33 | -1.07 | -0.89 | -0.79 | -1.50 | 24 | -0.79 |
+| Private debt (pp of GDP) | 0 | 0.02 | 0.05 | 0.11 | 0.17 | 0.15 | 0.15 | 0.32 | 0.57 | 0.57 | 240 | 0.56 |
+| Broad money (%) | 0 | 0.01 | 0.03 | 0.09 | 0.21 | 0.30 | 0.29 | -0.38 | -2.50 | -2.50 | 240 | -2.40 |
+| Government deficit (to GDP) (pp of GDP) | 0.02 | 0.06 | 0.11 | 0.17 | 0.18 | 0.11 | 0 | -0.11 | -0.12 | 0.19 | 18 | -0.12 |
+| Government debt (pp of GDP) | 0 | 0.03 | 0.09 | 0.27 | 0.61 | 0.81 | 1.04 | 1.27 | 1.18 | 1.27 | 117 | 1.18 |
 | Bank equity (to GDP) (pp of GDP) | 0 | 0 | 0.01 | 0.02 | 0.03 | 0.03 | 0.03 | 0.05 | 0.08 | 0.08 | 240 | 0.08 |
-| Disposable income (real) (%) | 0.06 | 0.10 | 0.11 | 0.03 | -0.23 | -0.36 | -0.45 | -0.77 | -0.85 | -0.85 | 240 | -0.85 |
-| Firms’ cash profit (real) (%) | -0.15 | -0.44 | -0.83 | -1.28 | -1.25 | -0.92 | -0.78 | -0.99 | -1.10 | -1.36 | 17 | -1.09 |
+| Disposable income (real) (%) | 0.06 | 0.12 | 0.15 | 0.07 | -0.24 | -0.39 | -0.44 | -0.77 | -0.85 | -0.85 | 240 | -0.85 |
+| Firms’ cash profit (real) (%) | -0.15 | -0.43 | -0.78 | -1.21 | -1.28 | -0.97 | -0.76 | -0.98 | -1.10 | -1.34 | 19 | -1.09 |
 | Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0 | 0.03 | 0.07 | 0.16 | 0.28 | 0.27 | 0.29 | 149 | 0.27 |
 
 Flags:
 
-- **Explosive**: Price level: moved -0.20 in the last 12 months, -3.40 at month 240; Broad money: moved -0.22 in the last 12 months, -2.51 at month 240.
+- **Unsettled**: Price level: moved -0.20 in the last 12 months, -3.40 at month 240; Broad money: moved -0.22 in the last 12 months, -2.50 at month 240.
 
 ### 3 pp (max), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.02 | -0.16 | -0.49 | -1.24 | -2.03 | -1.97 | -1.78 | -2.09 | -2.16 | -2.16 | 240 | -2.16 |
-| Inflation (12 months) (pp) | 0 | 0 | 0 | -0.03 | -0.24 | -0.48 | -0.63 | -0.78 | -0.85 | -0.85 | 240 | -0.85 |
-| Price level (%) | 0 | 0 | 0 | -0.03 | -0.26 | -0.74 | -1.96 | -5.44 | -13.0 | -13.0 | 240 | -12.7 |
-| Unemployment rate (pp) | 0 | 0.04 | 0.15 | 0.48 | 0.93 | 0.95 | 0.85 | 0.99 | 1.03 | 1.03 | 240 | 1.03 |
-| Key interest rate (pp) | 0.25 | 0.68 | 1.15 | 1.55 | 1.25 | 0.81 | 0.61 | 0.16 | -0.05 | 1.57 | 14 | -0.04 |
-| Real wage (%) | 0 | 0 | -0.01 | -0.05 | -0.21 | -0.32 | -0.38 | -0.46 | -0.50 | -0.50 | 240 | -0.50 |
-| Consumption (real) (%) | -0.01 | -0.09 | -0.33 | -0.92 | -1.67 | -1.73 | -1.65 | -2.28 | -2.50 | -2.50 | 240 | -2.49 |
-| Investment (real) (%) | -0.12 | -0.64 | -1.79 | -4.12 | -5.92 | -5.27 | -4.36 | -3.54 | -3.05 | -5.92 | 24 | -3.05 |
-| Private debt (pp of GDP) | 0.01 | 0.07 | 0.21 | 0.50 | 0.69 | 0.60 | 0.61 | 1.31 | 2.42 | 2.42 | 240 | 2.39 |
-| Broad money (%) | 0.01 | 0.04 | 0.13 | 0.37 | 0.87 | 1.19 | 1.17 | -1.40 | -9.62 | -9.62 | 240 | -9.25 |
-| Government deficit (to GDP) (pp of GDP) | 0.07 | 0.24 | 0.45 | 0.70 | 0.69 | 0.43 | 0.04 | -0.48 | -0.53 | 0.76 | 17 | -0.53 |
-| Government debt (pp of GDP) | 0.02 | 0.13 | 0.41 | 1.16 | 2.48 | 3.28 | 4.31 | 5.34 | 4.98 | 5.34 | 122 | 4.99 |
-| Bank equity (to GDP) (pp of GDP) | 0 | 0.01 | 0.03 | 0.07 | 0.11 | 0.11 | 0.11 | 0.19 | 0.34 | 0.34 | 240 | 0.33 |
-| Disposable income (real) (%) | 0.23 | 0.38 | 0.43 | 0.11 | -0.91 | -1.41 | -1.79 | -3.15 | -3.55 | -3.55 | 240 | -3.54 |
-| Firms’ cash profit (real) (%) | -0.58 | -1.77 | -3.34 | -5.12 | -4.97 | -3.67 | -3.13 | -4.01 | -4.53 | -5.45 | 17 | -4.51 |
-| Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0.02 | 0.11 | 0.27 | 0.63 | 1.16 | 1.13 | 1.20 | 153 | 1.14 |
+| Output (real GDP) (%) | -0.02 | -0.14 | -0.44 | -1.16 | -2.04 | -2.04 | -1.76 | -2.09 | -2.16 | -2.16 | 240 | -2.16 |
+| Inflation (12 months) (pp) | 0 | 0 | 0 | -0.03 | -0.22 | -0.47 | -0.64 | -0.78 | -0.85 | -0.85 | 240 | -0.85 |
+| Price level (%) | 0 | 0 | 0 | -0.03 | -0.25 | -0.72 | -1.95 | -5.43 | -13.0 | -13.0 | 240 | -12.6 |
+| Unemployment rate (pp) | 0 | 0.03 | 0.13 | 0.44 | 0.92 | 0.98 | 0.84 | 0.99 | 1.03 | 1.03 | 240 | 1.03 |
+| Key interest rate (pp) | 0.25 | 0.68 | 1.16 | 1.59 | 1.30 | 0.80 | 0.59 | 0.16 | -0.04 | 1.61 | 14 | -0.04 |
+| Real wage (%) | 0 | 0 | -0.01 | -0.05 | -0.20 | -0.32 | -0.38 | -0.46 | -0.50 | -0.50 | 240 | -0.50 |
+| Consumption (real) (%) | -0.01 | -0.07 | -0.26 | -0.79 | -1.66 | -1.81 | -1.63 | -2.27 | -2.49 | -2.49 | 240 | -2.48 |
+| Investment (real) (%) | -0.12 | -0.64 | -1.78 | -4.11 | -6.01 | -5.34 | -4.29 | -3.55 | -3.05 | -6.01 | 25 | -3.06 |
+| Private debt (pp of GDP) | 0.01 | 0.06 | 0.19 | 0.45 | 0.69 | 0.61 | 0.59 | 1.30 | 2.41 | 2.41 | 240 | 2.38 |
+| Broad money (%) | 0.01 | 0.04 | 0.12 | 0.35 | 0.86 | 1.20 | 1.19 | -1.39 | -9.60 | -9.60 | 240 | -9.23 |
+| Government deficit (to GDP) (pp of GDP) | 0.07 | 0.23 | 0.42 | 0.68 | 0.72 | 0.46 | 0.03 | -0.48 | -0.52 | 0.77 | 18 | -0.53 |
+| Government debt (pp of GDP) | 0.02 | 0.12 | 0.37 | 1.08 | 2.47 | 3.33 | 4.30 | 5.34 | 4.98 | 5.34 | 122 | 4.99 |
+| Bank equity (to GDP) (pp of GDP) | 0 | 0.01 | 0.03 | 0.07 | 0.11 | 0.11 | 0.10 | 0.19 | 0.34 | 0.34 | 240 | 0.33 |
+| Disposable income (real) (%) | 0.23 | 0.47 | 0.61 | 0.30 | -0.93 | -1.53 | -1.76 | -3.14 | -3.54 | -3.54 | 240 | -3.53 |
+| Firms’ cash profit (real) (%) | -0.58 | -1.70 | -3.12 | -4.85 | -5.12 | -3.87 | -3.04 | -4.00 | -4.53 | -5.37 | 18 | -4.51 |
+| Income-tax rate (charged) (pp) | 0 | 0 | 0 | 0.02 | 0.10 | 0.26 | 0.64 | 1.16 | 1.13 | 1.20 | 153 | 1.14 |
 
 Flags:
 
-- **Unsettled**: Private debt: moved 0.08 in the last 12 months, 2.42 at month 240.
-- **Explosive**: Price level: moved -0.74 in the last 12 months, -13.0 at month 240; Broad money: moved -0.82 in the last 12 months, -9.62 at month 240.
+- **Unsettled**: Price level: moved -0.74 in the last 12 months, -13.0 at month 240; Private debt: moved 0.08 in the last 12 months, 2.41 at month 240; Broad money: moved -0.82 in the last 12 months, -9.60 at month 240.
 
 ## Key interest rate (`keyRateFixed`)
 
 *Setting, unit %, default 3, range 0 to 10 in steps of 0.25.*
 
-The key interest rate, held where you set it (stabilisers on Manual). Held for years, a rate below neutral feeds inflation that the rule would have stopped.
+The key interest rate, held where you set it (stabilisers on Manual). A rise cools the economy for several years; held for longer, its effect reverses, because the interest it pays out is spent.
 
-**Definition.** Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual); the Taylor rule only suggests. The default, 3%, is the neutral rate. A rate held away from what the rule suggests is not corrected by anything else: rising inflation lowers the real interest rate and feeds more spending (Wicksell’s cumulative process), so effects beyond two or three years show an economy without its nominal anchor. It has no effect on Automatic.
+**Definition.** Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual); the Taylor rule only suggests. The default, 3%, is the neutral rate. For the first years a higher rate works as textbooks say: at 4.75%, output is about 2.6% lower after three years. Held for longer, the effect reverses, after about eight years (month 102 at 4.75%, sooner for bigger moves: month 85 at 10%): the interest on government bonds and on deposits is income for households, and the higher rate also means more of it on a larger stock of deposits, so they spend more and more of it, while anchored expectations keep inflation from running away. At 4.75% output is about 3% higher after 20 years and inflation about 1.1 points higher; at 10%, 13% and 5.5 points, with the price level 46% higher; at 0%, 2.4% lower. The same stock-flow channel reverses a held Iceland key rate (MON-1). So effects beyond a few years show the interest-income channel of an economy without a policy rule, not what a central bank would do. It has no effect on Automatic.
 
 Runs: 0 % (min); 2.25 % (down); 4.75 % (up); 10 % (max). Each is set before month 1 and held.
 
@@ -701,41 +699,40 @@ Not run on Automatic: the lever is shown only on Manual (showWhen).
 
 Expectations:
 
-- ✓ inflation rises over months 24–120 (min, Manual): 0, Manual: 0.69. A key rate held below neutral with no other anchor lets inflation rise (Wicksell’s cumulative process). (Wicksell (1898); Friedman (1968))
+- ✓ inflation rises over months 24–120 (min, Manual): 0, Manual: 0.70. A key rate held below neutral with no other anchor lets inflation rise (Wicksell’s cumulative process). (Wicksell (1898); Friedman (1968))
 - ✓ keyRate rises over months 1–240 (up, Manual): 4.75, Manual: 1.75. On Manual the key rate is held where the user sets it. (Decision 0004 (policy held on Manual))
-- ✓ output falls over months 3–24 (up, Manual): 4.75, Manual: -1.80. Interest-rate channel: a higher held rate reduces demand. (Christiano, Eichenbaum & Evans (1999); Bernanke & Gertler (1995))
-- ✓ output rises over months 3–24 (down, Manual): 2.25, Manual: 0.78. Interest-rate channel: a lower held rate raises demand. (Christiano, Eichenbaum & Evans (1999))
-- ✓ inflation falls over months 12–36 (up, Manual): 4.75, Manual: -0.35. A contraction lowers inflation through the Phillips curve, with lags. (Havranek & Rusnak (2013))
-- ✓ unemployment rises over months 3–24 (up, Manual): 4.75, Manual: 0.76. Okun’s law. (Okun (1962))
-- ✓ investment falls over months 3–24 (up, Manual): 4.75, Manual: -5.73. User cost of capital. (Jorgenson (1963); Chirinko (1993))
-- ✓ realConsumption falls over months 3–24 (up, Manual): 4.75, Manual: -1.37. Intertemporal substitution plus the fall in income that follows. (Hall (1988); Ramey (2016))
+- ✓ output falls over months 3–24 (up, Manual): 4.75, Manual: -1.71. Interest-rate channel: a higher held rate reduces demand. (Christiano, Eichenbaum & Evans (1999); Bernanke & Gertler (1995))
+- ✓ output rises over months 3–24 (down, Manual): 2.25, Manual: 0.74. Interest-rate channel: a lower held rate raises demand. (Christiano, Eichenbaum & Evans (1999))
+- ✓ inflation falls over months 12–36 (up, Manual): 4.75, Manual: -0.33. A contraction lowers inflation through the Phillips curve, with lags. (Havranek & Rusnak (2013))
+- ✓ unemployment rises over months 3–24 (up, Manual): 4.75, Manual: 0.72. Okun’s law. (Okun (1962))
+- ✓ investment falls over months 3–24 (up, Manual): 4.75, Manual: -5.65. User cost of capital. (Jorgenson (1963); Chirinko (1993))
+- ✓ realConsumption falls over months 3–24 (up, Manual): 4.75, Manual: -1.26. Intertemporal substitution plus the fall in income that follows. (Hall (1988); Ramey (2016))
 
 ### 0 % (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.16 | 0.69 | 1.28 | 2.00 | 2.65 | 2.77 | 2.17 | -0.19 | -2.36 | 2.77 | 33 | -2.32 |
-| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.08 | 0.39 | 0.68 | 0.90 | 0.31 | -0.81 | 0.90 | 61 | -0.78 |
-| Price level (%) | 0 | 0 | 0.01 | 0.08 | 0.47 | 1.15 | 2.92 | 6.11 | 1.85 | 6.28 | 137 | 2.23 |
-| Unemployment rate (pp) | -0.02 | -0.17 | -0.43 | -0.84 | -1.22 | -1.31 | -1.07 | 0.06 | 1.11 | -1.31 | 36 | 1.09 |
+| Output (real GDP) (%) | 0.16 | 0.59 | 1.11 | 1.86 | 2.64 | 2.81 | 2.23 | -0.18 | -2.36 | 2.82 | 35 | -2.32 |
+| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.07 | 0.37 | 0.66 | 0.91 | 0.32 | -0.81 | 0.91 | 62 | -0.78 |
+| Price level (%) | 0 | 0 | 0.01 | 0.07 | 0.43 | 1.10 | 2.88 | 6.13 | 1.88 | 6.31 | 137 | 2.27 |
+| Unemployment rate (pp) | -0.02 | -0.14 | -0.37 | -0.77 | -1.21 | -1.33 | -1.09 | 0.05 | 1.11 | -1.33 | 37 | 1.09 |
 | Key interest rate (pp) | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | 1 | -3.00 |
-| Real wage (%) | 0 | 0 | 0.03 | 0.12 | 0.32 | 0.45 | 0.52 | 0.14 | -0.49 | 0.52 | 55 | -0.47 |
-| Consumption (real) (%) | -0.10 | 0.16 | 0.46 | 0.88 | 1.36 | 1.36 | 0.47 | -2.37 | -4.71 | -4.71 | 240 | -4.67 |
-| Investment (real) (%) | 1.50 | 3.89 | 6.44 | 9.29 | 11.5 | 12.2 | 12.3 | 9.56 | 5.78 | 12.5 | 49 | 5.86 |
-| Private debt (pp of GDP) | -0.07 | -0.29 | -0.49 | -0.62 | -0.55 | -0.32 | 0.30 | 2.20 | 5.75 | 5.75 | 240 | 5.62 |
-| Broad money (%) | -0.07 | -0.25 | -0.48 | -0.91 | -1.81 | -2.77 | -4.65 | -8.60 | -15.8 | -15.8 | 240 | -15.4 |
-| Government deficit (to GDP) (pp of GDP) | -0.84 | -1.12 | -1.15 | -1.23 | -1.33 | -1.35 | -1.25 | -0.86 | -0.48 | -1.35 | 33 | -0.49 |
-| Government debt (pp of GDP) | -0.15 | -0.63 | -1.24 | -2.25 | -4.08 | -5.82 | -8.99 | -14.6 | -18.5 | -18.5 | 240 | -18.4 |
-| Bank equity (to GDP) (pp of GDP) | -0.01 | -0.04 | -0.07 | -0.11 | -0.12 | -0.11 | -0.04 | 0.22 | 0.71 | 0.71 | 240 | 0.70 |
-| Disposable income (real) (%) | -2.95 | -1.37 | -1.17 | -0.70 | -0.09 | -0.02 | -0.73 | -3.17 | -5.49 | -5.49 | 240 | -5.44 |
-| Firms’ cash profit (real) (%) | 6.98 | 7.46 | 7.45 | 7.07 | 6.55 | 5.54 | 2.47 | -3.29 | -6.49 | 7.51 | 4 | -6.44 |
+| Real wage (%) | 0 | 0 | 0.02 | 0.11 | 0.30 | 0.44 | 0.53 | 0.14 | -0.49 | 0.53 | 56 | -0.47 |
+| Consumption (real) (%) | -0.10 | 0.01 | 0.23 | 0.72 | 1.36 | 1.43 | 0.55 | -2.37 | -4.71 | -4.71 | 240 | -4.67 |
+| Investment (real) (%) | 1.50 | 3.88 | 6.37 | 9.16 | 11.4 | 12.2 | 12.4 | 9.58 | 5.78 | 12.5 | 50 | 5.86 |
+| Private debt (pp of GDP) | -0.07 | -0.24 | -0.41 | -0.56 | -0.54 | -0.34 | 0.27 | 2.19 | 5.74 | 5.74 | 240 | 5.62 |
+| Broad money (%) | -0.07 | -0.23 | -0.44 | -0.86 | -1.77 | -2.74 | -4.65 | -8.62 | -15.8 | -15.8 | 240 | -15.5 |
+| Government deficit (to GDP) (pp of GDP) | -0.84 | -1.03 | -1.09 | -1.21 | -1.34 | -1.37 | -1.26 | -0.87 | -0.48 | -1.37 | 34 | -0.49 |
+| Government debt (pp of GDP) | -0.15 | -0.56 | -1.11 | -2.12 | -4.00 | -5.78 | -8.99 | -14.6 | -18.5 | -18.5 | 240 | -18.4 |
+| Bank equity (to GDP) (pp of GDP) | -0.01 | -0.03 | -0.06 | -0.10 | -0.12 | -0.11 | -0.04 | 0.21 | 0.71 | 0.71 | 240 | 0.69 |
+| Disposable income (real) (%) | -2.95 | -1.89 | -1.48 | -0.79 | -0.04 | 0.06 | -0.66 | -3.17 | -5.49 | -5.49 | 240 | -5.44 |
+| Firms’ cash profit (real) (%) | 6.98 | 6.91 | 6.74 | 6.71 | 6.68 | 5.76 | 2.62 | -3.31 | -6.49 | 6.98 | 1 | -6.44 |
 
 Unmoved (every effect below 0.005): Income-tax rate (charged).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.09 in the last 12 months, -2.36 at month 240; Inflation (12 months): moved -0.06 in the last 12 months, -0.81 at month 240; Price level: moved -0.83 in the last 12 months, 1.85 at month 240; Unemployment rate: moved 0.04 in the last 12 months, 1.11 at month 240; and 4 more.
-- **Explosive**: Private debt: moved 0.28 in the last 12 months, 5.75 at month 240.
+- **Unsettled**: Output (real GDP): moved -0.09 in the last 12 months, -2.36 at month 240; Inflation (12 months): moved -0.06 in the last 12 months, -0.81 at month 240; Price level: moved -0.83 in the last 12 months, 1.88 at month 240; Unemployment rate: moved 0.04 in the last 12 months, 1.11 at month 240; and 5 more.
 - **Regimes**: depositRate; ruleRate.
 
 Regimes that differ from the no-change run:
@@ -747,95 +744,93 @@ Regimes that differ from the no-change run:
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.07 | 0.26 | 0.48 | 0.78 | 1.08 | 1.15 | 0.93 | -0.05 | -0.94 | 1.15 | 35 | -0.92 |
-| Inflation (12 months) (pp) | 0 | 0 | 0 | 0.03 | 0.15 | 0.27 | 0.37 | 0.14 | -0.33 | 0.37 | 63 | -0.32 |
-| Price level (%) | 0 | 0 | 0 | 0.03 | 0.18 | 0.46 | 1.18 | 2.51 | 0.87 | 2.60 | 139 | 1.02 |
-| Unemployment rate (pp) | -0.01 | -0.06 | -0.16 | -0.33 | -0.49 | -0.54 | -0.45 | 0.01 | 0.44 | -0.54 | 37 | 0.44 |
+| Output (real GDP) (%) | 0.07 | 0.23 | 0.43 | 0.73 | 1.06 | 1.16 | 0.95 | -0.05 | -0.94 | 1.16 | 37 | -0.93 |
+| Inflation (12 months) (pp) | 0 | 0 | 0 | 0.03 | 0.14 | 0.26 | 0.38 | 0.14 | -0.33 | 0.38 | 64 | -0.32 |
+| Price level (%) | 0 | 0 | 0 | 0.03 | 0.17 | 0.44 | 1.16 | 2.52 | 0.88 | 2.61 | 139 | 1.03 |
+| Unemployment rate (pp) | -0.01 | -0.06 | -0.15 | -0.30 | -0.49 | -0.55 | -0.47 | 0.01 | 0.44 | -0.55 | 39 | 0.44 |
 | Key interest rate (pp) | -0.75 | -0.75 | -0.75 | -0.75 | -0.75 | -0.75 | -0.75 | -0.75 | -0.75 | -0.75 | 1 | -0.75 |
-| Real wage (%) | 0 | 0 | 0.01 | 0.05 | 0.13 | 0.18 | 0.22 | 0.06 | -0.20 | 0.22 | 57 | -0.19 |
-| Consumption (real) (%) | 0.02 | 0.17 | 0.34 | 0.59 | 0.86 | 0.89 | 0.56 | -0.63 | -1.58 | -1.58 | 240 | -1.57 |
-| Investment (real) (%) | 0.37 | 0.99 | 1.67 | 2.50 | 3.25 | 3.57 | 3.65 | 2.52 | 0.96 | 3.69 | 50 | 0.99 |
-| Private debt (pp of GDP) | -0.03 | -0.12 | -0.20 | -0.29 | -0.34 | -0.32 | -0.18 | 0.41 | 1.63 | 1.63 | 240 | 1.59 |
-| Broad money (%) | -0.02 | -0.06 | -0.13 | -0.26 | -0.55 | -0.87 | -1.51 | -2.89 | -5.59 | -5.59 | 240 | -5.45 |
-| Government deficit (to GDP) (pp of GDP) | -0.22 | -0.29 | -0.32 | -0.36 | -0.43 | -0.45 | -0.43 | -0.31 | -0.18 | -0.45 | 41 | -0.18 |
-| Government debt (pp of GDP) | -0.06 | -0.21 | -0.41 | -0.76 | -1.40 | -2.02 | -3.17 | -5.20 | -6.27 | -6.27 | 240 | -6.27 |
-| Bank equity (to GDP) (pp of GDP) | 0 | -0.02 | -0.03 | -0.04 | -0.06 | -0.06 | -0.05 | 0.03 | 0.21 | 0.21 | 240 | 0.20 |
-| Disposable income (real) (%) | -0.70 | -0.28 | -0.15 | 0.09 | 0.36 | 0.41 | 0.13 | -0.93 | -1.89 | -1.89 | 240 | -1.87 |
-| Firms’ cash profit (real) (%) | 1.74 | 2.12 | 2.39 | 2.60 | 2.66 | 2.32 | 1.12 | -1.34 | -2.69 | -2.69 | 240 | -2.67 |
+| Real wage (%) | 0 | 0 | 0.01 | 0.04 | 0.12 | 0.18 | 0.22 | 0.06 | -0.20 | 0.22 | 58 | -0.19 |
+| Consumption (real) (%) | 0.02 | 0.13 | 0.27 | 0.53 | 0.85 | 0.91 | 0.59 | -0.63 | -1.58 | -1.58 | 240 | -1.57 |
+| Investment (real) (%) | 0.37 | 0.98 | 1.65 | 2.45 | 3.21 | 3.57 | 3.67 | 2.53 | 0.96 | 3.71 | 52 | 0.99 |
+| Private debt (pp of GDP) | -0.03 | -0.10 | -0.18 | -0.27 | -0.34 | -0.33 | -0.19 | 0.41 | 1.63 | 1.63 | 240 | 1.59 |
+| Broad money (%) | -0.02 | -0.06 | -0.12 | -0.24 | -0.53 | -0.85 | -1.50 | -2.90 | -5.60 | -5.60 | 240 | -5.46 |
+| Government deficit (to GDP) (pp of GDP) | -0.22 | -0.27 | -0.30 | -0.36 | -0.43 | -0.45 | -0.44 | -0.31 | -0.18 | -0.46 | 41 | -0.19 |
+| Government debt (pp of GDP) | -0.06 | -0.19 | -0.37 | -0.71 | -1.37 | -2.00 | -3.17 | -5.21 | -6.29 | -6.29 | 240 | -6.28 |
+| Bank equity (to GDP) (pp of GDP) | 0 | -0.01 | -0.02 | -0.04 | -0.06 | -0.06 | -0.05 | 0.03 | 0.21 | 0.21 | 240 | 0.20 |
+| Disposable income (real) (%) | -0.70 | -0.42 | -0.25 | 0.04 | 0.37 | 0.44 | 0.16 | -0.93 | -1.89 | -1.89 | 240 | -1.87 |
+| Firms’ cash profit (real) (%) | 1.74 | 1.97 | 2.17 | 2.46 | 2.68 | 2.40 | 1.19 | -1.34 | -2.69 | -2.69 | 240 | -2.67 |
 
 Unmoved (every effect below 0.005): Income-tax rate (charged).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.03 in the last 12 months, -0.94 at month 240; Inflation (12 months): moved -0.02 in the last 12 months, -0.33 at month 240; Price level: moved -0.33 in the last 12 months, 0.87 at month 240; Broad money: moved -0.30 in the last 12 months, -5.59 at month 240.
-- **Explosive**: Private debt: moved 0.09 in the last 12 months, 1.63 at month 240; Disposable income (real): moved -0.04 in the last 12 months, -1.89 at month 240.
+- **Unsettled**: Output (real GDP): moved -0.03 in the last 12 months, -0.94 at month 240; Inflation (12 months): moved -0.02 in the last 12 months, -0.33 at month 240; Price level: moved -0.33 in the last 12 months, 0.88 at month 240; Private debt: moved 0.09 in the last 12 months, 1.63 at month 240; and 2 more.
 
 ### 4.75 % (up), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.17 | -0.61 | -1.12 | -1.81 | -2.48 | -2.60 | -1.96 | 0.85 | 2.97 | 2.97 | 240 | 2.96 |
-| Inflation (12 months) (pp) | 0 | 0 | -0.01 | -0.07 | -0.36 | -0.62 | -0.83 | -0.13 | 1.11 | 1.11 | 240 | 1.09 |
-| Price level (%) | 0 | 0 | -0.01 | -0.07 | -0.42 | -1.04 | -2.63 | -4.99 | 1.93 | -4.99 | 122 | 1.41 |
-| Unemployment rate (pp) | 0.03 | 0.15 | 0.38 | 0.76 | 1.14 | 1.24 | 0.97 | -0.36 | -1.41 | -1.41 | 240 | -1.40 |
+| Output (real GDP) (%) | -0.17 | -0.54 | -1.01 | -1.70 | -2.45 | -2.64 | -2.03 | 0.85 | 2.97 | 2.97 | 240 | 2.96 |
+| Inflation (12 months) (pp) | 0 | 0 | -0.01 | -0.06 | -0.33 | -0.61 | -0.84 | -0.14 | 1.11 | 1.11 | 240 | 1.09 |
+| Price level (%) | 0 | 0 | -0.01 | -0.06 | -0.40 | -1.00 | -2.60 | -5.02 | 1.89 | -5.03 | 122 | 1.38 |
+| Unemployment rate (pp) | 0.03 | 0.14 | 0.34 | 0.70 | 1.12 | 1.25 | 1.00 | -0.36 | -1.41 | -1.41 | 240 | -1.41 |
 | Key interest rate (pp) | 1.75 | 1.75 | 1.75 | 1.75 | 1.75 | 1.75 | 1.75 | 1.75 | 1.75 | 1.75 | 1 | 1.75 |
-| Real wage (%) | 0 | 0 | -0.03 | -0.11 | -0.29 | -0.42 | -0.48 | -0.02 | 0.65 | 0.65 | 240 | 0.64 |
-| Consumption (real) (%) | -0.05 | -0.39 | -0.79 | -1.37 | -1.97 | -1.99 | -1.04 | 2.34 | 4.56 | 4.56 | 240 | 4.56 |
-| Investment (real) (%) | -0.87 | -2.30 | -3.89 | -5.82 | -7.56 | -8.28 | -8.32 | -5.01 | -1.02 | -8.49 | 48 | -1.07 |
-| Private debt (pp of GDP) | 0.08 | 0.27 | 0.47 | 0.69 | 0.81 | 0.74 | 0.31 | -1.44 | -4.38 | -4.38 | 240 | -4.30 |
-| Broad money (%) | 0.04 | 0.15 | 0.30 | 0.61 | 1.31 | 2.10 | 3.74 | 7.66 | 16.4 | 16.4 | 240 | 16.0 |
-| Government deficit (to GDP) (pp of GDP) | 0.51 | 0.69 | 0.76 | 0.89 | 1.06 | 1.14 | 1.13 | 0.86 | 0.56 | 1.16 | 46 | 0.56 |
-| Government debt (pp of GDP) | 0.13 | 0.49 | 0.97 | 1.82 | 3.40 | 4.96 | 7.84 | 12.6 | 13.0 | 13.7 | 177 | 13.1 |
-| Bank equity (to GDP) (pp of GDP) | 0.01 | 0.04 | 0.07 | 0.10 | 0.14 | 0.14 | 0.09 | -0.14 | -0.56 | -0.56 | 240 | -0.55 |
-| Disposable income (real) (%) | 1.63 | 0.65 | 0.36 | -0.17 | -0.77 | -0.79 | 0.10 | 3.28 | 5.60 | 5.60 | 240 | 5.59 |
-| Firms’ cash profit (real) (%) | -4.07 | -4.94 | -5.57 | -6.05 | -6.11 | -5.20 | -1.98 | 5.06 | 8.19 | 8.19 | 235 | 8.19 |
+| Real wage (%) | 0 | 0 | -0.02 | -0.10 | -0.28 | -0.41 | -0.49 | -0.03 | 0.65 | 0.65 | 240 | 0.64 |
+| Consumption (real) (%) | -0.05 | -0.29 | -0.63 | -1.22 | -1.94 | -2.04 | -1.12 | 2.34 | 4.57 | 4.57 | 240 | 4.56 |
+| Investment (real) (%) | -0.87 | -2.30 | -3.85 | -5.72 | -7.48 | -8.27 | -8.39 | -5.03 | -1.02 | -8.53 | 49 | -1.06 |
+| Private debt (pp of GDP) | 0.08 | 0.24 | 0.42 | 0.64 | 0.79 | 0.75 | 0.34 | -1.43 | -4.38 | -4.38 | 240 | -4.30 |
+| Broad money (%) | 0.04 | 0.14 | 0.28 | 0.57 | 1.26 | 2.06 | 3.74 | 7.68 | 16.4 | 16.4 | 240 | 16.0 |
+| Government deficit (to GDP) (pp of GDP) | 0.51 | 0.63 | 0.71 | 0.86 | 1.06 | 1.15 | 1.15 | 0.86 | 0.56 | 1.17 | 46 | 0.56 |
+| Government debt (pp of GDP) | 0.13 | 0.45 | 0.88 | 1.71 | 3.32 | 4.91 | 7.86 | 12.6 | 13.1 | 13.8 | 177 | 13.2 |
+| Bank equity (to GDP) (pp of GDP) | 0.01 | 0.03 | 0.06 | 0.10 | 0.14 | 0.14 | 0.10 | -0.14 | -0.56 | -0.56 | 240 | -0.55 |
+| Disposable income (real) (%) | 1.63 | 0.98 | 0.60 | -0.06 | -0.79 | -0.87 | 0.01 | 3.28 | 5.61 | 5.61 | 240 | 5.60 |
+| Firms’ cash profit (real) (%) | -4.07 | -4.61 | -5.08 | -5.73 | -6.17 | -5.42 | -2.16 | 5.10 | 8.21 | 8.21 | 235 | 8.21 |
 
 Unmoved (every effect below 0.005): Income-tax rate (charged).
 
 Flags:
 
-- **Unsettled**: Inflation (12 months): moved 0.04 in the last 12 months, 1.11 at month 240; Price level: moved 1.12 in the last 12 months, 1.93 at month 240; Real wage: moved 0.02 in the last 12 months, 0.65 at month 240; Bank equity (to GDP): moved -0.03 in the last 12 months, -0.56 at month 240.
-- **Explosive**: Private debt: moved -0.19 in the last 12 months, -4.38 at month 240; Broad money: moved 0.99 in the last 12 months, 16.4 at month 240.
+- **Unsettled**: Inflation (12 months): moved 0.04 in the last 12 months, 1.11 at month 240; Price level: moved 1.12 in the last 12 months, 1.89 at month 240; Real wage: moved 0.02 in the last 12 months, 0.65 at month 240; Private debt: moved -0.19 in the last 12 months, -4.38 at month 240; and 2 more.
 - **Regimes**: ruleRate.
 
 Regimes that differ from the no-change run:
 
-- `ruleRate`: “Zero lower bound binds” instead of “–”, months 29–55; its label changed 2 time(s) in the run
+- `ruleRate`: “Zero lower bound binds” instead of “–”, months 29–58; its label changed 2 time(s) in the run
 
 ### 10 % (max), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.67 | -2.43 | -4.47 | -7.17 | -9.62 | -9.92 | -6.41 | 9.96 | 13.3 | 15.1 | 177 | 13.5 |
-| Inflation (12 months) (pp) | 0 | 0 | -0.03 | -0.27 | -1.33 | -1.85 | -1.98 | 1.38 | 5.67 | 5.85 | 212 | 5.73 |
-| Price level (%) | 0 | 0 | -0.03 | -0.27 | -1.60 | -3.42 | -7.18 | -9.77 | 46.4 | 46.4 | 240 | 42.7 |
-| Unemployment rate (pp) | 0.11 | 0.60 | 1.52 | 3.00 | 4.44 | 4.73 | 3.25 | -2.92 | -2.99 | 4.74 | 34 | -2.99 |
+| Output (real GDP) (%) | -0.67 | -2.17 | -4.01 | -6.71 | -9.52 | -10.1 | -6.81 | 10.0 | 13.3 | 15.2 | 175 | 13.5 |
+| Inflation (12 months) (pp) | 0 | 0 | -0.03 | -0.25 | -1.27 | -1.83 | -1.98 | 1.34 | 5.69 | 5.88 | 211 | 5.74 |
+| Price level (%) | 0 | 0 | -0.03 | -0.25 | -1.51 | -3.32 | -7.07 | -9.94 | 46.4 | 46.4 | 240 | 42.8 |
+| Unemployment rate (pp) | 0.11 | 0.55 | 1.36 | 2.78 | 4.36 | 4.78 | 3.44 | -2.92 | -2.99 | 4.78 | 36 | -2.99 |
 | Key interest rate (pp) | 7.00 | 7.00 | 7.00 | 7.00 | 7.00 | 7.00 | 7.00 | 7.00 | 7.00 | 7.00 | 1 | 7.00 |
-| Real wage (%) | 0 | -0.02 | -0.10 | -0.43 | -1.00 | -1.13 | -1.17 | 1.10 | 3.18 | 3.31 | 206 | 3.21 |
-| Consumption (real) (%) | -0.21 | -1.54 | -3.13 | -5.37 | -7.48 | -7.41 | -2.60 | 17.2 | 19.6 | 22.2 | 170 | 19.8 |
-| Investment (real) (%) | -3.50 | -9.21 | -15.6 | -23.3 | -30.0 | -32.4 | -30.9 | -11.9 | -0.80 | -32.6 | 42 | -0.56 |
-| Private debt (pp of GDP) | 0.31 | 1.10 | 1.96 | 2.90 | 3.30 | 2.60 | -0.71 | -9.91 | -17.1 | -17.1 | 240 | -17.0 |
-| Broad money (%) | 0.17 | 0.60 | 1.22 | 2.49 | 5.49 | 9.09 | 17.4 | 40.3 | 103 | 103 | 240 | 99.3 |
-| Government deficit (to GDP) (pp of GDP) | 2.04 | 2.84 | 3.19 | 3.86 | 4.89 | 5.50 | 5.74 | 4.23 | 2.91 | 5.78 | 53 | 2.94 |
-| Government debt (pp of GDP) | 0.54 | 2.01 | 4.02 | 7.69 | 14.8 | 21.6 | 33.2 | 45.3 | 30.9 | 45.3 | 120 | 31.6 |
-| Bank equity (to GDP) (pp of GDP) | 0.04 | 0.14 | 0.27 | 0.44 | 0.57 | 0.53 | 0.13 | -1.16 | -2.22 | -2.22 | 240 | -2.21 |
-| Disposable income (real) (%) | 6.53 | 2.63 | 1.51 | -0.44 | -2.33 | -1.97 | 3.23 | 23.1 | 25.4 | 28.2 | 170 | 25.7 |
-| Firms’ cash profit (real) (%) | -16.3 | -19.8 | -22.3 | -24.0 | -24.2 | -21.6 | -5.96 | 38.4 | 37.6 | 44.0 | 155 | 37.9 |
+| Real wage (%) | 0 | -0.01 | -0.09 | -0.39 | -0.98 | -1.13 | -1.17 | 1.08 | 3.19 | 3.33 | 205 | 3.22 |
+| Consumption (real) (%) | -0.21 | -1.16 | -2.49 | -4.79 | -7.41 | -7.62 | -3.11 | 17.3 | 19.6 | 22.4 | 169 | 19.8 |
+| Investment (real) (%) | -3.50 | -9.18 | -15.4 | -22.9 | -29.7 | -32.4 | -31.2 | -11.9 | -0.76 | -32.8 | 43 | -0.53 |
+| Private debt (pp of GDP) | 0.31 | 0.97 | 1.71 | 2.64 | 3.24 | 2.67 | -0.53 | -9.92 | -17.1 | -17.1 | 240 | -17.0 |
+| Broad money (%) | 0.17 | 0.55 | 1.11 | 2.32 | 5.31 | 8.93 | 17.4 | 40.5 | 103 | 103 | 240 | 99.7 |
+| Government deficit (to GDP) (pp of GDP) | 2.04 | 2.58 | 2.98 | 3.74 | 4.88 | 5.55 | 5.87 | 4.25 | 2.93 | 5.89 | 54 | 2.96 |
+| Government debt (pp of GDP) | 0.54 | 1.82 | 3.64 | 7.20 | 14.4 | 21.5 | 33.4 | 45.7 | 31.1 | 45.7 | 120 | 31.7 |
+| Bank equity (to GDP) (pp of GDP) | 0.04 | 0.13 | 0.24 | 0.40 | 0.56 | 0.54 | 0.15 | -1.16 | -2.22 | -2.22 | 240 | -2.21 |
+| Disposable income (real) (%) | 6.53 | 3.97 | 2.50 | 0 | -2.44 | -2.32 | 2.66 | 23.3 | 25.4 | 28.4 | 169 | 25.7 |
+| Firms’ cash profit (real) (%) | -16.3 | -18.5 | -20.4 | -22.8 | -24.4 | -22.4 | -7.28 | 39.1 | 37.7 | 44.5 | 154 | 38.1 |
 
 Unmoved (every effect below 0.005): Income-tax rate (charged).
 
 Flags:
 
-- **Extreme**: Broad money 103 % at month 240; Government debt 45.3 pp of GDP at month 120.
-- **Unsettled**: Output (real GDP): moved -0.43 in the last 12 months, 13.3 at month 240; Consumption (real): moved -0.52 in the last 12 months, 19.6 at month 240; Government debt: moved -1.51 in the last 12 months, 30.9 at month 240; Disposable income (real): moved -0.58 in the last 12 months, 25.4 at month 240.
-- **Explosive**: Price level: moved 7.86 in the last 12 months, 46.4 at month 240; Real wage: moved -0.07 in the last 12 months, 3.18 at month 240; Broad money: moved 7.68 in the last 12 months, 103 at month 240.
+- **Extreme**: Broad money 103 % at month 240; Government debt 45.7 pp of GDP at month 120.
+- **Unsettled**: Output (real GDP): moved -0.43 in the last 12 months, 13.3 at month 240; Real wage: moved -0.07 in the last 12 months, 3.19 at month 240; Consumption (real): moved -0.52 in the last 12 months, 19.6 at month 240; Government debt: moved -1.51 in the last 12 months, 31.1 at month 240; and 1 more.
+- **Explosive**: Price level: moved 7.88 in the last 12 months, 46.4 at month 240; Broad money: moved 7.72 in the last 12 months, 103 at month 240.
 - **Regimes**: unemployment; wageGrowth; ruleRate.
 
 Regimes that differ from the no-change run:
 
 - `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 100–240; its label changed 1 time(s) in the run
-- `wageGrowth`: “Wages sticky downwards” instead of “–”, months 17–68; its label changed 2 time(s) in the run
-- `ruleRate`: “Zero lower bound binds” instead of “–”, months 5–80; its label changed 2 time(s) in the run
+- `wageGrowth`: “Wages sticky downwards” instead of “–”, months 18–69; its label changed 2 time(s) in the run
+- `ruleRate`: “Zero lower bound binds” instead of “–”, months 6–81; its label changed 2 time(s) in the run
 
 ## Government spending (`govSpending`)
 
@@ -849,253 +844,250 @@ Runs: -3 % of GDP/yr (min); -1 % of GDP/yr (down); 1 % of GDP/yr (up); 3 % of GD
 
 Comparisons between runs:
 
-- **Mode sign**: -1 % of GDP/yr (down): Investment (real) -1.62 on Manual, 0.38 on Automatic.
-- **Mode sign**: 1 % of GDP/yr (up): Investment (real) 1.62 on Manual, -0.38 on Automatic.
-- **Mode sign**: 3 % of GDP/yr (max): Investment (real) 4.87 on Manual, -1.15 on Automatic.
+- **Mode sign**: -1 % of GDP/yr (down): Investment (real) -1.51 on Manual, 0.36 on Automatic.
+- **Mode sign**: 1 % of GDP/yr (up): Investment (real) 1.51 on Manual, -0.36 on Automatic.
+- **Mode sign**: 3 % of GDP/yr (max): Investment (real) 4.52 on Manual, -1.07 on Automatic; Government debt -1.24 on Manual, 0.02 on Automatic.
 
 Expectations:
 
-- ✓ output rises over months 229–240 (max, Automatic): 3, Automatic: 1.63. Intended: with expectations anchored to the target, a lasting boom raises inflation by a steady amount rather than ever faster, so the Taylor rule leaves some output above capacity (the "back to the 1960s" Phillips curve). Were expectations to drift with inflation, output would return to capacity (Friedman 1968); the model keeps the anchor fixed. (Blanchard (2016))
-- ✓ inflation rises over months 229–240 (max, Automatic): 3, Automatic: 0.61. Output above capacity keeps inflation above target. (Phillips (1958); Blanchard (2016))
 - ✓ keyRate falls over months 48–180 (min, Automatic): -3, Automatic: -3.00. Intended: a large lasting cut in spending pushes the key rate to zero, where neither it nor deposit rates can fall further, so monetary policy cannot offset the cut (a liquidity trap). The key rate stays at or just above zero for about 15 years, until the debt rule’s tax cuts have brought demand back; output is still about 4% lower after ten years and 1.4% lower after twenty, and still recovering. With a zero inflation target and a 3% neutral rate the central bank has only 3 points to cut. (Eggertsson & Krugman (2012); DeLong & Summers (2012); Eggertsson, Juelsrud, Summers & Wold (2019))
-- ✓ output falls over months 229–240 (min, Automatic): -3, Automatic: -1.46. Intended: after a liquidity trap output recovers only as fast as fiscal policy brings demand back, here the debt rule cutting taxes as debt falls, so twenty years on it is still below where it would have been. (DeLong & Summers (2012))
-- ✓ output rises over months 1–12 (up, any): 1, Manual: 1.67; 1, Automatic: 1.44. Keynesian spending multiplier: government purchases are output at once and raise incomes and consumption. (Blanchard & Perotti (2002) QJE; Ramey (2019) JEP)
-- ✓ output falls over months 1–12 (min, any): -3, Manual: -5.02; -3, Automatic: -4.48. The multiplier in reverse: lower purchases cut output and incomes. (Ramey (2019) JEP)
-- ✓ deficit rises over months 1–6 (up, any): 1, Manual: 0.78; 1, Automatic: 0.86. Budget accounting: extra spending widens the deficit before higher tax revenue offsets part of it. (Godley & Lavoie (2007), Monetary Economics, ch. 3)
-- ✓ unemployment falls over months 3–24 (up, any): 1, Manual: -0.98; 1, Automatic: -0.68. Okun’s law: more output needs more work. (Okun (1962); Ball, Leigh & Loungani (2017))
-- ✓ inflation rises over months 12–36 (up, any): 1, Manual: 0.46; 1, Automatic: 0.31. Phillips curve: a tighter labour market raises wage growth, which passes into prices. (Phillips (1958); Galí (2011))
-- ✓ keyRate rises over months 6–36 (up, Automatic): 1, Automatic: 1.23. Taylor rule: the central bank raises its rate against a positive output gap and rising inflation. (Taylor (1993))
+- ✓ output falls over months 229–240 (min, Automatic): -3, Automatic: -1.42. Intended: after a liquidity trap output recovers only as fast as fiscal policy brings demand back, here the debt rule cutting taxes as debt falls, so twenty years on it is still below where it would have been. (DeLong & Summers (2012))
+- ✓ output rises over months 1–12 (up, any): 1, Manual: 1.56; 1, Automatic: 1.36. Keynesian spending multiplier: government purchases are output at once and raise incomes and consumption. (Blanchard & Perotti (2002) QJE; Ramey (2019) JEP)
+- ✓ output falls over months 1–12 (min, any): -3, Manual: -4.67; -3, Automatic: -4.19. The multiplier in reverse: lower purchases cut output and incomes. (Ramey (2019) JEP)
+- ✓ deficit rises over months 1–6 (up, any): 1, Manual: 0.84; 1, Automatic: 0.91. Budget accounting: extra spending widens the deficit before higher tax revenue offsets part of it. (Godley & Lavoie (2007), Monetary Economics, ch. 3)
+- ✓ unemployment falls over months 3–24 (up, any): 1, Manual: -0.93; 1, Automatic: -0.66. Okun’s law: more output needs more work. (Okun (1962); Ball, Leigh & Loungani (2017))
+- ✓ inflation rises over months 12–36 (up, any): 1, Manual: 0.44; 1, Automatic: 0.30. Phillips curve: a tighter labour market raises wage growth, which passes into prices. (Phillips (1958); Galí (2011))
+- ✓ keyRate rises over months 6–36 (up, Automatic): 1, Automatic: 1.21. Taylor rule: the central bank raises its rate against a positive output gap and rising inflation. (Taylor (1993))
 - ✓ investment falls over months 24–120 (up, Automatic): 1, Automatic: -2.27. Crowding out: under a Taylor rule, higher real rates reduce private investment once the initial accelerator boost fades. (Blanchard, Macroeconomics (IS–LM/IS–MP); Woodford (2011) AEJ Macro)
 
 ### -3 % of GDP/yr (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -3.04 | -3.87 | -4.95 | -6.70 | -9.14 | -10.9 | -13.1 | -14.4 | -12.9 | -14.4 | 113 | -13.0 |
-| Inflation (12 months) (pp) | 0 | -0.01 | -0.06 | -0.37 | -1.37 | -1.85 | -1.98 | -1.98 | -1.98 | -1.98 | 184 | -1.98 |
-| Price level (%) | 0 | -0.01 | -0.06 | -0.37 | -1.73 | -3.55 | -7.30 | -16.1 | -31.3 | -31.3 | 240 | -30.7 |
-| Unemployment rate (pp) | 0.48 | 1.19 | 1.92 | 2.90 | 4.17 | 5.04 | 6.15 | 6.85 | 6.14 | 6.86 | 115 | 6.17 |
-| Real wage (%) | 0 | -0.05 | -0.18 | -0.49 | -1.00 | -1.13 | -1.17 | -1.17 | -1.17 | -1.17 | 179 | -1.17 |
-| Consumption (real) (%) | -0.06 | -1.06 | -2.33 | -4.33 | -7.05 | -8.94 | -11.5 | -13.0 | -11.1 | -13.0 | 112 | -11.2 |
-| Investment (real) (%) | 0 | -1.00 | -2.41 | -4.87 | -8.80 | -11.6 | -14.9 | -16.8 | -15.4 | -16.8 | 120 | -15.5 |
-| Private debt (pp of GDP) | 1.50 | 1.93 | 2.50 | 3.47 | 5.09 | 6.37 | 7.93 | 8.37 | 7.11 | 8.52 | 95 | 7.15 |
-| Broad money (%) | -0.28 | -0.73 | -1.39 | -2.64 | -4.95 | -7.05 | -10.7 | -17.8 | -29.4 | -29.4 | 240 | -28.9 |
-| Government deficit (to GDP) (pp of GDP) | -3.02 | -2.41 | -2.27 | -2.01 | -1.60 | -1.28 | -0.83 | -0.47 | -0.66 | -3.02 | 1 | -0.65 |
-| Government debt (pp of GDP) | 1.47 | 1.56 | 1.65 | 1.82 | 2.35 | 3.12 | 4.90 | 9.17 | 16.0 | 16.0 | 240 | 15.7 |
-| Bank equity (to GDP) (pp of GDP) | 0.18 | 0.23 | 0.30 | 0.43 | 0.66 | 0.85 | 1.09 | 1.17 | 1.00 | 1.18 | 98 | 1.00 |
-| Disposable income (real) (%) | -0.39 | -3.85 | -4.83 | -6.59 | -9.10 | -10.9 | -13.3 | -14.7 | -12.9 | -14.7 | 111 | -12.9 |
-| Firms’ cash profit (real) (%) | -17.0 | -17.9 | -19.7 | -22.8 | -26.9 | -30.9 | -36.9 | -40.3 | -35.1 | -40.5 | 108 | -35.3 |
+| Output (real GDP) (%) | -3.04 | -3.62 | -4.54 | -6.27 | -8.95 | -10.8 | -13.2 | -14.6 | -12.9 | -14.6 | 112 | -13.0 |
+| Inflation (12 months) (pp) | 0 | -0.01 | -0.06 | -0.35 | -1.30 | -1.83 | -1.98 | -1.98 | -1.98 | -1.98 | 185 | -1.98 |
+| Price level (%) | 0 | -0.01 | -0.06 | -0.35 | -1.64 | -3.44 | -7.20 | -16.0 | -31.3 | -31.3 | 240 | -30.6 |
+| Unemployment rate (pp) | 0.48 | 1.14 | 1.78 | 2.70 | 4.06 | 5.00 | 6.18 | 6.92 | 6.15 | 6.93 | 114 | 6.19 |
+| Real wage (%) | 0 | -0.05 | -0.17 | -0.45 | -0.98 | -1.13 | -1.17 | -1.17 | -1.17 | -1.17 | 180 | -1.17 |
+| Consumption (real) (%) | -0.06 | -0.69 | -1.75 | -3.79 | -6.84 | -8.90 | -11.6 | -13.2 | -11.1 | -13.2 | 111 | -11.2 |
+| Investment (real) (%) | 0 | -0.98 | -2.25 | -4.52 | -8.47 | -11.5 | -14.9 | -17.0 | -15.4 | -17.0 | 119 | -15.5 |
+| Private debt (pp of GDP) | 1.50 | 1.80 | 2.28 | 3.23 | 4.97 | 6.34 | 7.97 | 8.42 | 7.09 | 8.60 | 94 | 7.12 |
+| Broad money (%) | -0.28 | -0.78 | -1.48 | -2.79 | -5.13 | -7.24 | -10.9 | -17.9 | -29.4 | -29.4 | 240 | -28.9 |
+| Government deficit (to GDP) (pp of GDP) | -3.02 | -2.64 | -2.42 | -2.09 | -1.62 | -1.29 | -0.81 | -0.44 | -0.66 | -3.02 | 1 | -0.65 |
+| Government debt (pp of GDP) | 1.47 | 1.37 | 1.32 | 1.40 | 1.97 | 2.78 | 4.64 | 9.08 | 15.9 | 15.9 | 240 | 15.6 |
+| Bank equity (to GDP) (pp of GDP) | 0.18 | 0.22 | 0.28 | 0.40 | 0.64 | 0.84 | 1.09 | 1.18 | 0.99 | 1.19 | 97 | 1.00 |
+| Disposable income (real) (%) | -0.39 | -2.62 | -3.99 | -6.12 | -9.00 | -10.9 | -13.4 | -14.8 | -12.9 | -14.9 | 109 | -13.0 |
+| Firms’ cash profit (real) (%) | -17.0 | -16.6 | -17.9 | -21.5 | -26.7 | -30.9 | -37.3 | -40.8 | -35.2 | -41.0 | 107 | -35.4 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
 Flags:
 
-- **Unsettled**: Price level: moved -1.39 in the last 12 months, -31.3 at month 240; Broad money: moved -1.09 in the last 12 months, -29.4 at month 240; Government debt: moved 0.63 in the last 12 months, 16.0 at month 240.
+- **Unsettled**: Price level: moved -1.39 in the last 12 months, -31.3 at month 240; Broad money: moved -1.09 in the last 12 months, -29.4 at month 240; Government debt: moved 0.63 in the last 12 months, 15.9 at month 240.
 - **Regimes**: wageGrowth; ruleRate.
 
 Regimes that differ from the no-change run:
 
-- `wageGrowth`: “Wages sticky downwards” instead of “–”, months 19–240; its label changed 1 time(s) in the run
+- `wageGrowth`: “Wages sticky downwards” instead of “–”, months 20–240; its label changed 1 time(s) in the run
 - `ruleRate`: “Zero lower bound binds” instead of “–”, months 2–240; its label changed 1 time(s) in the run
 
 ### -1 % of GDP/yr (down), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -1.01 | -1.29 | -1.65 | -2.23 | -3.03 | -3.51 | -3.92 | -3.63 | -2.57 | -3.96 | 72 | -2.60 |
-| Inflation (12 months) (pp) | 0 | 0 | -0.02 | -0.12 | -0.47 | -0.78 | -1.21 | -1.47 | -1.09 | -1.48 | 109 | -1.10 |
-| Price level (%) | 0 | 0 | -0.02 | -0.12 | -0.59 | -1.37 | -3.57 | -10.3 | -21.0 | -21.0 | 240 | -20.6 |
-| Unemployment rate (pp) | 0.16 | 0.40 | 0.64 | 0.97 | 1.38 | 1.64 | 1.85 | 1.73 | 1.23 | 1.88 | 74 | 1.24 |
-| Real wage (%) | 0 | -0.02 | -0.06 | -0.16 | -0.36 | -0.53 | -0.75 | -0.86 | -0.63 | -0.87 | 104 | -0.64 |
-| Consumption (real) (%) | -0.02 | -0.35 | -0.77 | -1.44 | -2.32 | -2.81 | -3.15 | -2.64 | -1.43 | -3.15 | 64 | -1.46 |
-| Investment (real) (%) | 0 | -0.33 | -0.80 | -1.62 | -2.93 | -3.91 | -5.10 | -5.46 | -3.95 | -5.59 | 96 | -4.00 |
-| Private debt (pp of GDP) | 0.49 | 0.63 | 0.80 | 1.10 | 1.59 | 1.99 | 2.64 | 3.64 | 3.80 | 3.91 | 183 | 3.82 |
-| Broad money (%) | -0.09 | -0.24 | -0.46 | -0.88 | -1.66 | -2.39 | -3.85 | -7.78 | -16.1 | -16.1 | 240 | -15.7 |
-| Government deficit (to GDP) (pp of GDP) | -0.99 | -0.78 | -0.73 | -0.64 | -0.50 | -0.42 | -0.34 | -0.33 | -0.43 | -0.99 | 1 | -0.42 |
-| Government debt (pp of GDP) | 0.48 | 0.51 | 0.53 | 0.58 | 0.74 | 1.00 | 1.77 | 4.18 | 7.49 | 7.49 | 240 | 7.39 |
-| Bank equity (to GDP) (pp of GDP) | 0.06 | 0.08 | 0.10 | 0.14 | 0.21 | 0.26 | 0.36 | 0.51 | 0.53 | 0.55 | 182 | 0.53 |
-| Disposable income (real) (%) | -0.13 | -1.28 | -1.61 | -2.19 | -3.01 | -3.49 | -3.87 | -3.58 | -2.58 | -3.90 | 71 | -2.61 |
-| Firms’ cash profit (real) (%) | -5.65 | -5.98 | -6.55 | -7.56 | -8.73 | -9.12 | -8.86 | -7.16 | -5.36 | -9.14 | 41 | -5.39 |
+| Output (real GDP) (%) | -1.01 | -1.21 | -1.51 | -2.09 | -2.97 | -3.52 | -3.96 | -3.64 | -2.58 | -4.00 | 70 | -2.61 |
+| Inflation (12 months) (pp) | 0 | 0 | -0.02 | -0.12 | -0.44 | -0.76 | -1.21 | -1.48 | -1.09 | -1.49 | 108 | -1.10 |
+| Price level (%) | 0 | 0 | -0.02 | -0.12 | -0.56 | -1.31 | -3.50 | -10.3 | -21.0 | -21.0 | 240 | -20.6 |
+| Unemployment rate (pp) | 0.16 | 0.38 | 0.59 | 0.90 | 1.35 | 1.63 | 1.88 | 1.74 | 1.23 | 1.90 | 73 | 1.24 |
+| Real wage (%) | 0 | -0.02 | -0.06 | -0.15 | -0.35 | -0.52 | -0.76 | -0.87 | -0.63 | -0.88 | 103 | -0.64 |
+| Consumption (real) (%) | -0.02 | -0.23 | -0.58 | -1.26 | -2.26 | -2.83 | -3.21 | -2.65 | -1.44 | -3.21 | 63 | -1.47 |
+| Investment (real) (%) | 0 | -0.33 | -0.75 | -1.51 | -2.82 | -3.86 | -5.13 | -5.49 | -3.96 | -5.63 | 95 | -4.01 |
+| Private debt (pp of GDP) | 0.49 | 0.58 | 0.74 | 1.03 | 1.55 | 1.98 | 2.65 | 3.65 | 3.81 | 3.92 | 183 | 3.83 |
+| Broad money (%) | -0.09 | -0.26 | -0.49 | -0.93 | -1.72 | -2.44 | -3.89 | -7.81 | -16.1 | -16.1 | 240 | -15.7 |
+| Government deficit (to GDP) (pp of GDP) | -0.99 | -0.86 | -0.78 | -0.67 | -0.51 | -0.41 | -0.33 | -0.33 | -0.43 | -0.99 | 1 | -0.42 |
+| Government debt (pp of GDP) | 0.48 | 0.45 | 0.43 | 0.45 | 0.62 | 0.91 | 1.71 | 4.14 | 7.46 | 7.46 | 240 | 7.36 |
+| Bank equity (to GDP) (pp of GDP) | 0.06 | 0.07 | 0.09 | 0.13 | 0.20 | 0.26 | 0.36 | 0.51 | 0.53 | 0.55 | 182 | 0.53 |
+| Disposable income (real) (%) | -0.13 | -0.87 | -1.33 | -2.04 | -2.99 | -3.53 | -3.93 | -3.59 | -2.58 | -3.95 | 68 | -2.61 |
+| Firms’ cash profit (real) (%) | -5.65 | -5.54 | -5.97 | -7.15 | -8.70 | -9.26 | -9.01 | -7.17 | -5.37 | -9.32 | 42 | -5.41 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
 Flags:
 
-- **Unsettled**: Inflation (12 months): moved 0.03 in the last 12 months, -1.09 at month 240; Consumption (real): moved 0.07 in the last 12 months, -1.43 at month 240; Investment (real): moved 0.11 in the last 12 months, -3.95 at month 240; Government debt: moved 0.22 in the last 12 months, 7.49 at month 240.
-- **Explosive**: Price level: moved -0.87 in the last 12 months, -21.0 at month 240; Broad money: moved -0.81 in the last 12 months, -16.1 at month 240.
+- **Unsettled**: Inflation (12 months): moved 0.03 in the last 12 months, -1.09 at month 240; Price level: moved -0.87 in the last 12 months, -21.0 at month 240; Consumption (real): moved 0.07 in the last 12 months, -1.44 at month 240; Investment (real): moved 0.11 in the last 12 months, -3.96 at month 240; and 2 more.
 - **Regimes**: ruleRate.
 
 Regimes that differ from the no-change run:
 
-- `ruleRate`: “Zero lower bound binds” instead of “–”, months 20–240; its label changed 1 time(s) in the run
+- `ruleRate`: “Zero lower bound binds” instead of “–”, months 21–240; its label changed 1 time(s) in the run
 
 ### 1 % of GDP/yr (up), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 1.01 | 1.29 | 1.65 | 2.23 | 3.01 | 3.47 | 3.80 | 3.39 | 2.67 | 3.80 | 65 | 2.69 |
-| Inflation (12 months) (pp) | 0 | 0 | 0.02 | 0.12 | 0.47 | 0.79 | 1.21 | 1.41 | 1.10 | 1.43 | 103 | 1.11 |
-| Price level (%) | 0 | 0 | 0.02 | 0.12 | 0.60 | 1.39 | 3.67 | 11.1 | 25.5 | 25.5 | 240 | 24.9 |
-| Unemployment rate (pp) | -0.16 | -0.40 | -0.64 | -0.97 | -1.38 | -1.62 | -1.80 | -1.62 | -1.27 | -1.81 | 67 | -1.28 |
-| Real wage (%) | 0 | 0.02 | 0.06 | 0.16 | 0.36 | 0.53 | 0.74 | 0.81 | 0.63 | 0.83 | 97 | 0.64 |
-| Consumption (real) (%) | 0.02 | 0.35 | 0.77 | 1.44 | 2.30 | 2.76 | 2.99 | 2.37 | 1.56 | 3.00 | 58 | 1.58 |
-| Investment (real) (%) | 0 | 0.33 | 0.80 | 1.62 | 2.92 | 3.88 | 4.98 | 5.14 | 4.03 | 5.33 | 90 | 4.05 |
-| Private debt (pp of GDP) | -0.48 | -0.61 | -0.78 | -1.05 | -1.49 | -1.83 | -2.36 | -3.09 | -3.24 | -3.27 | 190 | -3.24 |
-| Broad money (%) | 0.09 | 0.24 | 0.46 | 0.88 | 1.66 | 2.42 | 3.98 | 8.65 | 20.4 | 20.4 | 240 | 19.9 |
-| Government deficit (to GDP) (pp of GDP) | 0.97 | 0.76 | 0.71 | 0.61 | 0.48 | 0.40 | 0.34 | 0.36 | 0.44 | 0.97 | 1 | 0.44 |
-| Government debt (pp of GDP) | -0.47 | -0.49 | -0.52 | -0.55 | -0.69 | -0.93 | -1.58 | -3.31 | -5.05 | -5.05 | 240 | -5.01 |
-| Bank equity (to GDP) (pp of GDP) | -0.06 | -0.07 | -0.09 | -0.13 | -0.19 | -0.24 | -0.32 | -0.43 | -0.45 | -0.46 | 187 | -0.45 |
-| Disposable income (real) (%) | 0.13 | 1.28 | 1.61 | 2.19 | 2.99 | 3.44 | 3.73 | 3.33 | 2.67 | 3.74 | 63 | 2.69 |
-| Firms’ cash profit (real) (%) | 5.65 | 5.98 | 6.55 | 7.54 | 8.63 | 8.89 | 8.37 | 6.50 | 5.48 | 8.89 | 36 | 5.49 |
+| Output (real GDP) (%) | 1.01 | 1.21 | 1.51 | 2.09 | 2.96 | 3.48 | 3.84 | 3.40 | 2.68 | 3.84 | 64 | 2.69 |
+| Inflation (12 months) (pp) | 0 | 0 | 0.02 | 0.12 | 0.44 | 0.76 | 1.21 | 1.42 | 1.10 | 1.44 | 102 | 1.11 |
+| Price level (%) | 0 | 0 | 0.02 | 0.12 | 0.56 | 1.33 | 3.60 | 11.1 | 25.5 | 25.5 | 240 | 24.9 |
+| Unemployment rate (pp) | -0.16 | -0.38 | -0.59 | -0.90 | -1.34 | -1.62 | -1.82 | -1.62 | -1.27 | -1.82 | 66 | -1.28 |
+| Real wage (%) | 0 | 0.02 | 0.06 | 0.15 | 0.35 | 0.52 | 0.74 | 0.81 | 0.64 | 0.83 | 97 | 0.64 |
+| Consumption (real) (%) | 0.02 | 0.23 | 0.58 | 1.26 | 2.24 | 2.78 | 3.05 | 2.37 | 1.57 | 3.05 | 57 | 1.58 |
+| Investment (real) (%) | 0 | 0.33 | 0.75 | 1.51 | 2.81 | 3.83 | 5.01 | 5.15 | 4.03 | 5.36 | 89 | 4.06 |
+| Private debt (pp of GDP) | -0.48 | -0.57 | -0.71 | -0.99 | -1.46 | -1.82 | -2.37 | -3.09 | -3.24 | -3.28 | 191 | -3.25 |
+| Broad money (%) | 0.09 | 0.26 | 0.49 | 0.93 | 1.72 | 2.47 | 4.01 | 8.67 | 20.5 | 20.5 | 240 | 19.9 |
+| Government deficit (to GDP) (pp of GDP) | 0.97 | 0.84 | 0.76 | 0.64 | 0.48 | 0.39 | 0.33 | 0.36 | 0.44 | 0.97 | 1 | 0.44 |
+| Government debt (pp of GDP) | -0.47 | -0.43 | -0.41 | -0.43 | -0.58 | -0.84 | -1.52 | -3.26 | -5.01 | -5.01 | 240 | -4.97 |
+| Bank equity (to GDP) (pp of GDP) | -0.06 | -0.07 | -0.09 | -0.12 | -0.19 | -0.24 | -0.32 | -0.43 | -0.45 | -0.46 | 188 | -0.45 |
+| Disposable income (real) (%) | 0.13 | 0.87 | 1.33 | 2.04 | 2.97 | 3.48 | 3.79 | 3.33 | 2.68 | 3.79 | 61 | 2.69 |
+| Firms’ cash profit (real) (%) | 5.65 | 5.54 | 5.97 | 7.13 | 8.60 | 9.04 | 8.51 | 6.50 | 5.49 | 9.05 | 38 | 5.50 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
 Flags:
 
-- **Explosive**: Price level: moved 1.37 in the last 12 months, 25.5 at month 240; Broad money: moved 1.27 in the last 12 months, 20.4 at month 240.
+- **Unsettled**: Price level: moved 1.37 in the last 12 months, 25.5 at month 240; Broad money: moved 1.27 in the last 12 months, 20.5 at month 240.
 
 ### 3 % of GDP/yr (max), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 3.04 | 3.87 | 4.95 | 6.68 | 9.00 | 10.3 | 11.0 | 9.65 | 8.11 | 11.0 | 60 | 8.13 |
-| Inflation (12 months) (pp) | 0 | 0.01 | 0.06 | 0.37 | 1.42 | 2.37 | 3.62 | 4.08 | 3.33 | 4.17 | 98 | 3.34 |
-| Price level (%) | 0 | 0.01 | 0.06 | 0.37 | 1.80 | 4.21 | 11.3 | 36.0 | 93.8 | 93.8 | 240 | 90.9 |
-| Unemployment rate (pp) | -0.48 | -1.19 | -1.92 | -2.59 | -2.88 | -2.94 | -2.96 | -2.93 | -2.84 | -2.96 | 62 | -2.85 |
-| Real wage (%) | 0 | 0.05 | 0.18 | 0.49 | 1.09 | 1.58 | 2.17 | 2.31 | 1.90 | 2.38 | 93 | 1.91 |
-| Consumption (real) (%) | 0.06 | 1.06 | 2.32 | 4.31 | 6.85 | 8.11 | 8.56 | 6.51 | 4.82 | 8.61 | 53 | 4.84 |
-| Investment (real) (%) | 0 | 1.00 | 2.41 | 4.87 | 8.74 | 11.5 | 14.6 | 14.7 | 12.1 | 15.4 | 85 | 12.1 |
-| Private debt (pp of GDP) | -1.42 | -1.79 | -2.26 | -3.03 | -4.19 | -5.09 | -6.42 | -8.07 | -8.43 | -8.47 | 199 | -8.44 |
-| Broad money (%) | 0.28 | 0.73 | 1.39 | 2.65 | 5.02 | 7.34 | 12.3 | 28.8 | 77.9 | 77.9 | 240 | 75.2 |
-| Government deficit (to GDP) (pp of GDP) | 2.84 | 2.23 | 2.06 | 1.76 | 1.36 | 1.14 | 1.00 | 1.14 | 1.33 | 2.84 | 1 | 1.33 |
-| Government debt (pp of GDP) | -1.39 | -1.44 | -1.50 | -1.60 | -1.97 | -2.59 | -4.25 | -8.10 | -10.8 | -10.8 | 240 | -10.8 |
-| Bank equity (to GDP) (pp of GDP) | -0.17 | -0.22 | -0.28 | -0.38 | -0.54 | -0.68 | -0.88 | -1.13 | -1.17 | -1.18 | 194 | -1.18 |
-| Disposable income (real) (%) | 0.39 | 3.85 | 4.83 | 6.57 | 8.93 | 10.2 | 10.8 | 9.42 | 8.09 | 10.8 | 58 | 8.10 |
-| Firms’ cash profit (real) (%) | 17.0 | 17.9 | 19.6 | 22.6 | 25.6 | 26.0 | 23.8 | 18.0 | 16.3 | 26.1 | 33 | 16.3 |
+| Output (real GDP) (%) | 3.04 | 3.62 | 4.54 | 6.26 | 8.83 | 10.3 | 11.2 | 9.65 | 8.12 | 11.2 | 59 | 8.14 |
+| Inflation (12 months) (pp) | 0 | 0.01 | 0.06 | 0.35 | 1.34 | 2.30 | 3.62 | 4.09 | 3.33 | 4.19 | 97 | 3.34 |
+| Price level (%) | 0 | 0.01 | 0.06 | 0.35 | 1.69 | 4.03 | 11.1 | 35.9 | 93.6 | 93.6 | 240 | 90.7 |
+| Unemployment rate (pp) | -0.48 | -1.14 | -1.78 | -2.50 | -2.87 | -2.94 | -2.96 | -2.93 | -2.84 | -2.96 | 62 | -2.85 |
+| Real wage (%) | 0 | 0.05 | 0.17 | 0.45 | 1.04 | 1.54 | 2.17 | 2.31 | 1.90 | 2.39 | 92 | 1.91 |
+| Consumption (real) (%) | 0.06 | 0.69 | 1.75 | 3.77 | 6.67 | 8.18 | 8.71 | 6.50 | 4.82 | 8.77 | 53 | 4.84 |
+| Investment (real) (%) | 0 | 0.98 | 2.25 | 4.52 | 8.41 | 11.4 | 14.7 | 14.7 | 12.1 | 15.5 | 84 | 12.2 |
+| Private debt (pp of GDP) | -1.42 | -1.67 | -2.08 | -2.85 | -4.11 | -5.07 | -6.43 | -8.06 | -8.43 | -8.47 | 200 | -8.44 |
+| Broad money (%) | 0.28 | 0.78 | 1.48 | 2.80 | 5.19 | 7.49 | 12.4 | 28.9 | 78.0 | 78.0 | 240 | 75.4 |
+| Government deficit (to GDP) (pp of GDP) | 2.84 | 2.45 | 2.21 | 1.85 | 1.38 | 1.13 | 0.99 | 1.15 | 1.33 | 2.84 | 1 | 1.33 |
+| Government debt (pp of GDP) | -1.39 | -1.27 | -1.20 | -1.24 | -1.66 | -2.35 | -4.09 | -7.96 | -10.7 | -10.7 | 240 | -10.6 |
+| Bank equity (to GDP) (pp of GDP) | -0.17 | -0.20 | -0.25 | -0.36 | -0.53 | -0.67 | -0.88 | -1.13 | -1.18 | -1.18 | 195 | -1.18 |
+| Disposable income (real) (%) | 0.39 | 2.62 | 3.99 | 6.10 | 8.86 | 10.3 | 11.0 | 9.41 | 8.09 | 11.0 | 56 | 8.11 |
+| Firms’ cash profit (real) (%) | 17.0 | 16.6 | 17.9 | 21.3 | 25.5 | 26.5 | 24.1 | 18.0 | 16.3 | 26.5 | 35 | 16.3 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate (charged).
 
 Flags:
 
-- **Extreme**: Price level 93.8 % at month 240; Broad money 77.9 % at month 240.
-- **Explosive**: Price level: moved 6.24 in the last 12 months, 93.8 at month 240; Broad money: moved 5.78 in the last 12 months, 77.9 at month 240.
+- **Extreme**: Price level 93.6 % at month 240; Broad money 78.0 % at month 240.
+- **Unsettled**: Price level: moved 6.23 in the last 12 months, 93.6 at month 240; Broad money: moved 5.79 in the last 12 months, 78.0 at month 240.
 - **Regimes**: unemployment.
 
 Regimes that differ from the no-change run:
 
-- `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 7–240; its label changed 1 time(s) in the run
+- `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 8–240; its label changed 1 time(s) in the run
 
 ### -3 % of GDP/yr (min), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -3.04 | -3.79 | -4.57 | -5.36 | -6.02 | -6.31 | -6.02 | -3.87 | -1.36 | -6.33 | 40 | -1.46 |
-| Inflation (12 months) (pp) | 0 | -0.01 | -0.06 | -0.35 | -1.14 | -1.65 | -1.97 | -1.80 | -0.75 | -1.98 | 89 | -0.79 |
-| Price level (%) | 0 | -0.01 | -0.06 | -0.35 | -1.48 | -3.11 | -6.82 | -15.5 | -25.0 | -25.0 | 240 | -24.8 |
-| Unemployment rate (pp) | 0.48 | 1.18 | 1.82 | 2.42 | 2.81 | 2.99 | 2.88 | 1.87 | 0.66 | 3.00 | 42 | 0.71 |
-| Key interest rate (pp) | 0 | -0.48 | -1.06 | -1.85 | -2.59 | -2.86 | -2.98 | -3.00 | -2.44 | -3.00 | 209 | -2.58 |
-| Real wage (%) | 0 | -0.05 | -0.17 | -0.44 | -0.83 | -1.07 | -1.16 | -1.03 | -0.41 | -1.17 | 89 | -0.44 |
-| Consumption (real) (%) | -0.06 | -1.02 | -2.07 | -3.31 | -4.53 | -4.98 | -4.53 | -1.86 | 1.26 | -4.99 | 39 | 1.06 |
-| Investment (real) (%) | 0 | -0.66 | -1.00 | -0.61 | 0.51 | 0.63 | 0.55 | 2.67 | 5.22 | 5.80 | 218 | 5.44 |
-| Private debt (pp of GDP) | 1.50 | 1.89 | 2.31 | 2.84 | 3.75 | 4.68 | 6.09 | 7.79 | 7.43 | 8.18 | 167 | 7.54 |
-| Broad money (%) | -0.28 | -0.75 | -1.48 | -2.96 | -5.78 | -8.33 | -12.7 | -21.3 | -33.4 | -33.4 | 240 | -33.0 |
-| Government deficit (to GDP) (pp of GDP) | -3.02 | -2.57 | -2.65 | -2.69 | -2.52 | -2.22 | -1.69 | -1.18 | -0.52 | -3.02 | 1 | -0.56 |
-| Government debt (pp of GDP) | 1.47 | 1.49 | 1.32 | 0.61 | -1.00 | -2.31 | -4.31 | -7.47 | -12.0 | -12.0 | 240 | -11.9 |
-| Bank equity (to GDP) (pp of GDP) | 0.18 | 0.23 | 0.28 | 0.35 | 0.46 | 0.57 | 0.77 | 1.01 | 0.96 | 1.06 | 166 | 0.97 |
-| Disposable income (real) (%) | -0.39 | -4.17 | -5.24 | -6.66 | -7.71 | -7.82 | -6.94 | -3.97 | -0.07 | -7.86 | 32 | -0.31 |
-| Firms’ cash profit (real) (%) | -17.0 | -16.7 | -16.6 | -16.5 | -16.3 | -15.9 | -13.8 | -7.72 | -4.22 | -17.0 | 1 | -4.30 |
-| Income-tax rate (charged) (pp) | 0 | 0 | -0.03 | -0.12 | -0.45 | -0.85 | -1.56 | -2.52 | -3.59 | -3.59 | 240 | -3.55 |
+| Output (real GDP) (%) | -3.04 | -3.54 | -4.19 | -5.05 | -5.95 | -6.34 | -6.03 | -3.82 | -1.32 | -6.36 | 40 | -1.42 |
+| Inflation (12 months) (pp) | 0 | -0.01 | -0.06 | -0.33 | -1.08 | -1.60 | -1.96 | -1.79 | -0.73 | -1.98 | 89 | -0.78 |
+| Price level (%) | 0 | -0.01 | -0.06 | -0.33 | -1.40 | -2.98 | -6.68 | -15.3 | -24.8 | -24.8 | 240 | -24.5 |
+| Unemployment rate (pp) | 0.48 | 1.12 | 1.68 | 2.26 | 2.77 | 2.99 | 2.89 | 1.84 | 0.65 | 3.02 | 43 | 0.69 |
+| Key interest rate (pp) | 0 | -0.48 | -1.06 | -1.85 | -2.59 | -2.86 | -2.98 | -3.00 | -2.40 | -3.00 | 207 | -2.53 |
+| Real wage (%) | 0 | -0.05 | -0.16 | -0.41 | -0.79 | -1.05 | -1.16 | -1.02 | -0.41 | -1.17 | 88 | -0.43 |
+| Consumption (real) (%) | -0.06 | -0.65 | -1.55 | -2.92 | -4.47 | -5.03 | -4.55 | -1.80 | 1.32 | -5.05 | 39 | 1.13 |
+| Investment (real) (%) | 0 | -0.63 | -0.85 | -0.31 | 0.72 | 0.71 | 0.55 | 2.72 | 5.14 | 5.81 | 217 | 5.37 |
+| Private debt (pp of GDP) | 1.50 | 1.76 | 2.11 | 2.67 | 3.69 | 4.67 | 6.07 | 7.74 | 7.36 | 8.13 | 167 | 7.48 |
+| Broad money (%) | -0.28 | -0.79 | -1.56 | -3.07 | -5.88 | -8.38 | -12.7 | -21.2 | -33.2 | -33.2 | 240 | -32.8 |
+| Government deficit (to GDP) (pp of GDP) | -3.02 | -2.79 | -2.77 | -2.72 | -2.50 | -2.18 | -1.66 | -1.18 | -0.50 | -3.02 | 1 | -0.55 |
+| Government debt (pp of GDP) | 1.47 | 1.31 | 1.02 | 0.30 | -1.21 | -2.45 | -4.39 | -7.53 | -12.1 | -12.1 | 240 | -11.9 |
+| Bank equity (to GDP) (pp of GDP) | 0.18 | 0.21 | 0.26 | 0.32 | 0.45 | 0.57 | 0.76 | 1.00 | 0.95 | 1.05 | 166 | 0.97 |
+| Disposable income (real) (%) | -0.39 | -2.98 | -4.57 | -6.41 | -7.73 | -7.88 | -6.93 | -3.89 | 0.02 | -7.91 | 32 | -0.23 |
+| Firms’ cash profit (real) (%) | -17.0 | -15.5 | -15.1 | -15.6 | -16.4 | -16.1 | -13.9 | -7.59 | -4.19 | -17.0 | 1 | -4.27 |
+| Income-tax rate (charged) (pp) | 0 | 0 | -0.03 | -0.13 | -0.47 | -0.88 | -1.59 | -2.54 | -3.61 | -3.61 | 240 | -3.56 |
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.22 in the last 12 months, -1.36 at month 240; Inflation (12 months): moved 0.09 in the last 12 months, -0.75 at month 240; Price level: moved -0.56 in the last 12 months, -25.0 at month 240; Unemployment rate: moved -0.10 in the last 12 months, 0.66 at month 240; and 11 more.
+- **Unsettled**: Output (real GDP): moved 0.22 in the last 12 months, -1.32 at month 240; Inflation (12 months): moved 0.09 in the last 12 months, -0.73 at month 240; Price level: moved -0.56 in the last 12 months, -24.8 at month 240; Unemployment rate: moved -0.10 in the last 12 months, 0.65 at month 240; and 11 more.
 - **Regimes**: wageGrowth; depositRate; ruleRate.
 
 Regimes that differ from the no-change run:
 
-- `wageGrowth`: “Wages sticky downwards” instead of “–”, months 35–89; its label changed 2 time(s) in the run
+- `wageGrowth`: “Wages sticky downwards” instead of “–”, months 36–88; its label changed 2 time(s) in the run
 - `depositRate`: “Deposit rate at its floor: bank margin squeezed” instead of “–”, months 14–240; its label changed 1 time(s) in the run
-- `ruleRate`: “Zero lower bound binds” instead of “–”, months 2–209; its label changed 2 time(s) in the run
+- `ruleRate`: “Zero lower bound binds” instead of “–”, months 2–207; its label changed 2 time(s) in the run
 
 ### -1 % of GDP/yr (down), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -1.01 | -1.26 | -1.50 | -1.62 | -1.26 | -0.88 | -0.65 | -0.40 | -0.44 | -1.62 | 11 | -0.44 |
-| Inflation (12 months) (pp) | 0 | 0 | -0.02 | -0.11 | -0.34 | -0.40 | -0.32 | -0.20 | -0.17 | -0.40 | 35 | -0.17 |
-| Price level (%) | 0 | 0 | -0.02 | -0.11 | -0.46 | -0.85 | -1.53 | -2.73 | -4.34 | -4.34 | 240 | -4.27 |
-| Unemployment rate (pp) | 0.16 | 0.39 | 0.60 | 0.75 | 0.63 | 0.44 | 0.31 | 0.19 | 0.21 | 0.76 | 14 | 0.21 |
-| Key interest rate (pp) | 0 | -0.17 | -0.45 | -0.94 | -1.44 | -1.43 | -1.11 | -0.66 | -0.62 | -1.48 | 29 | -0.61 |
-| Real wage (%) | 0 | -0.02 | -0.06 | -0.14 | -0.23 | -0.23 | -0.18 | -0.11 | -0.10 | -0.23 | 29 | -0.10 |
-| Consumption (real) (%) | -0.02 | -0.34 | -0.68 | -0.99 | -0.85 | -0.46 | -0.02 | 0.57 | 0.55 | -1.02 | 15 | 0.55 |
-| Investment (real) (%) | 0 | -0.21 | -0.24 | 0.38 | 2.13 | 2.88 | 2.42 | 1.39 | 1.20 | 2.90 | 39 | 1.19 |
-| Private debt (pp of GDP) | 0.49 | 0.61 | 0.74 | 0.84 | 0.89 | 1.01 | 1.35 | 1.58 | 1.48 | 1.58 | 115 | 1.48 |
-| Broad money (%) | -0.09 | -0.25 | -0.50 | -1.03 | -2.16 | -3.25 | -4.98 | -6.87 | -8.25 | -8.25 | 240 | -8.17 |
-| Government deficit (to GDP) (pp of GDP) | -0.99 | -0.84 | -0.89 | -1.00 | -1.10 | -1.02 | -0.64 | -0.07 | -0.08 | -1.10 | 24 | -0.08 |
-| Government debt (pp of GDP) | 0.48 | 0.48 | 0.41 | 0.05 | -1.03 | -2.10 | -3.51 | -4.49 | -4.05 | -4.50 | 116 | -4.05 |
-| Bank equity (to GDP) (pp of GDP) | 0.06 | 0.07 | 0.09 | 0.10 | 0.10 | 0.11 | 0.16 | 0.20 | 0.19 | 0.20 | 129 | 0.19 |
-| Disposable income (real) (%) | -0.13 | -1.40 | -1.81 | -2.33 | -2.35 | -1.79 | -0.86 | 0.38 | 0.35 | -2.47 | 18 | 0.36 |
-| Firms’ cash profit (real) (%) | -5.65 | -5.55 | -5.30 | -4.52 | -2.98 | -2.26 | -1.99 | -1.46 | -1.57 | -5.65 | 1 | -1.57 |
+| Output (real GDP) (%) | -1.01 | -1.18 | -1.38 | -1.57 | -1.33 | -0.93 | -0.63 | -0.40 | -0.44 | -1.57 | 13 | -0.44 |
+| Inflation (12 months) (pp) | 0 | 0 | -0.02 | -0.11 | -0.33 | -0.40 | -0.33 | -0.20 | -0.17 | -0.40 | 37 | -0.17 |
+| Price level (%) | 0 | 0 | -0.02 | -0.11 | -0.44 | -0.84 | -1.53 | -2.72 | -4.34 | -4.34 | 240 | -4.26 |
+| Unemployment rate (pp) | 0.16 | 0.37 | 0.56 | 0.72 | 0.66 | 0.47 | 0.30 | 0.19 | 0.21 | 0.74 | 16 | 0.21 |
+| Key interest rate (pp) | 0 | -0.17 | -0.42 | -0.88 | -1.43 | -1.47 | -1.11 | -0.66 | -0.62 | -1.50 | 31 | -0.61 |
+| Real wage (%) | 0 | -0.02 | -0.05 | -0.13 | -0.23 | -0.23 | -0.18 | -0.11 | -0.10 | -0.24 | 31 | -0.10 |
+| Consumption (real) (%) | -0.02 | -0.22 | -0.51 | -0.90 | -0.93 | -0.52 | 0.01 | 0.57 | 0.55 | -1.02 | 18 | 0.55 |
+| Investment (real) (%) | 0 | -0.20 | -0.22 | 0.36 | 2.03 | 2.88 | 2.46 | 1.39 | 1.19 | 2.94 | 41 | 1.19 |
+| Private debt (pp of GDP) | 0.49 | 0.57 | 0.68 | 0.81 | 0.92 | 1.02 | 1.34 | 1.58 | 1.48 | 1.58 | 115 | 1.48 |
+| Broad money (%) | -0.09 | -0.26 | -0.53 | -1.06 | -2.16 | -3.23 | -4.97 | -6.86 | -8.24 | -8.24 | 240 | -8.16 |
+| Government deficit (to GDP) (pp of GDP) | -0.99 | -0.91 | -0.92 | -0.98 | -1.08 | -1.02 | -0.65 | -0.08 | -0.08 | -1.08 | 26 | -0.08 |
+| Government debt (pp of GDP) | 0.48 | 0.42 | 0.32 | -0.01 | -1.00 | -2.06 | -3.52 | -4.49 | -4.05 | -4.50 | 116 | -4.05 |
+| Bank equity (to GDP) (pp of GDP) | 0.06 | 0.07 | 0.08 | 0.10 | 0.10 | 0.11 | 0.15 | 0.20 | 0.19 | 0.20 | 129 | 0.19 |
+| Disposable income (real) (%) | -0.13 | -1.00 | -1.57 | -2.27 | -2.46 | -1.88 | -0.83 | 0.38 | 0.35 | -2.53 | 19 | 0.36 |
+| Firms’ cash profit (real) (%) | -5.65 | -5.13 | -4.85 | -4.48 | -3.24 | -2.31 | -1.94 | -1.46 | -1.57 | -5.65 | 1 | -1.57 |
 | Income-tax rate (charged) (pp) | 0 | 0 | -0.01 | -0.04 | -0.17 | -0.35 | -0.75 | -1.33 | -1.29 | -1.37 | 149 | -1.30 |
 
 Flags:
 
-- **Unsettled**: Price level: moved -0.16 in the last 12 months, -4.34 at month 240; Broad money: moved -0.17 in the last 12 months, -8.25 at month 240.
+- **Unsettled**: Price level: moved -0.16 in the last 12 months, -4.34 at month 240; Broad money: moved -0.17 in the last 12 months, -8.24 at month 240.
 
 ### 1 % of GDP/yr (up), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 1.01 | 1.26 | 1.50 | 1.63 | 1.29 | 0.95 | 0.71 | 0.43 | 0.49 | 1.63 | 11 | 0.49 |
-| Inflation (12 months) (pp) | 0 | 0 | 0.02 | 0.11 | 0.35 | 0.41 | 0.35 | 0.21 | 0.19 | 0.41 | 36 | 0.19 |
-| Price level (%) | 0 | 0 | 0.02 | 0.11 | 0.46 | 0.87 | 1.60 | 2.94 | 4.80 | 4.80 | 240 | 4.71 |
-| Unemployment rate (pp) | -0.16 | -0.39 | -0.60 | -0.75 | -0.65 | -0.47 | -0.34 | -0.20 | -0.23 | -0.76 | 14 | -0.23 |
-| Key interest rate (pp) | 0 | 0.17 | 0.45 | 0.94 | 1.46 | 1.47 | 1.19 | 0.71 | 0.68 | 1.50 | 30 | 0.67 |
-| Real wage (%) | 0 | 0.02 | 0.06 | 0.14 | 0.23 | 0.23 | 0.19 | 0.12 | 0.11 | 0.24 | 30 | 0.11 |
-| Consumption (real) (%) | 0.02 | 0.34 | 0.68 | 1.00 | 0.90 | 0.56 | 0.14 | -0.51 | -0.46 | 1.04 | 15 | -0.46 |
-| Investment (real) (%) | 0 | 0.21 | 0.24 | -0.38 | -2.13 | -2.91 | -2.56 | -1.49 | -1.31 | -2.95 | 40 | -1.29 |
-| Private debt (pp of GDP) | -0.48 | -0.60 | -0.71 | -0.82 | -0.89 | -1.02 | -1.38 | -1.62 | -1.54 | -1.63 | 115 | -1.54 |
-| Broad money (%) | 0.09 | 0.25 | 0.50 | 1.04 | 2.20 | 3.34 | 5.22 | 7.37 | 9.03 | 9.03 | 240 | 8.93 |
-| Government deficit (to GDP) (pp of GDP) | 0.97 | 0.82 | 0.87 | 0.98 | 1.11 | 1.05 | 0.68 | 0.09 | 0.11 | 1.11 | 26 | 0.10 |
-| Government debt (pp of GDP) | -0.47 | -0.47 | -0.40 | -0.05 | 1.00 | 2.06 | 3.50 | 4.52 | 3.98 | 4.52 | 115 | 3.99 |
-| Bank equity (to GDP) (pp of GDP) | -0.06 | -0.07 | -0.09 | -0.10 | -0.10 | -0.11 | -0.16 | -0.20 | -0.20 | -0.21 | 129 | -0.20 |
-| Disposable income (real) (%) | 0.13 | 1.40 | 1.81 | 2.34 | 2.43 | 1.95 | 1.05 | -0.31 | -0.22 | 2.52 | 19 | -0.23 |
-| Firms’ cash profit (real) (%) | 5.65 | 5.55 | 5.30 | 4.56 | 3.15 | 2.55 | 2.30 | 1.66 | 1.83 | 5.65 | 1 | 1.82 |
+| Output (real GDP) (%) | 1.01 | 1.18 | 1.38 | 1.57 | 1.36 | 0.99 | 0.69 | 0.43 | 0.49 | 1.58 | 14 | 0.49 |
+| Inflation (12 months) (pp) | 0 | 0 | 0.02 | 0.11 | 0.33 | 0.41 | 0.35 | 0.21 | 0.19 | 0.41 | 38 | 0.19 |
+| Price level (%) | 0 | 0 | 0.02 | 0.11 | 0.44 | 0.85 | 1.60 | 2.93 | 4.79 | 4.79 | 240 | 4.70 |
+| Unemployment rate (pp) | -0.16 | -0.37 | -0.56 | -0.72 | -0.67 | -0.49 | -0.33 | -0.20 | -0.23 | -0.74 | 16 | -0.23 |
+| Key interest rate (pp) | 0 | 0.17 | 0.42 | 0.89 | 1.44 | 1.51 | 1.19 | 0.71 | 0.68 | 1.52 | 32 | 0.67 |
+| Real wage (%) | 0 | 0.02 | 0.05 | 0.13 | 0.23 | 0.24 | 0.19 | 0.12 | 0.11 | 0.24 | 31 | 0.11 |
+| Consumption (real) (%) | 0.02 | 0.22 | 0.51 | 0.91 | 0.97 | 0.62 | 0.12 | -0.51 | -0.46 | 1.04 | 18 | -0.47 |
+| Investment (real) (%) | 0 | 0.20 | 0.22 | -0.36 | -2.03 | -2.91 | -2.60 | -1.49 | -1.30 | -2.99 | 42 | -1.29 |
+| Private debt (pp of GDP) | -0.48 | -0.56 | -0.66 | -0.79 | -0.90 | -1.03 | -1.37 | -1.62 | -1.54 | -1.62 | 115 | -1.54 |
+| Broad money (%) | 0.09 | 0.26 | 0.53 | 1.06 | 2.19 | 3.32 | 5.21 | 7.36 | 9.02 | 9.02 | 240 | 8.92 |
+| Government deficit (to GDP) (pp of GDP) | 0.97 | 0.89 | 0.90 | 0.96 | 1.08 | 1.04 | 0.69 | 0.09 | 0.11 | 1.08 | 28 | 0.10 |
+| Government debt (pp of GDP) | -0.47 | -0.41 | -0.31 | 0.01 | 0.97 | 2.02 | 3.51 | 4.52 | 3.98 | 4.52 | 115 | 3.99 |
+| Bank equity (to GDP) (pp of GDP) | -0.06 | -0.07 | -0.08 | -0.09 | -0.10 | -0.11 | -0.16 | -0.20 | -0.20 | -0.21 | 130 | -0.20 |
+| Disposable income (real) (%) | 0.13 | 1.00 | 1.58 | 2.29 | 2.53 | 2.03 | 1.02 | -0.31 | -0.22 | 2.58 | 20 | -0.24 |
+| Firms’ cash profit (real) (%) | 5.65 | 5.13 | 4.86 | 4.52 | 3.40 | 2.60 | 2.26 | 1.66 | 1.82 | 5.65 | 1 | 1.82 |
 | Income-tax rate (charged) (pp) | 0 | 0 | 0.01 | 0.04 | 0.17 | 0.35 | 0.76 | 1.35 | 1.29 | 1.39 | 146 | 1.30 |
 
 Flags:
 
-- **Unsettled**: Price level: moved 0.20 in the last 12 months, 4.80 at month 240; Broad money: moved 0.21 in the last 12 months, 9.03 at month 240.
+- **Unsettled**: Price level: moved 0.20 in the last 12 months, 4.79 at month 240; Broad money: moved 0.21 in the last 12 months, 9.02 at month 240.
 
 ### 3 % of GDP/yr (max), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 3.04 | 3.79 | 4.50 | 4.89 | 3.98 | 3.03 | 2.34 | 1.36 | 1.65 | 4.90 | 11 | 1.63 |
-| Inflation (12 months) (pp) | 0 | 0.01 | 0.06 | 0.35 | 1.05 | 1.24 | 1.10 | 0.68 | 0.62 | 1.24 | 37 | 0.61 |
-| Price level (%) | 0 | 0.01 | 0.06 | 0.35 | 1.40 | 2.65 | 5.02 | 9.56 | 16.1 | 16.1 | 240 | 15.8 |
-| Unemployment rate (pp) | -0.48 | -1.18 | -1.80 | -2.23 | -1.98 | -1.50 | -1.13 | -0.65 | -0.78 | -2.25 | 14 | -0.77 |
-| Key interest rate (pp) | 0 | 0.52 | 1.35 | 2.83 | 4.41 | 4.54 | 3.84 | 2.28 | 2.24 | 4.59 | 31 | 2.22 |
-| Real wage (%) | 0 | 0.05 | 0.17 | 0.43 | 0.70 | 0.72 | 0.62 | 0.38 | 0.36 | 0.72 | 31 | 0.36 |
-| Consumption (real) (%) | 0.06 | 1.01 | 2.04 | 3.02 | 2.83 | 1.98 | 0.82 | -1.34 | -1.03 | 3.16 | 16 | -1.06 |
-| Investment (real) (%) | 0 | 0.63 | 0.71 | -1.15 | -6.41 | -8.83 | -8.13 | -4.84 | -4.31 | -9.01 | 41 | -4.26 |
-| Private debt (pp of GDP) | -1.42 | -1.75 | -2.08 | -2.38 | -2.64 | -3.09 | -4.21 | -5.01 | -4.81 | -5.01 | 116 | -4.80 |
-| Broad money (%) | 0.28 | 0.75 | 1.50 | 3.13 | 6.69 | 10.3 | 16.5 | 23.8 | 29.9 | 29.9 | 240 | 29.5 |
-| Government deficit (to GDP) (pp of GDP) | 2.84 | 2.40 | 2.54 | 2.87 | 3.32 | 3.21 | 2.19 | 0.31 | 0.41 | 3.34 | 28 | 0.40 |
-| Government debt (pp of GDP) | -1.39 | -1.38 | -1.15 | -0.15 | 2.92 | 6.03 | 10.4 | 13.6 | 11.7 | 13.6 | 113 | 11.7 |
-| Bank equity (to GDP) (pp of GDP) | -0.17 | -0.21 | -0.25 | -0.29 | -0.30 | -0.34 | -0.48 | -0.63 | -0.61 | -0.63 | 130 | -0.61 |
-| Disposable income (real) (%) | 0.39 | 4.21 | 5.44 | 7.09 | 7.54 | 6.34 | 3.77 | -0.67 | -0.20 | 7.70 | 19 | -0.25 |
-| Firms’ cash profit (real) (%) | 17.0 | 16.7 | 15.9 | 13.8 | 9.97 | 8.57 | 8.00 | 5.69 | 6.43 | 17.0 | 1 | 6.38 |
-| Income-tax rate (charged) (pp) | 0 | 0 | 0.03 | 0.13 | 0.51 | 1.06 | 2.32 | 4.13 | 3.87 | 4.23 | 143 | 3.88 |
+| Output (real GDP) (%) | 3.04 | 3.54 | 4.15 | 4.72 | 4.16 | 3.14 | 2.29 | 1.35 | 1.64 | 4.75 | 14 | 1.63 |
+| Inflation (12 months) (pp) | 0 | 0.01 | 0.06 | 0.33 | 1.01 | 1.25 | 1.11 | 0.68 | 0.62 | 1.26 | 39 | 0.61 |
+| Price level (%) | 0 | 0.01 | 0.06 | 0.33 | 1.34 | 2.61 | 5.00 | 9.53 | 16.0 | 16.0 | 240 | 15.7 |
+| Unemployment rate (pp) | -0.48 | -1.12 | -1.67 | -2.14 | -2.05 | -1.56 | -1.11 | -0.65 | -0.78 | -2.20 | 16 | -0.77 |
+| Key interest rate (pp) | 0 | 0.51 | 1.27 | 2.66 | 4.37 | 4.63 | 3.84 | 2.28 | 2.24 | 4.66 | 33 | 2.21 |
+| Real wage (%) | 0 | 0.05 | 0.16 | 0.41 | 0.69 | 0.73 | 0.62 | 0.38 | 0.36 | 0.73 | 33 | 0.36 |
+| Consumption (real) (%) | 0.06 | 0.65 | 1.53 | 2.75 | 3.03 | 2.14 | 0.77 | -1.34 | -1.04 | 3.18 | 19 | -1.07 |
+| Investment (real) (%) | 0 | 0.61 | 0.65 | -1.07 | -6.09 | -8.83 | -8.22 | -4.84 | -4.30 | -9.14 | 43 | -4.25 |
+| Private debt (pp of GDP) | -1.42 | -1.64 | -1.92 | -2.30 | -2.68 | -3.10 | -4.18 | -5.00 | -4.80 | -5.01 | 116 | -4.79 |
+| Broad money (%) | 0.28 | 0.80 | 1.58 | 3.21 | 6.68 | 10.3 | 16.4 | 23.8 | 29.9 | 29.9 | 240 | 29.5 |
+| Government deficit (to GDP) (pp of GDP) | 2.84 | 2.61 | 2.63 | 2.82 | 3.23 | 3.21 | 2.21 | 0.31 | 0.41 | 3.28 | 29 | 0.40 |
+| Government debt (pp of GDP) | -1.39 | -1.21 | -0.90 | 0.02 | 2.83 | 5.93 | 10.5 | 13.6 | 11.7 | 13.6 | 114 | 11.7 |
+| Bank equity (to GDP) (pp of GDP) | -0.17 | -0.20 | -0.23 | -0.28 | -0.31 | -0.34 | -0.48 | -0.63 | -0.61 | -0.63 | 130 | -0.61 |
+| Disposable income (real) (%) | 0.39 | 3.01 | 4.73 | 6.91 | 7.82 | 6.55 | 3.71 | -0.68 | -0.21 | 7.90 | 21 | -0.27 |
+| Firms’ cash profit (real) (%) | 17.0 | 15.4 | 14.6 | 13.7 | 10.7 | 8.71 | 7.89 | 5.68 | 6.42 | 17.0 | 1 | 6.38 |
+| Income-tax rate (charged) (pp) | 0 | 0 | 0.03 | 0.13 | 0.52 | 1.06 | 2.32 | 4.13 | 3.87 | 4.22 | 143 | 3.88 |
 
 Flags:
 
-- **Unsettled**: Price level: moved 0.71 in the last 12 months, 16.1 at month 240; Consumption (real): moved 0.07 in the last 12 months, -1.03 at month 240; Broad money: moved 0.83 in the last 12 months, 29.9 at month 240.
+- **Unsettled**: Price level: moved 0.71 in the last 12 months, 16.0 at month 240; Consumption (real): moved 0.07 in the last 12 months, -1.04 at month 240; Broad money: moved 0.83 in the last 12 months, 29.9 at month 240.
 - **Regimes**: unemployment.
 
 Regimes that differ from the no-change run:
 
-- `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 8–23; its label changed 2 time(s) in the run
+- `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 10–25; its label changed 2 time(s) in the run
 
 ## Income-tax rate (`taxRate`)
 
@@ -1109,166 +1101,163 @@ Runs: -3 pp (min); -1 pp (down); 1 pp (up); 3 pp (max). Each is set before month
 
 Comparisons between runs:
 
-- **Mode sign**: -3 pp (min): Investment (real) 2.48 on Manual, -0.08 on Automatic; Government debt -0.06 on Manual, 0.54 on Automatic.
-- **Mode sign**: -1 pp (down): Investment (real) 0.82 on Manual, -0.03 on Automatic; Government debt -0.02 on Manual, 0.18 on Automatic.
-- **Mode sign**: 1 pp (up): Investment (real) -0.81 on Manual, 0.03 on Automatic; Government debt 0.02 on Manual, -0.19 on Automatic.
-- **Mode sign**: 3 pp (max): Investment (real) -2.40 on Manual, 0.09 on Automatic; Government debt 0.07 on Manual, -0.56 on Automatic.
+- **Mode sign**: -3 pp (min): Investment (real) 2.29 on Manual, -0.09 on Automatic.
+- **Mode sign**: -1 pp (down): Investment (real) 0.76 on Manual, -0.03 on Automatic.
+- **Mode sign**: 1 pp (up): Investment (real) -0.75 on Manual, 0.03 on Automatic.
+- **Mode sign**: 3 pp (max): Investment (real) -2.24 on Manual, 0.10 on Automatic.
 
 Expectations:
 
-- ✓ realDisposableIncome falls over months 1–12 (max, any): 3, Manual: -5.85; 3, Automatic: -5.99. A higher income-tax rate lowers disposable income at once. (national accounts identity)
-- ✓ output falls over months 1–12 (up, any): 1, Manual: -0.77; 1, Automatic: -0.69. Tax multiplier: a higher income-tax rate lowers disposable income and consumption. (Romer & Romer (2010) AER; Mertens & Ravn (2013) AER)
-- ✓ output rises over months 1–12 (down, any): -1, Manual: 0.78; -1, Automatic: 0.70. Tax multiplier in reverse: a tax cut raises disposable income and spending. (Romer & Romer (2010) AER)
-- ✓ realDisposableIncome falls over months 1–12 (up, any): 1, Manual: -1.97; 1, Automatic: -2.03. Disposable income is income after tax, so a higher tax rate lowers it at once. (National accounts identity (SNA 2008))
-- ✓ realConsumption falls over months 1–12 (up, any): 1, Manual: -1.06; 1, Automatic: -1.00. Consumption function: spending follows disposable income. (Keynes (1936); Jappelli & Pistaferri (2010))
-- ✓ deficit falls over months 1–6 (up, any): 1, Manual: -0.81; 1, Automatic: -0.82. Budget accounting: higher tax revenue narrows the deficit. (Godley & Lavoie (2007), ch. 3)
-- ✓ unemployment rises over months 3–24 (up, any): 1, Manual: 0.58; 1, Automatic: 0.42. Okun’s law: lower output needs less work. (Okun (1962))
-- ✓ keyRate falls over months 6–36 (up, Automatic): 1, Automatic: -0.79. Taylor rule: the central bank cuts its rate against the negative output gap and lower inflation. (Taylor (1993))
+- ✓ realDisposableIncome falls over months 1–12 (max, any): 3, Manual: -5.46; 3, Automatic: -5.67. A higher income-tax rate lowers disposable income at once. (national accounts identity)
+- ✓ output falls over months 1–12 (up, any): 1, Manual: -0.72; 1, Automatic: -0.65. Tax multiplier: a higher income-tax rate lowers disposable income and consumption. (Romer & Romer (2010) AER; Mertens & Ravn (2013) AER)
+- ✓ output rises over months 1–12 (down, any): -1, Manual: 0.73; -1, Automatic: 0.66. Tax multiplier in reverse: a tax cut raises disposable income and spending. (Romer & Romer (2010) AER)
+- ✓ realDisposableIncome falls over months 1–12 (up, any): 1, Manual: -1.84; 1, Automatic: -1.91. Disposable income is income after tax, so a higher tax rate lowers it at once. (National accounts identity (SNA 2008))
+- ✓ realConsumption falls over months 1–12 (up, any): 1, Manual: -0.98; 1, Automatic: -0.94. Consumption function: spending follows disposable income. (Keynes (1936); Jappelli & Pistaferri (2010))
+- ✓ deficit falls over months 1–6 (up, any): 1, Manual: -0.83; 1, Automatic: -0.84. Budget accounting: higher tax revenue narrows the deficit. (Godley & Lavoie (2007), ch. 3)
+- ✓ unemployment rises over months 3–24 (up, any): 1, Manual: 0.55; 1, Automatic: 0.41. Okun’s law: lower output needs less work. (Okun (1962))
+- ✓ keyRate falls over months 6–36 (up, Automatic): 1, Automatic: -0.77. Taylor rule: the central bank cuts its rate against the negative output gap and lower inflation. (Taylor (1993))
 
 ### -3 pp (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.39 | 1.17 | 2.26 | 4.15 | 6.86 | 8.54 | 9.93 | 9.08 | 7.51 | 10.0 | 71 | 7.53 |
-| Inflation (12 months) (pp) | 0 | 0 | 0.02 | 0.14 | 0.83 | 1.68 | 2.99 | 3.78 | 3.08 | 3.80 | 108 | 3.10 |
-| Price level (%) | 0 | 0 | 0.02 | 0.14 | 0.97 | 2.67 | 8.30 | 29.7 | 80.4 | 80.4 | 240 | 78.0 |
-| Unemployment rate (pp) | -0.06 | -0.30 | -0.76 | -1.68 | -2.66 | -2.86 | -2.93 | -2.90 | -2.79 | -2.94 | 73 | -2.79 |
-| Real wage (%) | 0 | 0.01 | 0.05 | 0.22 | 0.71 | 1.18 | 1.84 | 2.15 | 1.76 | 2.17 | 103 | 1.77 |
-| Consumption (real) (%) | 0.58 | 1.67 | 3.13 | 5.52 | 8.70 | 10.5 | 11.7 | 10.3 | 8.52 | 11.8 | 64 | 8.54 |
-| Investment (real) (%) | 0 | 0.19 | 0.78 | 2.48 | 6.04 | 8.97 | 12.6 | 13.7 | 11.2 | 14.0 | 95 | 11.3 |
-| Private debt (pp of GDP) | -0.19 | -0.55 | -1.06 | -1.91 | -3.20 | -4.16 | -5.58 | -7.39 | -7.89 | -7.90 | 213 | -7.89 |
-| Broad money (%) | 0.25 | 0.72 | 1.40 | 2.68 | 5.05 | 7.34 | 12.1 | 27.3 | 71.7 | 71.7 | 240 | 69.3 |
-| Government deficit (to GDP) (pp of GDP) | 2.58 | 2.44 | 2.25 | 1.96 | 1.55 | 1.31 | 1.10 | 1.15 | 1.31 | 2.58 | 1 | 1.31 |
-| Government debt (pp of GDP) | 0 | -0.01 | -0.03 | -0.06 | -0.21 | -0.56 | -1.76 | -5.14 | -7.79 | -7.79 | 240 | -7.75 |
-| Bank equity (to GDP) (pp of GDP) | -0.02 | -0.07 | -0.13 | -0.24 | -0.41 | -0.55 | -0.76 | -1.03 | -1.10 | -1.10 | 207 | -1.10 |
-| Disposable income (real) (%) | 3.85 | 4.77 | 5.98 | 8.00 | 10.9 | 12.6 | 14.0 | 13.1 | 11.7 | 14.1 | 69 | 11.7 |
-| Firms’ cash profit (real) (%) | 2.20 | 5.83 | 9.93 | 15.4 | 20.9 | 22.9 | 22.4 | 17.1 | 15.1 | 23.2 | 44 | 15.1 |
+| Output (real GDP) (%) | 0.39 | 1.12 | 2.10 | 3.84 | 6.61 | 8.46 | 10.0 | 9.09 | 7.52 | 10.1 | 70 | 7.54 |
+| Inflation (12 months) (pp) | 0 | 0 | 0.02 | 0.13 | 0.77 | 1.61 | 2.97 | 3.79 | 3.09 | 3.82 | 108 | 3.10 |
+| Price level (%) | 0 | 0 | 0.02 | 0.13 | 0.91 | 2.53 | 8.08 | 29.5 | 80.3 | 80.3 | 240 | 77.8 |
+| Unemployment rate (pp) | -0.06 | -0.29 | -0.71 | -1.55 | -2.61 | -2.85 | -2.93 | -2.90 | -2.79 | -2.94 | 72 | -2.79 |
+| Real wage (%) | 0 | 0.01 | 0.05 | 0.21 | 0.67 | 1.14 | 1.83 | 2.15 | 1.76 | 2.19 | 102 | 1.77 |
+| Consumption (real) (%) | 0.58 | 1.59 | 2.90 | 5.10 | 8.40 | 10.4 | 11.9 | 10.3 | 8.52 | 11.9 | 64 | 8.54 |
+| Investment (real) (%) | 0 | 0.18 | 0.74 | 2.29 | 5.72 | 8.74 | 12.6 | 13.7 | 11.2 | 14.1 | 94 | 11.3 |
+| Private debt (pp of GDP) | -0.19 | -0.53 | -0.98 | -1.78 | -3.08 | -4.11 | -5.58 | -7.39 | -7.89 | -7.91 | 213 | -7.90 |
+| Broad money (%) | 0.25 | 0.73 | 1.43 | 2.75 | 5.17 | 7.47 | 12.2 | 27.4 | 71.7 | 71.7 | 240 | 69.4 |
+| Government deficit (to GDP) (pp of GDP) | 2.58 | 2.49 | 2.34 | 2.04 | 1.59 | 1.32 | 1.09 | 1.16 | 1.32 | 2.58 | 1 | 1.31 |
+| Government debt (pp of GDP) | 0 | 0.02 | 0.08 | 0.17 | 0.08 | -0.31 | -1.59 | -5.01 | -7.67 | -7.67 | 240 | -7.63 |
+| Bank equity (to GDP) (pp of GDP) | -0.02 | -0.06 | -0.12 | -0.22 | -0.39 | -0.54 | -0.76 | -1.03 | -1.10 | -1.10 | 208 | -1.10 |
+| Disposable income (real) (%) | 3.85 | 4.43 | 5.45 | 7.47 | 10.7 | 12.6 | 14.1 | 13.1 | 11.7 | 14.2 | 68 | 11.7 |
+| Firms’ cash profit (real) (%) | 2.20 | 5.56 | 9.18 | 14.3 | 20.4 | 23.1 | 22.8 | 17.1 | 15.1 | 23.5 | 45 | 15.1 |
 | Income-tax rate (charged) (pp) | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | -3.00 | 1 | -3.00 |
 
 Unmoved (every effect below 0.005): Key interest rate.
 
 Flags:
 
-- **Extreme**: Price level 80.4 % at month 240; Broad money 71.7 % at month 240.
-- **Explosive**: Price level: moved 5.40 in the last 12 months, 80.4 at month 240; Broad money: moved 5.17 in the last 12 months, 71.7 at month 240.
+- **Extreme**: Price level 80.3 % at month 240; Broad money 71.7 % at month 240.
+- **Unsettled**: Price level: moved 5.39 in the last 12 months, 80.3 at month 240; Broad money: moved 5.17 in the last 12 months, 71.7 at month 240.
 - **Regimes**: unemployment.
 
 Regimes that differ from the no-change run:
 
-- `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 15–240; its label changed 1 time(s) in the run
+- `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 16–240; its label changed 1 time(s) in the run
 
 ### -1 pp (down), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.13 | 0.39 | 0.75 | 1.36 | 2.23 | 2.77 | 3.23 | 3.05 | 2.42 | 3.29 | 75 | 2.43 |
-| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.05 | 0.27 | 0.54 | 0.96 | 1.24 | 1.00 | 1.24 | 113 | 1.00 |
-| Price level (%) | 0 | 0 | 0.01 | 0.05 | 0.32 | 0.86 | 2.62 | 8.90 | 21.5 | 21.5 | 240 | 21.0 |
-| Unemployment rate (pp) | -0.02 | -0.10 | -0.25 | -0.55 | -1.00 | -1.28 | -1.53 | -1.46 | -1.15 | -1.56 | 77 | -1.16 |
-| Real wage (%) | 0 | 0 | 0.02 | 0.07 | 0.23 | 0.38 | 0.60 | 0.72 | 0.57 | 0.72 | 107 | 0.58 |
-| Consumption (real) (%) | 0.19 | 0.55 | 1.04 | 1.81 | 2.83 | 3.40 | 3.83 | 3.46 | 2.73 | 3.85 | 68 | 2.74 |
-| Investment (real) (%) | 0 | 0.06 | 0.26 | 0.82 | 1.97 | 2.91 | 4.10 | 4.56 | 3.64 | 4.64 | 100 | 3.66 |
-| Private debt (pp of GDP) | -0.06 | -0.19 | -0.36 | -0.65 | -1.09 | -1.43 | -1.94 | -2.68 | -2.91 | -2.92 | 208 | -2.92 |
-| Broad money (%) | 0.08 | 0.24 | 0.46 | 0.88 | 1.63 | 2.35 | 3.78 | 7.94 | 18.3 | 18.3 | 240 | 17.8 |
-| Government deficit (to GDP) (pp of GDP) | 0.86 | 0.81 | 0.75 | 0.65 | 0.51 | 0.42 | 0.35 | 0.34 | 0.41 | 0.86 | 1 | 0.40 |
-| Government debt (pp of GDP) | 0 | 0 | -0.01 | -0.02 | -0.07 | -0.19 | -0.64 | -2.05 | -3.64 | -3.64 | 240 | -3.60 |
-| Bank equity (to GDP) (pp of GDP) | -0.01 | -0.02 | -0.04 | -0.08 | -0.14 | -0.19 | -0.27 | -0.38 | -0.41 | -0.41 | 204 | -0.41 |
-| Disposable income (real) (%) | 1.28 | 1.58 | 1.97 | 2.61 | 3.52 | 4.06 | 4.52 | 4.33 | 3.75 | 4.56 | 74 | 3.76 |
-| Firms’ cash profit (real) (%) | 0.73 | 1.94 | 3.28 | 5.05 | 6.81 | 7.46 | 7.40 | 5.92 | 4.94 | 7.57 | 45 | 4.95 |
+| Output (real GDP) (%) | 0.13 | 0.37 | 0.69 | 1.26 | 2.15 | 2.74 | 3.27 | 3.06 | 2.42 | 3.32 | 74 | 2.43 |
+| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.04 | 0.25 | 0.52 | 0.96 | 1.25 | 1.00 | 1.25 | 112 | 1.01 |
+| Price level (%) | 0 | 0 | 0.01 | 0.04 | 0.30 | 0.82 | 2.56 | 8.86 | 21.5 | 21.5 | 240 | 21.0 |
+| Unemployment rate (pp) | -0.02 | -0.09 | -0.23 | -0.51 | -0.96 | -1.26 | -1.54 | -1.46 | -1.15 | -1.58 | 76 | -1.16 |
+| Real wage (%) | 0 | 0 | 0.02 | 0.07 | 0.22 | 0.37 | 0.60 | 0.72 | 0.57 | 0.72 | 107 | 0.58 |
+| Consumption (real) (%) | 0.19 | 0.53 | 0.96 | 1.68 | 2.74 | 3.39 | 3.87 | 3.46 | 2.74 | 3.89 | 67 | 2.75 |
+| Investment (real) (%) | 0 | 0.06 | 0.25 | 0.76 | 1.87 | 2.84 | 4.11 | 4.58 | 3.64 | 4.67 | 99 | 3.67 |
+| Private debt (pp of GDP) | -0.06 | -0.18 | -0.33 | -0.60 | -1.05 | -1.41 | -1.95 | -2.69 | -2.92 | -2.93 | 208 | -2.92 |
+| Broad money (%) | 0.08 | 0.24 | 0.47 | 0.90 | 1.68 | 2.39 | 3.81 | 7.96 | 18.4 | 18.4 | 240 | 17.9 |
+| Government deficit (to GDP) (pp of GDP) | 0.86 | 0.83 | 0.78 | 0.68 | 0.52 | 0.43 | 0.34 | 0.34 | 0.41 | 0.86 | 1 | 0.41 |
+| Government debt (pp of GDP) | 0 | 0.01 | 0.03 | 0.06 | 0.03 | -0.11 | -0.58 | -2.01 | -3.60 | -3.60 | 240 | -3.56 |
+| Bank equity (to GDP) (pp of GDP) | -0.01 | -0.02 | -0.04 | -0.07 | -0.13 | -0.19 | -0.27 | -0.38 | -0.41 | -0.41 | 205 | -0.41 |
+| Disposable income (real) (%) | 1.28 | 1.47 | 1.80 | 2.45 | 3.45 | 4.07 | 4.56 | 4.33 | 3.75 | 4.60 | 72 | 3.76 |
+| Firms’ cash profit (real) (%) | 0.73 | 1.85 | 3.04 | 4.70 | 6.66 | 7.51 | 7.53 | 5.92 | 4.95 | 7.70 | 47 | 4.96 |
 | Income-tax rate (charged) (pp) | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | 1 | -1.00 |
 
 Unmoved (every effect below 0.005): Key interest rate.
 
 Flags:
 
-- **Unsettled**: Government debt: moved -0.09 in the last 12 months, -3.64 at month 240.
-- **Explosive**: Price level: moved 1.20 in the last 12 months, 21.5 at month 240; Broad money: moved 1.12 in the last 12 months, 18.3 at month 240.
+- **Unsettled**: Price level: moved 1.20 in the last 12 months, 21.5 at month 240; Broad money: moved 1.12 in the last 12 months, 18.4 at month 240; Government debt: moved -0.09 in the last 12 months, -3.60 at month 240.
 
 ### 1 pp (up), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.13 | -0.39 | -0.74 | -1.34 | -2.18 | -2.69 | -3.16 | -3.07 | -2.31 | -3.24 | 81 | -2.33 |
-| Inflation (12 months) (pp) | 0 | 0 | -0.01 | -0.05 | -0.27 | -0.53 | -0.93 | -1.22 | -0.97 | -1.22 | 119 | -0.98 |
-| Price level (%) | 0 | 0 | -0.01 | -0.05 | -0.31 | -0.84 | -2.49 | -8.03 | -17.6 | -17.6 | 240 | -17.2 |
-| Unemployment rate (pp) | 0.02 | 0.10 | 0.25 | 0.55 | 0.98 | 1.24 | 1.49 | 1.47 | 1.10 | 1.54 | 83 | 1.11 |
-| Real wage (%) | 0 | 0 | -0.02 | -0.07 | -0.23 | -0.37 | -0.58 | -0.72 | -0.56 | -0.72 | 113 | -0.57 |
-| Consumption (real) (%) | -0.19 | -0.55 | -1.03 | -1.78 | -2.76 | -3.30 | -3.74 | -3.49 | -2.60 | -3.78 | 72 | -2.63 |
-| Investment (real) (%) | 0 | -0.06 | -0.26 | -0.81 | -1.93 | -2.84 | -3.99 | -4.57 | -3.53 | -4.60 | 105 | -3.56 |
-| Private debt (pp of GDP) | 0.06 | 0.19 | 0.36 | 0.65 | 1.11 | 1.46 | 2.03 | 2.94 | 3.25 | 3.28 | 204 | 3.26 |
-| Broad money (%) | -0.08 | -0.24 | -0.46 | -0.86 | -1.59 | -2.25 | -3.53 | -6.95 | -14.3 | -14.3 | 240 | -14.0 |
-| Government deficit (to GDP) (pp of GDP) | -0.86 | -0.81 | -0.75 | -0.65 | -0.50 | -0.41 | -0.32 | -0.30 | -0.37 | -0.86 | 1 | -0.36 |
-| Government debt (pp of GDP) | 0 | 0 | 0.01 | 0.02 | 0.07 | 0.20 | 0.69 | 2.46 | 5.14 | 5.14 | 240 | 5.05 |
-| Bank equity (to GDP) (pp of GDP) | 0.01 | 0.02 | 0.04 | 0.08 | 0.14 | 0.19 | 0.28 | 0.41 | 0.45 | 0.46 | 202 | 0.46 |
-| Disposable income (real) (%) | -1.28 | -1.57 | -1.95 | -2.56 | -3.41 | -3.92 | -4.37 | -4.29 | -3.58 | -4.44 | 80 | -3.60 |
-| Firms’ cash profit (real) (%) | -0.73 | -1.93 | -3.26 | -4.97 | -6.64 | -7.28 | -7.33 | -6.13 | -4.80 | -7.42 | 48 | -4.82 |
+| Output (real GDP) (%) | -0.13 | -0.37 | -0.69 | -1.25 | -2.11 | -2.67 | -3.19 | -3.08 | -2.31 | -3.27 | 79 | -2.34 |
+| Inflation (12 months) (pp) | 0 | 0 | -0.01 | -0.04 | -0.25 | -0.51 | -0.92 | -1.23 | -0.97 | -1.23 | 118 | -0.98 |
+| Price level (%) | 0 | 0 | -0.01 | -0.04 | -0.29 | -0.80 | -2.44 | -8.01 | -17.6 | -17.6 | 240 | -17.2 |
+| Unemployment rate (pp) | 0.02 | 0.09 | 0.23 | 0.51 | 0.94 | 1.23 | 1.50 | 1.47 | 1.10 | 1.55 | 81 | 1.11 |
+| Real wage (%) | 0 | 0 | -0.02 | -0.07 | -0.22 | -0.36 | -0.58 | -0.72 | -0.56 | -0.72 | 112 | -0.57 |
+| Consumption (real) (%) | -0.19 | -0.53 | -0.96 | -1.66 | -2.68 | -3.30 | -3.78 | -3.50 | -2.61 | -3.82 | 71 | -2.63 |
+| Investment (real) (%) | 0 | -0.06 | -0.24 | -0.75 | -1.84 | -2.78 | -4.00 | -4.59 | -3.53 | -4.63 | 104 | -3.57 |
+| Private debt (pp of GDP) | 0.06 | 0.18 | 0.33 | 0.61 | 1.07 | 1.45 | 2.04 | 2.94 | 3.25 | 3.29 | 204 | 3.26 |
+| Broad money (%) | -0.08 | -0.24 | -0.47 | -0.89 | -1.63 | -2.30 | -3.57 | -6.97 | -14.3 | -14.3 | 240 | -14.0 |
+| Government deficit (to GDP) (pp of GDP) | -0.86 | -0.83 | -0.78 | -0.68 | -0.52 | -0.41 | -0.32 | -0.30 | -0.37 | -0.86 | 1 | -0.36 |
+| Government debt (pp of GDP) | 0 | -0.01 | -0.03 | -0.06 | -0.03 | 0.12 | 0.63 | 2.42 | 5.11 | 5.11 | 240 | 5.02 |
+| Bank equity (to GDP) (pp of GDP) | 0.01 | 0.02 | 0.04 | 0.07 | 0.14 | 0.19 | 0.28 | 0.41 | 0.45 | 0.46 | 202 | 0.46 |
+| Disposable income (real) (%) | -1.28 | -1.47 | -1.78 | -2.41 | -3.35 | -3.93 | -4.41 | -4.30 | -3.59 | -4.48 | 77 | -3.61 |
+| Firms’ cash profit (real) (%) | -0.73 | -1.84 | -3.02 | -4.64 | -6.52 | -7.33 | -7.45 | -6.15 | -4.81 | -7.55 | 49 | -4.84 |
 | Income-tax rate (charged) (pp) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1 | 1.00 |
 
 Unmoved (every effect below 0.005): Key interest rate.
 
 Flags:
 
-- **Unsettled**: Inflation (12 months): moved 0.03 in the last 12 months, -0.97 at month 240.
-- **Explosive**: Price level: moved -0.80 in the last 12 months, -17.6 at month 240; Broad money: moved -0.73 in the last 12 months, -14.3 at month 240; Government debt: moved 0.19 in the last 12 months, 5.14 at month 240.
+- **Unsettled**: Inflation (12 months): moved 0.03 in the last 12 months, -0.97 at month 240; Price level: moved -0.80 in the last 12 months, -17.6 at month 240; Broad money: moved -0.73 in the last 12 months, -14.3 at month 240; Government debt: moved 0.19 in the last 12 months, 5.11 at month 240.
 - **Regimes**: ruleRate.
 
 Regimes that differ from the no-change run:
 
-- `ruleRate`: “Zero lower bound binds” instead of “–”, months 33–240; its label changed 1 time(s) in the run
+- `ruleRate`: “Zero lower bound binds” instead of “–”, months 34–240; its label changed 1 time(s) in the run
 
 ### 3 pp (max), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.39 | -1.16 | -2.21 | -3.97 | -6.37 | -7.84 | -9.55 | -10.5 | -9.36 | -10.6 | 111 | -9.42 |
-| Inflation (12 months) (pp) | 0 | 0 | -0.02 | -0.14 | -0.78 | -1.52 | -1.96 | -1.98 | -1.98 | -1.98 | 195 | -1.98 |
-| Price level (%) | 0 | 0 | -0.02 | -0.14 | -0.92 | -2.43 | -6.14 | -15.1 | -30.5 | -30.5 | 240 | -29.8 |
-| Unemployment rate (pp) | 0.06 | 0.29 | 0.74 | 1.61 | 2.86 | 3.62 | 4.49 | 5.01 | 4.46 | 5.02 | 113 | 4.48 |
-| Real wage (%) | 0 | -0.01 | -0.05 | -0.22 | -0.67 | -1.04 | -1.16 | -1.17 | -1.17 | -1.17 | 190 | -1.17 |
-| Consumption (real) (%) | -0.58 | -1.65 | -3.06 | -5.27 | -8.07 | -9.64 | -11.5 | -12.6 | -11.1 | -12.6 | 109 | -11.2 |
-| Investment (real) (%) | 0 | -0.19 | -0.77 | -2.40 | -5.68 | -8.28 | -11.3 | -13.0 | -11.8 | -13.0 | 118 | -11.9 |
-| Private debt (pp of GDP) | 0.19 | 0.56 | 1.08 | 1.99 | 3.39 | 4.51 | 6.05 | 7.10 | 6.90 | 7.10 | 127 | 6.90 |
-| Broad money (%) | -0.24 | -0.71 | -1.37 | -2.56 | -4.63 | -6.48 | -9.80 | -16.6 | -28.3 | -28.3 | 240 | -27.8 |
-| Government deficit (to GDP) (pp of GDP) | -2.60 | -2.45 | -2.25 | -1.94 | -1.48 | -1.20 | -0.81 | -0.51 | -0.66 | -2.60 | 1 | -0.65 |
-| Government debt (pp of GDP) | 0 | 0.01 | 0.03 | 0.07 | 0.23 | 0.63 | 1.90 | 5.42 | 11.6 | 11.6 | 240 | 11.3 |
-| Bank equity (to GDP) (pp of GDP) | 0.02 | 0.07 | 0.13 | 0.24 | 0.43 | 0.60 | 0.83 | 0.99 | 0.96 | 0.99 | 131 | 0.97 |
-| Disposable income (real) (%) | -3.84 | -4.69 | -5.78 | -7.53 | -9.92 | -11.3 | -13.1 | -14.1 | -12.9 | -14.2 | 111 | -12.9 |
-| Firms’ cash profit (real) (%) | -2.20 | -5.77 | -9.69 | -14.7 | -19.5 | -21.5 | -25.4 | -28.0 | -24.2 | -28.0 | 108 | -24.3 |
+| Output (real GDP) (%) | -0.39 | -1.11 | -2.06 | -3.70 | -6.18 | -7.80 | -9.61 | -10.6 | -9.38 | -10.7 | 110 | -9.44 |
+| Inflation (12 months) (pp) | 0 | 0 | -0.02 | -0.13 | -0.74 | -1.47 | -1.96 | -1.98 | -1.98 | -1.98 | 196 | -1.98 |
+| Price level (%) | 0 | 0 | -0.02 | -0.13 | -0.87 | -2.32 | -6.03 | -15.0 | -30.4 | -30.4 | 240 | -29.8 |
+| Unemployment rate (pp) | 0.06 | 0.28 | 0.70 | 1.50 | 2.76 | 3.59 | 4.51 | 5.05 | 4.47 | 5.06 | 112 | 4.49 |
+| Real wage (%) | 0 | -0.01 | -0.05 | -0.20 | -0.64 | -1.03 | -1.16 | -1.17 | -1.17 | -1.17 | 191 | -1.17 |
+| Consumption (real) (%) | -0.58 | -1.58 | -2.85 | -4.92 | -7.85 | -9.62 | -11.5 | -12.7 | -11.1 | -12.7 | 109 | -11.2 |
+| Investment (real) (%) | 0 | -0.18 | -0.73 | -2.24 | -5.42 | -8.13 | -11.4 | -13.0 | -11.8 | -13.0 | 117 | -11.9 |
+| Private debt (pp of GDP) | 0.19 | 0.54 | 1.01 | 1.85 | 3.28 | 4.47 | 6.07 | 7.12 | 6.88 | 7.12 | 124 | 6.88 |
+| Broad money (%) | -0.24 | -0.72 | -1.40 | -2.65 | -4.78 | -6.63 | -9.93 | -16.6 | -28.3 | -28.3 | 240 | -27.8 |
+| Government deficit (to GDP) (pp of GDP) | -2.60 | -2.51 | -2.35 | -2.03 | -1.52 | -1.19 | -0.80 | -0.49 | -0.65 | -2.60 | 1 | -0.65 |
+| Government debt (pp of GDP) | 0 | -0.02 | -0.09 | -0.18 | -0.08 | 0.37 | 1.70 | 5.31 | 11.5 | 11.5 | 240 | 11.2 |
+| Bank equity (to GDP) (pp of GDP) | 0.02 | 0.06 | 0.12 | 0.23 | 0.42 | 0.59 | 0.83 | 0.99 | 0.96 | 0.99 | 127 | 0.96 |
+| Disposable income (real) (%) | -3.84 | -4.39 | -5.31 | -7.10 | -9.78 | -11.4 | -13.2 | -14.3 | -12.9 | -14.3 | 109 | -13.0 |
+| Firms’ cash profit (real) (%) | -2.20 | -5.52 | -9.01 | -13.7 | -19.1 | -21.6 | -25.6 | -28.2 | -24.2 | -28.4 | 107 | -24.4 |
 | Income-tax rate (charged) (pp) | 3.00 | 3.00 | 3.00 | 3.00 | 3.00 | 3.00 | 3.00 | 3.00 | 3.00 | 3.00 | 1 | 3.00 |
 
 Unmoved (every effect below 0.005): Key interest rate.
 
 Flags:
 
-- **Unsettled**: Broad money: moved -1.12 in the last 12 months, -28.3 at month 240.
-- **Explosive**: Price level: moved -1.41 in the last 12 months, -30.5 at month 240; Government debt: moved 0.59 in the last 12 months, 11.6 at month 240.
+- **Unsettled**: Price level: moved -1.41 in the last 12 months, -30.4 at month 240; Broad money: moved -1.12 in the last 12 months, -28.3 at month 240; Government debt: moved 0.59 in the last 12 months, 11.5 at month 240.
 - **Regimes**: wageGrowth; ruleRate.
 
 Regimes that differ from the no-change run:
 
-- `wageGrowth`: “Wages sticky downwards” instead of “–”, months 31–240; its label changed 1 time(s) in the run
-- `ruleRate`: “Zero lower bound binds” instead of “–”, months 10–240; its label changed 1 time(s) in the run
+- `wageGrowth`: “Wages sticky downwards” instead of “–”, months 32–240; its label changed 1 time(s) in the run
+- `ruleRate`: “Zero lower bound binds” instead of “–”, months 11–240; its label changed 1 time(s) in the run
 
 ### -3 pp (min), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.39 | 1.15 | 2.14 | 3.38 | 3.58 | 2.76 | 1.80 | 0.88 | 1.14 | 3.75 | 18 | 1.13 |
-| Inflation (12 months) (pp) | 0 | 0 | 0.02 | 0.13 | 0.65 | 0.97 | 0.91 | 0.49 | 0.42 | 1.00 | 43 | 0.42 |
-| Price level (%) | 0 | 0 | 0.02 | 0.13 | 0.78 | 1.76 | 3.70 | 7.08 | 11.3 | 11.3 | 240 | 11.1 |
-| Unemployment rate (pp) | -0.06 | -0.29 | -0.73 | -1.43 | -1.73 | -1.37 | -0.88 | -0.42 | -0.54 | -1.76 | 21 | -0.53 |
-| Key interest rate (pp) | 0 | 0.10 | 0.43 | 1.42 | 3.16 | 3.71 | 3.13 | 1.59 | 1.54 | 3.71 | 37 | 1.52 |
-| Real wage (%) | 0 | 0.01 | 0.05 | 0.20 | 0.50 | 0.59 | 0.50 | 0.27 | 0.25 | 0.59 | 37 | 0.25 |
-| Consumption (real) (%) | 0.58 | 1.66 | 3.06 | 4.96 | 6.02 | 5.47 | 4.11 | 2.05 | 2.30 | 6.03 | 23 | 2.28 |
-| Investment (real) (%) | 0 | 0.12 | 0.33 | -0.08 | -3.62 | -6.57 | -6.78 | -3.46 | -2.94 | -7.29 | 47 | -2.89 |
-| Private debt (pp of GDP) | -0.19 | -0.55 | -1.01 | -1.62 | -2.09 | -2.38 | -3.20 | -3.77 | -3.40 | -3.80 | 106 | -3.39 |
-| Broad money (%) | 0.25 | 0.72 | 1.42 | 2.85 | 5.88 | 8.99 | 14.3 | 20.1 | 23.7 | 23.7 | 240 | 23.5 |
-| Government deficit (to GDP) (pp of GDP) | 2.58 | 2.47 | 2.40 | 2.46 | 2.79 | 2.80 | 1.94 | 0.15 | 0.29 | 2.85 | 30 | 0.27 |
-| Government debt (pp of GDP) | 0 | 0 | 0.06 | 0.54 | 2.71 | 5.45 | 9.66 | 12.5 | 10.6 | 12.5 | 112 | 10.6 |
-| Bank equity (to GDP) (pp of GDP) | -0.02 | -0.07 | -0.12 | -0.20 | -0.24 | -0.26 | -0.36 | -0.48 | -0.43 | -0.48 | 120 | -0.43 |
-| Disposable income (real) (%) | 3.85 | 4.84 | 6.19 | 8.31 | 9.98 | 9.33 | 6.70 | 2.46 | 2.89 | 9.99 | 25 | 2.85 |
-| Firms’ cash profit (real) (%) | 2.20 | 5.60 | 8.79 | 11.0 | 9.34 | 7.27 | 5.94 | 3.76 | 4.34 | 11.1 | 13 | 4.30 |
-| Income-tax rate (charged) (pp) | -3.00 | -3.00 | -2.97 | -2.88 | -2.52 | -2.03 | -0.89 | 0.73 | 0.44 | -3.00 | 1 | 0.45 |
+| Output (real GDP) (%) | 0.39 | 1.10 | 1.99 | 3.18 | 3.64 | 2.89 | 1.76 | 0.88 | 1.13 | 3.70 | 20 | 1.12 |
+| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.12 | 0.62 | 0.96 | 0.92 | 0.49 | 0.42 | 1.01 | 44 | 0.42 |
+| Price level (%) | 0 | 0 | 0.01 | 0.12 | 0.74 | 1.71 | 3.68 | 7.06 | 11.3 | 11.3 | 240 | 11.1 |
+| Unemployment rate (pp) | -0.06 | -0.28 | -0.68 | -1.34 | -1.74 | -1.44 | -0.86 | -0.42 | -0.54 | -1.74 | 23 | -0.53 |
+| Key interest rate (pp) | 0 | 0.09 | 0.40 | 1.33 | 3.07 | 3.74 | 3.15 | 1.59 | 1.53 | 3.76 | 38 | 1.51 |
+| Real wage (%) | 0 | 0.01 | 0.05 | 0.19 | 0.48 | 0.59 | 0.51 | 0.27 | 0.25 | 0.59 | 38 | 0.25 |
+| Consumption (real) (%) | 0.58 | 1.59 | 2.84 | 4.67 | 6.06 | 5.63 | 4.09 | 2.05 | 2.30 | 6.07 | 25 | 2.27 |
+| Investment (real) (%) | 0 | 0.12 | 0.31 | -0.09 | -3.39 | -6.44 | -6.90 | -3.46 | -2.93 | -7.38 | 48 | -2.89 |
+| Private debt (pp of GDP) | -0.19 | -0.52 | -0.94 | -1.53 | -2.09 | -2.41 | -3.18 | -3.77 | -3.39 | -3.80 | 106 | -3.39 |
+| Broad money (%) | 0.25 | 0.73 | 1.45 | 2.89 | 5.88 | 8.95 | 14.3 | 20.1 | 23.7 | 23.7 | 240 | 23.4 |
+| Government deficit (to GDP) (pp of GDP) | 2.58 | 2.52 | 2.46 | 2.48 | 2.72 | 2.77 | 1.96 | 0.15 | 0.29 | 2.80 | 32 | 0.27 |
+| Government debt (pp of GDP) | 0 | 0.03 | 0.16 | 0.69 | 2.70 | 5.35 | 9.66 | 12.5 | 10.6 | 12.5 | 112 | 10.6 |
+| Bank equity (to GDP) (pp of GDP) | -0.02 | -0.06 | -0.11 | -0.18 | -0.24 | -0.27 | -0.36 | -0.48 | -0.43 | -0.48 | 120 | -0.43 |
+| Disposable income (real) (%) | 3.85 | 4.51 | 5.70 | 7.93 | 10.1 | 9.56 | 6.69 | 2.46 | 2.89 | 10.1 | 27 | 2.84 |
+| Firms’ cash profit (real) (%) | 2.20 | 5.33 | 8.14 | 10.5 | 9.75 | 7.60 | 5.83 | 3.76 | 4.33 | 10.7 | 15 | 4.30 |
+| Income-tax rate (charged) (pp) | -3.00 | -3.00 | -2.97 | -2.87 | -2.51 | -2.02 | -0.90 | 0.72 | 0.44 | -3.00 | 1 | 0.45 |
 
 Flags:
 
@@ -1278,72 +1267,72 @@ Flags:
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.13 | 0.38 | 0.71 | 1.10 | 1.13 | 0.83 | 0.53 | 0.29 | 0.34 | 1.21 | 18 | 0.34 |
-| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.04 | 0.21 | 0.31 | 0.27 | 0.15 | 0.13 | 0.31 | 41 | 0.13 |
-| Price level (%) | 0 | 0 | 0.01 | 0.04 | 0.25 | 0.56 | 1.15 | 2.14 | 3.39 | 3.39 | 240 | 3.33 |
-| Unemployment rate (pp) | -0.02 | -0.10 | -0.24 | -0.47 | -0.55 | -0.42 | -0.26 | -0.14 | -0.16 | -0.56 | 20 | -0.16 |
-| Key interest rate (pp) | 0 | 0.03 | 0.14 | 0.47 | 1.02 | 1.17 | 0.94 | 0.50 | 0.46 | 1.17 | 35 | 0.46 |
-| Real wage (%) | 0 | 0 | 0.02 | 0.07 | 0.16 | 0.18 | 0.15 | 0.08 | 0.08 | 0.18 | 35 | 0.07 |
-| Consumption (real) (%) | 0.19 | 0.55 | 1.01 | 1.62 | 1.91 | 1.68 | 1.22 | 0.65 | 0.69 | 1.92 | 22 | 0.68 |
-| Investment (real) (%) | 0 | 0.04 | 0.11 | -0.03 | -1.19 | -2.11 | -2.07 | -1.07 | -0.89 | -2.29 | 45 | -0.88 |
-| Private debt (pp of GDP) | -0.06 | -0.18 | -0.34 | -0.54 | -0.68 | -0.76 | -1.01 | -1.19 | -1.08 | -1.20 | 108 | -1.08 |
-| Broad money (%) | 0.08 | 0.24 | 0.47 | 0.93 | 1.89 | 2.84 | 4.42 | 6.13 | 7.19 | 7.19 | 240 | 7.12 |
-| Government deficit (to GDP) (pp of GDP) | 0.86 | 0.82 | 0.80 | 0.81 | 0.89 | 0.88 | 0.58 | 0.05 | 0.07 | 0.90 | 29 | 0.07 |
-| Government debt (pp of GDP) | 0 | 0 | 0.02 | 0.18 | 0.91 | 1.80 | 3.12 | 4.00 | 3.53 | 4.01 | 114 | 3.54 |
-| Bank equity (to GDP) (pp of GDP) | -0.01 | -0.02 | -0.04 | -0.07 | -0.08 | -0.08 | -0.11 | -0.15 | -0.14 | -0.15 | 122 | -0.14 |
-| Disposable income (real) (%) | 1.28 | 1.60 | 2.04 | 2.70 | 3.16 | 2.87 | 1.99 | 0.79 | 0.85 | 3.16 | 24 | 0.84 |
-| Firms’ cash profit (real) (%) | 0.73 | 1.86 | 2.90 | 3.58 | 2.89 | 2.12 | 1.68 | 1.13 | 1.25 | 3.58 | 13 | 1.24 |
-| Income-tax rate (charged) (pp) | -1.00 | -1.00 | -0.99 | -0.96 | -0.84 | -0.69 | -0.33 | 0.18 | 0.13 | -1.00 | 1 | 0.13 |
+| Output (real GDP) (%) | 0.13 | 0.37 | 0.66 | 1.04 | 1.15 | 0.88 | 0.51 | 0.29 | 0.34 | 1.19 | 20 | 0.34 |
+| Inflation (12 months) (pp) | 0 | 0 | 0 | 0.04 | 0.20 | 0.31 | 0.28 | 0.15 | 0.13 | 0.32 | 43 | 0.13 |
+| Price level (%) | 0 | 0 | 0 | 0.04 | 0.24 | 0.55 | 1.14 | 2.13 | 3.39 | 3.39 | 240 | 3.32 |
+| Unemployment rate (pp) | -0.02 | -0.09 | -0.23 | -0.44 | -0.55 | -0.44 | -0.25 | -0.14 | -0.16 | -0.56 | 22 | -0.16 |
+| Key interest rate (pp) | 0 | 0.03 | 0.13 | 0.44 | 0.99 | 1.18 | 0.95 | 0.50 | 0.46 | 1.18 | 37 | 0.46 |
+| Real wage (%) | 0 | 0 | 0.02 | 0.06 | 0.16 | 0.19 | 0.15 | 0.08 | 0.08 | 0.19 | 37 | 0.07 |
+| Consumption (real) (%) | 0.19 | 0.53 | 0.94 | 1.53 | 1.93 | 1.74 | 1.21 | 0.65 | 0.69 | 1.93 | 24 | 0.68 |
+| Investment (real) (%) | 0 | 0.04 | 0.10 | -0.03 | -1.12 | -2.08 | -2.11 | -1.07 | -0.89 | -2.32 | 47 | -0.88 |
+| Private debt (pp of GDP) | -0.06 | -0.18 | -0.32 | -0.51 | -0.68 | -0.77 | -1.00 | -1.19 | -1.08 | -1.20 | 108 | -1.08 |
+| Broad money (%) | 0.08 | 0.24 | 0.48 | 0.95 | 1.89 | 2.83 | 4.42 | 6.12 | 7.18 | 7.18 | 240 | 7.11 |
+| Government deficit (to GDP) (pp of GDP) | 0.86 | 0.84 | 0.82 | 0.82 | 0.87 | 0.87 | 0.59 | 0.05 | 0.07 | 0.89 | 30 | 0.07 |
+| Government debt (pp of GDP) | 0 | 0.01 | 0.06 | 0.23 | 0.91 | 1.77 | 3.12 | 4.00 | 3.53 | 4.01 | 115 | 3.54 |
+| Bank equity (to GDP) (pp of GDP) | -0.01 | -0.02 | -0.04 | -0.06 | -0.08 | -0.09 | -0.11 | -0.15 | -0.14 | -0.15 | 122 | -0.14 |
+| Disposable income (real) (%) | 1.28 | 1.50 | 1.88 | 2.58 | 3.20 | 2.95 | 1.98 | 0.79 | 0.85 | 3.20 | 25 | 0.84 |
+| Firms’ cash profit (real) (%) | 0.73 | 1.77 | 2.69 | 3.41 | 3.03 | 2.22 | 1.63 | 1.13 | 1.25 | 3.46 | 15 | 1.24 |
+| Income-tax rate (charged) (pp) | -1.00 | -1.00 | -0.99 | -0.96 | -0.84 | -0.68 | -0.33 | 0.18 | 0.13 | -1.00 | 1 | 0.13 |
 
 Flags:
 
-- **Unsettled**: Price level: moved 0.13 in the last 12 months, 3.39 at month 240; Broad money: moved 0.15 in the last 12 months, 7.19 at month 240.
+- **Unsettled**: Price level: moved 0.13 in the last 12 months, 3.39 at month 240; Broad money: moved 0.15 in the last 12 months, 7.18 at month 240.
 
 ### 1 pp (up), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.13 | -0.38 | -0.70 | -1.08 | -1.07 | -0.76 | -0.48 | -0.28 | -0.31 | -1.17 | 17 | -0.31 |
-| Inflation (12 months) (pp) | 0 | 0 | -0.01 | -0.04 | -0.21 | -0.29 | -0.25 | -0.14 | -0.12 | -0.30 | 40 | -0.12 |
-| Price level (%) | 0 | 0 | -0.01 | -0.04 | -0.25 | -0.54 | -1.08 | -1.96 | -3.09 | -3.09 | 240 | -3.04 |
-| Unemployment rate (pp) | 0.02 | 0.10 | 0.24 | 0.46 | 0.52 | 0.38 | 0.23 | 0.13 | 0.15 | 0.55 | 20 | 0.14 |
-| Key interest rate (pp) | 0 | -0.03 | -0.14 | -0.46 | -0.99 | -1.11 | -0.86 | -0.47 | -0.42 | -1.11 | 34 | -0.42 |
-| Real wage (%) | 0 | 0 | -0.02 | -0.07 | -0.16 | -0.18 | -0.14 | -0.08 | -0.07 | -0.18 | 34 | -0.07 |
-| Consumption (real) (%) | -0.19 | -0.55 | -1.00 | -1.59 | -1.82 | -1.56 | -1.11 | -0.62 | -0.63 | -1.84 | 21 | -0.63 |
-| Investment (real) (%) | 0 | -0.04 | -0.11 | 0.03 | 1.17 | 2.04 | 1.91 | 1.00 | 0.82 | 2.17 | 44 | 0.82 |
-| Private debt (pp of GDP) | 0.06 | 0.18 | 0.34 | 0.54 | 0.67 | 0.73 | 0.96 | 1.14 | 1.03 | 1.14 | 111 | 1.03 |
-| Broad money (%) | -0.08 | -0.24 | -0.47 | -0.92 | -1.82 | -2.71 | -4.14 | -5.67 | -6.61 | -6.61 | 240 | -6.55 |
-| Government deficit (to GDP) (pp of GDP) | -0.86 | -0.82 | -0.79 | -0.80 | -0.86 | -0.83 | -0.54 | -0.06 | -0.06 | -0.87 | 27 | -0.05 |
-| Government debt (pp of GDP) | 0 | 0 | -0.02 | -0.19 | -0.91 | -1.78 | -3.02 | -3.88 | -3.51 | -3.88 | 118 | -3.52 |
-| Bank equity (to GDP) (pp of GDP) | 0.01 | 0.02 | 0.04 | 0.07 | 0.08 | 0.08 | 0.11 | 0.14 | 0.13 | 0.14 | 124 | 0.13 |
-| Disposable income (real) (%) | -1.28 | -1.59 | -2.01 | -2.63 | -3.00 | -2.66 | -1.82 | -0.76 | -0.77 | -3.01 | 22 | -0.76 |
-| Firms’ cash profit (real) (%) | -0.73 | -1.85 | -2.87 | -3.49 | -2.69 | -1.86 | -1.46 | -1.03 | -1.10 | -3.49 | 12 | -1.10 |
-| Income-tax rate (charged) (pp) | 1.00 | 1.00 | 0.99 | 0.96 | 0.85 | 0.70 | 0.36 | -0.14 | -0.11 | 1.00 | 1 | -0.11 |
+| Output (real GDP) (%) | -0.13 | -0.37 | -0.66 | -1.02 | -1.10 | -0.80 | -0.46 | -0.28 | -0.31 | -1.15 | 19 | -0.31 |
+| Inflation (12 months) (pp) | 0 | 0 | 0 | -0.04 | -0.20 | -0.29 | -0.26 | -0.14 | -0.12 | -0.30 | 41 | -0.12 |
+| Price level (%) | 0 | 0 | 0 | -0.04 | -0.24 | -0.53 | -1.07 | -1.96 | -3.08 | -3.08 | 240 | -3.03 |
+| Unemployment rate (pp) | 0.02 | 0.09 | 0.22 | 0.43 | 0.53 | 0.41 | 0.22 | 0.13 | 0.15 | 0.54 | 21 | 0.14 |
+| Key interest rate (pp) | 0 | -0.03 | -0.13 | -0.43 | -0.97 | -1.12 | -0.86 | -0.47 | -0.42 | -1.12 | 35 | -0.42 |
+| Real wage (%) | 0 | 0 | -0.02 | -0.06 | -0.15 | -0.18 | -0.14 | -0.08 | -0.07 | -0.18 | 35 | -0.07 |
+| Consumption (real) (%) | -0.19 | -0.53 | -0.94 | -1.50 | -1.85 | -1.61 | -1.10 | -0.62 | -0.63 | -1.85 | 23 | -0.62 |
+| Investment (real) (%) | 0 | -0.04 | -0.10 | 0.03 | 1.10 | 2.01 | 1.95 | 1.00 | 0.82 | 2.20 | 45 | 0.81 |
+| Private debt (pp of GDP) | 0.06 | 0.18 | 0.32 | 0.51 | 0.67 | 0.74 | 0.95 | 1.14 | 1.03 | 1.14 | 110 | 1.03 |
+| Broad money (%) | -0.08 | -0.24 | -0.48 | -0.93 | -1.83 | -2.70 | -4.13 | -5.67 | -6.60 | -6.60 | 240 | -6.55 |
+| Government deficit (to GDP) (pp of GDP) | -0.86 | -0.84 | -0.82 | -0.81 | -0.84 | -0.82 | -0.54 | -0.06 | -0.06 | -0.86 | 1 | -0.05 |
+| Government debt (pp of GDP) | 0 | -0.01 | -0.06 | -0.24 | -0.91 | -1.75 | -3.03 | -3.88 | -3.51 | -3.88 | 118 | -3.52 |
+| Bank equity (to GDP) (pp of GDP) | 0.01 | 0.02 | 0.04 | 0.06 | 0.08 | 0.08 | 0.11 | 0.14 | 0.13 | 0.14 | 124 | 0.13 |
+| Disposable income (real) (%) | -1.28 | -1.49 | -1.86 | -2.53 | -3.05 | -2.74 | -1.80 | -0.76 | -0.77 | -3.05 | 24 | -0.76 |
+| Firms’ cash profit (real) (%) | -0.73 | -1.77 | -2.67 | -3.33 | -2.83 | -1.96 | -1.41 | -1.02 | -1.10 | -3.35 | 14 | -1.10 |
+| Income-tax rate (charged) (pp) | 1.00 | 1.00 | 0.99 | 0.96 | 0.84 | 0.69 | 0.36 | -0.14 | -0.11 | 1.00 | 1 | -0.11 |
 
 Flags:
 
-- **Unsettled**: Price level: moved -0.11 in the last 12 months, -3.09 at month 240.
+- **Unsettled**: Price level: moved -0.11 in the last 12 months, -3.08 at month 240.
 
 ### 3 pp (max), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.39 | -1.14 | -2.09 | -3.18 | -3.58 | -3.61 | -2.96 | -0.57 | -0.85 | -3.63 | 32 | -0.85 |
-| Inflation (12 months) (pp) | 0 | 0 | -0.02 | -0.13 | -0.61 | -0.95 | -1.19 | -0.57 | -0.33 | -1.19 | 62 | -0.33 |
-| Price level (%) | 0 | 0 | -0.02 | -0.13 | -0.74 | -1.68 | -3.95 | -8.15 | -11.3 | -11.3 | 240 | -11.2 |
-| Unemployment rate (pp) | 0.06 | 0.29 | 0.71 | 1.36 | 1.68 | 1.72 | 1.44 | 0.27 | 0.40 | 1.72 | 34 | 0.40 |
-| Key interest rate (pp) | 0 | -0.10 | -0.42 | -1.35 | -2.42 | -2.80 | -2.97 | -1.63 | -1.19 | -3.00 | 84 | -1.18 |
-| Real wage (%) | 0 | -0.01 | -0.05 | -0.20 | -0.47 | -0.62 | -0.70 | -0.29 | -0.19 | -0.70 | 56 | -0.19 |
-| Consumption (real) (%) | -0.58 | -1.64 | -2.98 | -4.67 | -5.74 | -6.05 | -5.29 | -1.72 | -1.75 | -6.05 | 36 | -1.74 |
-| Investment (real) (%) | 0 | -0.12 | -0.32 | 0.09 | 2.35 | 3.52 | 4.38 | 4.07 | 2.31 | 5.80 | 93 | 2.31 |
-| Private debt (pp of GDP) | 0.19 | 0.55 | 1.02 | 1.63 | 2.20 | 2.80 | 3.73 | 4.23 | 3.39 | 4.32 | 101 | 3.42 |
-| Broad money (%) | -0.24 | -0.71 | -1.39 | -2.70 | -5.20 | -7.43 | -11.1 | -17.0 | -20.9 | -20.9 | 240 | -20.7 |
-| Government deficit (to GDP) (pp of GDP) | -2.60 | -2.47 | -2.38 | -2.36 | -2.29 | -2.03 | -1.51 | -0.50 | -0.12 | -2.60 | 1 | -0.11 |
-| Government debt (pp of GDP) | 0 | 0 | -0.06 | -0.56 | -2.36 | -4.01 | -6.67 | -10.9 | -10.5 | -11.0 | 137 | -10.5 |
-| Bank equity (to GDP) (pp of GDP) | 0.02 | 0.07 | 0.12 | 0.20 | 0.26 | 0.33 | 0.44 | 0.53 | 0.44 | 0.55 | 137 | 0.44 |
-| Disposable income (real) (%) | -3.84 | -4.76 | -5.96 | -7.69 | -8.71 | -8.63 | -7.28 | -2.66 | -2.17 | -8.76 | 28 | -2.16 |
-| Firms’ cash profit (real) (%) | -2.20 | -5.53 | -8.53 | -10.2 | -9.62 | -9.13 | -6.36 | -2.26 | -3.06 | -10.3 | 13 | -3.06 |
-| Income-tax rate (charged) (pp) | 3.00 | 3.00 | 2.97 | 2.88 | 2.55 | 2.14 | 1.34 | 0.02 | -0.29 | 3.00 | 1 | -0.30 |
+| Output (real GDP) (%) | -0.39 | -1.10 | -1.95 | -3.02 | -3.56 | -3.65 | -3.00 | -0.56 | -0.85 | -3.66 | 33 | -0.85 |
+| Inflation (12 months) (pp) | 0 | 0 | -0.01 | -0.12 | -0.58 | -0.93 | -1.20 | -0.57 | -0.33 | -1.20 | 62 | -0.33 |
+| Price level (%) | 0 | 0 | -0.01 | -0.12 | -0.70 | -1.63 | -3.90 | -8.13 | -11.3 | -11.3 | 240 | -11.2 |
+| Unemployment rate (pp) | 0.06 | 0.28 | 0.67 | 1.28 | 1.66 | 1.73 | 1.46 | 0.27 | 0.40 | 1.73 | 35 | 0.40 |
+| Key interest rate (pp) | 0 | -0.09 | -0.40 | -1.29 | -2.40 | -2.79 | -2.97 | -1.63 | -1.19 | -3.00 | 85 | -1.18 |
+| Real wage (%) | 0 | -0.01 | -0.05 | -0.19 | -0.45 | -0.61 | -0.70 | -0.29 | -0.19 | -0.71 | 57 | -0.19 |
+| Consumption (real) (%) | -0.58 | -1.57 | -2.79 | -4.43 | -5.71 | -6.10 | -5.34 | -1.71 | -1.75 | -6.10 | 37 | -1.74 |
+| Investment (real) (%) | 0 | -0.12 | -0.30 | 0.10 | 2.34 | 3.50 | 4.33 | 4.08 | 2.31 | 5.80 | 94 | 2.30 |
+| Private debt (pp of GDP) | 0.19 | 0.53 | 0.96 | 1.54 | 2.17 | 2.79 | 3.73 | 4.23 | 3.39 | 4.31 | 101 | 3.42 |
+| Broad money (%) | -0.24 | -0.72 | -1.42 | -2.76 | -5.25 | -7.45 | -11.1 | -17.0 | -20.9 | -20.9 | 240 | -20.7 |
+| Government deficit (to GDP) (pp of GDP) | -2.60 | -2.54 | -2.46 | -2.39 | -2.26 | -2.00 | -1.49 | -0.51 | -0.12 | -2.60 | 1 | -0.11 |
+| Government debt (pp of GDP) | 0 | -0.03 | -0.17 | -0.72 | -2.44 | -4.04 | -6.65 | -10.8 | -10.5 | -11.0 | 136 | -10.5 |
+| Bank equity (to GDP) (pp of GDP) | 0.02 | 0.06 | 0.12 | 0.19 | 0.26 | 0.32 | 0.44 | 0.53 | 0.44 | 0.55 | 138 | 0.44 |
+| Disposable income (real) (%) | -3.84 | -4.46 | -5.52 | -7.42 | -8.74 | -8.69 | -7.33 | -2.64 | -2.16 | -8.81 | 29 | -2.15 |
+| Firms’ cash profit (real) (%) | -2.20 | -5.29 | -7.94 | -9.76 | -9.70 | -9.31 | -6.46 | -2.23 | -3.05 | -9.89 | 15 | -3.05 |
+| Income-tax rate (charged) (pp) | 3.00 | 3.00 | 2.97 | 2.88 | 2.54 | 2.13 | 1.33 | 0.02 | -0.29 | 3.00 | 1 | -0.30 |
 
 Flags:
 
@@ -1352,5 +1341,5 @@ Flags:
 
 Regimes that differ from the no-change run:
 
-- `depositRate`: “Deposit rate at its floor: bank margin squeezed” instead of “–”, months 18–112; its label changed 2 time(s) in the run
-- `ruleRate`: “Zero lower bound binds” instead of “–”, months 11–84; its label changed 2 time(s) in the run
+- `depositRate`: “Deposit rate at its floor: bank margin squeezed” instead of “–”, months 19–112; its label changed 2 time(s) in the run
+- `ruleRate`: “Zero lower bound binds” instead of “–”, months 12–85; its label changed 2 time(s) in the run
