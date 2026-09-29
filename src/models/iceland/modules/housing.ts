@@ -33,8 +33,8 @@ const vars: VarDef[] = [
   { id: 'realHousePrice', label: 'Real house prices', unit: 'index', kind: 'price', scale: 'none', initial: 1, description: 'House prices relative to consumer prices (1 at baseline).' },
   { id: 'housePrice', label: 'House prices', unit: 'index', kind: 'price', scale: 'nominal', initial: 1 },
   { id: 'housingCost', label: 'Housing costs in the CPI', unit: 'index', kind: 'price', scale: 'nominal', initial: 1 },
-  { id: 'netMigrants', label: 'People who have arrived (or left)', unit: 'thousand persons', kind: 'quantity', scale: 'none', initial: 0, description: 'Change in the adult population since the baseline: the workers and job-seekers who came from abroad, net of those who left.' },
-  { id: 'settledMigrants', label: 'Newcomers needing homes', unit: 'thousand persons', kind: 'quantity', scale: 'none', initial: 0, description: 'The people who have arrived (or left) as far as the housing market has felt them yet.' },
+  { id: 'netMigrants', label: 'People who have arrived (or left)', unit: '% of adult population', kind: 'quantity', scale: 'none', initial: 0, description: 'Change in the adult population since the baseline, in % of it: the workers and job-seekers who came from abroad, net of those who left.' },
+  { id: 'settledMigrants', label: 'Newcomers needing homes', unit: '% of adult population', kind: 'quantity', scale: 'none', initial: 0, description: 'The people who have arrived (or left) as far as the housing market has felt them yet, in % of the baseline adult population.' },
   { id: 'homePurchasesY', label: 'Homes bought by the young', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'homePurchasesW', label: 'Homes bought by working-age households', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   ...BORROWERS.map((g): VarDef => ({ id: `grossHomePurchases${g}`, label: `All homes bought by the ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`grossHomePurchases${g}`), description: 'From older households and from others in the same age group, at market prices: what home buyers borrow against.' })),
@@ -57,13 +57,13 @@ export const housing: ModuleDef = {
       category: 'BEHAVIOUR',
       label: 'House prices',
       lagInputs: ['realDisposableIncome', 'netMortgageLending', 'realMortgageRate', 'settledMigrants'],
-      params: ['betaHY', 'ydH0', 'betaHC', 'Y0', 'betaHR', 'rmR0', 'betaHN', 'popY', 'popW', 'popO'],
+      params: ['betaHY', 'ydH0', 'betaHC', 'Y0', 'betaHR', 'rmR0', 'betaHN'],
       adjust: { speed: 'lamH', form: 'exponential' },
       terms: terms(
         ['income', 'Households’ real income', 'credit-and-house-prices', (c) => c.p('betaHY') * Math.log(Math.max(1e-6, lastMonth(c, 'realDisposableIncome') / c.p('ydH0')))],
         ['credit', 'Flow of net mortgage credit', 'credit-and-house-prices', (c) => (c.p('betaHC') * lastMonth(c, 'netMortgageLending')) / c.p('Y0')],
         ['rate', 'Real mortgage rate', 'interest-distribution', (c) => -c.p('betaHR') * (lastMonth(c, 'realMortgageRate') - c.p('rmR0'))],
-        ['population', 'People arriving or leaving', 'migration-buffer', (c) => c.p('betaHN') * Math.log(Math.max(1e-6, 1 + lastMonth(c, 'settledMigrants') / (c.p('popY') + c.p('popW') + c.p('popO'))))],
+        ['population', 'People arriving or leaving', 'migration-buffer', (c) => c.p('betaHN') * Math.log(Math.max(1e-6, 1 + lastMonth(c, 'settledMigrants') / 100))],
       ),
       concepts: ['credit-and-house-prices'],
       explain: {
@@ -75,18 +75,23 @@ export const housing: ModuleDef = {
       id: 'netMigrants',
       target: 'netMigrants',
       category: 'IDENTITY',
-      inputs: AGES.flatMap((g) => [`employment${g}`, `unemployed${g}`]),
-      params: AGES.flatMap((g) => [`wb${g}`, `emp0${g}`, `U0${g}`]),
+      inputs: [...AGES.flatMap((g) => [`employment${g}`, `unemployed${g}`]), 'benefitSearch'],
+      params: [...AGES.flatMap((g) => [`wb${g}`, `emp0${g}`, `U0${g}`]), 'mig', 'popY', 'popW', 'popO'],
       terms: AGES.map((g) => ({
         id: g,
         label: `Aged ${g === 'Y' ? '18–34' : g === 'W' ? '35–66' : '67+'}`,
         concept: 'migration-buffer',
-        compute: (c: Ctx) => c.v(`employment${g}`) / c.p(`wb${g}`) - c.p(`emp0${g}`) + c.v(`unemployed${g}`) - c.p(`U0${g}`),
+        compute: (c: Ctx) => {
+          const workers = c.v(`employment${g}`) / c.p(`wb${g}`) - c.p(`emp0${g}`);
+          // people already living here who look for work longer when benefits are higher (labour-and-wages.ts, the search term) are not newcomers
+          const searching = c.v('benefitSearch') * (c.p(`U0${g}`) + (c.p('mig') - 1) * workers);
+          return (100 * (workers + c.v(`unemployed${g}`) - c.p(`U0${g}`) - searching)) / (c.p('popY') + c.p('popW') + c.p('popO'));
+        },
       })),
       concepts: ['migration-buffer'],
       explain: {
-        what: 'How many more people (thousands) live in Iceland than at the baseline: the workers and job-seekers who arrived, net of those who left.',
-        rule: 'The change in each age group’s labour force: (workers − baseline workers) + (unemployed − baseline unemployed). Only migration changes the labour force in the model, so this is the migration buffer at work: the share of any change in jobs met by people arriving or leaving, and the newcomers who fill jobs when few unemployed are left.',
+        what: 'How many more adults live in Iceland than at the baseline, in % of the baseline adult population: the workers and job-seekers who arrived, net of those who left.',
+        rule: 'The change in each age group’s labour force, (workers − baseline workers) + (unemployed − baseline unemployed), less the people already here who join it because higher benefits make them search longer, as a share of the baseline adult population. Otherwise only migration changes the labour force in the model, so this is the migration buffer at work: the share of any change in jobs met by people arriving or leaving, the newcomers who fill jobs when few unemployed are left, and the arrivals of the net-immigration lever.',
       },
     },
     {
@@ -98,7 +103,7 @@ export const housing: ModuleDef = {
       terms: terms(['arrived', 'People who have arrived (or left)', 'migration-buffer', (c) => c.v('netMigrants')]),
       concepts: ['migration-buffer', 'gradual-adjustment'],
       explain: {
-        what: 'How many of the people who have arrived (or left) the housing market has felt yet, in thousands.',
+        what: 'How many of the people who have arrived (or left) the housing market has felt yet, in % of the baseline adult population.',
         rule: 'Follows the number who have arrived at speed {lamMig} a year: newcomers rent or buy over months, and people who leave give up their homes as leases end, so housing demand does not reverse the moment jobs do.',
       },
     },

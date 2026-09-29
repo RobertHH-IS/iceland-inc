@@ -496,7 +496,7 @@ export const pensions: ModuleDef = {
       binds: { param: 'pfForeignShift', mode: 'add', scale: 0.01 },
       description: 'Shifts the target foreign share of pension assets; funds move toward it through new flows, limited by their cash, selling krónur, and the weaker króna revalues what they hold. They also want fewer domestic assets: they lend less of new mortgages, and covered bonds and mortgages cost a little more.',
       definition:
-        'Level shift in the target foreign share, in percentage points of assets, persistent while set. Funds close the gap at up to 0.5 a year, but they buy only with cash above their buffer: new contributions, income, and the bank bonds, deposits and mortgage lending they give up. Shifts of a few points move at about that pace (+5: about 3.5 points higher after a year and 4.4 after two). Larger ones are cash-limited for years: at +20 the share is about 10 points higher after a year, 12–13.5 after two and 14–18 after five (less on Automatic, where the higher key rate slows the króna’s fall). Part of the rise is the weaker króna raising the value of the foreign assets they already hold. While set, the funds want proportionally less of every domestic asset: they lend a smaller share of new mortgages (banks lend the rest), and covered bonds and mortgages carry a funding premium of about 0.15 pp per 5 points. In the first two years the weaker króna lifts inflation, and with it banks’ capital (their indexed loans grow with the CPI), so banks give a small discount on loans that offsets part of the premium: indexed mortgage rates rise about half as much as covered-bond rates at first. Setting it back to 0 makes them sell foreign assets back toward the old share, and the premium goes.',
+        'Level shift in the target foreign share, in percentage points of assets, persistent while set. Funds close the gap at up to 0.5 a year, but they buy only with cash above their buffer: new contributions, income, and the bank bonds, deposits and mortgage lending they give up. Shifts of a few points move at about that pace (+5: about 3 points higher after a year and 4 after two). Larger ones are cash-limited for years: at +20 the share is about 7.5 points higher after a year, about 10 after two and 13.5–15 after five (less on Automatic, where the higher key rate slows the króna’s fall). Part of the rise is the weaker króna raising the value of the foreign assets they already hold. While set, the funds want proportionally less of every domestic asset: they lend a smaller share of new mortgages (banks lend the rest), and covered bonds and mortgages carry a funding premium of about 0.15 pp per 5 points. In the first two years the weaker króna lifts inflation, and with it banks’ capital (their indexed loans grow with the CPI), so banks give a small discount on loans that offsets part of the premium: indexed mortgage rates rise about half as much as covered-bond rates at first. Setting it back to 0 makes them sell foreign assets back toward the old share, and the premium goes.',
       concepts: ['funded-pensions', 'floating-exchange-rate'],
     },
   ],
@@ -544,7 +544,7 @@ export const pensions: ModuleDef = {
     },
     {
       id: 'foreign-allocation-pace-as-defined',
-      label: 'The foreign-allocation lever moves the foreign share at the pace its definition gives: +5 about 3.5 points in a year and 4.4 in two; +20 about 10 in a year, 12–13.5 in two and 14–18 in five, limited by cash',
+      label: 'The foreign-allocation lever moves the foreign share at the pace its definition gives: +5 about 3 points in a year and 4 in two; +20 about 7.5 in a year, about 10 in two and 13.5–15 in five, limited by cash',
       run: (e) => {
         const gap = (mode: number, shift: number) => {
           const [f, g] = [e.fork(), e.fork()];
@@ -561,8 +561,8 @@ export const pensions: ModuleDef = {
         const within = (x: number, lo: number, hi: number) => x >= lo && x <= hi;
         const [m5, m20, a20] = [gap(0, 5), gap(0, 20), gap(1, 20)];
         const ok =
-          within(m5[12], 3, 4) && within(m5[24], 4, 5) &&
-          [m20, a20].every((x) => within(x[12], 9, 11) && within(x[24], 11.5, 13.5) && within(x[60], 13.5, 18.5));
+          within(m5[12], 2.5, 3.5) && within(m5[24], 3.5, 4.5) &&
+          [m20, a20].every((x) => within(x[12], 7, 8.5) && within(x[24], 9.5, 11.5) && within(x[60], 13, 16));
         return { pass: ok, detail: `+5 Manual: ${m5[12].toFixed(1)} at month 12, ${m5[24].toFixed(1)} at 24; +20 Manual: ${m20[12].toFixed(1)}, ${m20[24].toFixed(1)}, ${m20[60].toFixed(1)} at 60; Automatic: ${a20[12].toFixed(1)}, ${a20[24].toFixed(1)}, ${a20[60].toFixed(1)} (points of assets)` };
       },
     },

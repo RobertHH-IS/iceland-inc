@@ -724,18 +724,22 @@ export const firms: ModuleDef = {
     },
     {
       id: 'loans-never-an-asset',
-      label: 'When tourism collapses, fisheries’ swelling cash repays their loans in full, and what they do not need is then paid out to their owners: no firm’s loan becomes a claim on the bank',
+      label: 'When tourism collapses, the weaker króna swells fisheries’ cash: they repay their loans, more than half of them within 20 years, and what they do not need is paid out to their owners, so their deposits stay near their usual share and no firm’s loan becomes a claim on the bank',
       run: (e) => {
         const ke = e as unknown as { stock(i: string, p: string): number };
+        const loans0 = ke.stock('businessLoans', 'XF');
         e.setLever('tourism', -60);
-        let minLoan = Infinity,
-          repaid = 0;
+        let minLoan = Infinity;
         for (let t = 0; t < 240; t++) {
           e.step(1);
           for (const j of FIRMS) minLoan = Math.min(minLoan, ke.stock('businessLoans', j));
-          if (e.influences('borrowingXF').regime) repaid++;
         }
-        return { pass: minLoan >= -1e-9 && repaid > 0, detail: `lowest loan balance ${minLoan.toExponential(2)} (% of GDP); fisheries debt-free for ${repaid} months, deposits ${ke.stock('deposits', 'XF').toFixed(2)} (their usual share of GDP: ${(e.influences('dividendsXF').params.find((p) => p.id === 'depXF0')!.value * e.value('nominalGDP')).toFixed(2)})` };
+        const usual = e.influences('dividendsXF').params.find((p) => p.id === 'depXF0')!.value * e.value('nominalGDP');
+        const [loans, deposits] = [ke.stock('businessLoans', 'XF'), ke.stock('deposits', 'XF')];
+        return {
+          pass: minLoan >= -1e-9 && loans < 0.5 * loans0 && deposits < 1.5 * usual,
+          detail: `lowest loan balance ${minLoan.toExponential(2)} (% of GDP); fisheries' loans ${loans0.toFixed(2)} → ${loans.toFixed(2)} after 20 years, deposits ${deposits.toFixed(2)} (their usual share of GDP: ${usual.toFixed(2)})`,
+        };
       },
     },
     {

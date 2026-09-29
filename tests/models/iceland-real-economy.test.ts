@@ -87,11 +87,13 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
     // loop, monetary-fx), so prices keep falling and, with expectations half anchored, unemployment
     // stays above normal. Before the value-added price, tourism +30 ended with output +0.8% at month
     // 240 because wages followed the deflation instead. If this starts to pass the other way, update
-    // the definitions and decision 0002.
+    // the definitions and decision 0002. (With the fix branches merged, fish +30 ends about 2.75%
+    // lower, 2% on the real-economy branch alone: the króna falls less after other shocks, so the
+    // price level has further to fall here.)
     for (const setting of exportShocks.filter(([, v]) => v > 0)) {
       const r = twins([setting], false, 240);
       expect(r.pct('output', 240)).toBeLessThan(0);
-      expect(r.pct('output', 240)).toBeGreaterThan(-2.5);
+      expect(r.pct('output', 240)).toBeGreaterThan(-3);
       expect(r.pp('unemployment', 240)).toBeLessThan(1.2);
     }
     for (const id of ['tourism', 'foreignDemand', 'fishPrices']) expect(model.levers.find((l) => l.id === id)!.definition).toMatch(/key rate held \(Manual\)/);
@@ -99,10 +101,10 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
 
   test('a lasting rise in world prices leaves no lasting wage gap: the error correction closes, while wages ÷ domestic prices have moved', () => {
     const r = twins([['importPrices', 10]], true, 240);
-    // measured against domestic prices, as before, the gap would still be about 0.3 log points and
-    // pull wage growth down by 0.2 points a year for good
+    // measured against domestic prices, as before, the gap would still be about 0.25–0.3 log points
+    // (in %) and pull wage growth down for good
     const wOverPd = (e: KernelEngine) => Math.log(e.valueAt('wage', 240) / e.valueAt('domesticPrice', 240));
-    expect(Math.abs(wOverPd(r.s) - wOverPd(r.b))).toBeGreaterThan(0.003);
+    expect(Math.abs(wOverPd(r.s) - wOverPd(r.b))).toBeGreaterThan(0.002);
     expect(Math.abs(r.s.valueAt('wageGapSeen', 240))).toBeLessThan(0.0005);
   });
 
@@ -223,17 +225,21 @@ describe('trade-fish-windfall-hoarded: a fish windfall is paid out and taxed, no
   });
 
   test('tourism −60: fisheries repay their loans and pay out spare cash, so their deposits stay near their usual share of GDP', () => {
-    // Before: debt-free for 182 months with deposits of 41.5% of GDP (0.9 at baseline).
+    // Before: debt-free for 182 months with deposits of 41.5% of GDP (0.9 at baseline). Since the
+    // monetary and exchange-rate fixes the króna falls less (about 10% after two years, 18% after
+    // twenty), so the windfall repays about three-quarters of their loans in 20 years rather than
+    // all of them, and the payout rule hands on the rest as it comes: their deposits never swell.
     const e = createEngine(model, { baseline: base.baselineData, dev: false });
     e.setLever('tourism', -60);
-    let paidOut = 0;
+    const loans0 = e.stock('businessLoans', 'XF');
+    let most = 0;
     for (let m = 1; m <= 240; m++) {
       e.step(1);
-      if (e.influences('dividendsXF').regime === 'Pays out spare cash') paidOut++;
+      most = Math.max(most, e.stock('deposits', 'XF') / (param(e, 'dividendsXF', 'depXF0') * e.value('nominalGDP')));
     }
-    expect(paidOut).toBeGreaterThan(0);
-    const usual = param(e, 'dividendsXF', 'depXF0') * e.value('nominalGDP');
-    expect(e.stock('deposits', 'XF')).toBeLessThan(3 * usual);
+    expect(e.stock('businessLoans', 'XF')).toBeLessThan(0.5 * loans0);
+    expect(e.stock('businessLoans', 'XF')).toBeGreaterThanOrEqual(0);
+    expect(most).toBeLessThan(1.5);
   });
 });
 

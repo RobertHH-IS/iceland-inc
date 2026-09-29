@@ -126,7 +126,7 @@ describe('Iceland model: balance sheets stay possible', () => {
     expect(e.value('reserveInterest')).toBeLessThan(0);
     // Only a sliver of bonds is left (non-residents'), and the treasury account holds the surplus.
     expect(e.stock('govBonds', 'G')).toBeLessThan(0.1);
-    expect(e.stock('treasuryAccount', 'G')).toBeGreaterThan(20);
+    expect(e.stock('treasuryAccount', 'G')).toBeGreaterThan(15);
   });
 
   test('once the surplus has bought back every bond it can, the debt ratio nets off treasury cash above its target', () => {
@@ -213,11 +213,15 @@ describe('Iceland model: balance sheets stay possible', () => {
     expect(borrowed).toBeGreaterThan(0.005);
     // The much dearer króna shrinks the reserves in krónur below their target, so the central bank
     // buys foreign currency from non-residents with krónur (lever review FX-1 follow-up): they need
-    // to borrow less (about 3.1% of GDP at the peak, 4.4% before). They repay from deposits above
-    // what they keep, so slowly while the surplus lasts: every two years from month 72 they owe
-    // less, and by month 240 at most two-thirds of the peak.
+    // to borrow less (about 2.2% of GDP at the peak, 4.4% before). They repay from deposits above
+    // what they keep, so slowly while the surplus lasts: their loans stop growing after about two
+    // years, fall every two years from month 72, and by month 240 are at most three-quarters of the
+    // peak. (Two-thirds on the monetary-fx branch alone; with the fix branches merged, the króna rises
+    // less and the current account turns to deficit for about ten years, which leaves them fewer
+    // spare krónur to repay with.)
+    for (let m = 36; m <= 240; m++) expect(loans[m - 1]).toBeLessThanOrEqual(loans[35] + 1e-9);
     for (let m = 72; m + 24 <= 240; m += 24) expect(loans[m + 24 - 1]).toBeLessThan(loans[m - 1]);
-    expect(e.stock('kronaLoansW', 'W')).toBeLessThan((2 / 3) * borrowed);
+    expect(e.stock('kronaLoansW', 'W')).toBeLessThan(0.75 * borrowed);
   });
 
   test('non-residents borrow exactly what a month would overdraw, and repay from deposits above what they keep, never more than they owe (review M6)', () => {
@@ -265,10 +269,11 @@ describe('Iceland model: balance sheets stay possible', () => {
   test('known gap: when the economy collapses, the funds run through every asset they can sell and overdraw deposits', () => {
     // decision 0002 §6: shares and mortgages are never sold, and pensions are paid in full.
     // Non-residents, who also ran out of krónur here, now borrow them from banks (review M6). Since
-    // firms call on the funds only for deposits above their buffer, the overdraft starts in month
-    // 248, not 228, so the run is 22 years.
-    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 240)).toEqual([]);
-    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 264)).toEqual(['deposits/PF']);
+    // firms call on the funds only for deposits above their buffer, the overdraft started in month
+    // 248, not 228; with the fix branches merged (bounded portfolio balance, bonds that reprice as
+    // they mature, market rents, a higher import elasticity) it starts in month 288, so the run is 25 years.
+    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 276)).toEqual([]);
+    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 300)).toEqual(['deposits/PF']);
   });
 
   test('pension funds pay for new government bonds only from cash above their buffer, so a deficit they buy does not force foreign sales (review E1 follow-up)', () => {

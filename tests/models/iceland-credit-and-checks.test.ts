@@ -281,27 +281,28 @@ describe('Iceland calibration: each check runs the experiment its source describ
     expect(v).toBeGreaterThanOrEqual(check('rate-inflation-trough').range[0]);
     expect(KNOWN_GAPS['rate-output-timing']).toBeUndefined();
     expect(check('rate-inflation-trough').source).not.toMatch(/drops about 1\.5 pp in month 13/);
-    // but both troughs are about 40% deeper than QMM's cited figures, and say so (known gaps)
-    expect(KNOWN_GAPS['rate-inflation-trough']!.cited).toEqual([-0.24, -0.24]);
+    // the inflation trough is near QMM's −0.24 pp since housing costs follow market rents (MON-4);
+    // the output trough is about 40% deeper than QMM's −0.41%, and says so (known gap)
+    expect(KNOWN_GAPS['rate-inflation-trough']).toBeUndefined();
+    expect(Math.abs(v + 0.24)).toBeLessThan(0.03);
     expect(KNOWN_GAPS['rate-output-trough']!.cited).toEqual([-0.41, -0.41]);
-    expect(v / -0.24).toBeGreaterThan(1.2);
     expect(check('rate-output-trough').measure(r) / -0.41).toBeGreaterThan(1.2);
   });
 
-  test('the rate troughs’ known gaps: the extra depth over QMM comes through the króna and housing, not slack (KNOWN_GAPS)', () => {
+  test('the rate troughs: the output trough’s extra depth over QMM comes through the króna (KNOWN_GAPS); the inflation trough is spread over the króna, housing and slack', () => {
     const trough = (disableTerms: string[]) => {
       const r = runScenario(fresh().fork({ disableTerms }), check('rate-inflation-trough').scenario, 72);
       return [check('rate-inflation-trough').measure(r), check('rate-output-trough').measure(r)];
     };
     const [pi, y] = trough([]);
-    // the króna's response to the rate held at baseline: both troughs near QMM's −0.24 pp and −0.41%
+    // the króna's response to the rate held at baseline: the output trough near QMM's −0.41%
     const [piK, yK] = trough(['logExchangeRate.carry', 'logExchangeRate.portfolio']);
-    expect(Math.abs(piK + 0.24)).toBeLessThan(0.03);
     expect(Math.abs(yK + 0.41)).toBeLessThan(0.05);
-    // housing costs in the CPI carry a large share of the inflation trough; capacity pressure little
-    expect(trough(['cpi.housing'])[0] - pi).toBeGreaterThan(0.1);
+    expect(y).toBeLessThan(yK - 0.1);
+    // inflation: the króna and market rents each carry a part (about 0.09 and 0.08 pp), capacity pressure little
+    expect(piK - pi).toBeGreaterThan(0.05);
+    expect(trough(['cpi.housing'])[0] - pi).toBeGreaterThan(0.05);
     expect(Math.abs(trough(['domesticPrice.capacity'])[0] - pi)).toBeLessThan(0.05);
-    expect(y).toBeLessThan(yK);
   });
 
   test('switching to Automatic after a long hold far from the rule is gradual too: 6% for two years, then the rule', () => {
@@ -345,8 +346,8 @@ describe('Iceland calibration: each check runs the experiment its source describ
     expect(pass(24)).toBeLessThan(0.35);
     expect(pass(36)).toBeGreaterThan(0.25);
     expect(pass(36)).toBeLessThan(0.35);
-    expect(pass(36) - pass(24)).toBeLessThan(0.03);
-    expect(c.source).toMatch(/0\.30 after two years and 0\.32 after three/);
+    expect(pass(36) - pass(24)).toBeLessThan(0.04);
+    expect(c.source).toMatch(/0\.30 after two years and 0\.33 after three/);
     expect(KNOWN_GAPS['krona-pass-through-year1']).toBeUndefined();
   });
 

@@ -188,8 +188,13 @@ describe('weights', () => {
       const e = at(lever, value);
       expect(weightOf(e, 'automatic-stabilisers'), lever).toBeLessThan(weightOf(e, 'consumption-function'));
     }
-    // Unemployment benefits are the stabiliser.
-    expect(concepts(at('unemploymentBenefits', 10))[0]).toBe('automatic-stabilisers');
+    // Unemployment benefits are the stabiliser among the fiscal ideas. They also lengthen job search
+    // (labour-LAB-1), whose target moves at once though its effect builds over a year, so the
+    // reservation wage leads.
+    const ub = at('unemploymentBenefits', 10);
+    expect(concepts(ub)[0]).toBe('reservation-wage');
+    for (const other of ['multiplier', 'consumption-function', 'deficits-and-money']) expect(weightOf(ub, 'automatic-stabilisers')).toBeGreaterThan(weightOf(ub, other));
+    expect(concepts(ub).slice(0, 3)).toContain('automatic-stabilisers');
   });
 
   test('reference: a tax-lever change is the multiplier, not an automatic stabiliser; the split adds up exactly (review TAX-4)', () => {

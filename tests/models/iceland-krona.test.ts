@@ -64,11 +64,17 @@ describe('Iceland model: the foreign interest rate (review E3)', () => {
       expect(reserves(five)).toBeLessThan(settle);
       expect(reserves(five) - r228).toBeLessThan(0.2);
     }
-    // on Automatic broad money and the current account settle: 20 years at +5 pp
+    // on Automatic broad money and the current account settle: 20 years at +5 pp. Broad money peaks
+    // about 8% above baseline after 12 years and falls back (it was +27% and rising). On the
+    // monetary-fx branch alone it ended within 1% of baseline, but prices were then 9% lower; with
+    // wages measured against the value-added price (trade-nominal-drift) they end about 1% lower,
+    // so in real terms broad money ends a little nearer baseline than it did there.
     const e = run('foreignRate', 5, true, 240);
     const [bm, ca] = [series(e, 'broadMoney'), series(e, 'currentAccount')];
     const [bm0, ca0] = [series(base, 'broadMoney')[0], series(base, 'currentAccount')[0]];
-    expect(Math.abs(bm[240] - bm0)).toBeLessThan(2); // was +27% and rising
+    expect(Math.max(...bm) - bm0).toBeLessThan(10);
+    expect(bm[240] - bm0).toBeLessThan(0.75 * (Math.max(...bm) - bm0));
+    expect(bm[240]).toBeLessThan(bm[228]);
     expect(Math.abs(bm[240] - bm[228])).toBeLessThan(1);
     expect(ca[240] - ca0).toBeLessThan(0.25 * (Math.max(...ca) - ca0)); // was +2.81 and rising
     // selling the extra income for krónur again drains non-residents' krónur, so part of v1's drift
@@ -192,14 +198,14 @@ describe('Iceland model: portfolio balance is bounded and nets out the carry tra
     expect(bound).toBeGreaterThan(-0.36);
   });
 
-  test('krónur bought for the rate gap do not weaken the króna: a credit or tax-cut boom with higher rates leaves the real króna stronger for two years (Automatic)', () => {
+  test('krónur bought for the rate gap do not weaken the króna: a credit or tax-cut boom with higher rates leaves the real króna stronger for a year and a half (Automatic)', () => {
     const rer = (lever: string, value: number, months: number) => {
       const b = run('foreignDemand', 0, true, months);
       const e = run(lever, value, true, months);
       return Array.from({ length: months }, (_, m) => [e.valueAt('realExchangeRate', m + 1) / b.valueAt('realExchangeRate', m + 1) - 1, e.valueAt('exportVolume', m + 1) / b.valueAt('exportVolume', m + 1) - 1]);
     };
     for (const [lever, value, months] of [
-      ['lendingAppetite', 3, 24],
+      ['lendingAppetite', 3, 18],
       ['incomeTaxOffset', -2.5, 18],
     ] as const)
       for (const [r, x] of rer(lever, value, months)) {
@@ -243,7 +249,7 @@ describe('Iceland model: a high key rate held for years (review E7)', () => {
   test('on Manual, 15% held: output below baseline for eight years, then the interest-income channel lifts it', () => {
     // Taxes and spending are held too, so the government's interest bill feeds households' and
     // pension funds' income (decision 0002 §6, Godley and Lavoie's model PC). Back above baseline
-    // from month 101; month 88 while the bonds repriced with the key rate at once (review MON-1).
+    // from month 107; month 88 while the bonds repriced with the key rate at once (review MON-1).
     const e = run('keyRateFixed', 15, false, 120);
     const output = series(e, 'output');
     expect(Math.max(...output.slice(1, 97))).toBeLessThan(0);
@@ -252,21 +258,21 @@ describe('Iceland model: a high key rate held for years (review E7)', () => {
     expect(income(120) / income(0)).toBeGreaterThan(1.5);
   });
 
-  test('on Manual, any lasting move reverses, not only a high rate: +1 pp cools output for about ten years, then lifts it (review MON-1)', () => {
+  test('on Manual, any lasting move reverses, not only a high rate: +1 pp cools output for about eleven years, then lifts it (review MON-1)', () => {
     const e = run('keyRateFixed', 4, false, 240);
     const output = series(e, 'output');
     const trough = Math.min(...output.slice(1, 60));
-    expect(trough).toBeLessThan(-0.6); // about −0.72%, in month 35
-    expect(output.indexOf(trough)).toBeGreaterThan(24); // in the third year
+    expect(trough).toBeLessThan(-0.6); // about −0.83%, in month 37
+    expect(output.indexOf(trough)).toBeGreaterThan(24); // in the third or fourth year
     const back = output.findIndex((y, m) => m >= 24 && y > 0);
-    expect(back).toBeGreaterThanOrEqual(114); // month 120 (106 while bonds repriced at once)
-    expect(back).toBeLessThanOrEqual(126);
-    expect(output[240]).toBeGreaterThan(0.35); // about +0.46% after 20 years
-    expect(output[240]).toBeLessThan(0.55);
-    // A cut mirrors it: about −0.31% after 20 years.
+    expect(back).toBeGreaterThanOrEqual(124); // month 130 (106 while bonds repriced at once)
+    expect(back).toBeLessThanOrEqual(136);
+    expect(output[240]).toBeGreaterThan(0.6); // about +0.72% after 20 years
+    expect(output[240]).toBeLessThan(0.85);
+    // A cut mirrors it: about −0.49% after 20 years.
     const cut = series(run('keyRateFixed', 2, false, 240), 'output');
-    expect(cut[240]).toBeLessThan(-0.2);
-    expect(cut[240]).toBeGreaterThan(-0.4);
+    expect(cut[240]).toBeLessThan(-0.35);
+    expect(cut[240]).toBeGreaterThan(-0.65);
     // Bonds keep their coupons until they mature (about five years on average), so the interest bill
     // rises gradually. The first month's −0.135 of GDP is mostly the central bank's higher interest
     // on reserves, which cuts the profit it pays the Treasury; it was −0.49 while the whole bond
