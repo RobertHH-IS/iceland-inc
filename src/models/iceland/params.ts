@@ -260,11 +260,11 @@ P('purY', 1.2, '% of GDP/yr', 'BEHAVIOUR', 'Homes the young buy from older house
 P('purW', 1, '% of GDP/yr', 'BEHAVIOUR', 'Homes working-age households buy from older households each year, at baseline prices.', placeholder());
 
 /* ----------------------------------------------------------------- banks */
-P('kapT', 0.22, 'fraction', 'POLICY', 'Banks’ target capital ratio (equity ÷ risk-weighted assets).', assumed('Total capital requirement about 20% plus a buffer.'));
+P('kapT', 0.22, 'fraction', 'POLICY', 'Banks’ target capital ratio (equity ÷ risk-weighted assets): the requirement plus the buffer banks choose to keep. The baseline sits exactly on it, and loans cost neither more nor less there.', assumed('Total capital requirement about 20% plus a management buffer of about 2 points, so the baseline already holds the buffer and is not solved above it.'));
 P('kapMin', 0.18, 'fraction', 'POLICY', 'Capital ratio at which the loan premium reaches its maximum.', assumed());
 P('rwM', 0.35, 'fraction', 'POLICY', 'Risk weight on mortgages.', assumed('Basel standardised mortgage risk weight.'));
 P('rwL', 1, 'fraction', 'POLICY', 'Risk weight on business loans.', assumed('Basel standardised corporate risk weight.'));
-P('sCap', 0.02, 'fraction/yr', 'BEHAVIOUR', 'Loan premium when bank capital falls to its minimum.', assumed());
+P('sCap', 0.02, 'fraction/yr', 'BEHAVIOUR', 'Loan premium when bank capital falls to its minimum. The premium rises in proportion from zero at target; above target the same slope gives a discount of at most half this.', assumed('The discount above target makes the premium symmetric around the baseline, so small moves in capital either way price loans by the same amount (lever review FX-9, 29 September 2026).'));
 P('lamEq', 1, 'per year', 'BEHAVIOUR', 'How fast banks rebuild capital by cutting dividends.', assumed());
 P('lamDivB', 1, 'per year', 'BEHAVIOUR', 'Smoothing of bank profits behind dividends.', assumed());
 P('divBshG', 0.35, 'fraction', 'IDENTITY', 'Share of bank dividends paid to the government (it owns Landsbankinn).', assumed());
