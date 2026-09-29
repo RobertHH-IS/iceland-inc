@@ -10,12 +10,12 @@ export const referenceModel: ModelDef = {
   id: 'reference',
   label: 'Reference economy',
   description: '…',
-  modules: [stabilisers, structure, labourPrices, demand, banking, centralBank, government, indicators],
+  modules: [structure, labourPrices, demand, banking, centralBank, government, indicators],
   paymentSystem: { bank: 'B', centralBank: 'CB', treasury: 'G', deposits: 'deposits', reserves: 'reserves', treasuryAccount: 'treasuryAccount' },
   dt: 1 / 12,
   steadyState: { … },
   calibration,
-  stabiliserMode: { lever: 'stabilisers', manual: 0, automatic: 1 },
+  legacyStabiliserMode: { … }, // how to read scenarios written before padlocks (section 7)
 };
 ```
 
@@ -23,12 +23,11 @@ Each module (`ModuleDef`) bundles players, instruments, variables, parameters, r
 
 | File | Module | What it holds |
 |---|---|---|
-| `stabilisers.ts` | `stabilisers` | the Manual / Automatic setting for the policy rules (section 7) |
 | `structure.ts` | `structure` | 5 players, 6 instruments |
 | `labour-prices.ts` | `labour-and-prices` | jobs, wages, prices, expectations; wage-settlement lever |
 | `demand.ts` | `demand` | disposable income, consumption, investment, GDP |
 | `banking.ts` | `banking-and-credit` | loans, repayments, interest, dividends; lending-appetite lever |
-| `central-bank.ts` | `central-bank` | Taylor rule (a stabiliser), reserves, open-market operations; key-rate levers |
+| `central-bank.ts` | `central-bank` | Taylor rule (a stabiliser), reserves, open-market operations; the key-rate lever |
 | `government.ts` | `government` | spending, the debt rule (a stabiliser), taxes, deficit, bonds; spending and tax levers |
 | `indicators.ts` | `indicators` | 8 charts and the narration feed |
 | `calibration.ts` | (model level) | 6 calibration checks |
@@ -144,7 +143,7 @@ Every variable has a unit and a kind; variables with a `kind` other than `'exoge
 ```
 
 - **Categories:** `IDENTITY` (accounting), `CONTRACT` (institutional rule), `BEHAVIOUR` (an assumption), `POLICY` (an authority's decision rule).
-- **Declarations:** `c.v(id)` needs `inputs`, `c.lag(id, k)` needs `lagInputs`, `c.p(id)` needs `params`, `c.stock(ins, player)` needs `stocks`, `c.lever(id)` needs `levers`. The compiler dry-runs every rule, so an undeclared read is a compile error, and in dev mode the engine also throws on one at run time.
+- **Declarations:** `c.v(id)` needs `inputs`, `c.lag(id, k)` needs `lagInputs`, `c.p(id)` needs `params`, `c.stock(ins, player)` needs `stocks`, `c.lever(id)` needs `levers`, `c.locked(stabiliser)` needs `locks`. The compiler dry-runs every rule, so an undeclared read is a compile error, and in dev mode the engine also throws on one at run time.
 - **Terms:** the desired value is the sum of the terms, so the inspector can show exactly which term moved. Write rules as terms whenever they add up.
 - **Adjust:** with `adjust`, value = last month's value + speed × dt × (desired − last month's value). Speeds are per year. The target's own lag is read automatically. With `adjust: { speed, form: 'exponential' }` the share closed each step is 1 − e^(−speed × dt) instead: the exact first-order lag, which never overshoots and changes less when the step is halved (the Iceland model uses it throughout, as engine v1 did).
 - **Explain:** `{paramId}`, `{paramId%}` and `{paramId pp}` in `explain.rule` are filled with live parameter values.
@@ -181,58 +180,52 @@ A lever is a setting or a one-off with a precise `definition`: level or growth, 
 ```ts
 {
   id: 'taxRate', label: 'Income-tax rate', group: 'Policy', section: 'Government',
-  kind: 'setting', unit: 'pp', default: 0, min: -3, max: 3, step: 0.5,
+  kind: 'setting', unit: 'pp', default: 0, min: -2, max: 3, step: 0.5,
   binds: { param: 'taxShift', mode: 'add', scale: 0.01 },
-  description: 'Raises (or cuts) the tax rate on household income by this many points, on top of the debt rule.',
-  definition: 'Level shift in the income-tax rate, in percentage points, persistent while set. …',
+  description: 'The tax rate on household income, in points above (or below) its normal rate. Unlocked (the default), the debt rule sets it …',
+  definition: 'Level shift in the income-tax rate, in percentage points above (or below) its normal rate. …',
 }
 ```
 
-**A setting read by a rule.** The key-rate offset binds nothing; the Taylor rule declares `levers: ['stabilisers', 'keyRateAddon']` and reads `c.lever('keyRateAddon') / 100` in its `addOn` term (only on Automatic, below).
+**A setting read by a rule.** The key-rate lever binds nothing; the key-rate rule declares `levers: ['keyRate']` and reads `c.lever('keyRate') / 100`, but only while the lever is locked (below).
 
-**A lever shown in one mode only.** `showWhen` shows a lever only while another lever has one of the listed values. The Manual key rate and the offset to the rule are never on screen together:
+### Policy reactions are stabilisers, and their levers have padlocks
 
-```ts
-{ id: 'keyRateFixed', label: 'Key interest rate', unit: '%', default: 3, step: 0.25, showWhen: { lever: 'stabilisers', equals: 0 }, … },
-{ id: 'keyRateAddon', label: 'Key rate: your offset to the rule', unit: 'pp', default: 0, step: 0.25, showWhen: { lever: 'stabilisers', equals: 1 }, … },
-```
+A POLICY setting never changes unless the user changes it, or a declared rule moves it while its padlock is open. A rule that reacts to the economy by moving a policy setting (a Taylor rule, a debt rule) is a *stabiliser*: declare it, and the compiler gives its lever a padlock ([decisions 0004 and 0010](decisions/0010-policy-padlocks.md)). Unlocked (the default), the rule sets the policy; locked, the lever holds and the rule only suggests. Closing the padlock freezes the lever at the value in force; setting the lever while it is unlocked closes the padlock at the new value; opening it hands the lever back to the rule. Levers without a rule have no padlock.
 
-It is presentation only: the engine still applies a hidden lever's value, so the rules must ignore it in the other mode, and the lever panel puts it back to its default when the mode hides it. The compiler checks that `showWhen` names another setting or choice, and that each value is one of its options.
-
-### Policy reactions are stabilisers
-
-A POLICY setting never changes unless the user changes it. A rule that reacts to the economy by moving a policy setting (a Taylor rule, a debt rule) is a *stabiliser*: declare it, and make it act only when the model's stabiliser setting is Automatic ([decision 0004](decisions/0004-stabilisers.md)).
-
-1. **The setting.** One choice lever for the whole model (`stabilisers.ts`: Manual 0, Automatic 1), named in `ModelDef.stabiliserMode`.
-2. **The shadow value.** Compute what the rule would do every month in both modes. The reference's Taylor rule is a variable of its own, `ruleRate`, and the key rate uses it only on Automatic:
+1. **The padlock.** Nothing to write: the compiler adds a lever of kind `lock`, `<lever>Lock` (`keyRateLock`, `taxRateLock`), 0 open and 1 closed, with plain-English texts. A rule reads it with `c.locked(stabiliserId)` and declares the stabiliser in `locks`.
+2. **The shadow value.** Compute what the rule would do every month, locked or not. The reference's Taylor rule has a target of its own, `ruleTarget`, and a smoothed rate, `ruleRate`, which the key rate uses only while unlocked:
 
 ```ts
-{ id: 'keyRate', target: 'keyRate', category: 'POLICY', inputs: ['ruleRate'], levers: ['stabilisers', 'keyRateFixed'],
+{ id: 'keyRate', target: 'keyRate', category: 'POLICY', inputs: ['ruleRate'], levers: ['keyRate'], locks: [TAYLOR_RULE],
   terms: [
-    { id: 'rule', label: 'The Taylor rule (Automatic)', compute: (c) => (automatic(c) ? c.v('ruleRate') : 0) },
-    { id: 'set', label: 'The rate you set (Manual)', compute: (c) => (automatic(c) ? 0 : c.lever('keyRateFixed') / 100) },
+    { id: 'rule', label: 'The Taylor rule (unlocked)', compute: (c) => (c.locked(TAYLOR_RULE) ? 0 : c.v('ruleRate')) },
+    { id: 'held', label: 'The rate you hold (locked)', compute: (c) => (c.locked(TAYLOR_RULE) ? c.lever('keyRate') / 100 : 0) },
   ],
   … }
 ```
 
-   If the rule adjusts gradually, let it step from the value actually in force, not from its own shadow: `adjust` always anchors on the variable's last value, which on Manual is a path the rule was never in charge of, so switching to Automatic would jump onto it. The Iceland model's key-rate rule keeps its target (`ruleTarget`) and the rate it was in charge of (`ruleAnchor`: its own rate on Automatic, the held key rate on Manual) as variables of their own, and steps from the anchor (decision 0007).
-3. **The suggestion,** a variable in the lever's own units, so it can be compared with the lever and "Apply" can set it: `keyRateSuggestion = 100 × ruleRate` (%). For a rule that adds to a lever (a tax shift), suggest the whole shift the rule would set, not the rule's addition on top of the user's setting: otherwise each "Apply" would ratchet.
-4. **The declaration,** in the module with the rules:
+   Let the rule step from the value actually in force, not from its own shadow: `adjust` always anchors on the variable's last value, which while locked is a path the rule was never in charge of, so unlocking would jump onto it. Both models keep the rate in force as a variable of its own (`ruleAnchor`: the rule's own rate while unlocked, the held key rate while locked) and step from it (decisions 0007 and 0010).
+3. **The suggestion,** a variable in the lever's own units, so it can be compared with the lever and "Apply" can set it: `keyRateSuggestion = 100 × ruleTarget` (%), where the rule is heading, so the lever calls as soon as the rule would lean one way. For a rule that adds to a lever (a tax shift), suggest the whole shift the rule would set, not the rule's addition on top of the user's setting: otherwise each "Apply" would ratchet.
+4. **The value in force,** `current`, in the lever's units: what closing the padlock freezes the lever at, and what the lever shows while unlocked. At the baseline it must equal the lever's default.
+5. **The declaration,** in the module with the rules:
 
 ```ts
 stabilisers: [{
-  id: 'taylorRule', label: 'Taylor rule',
-  lever: 'keyRateFixed',          // the POLICY lever it stands in for (set by the user on Manual)
-  offset: 'keyRateAddon',         // the lever that offsets it on Automatic, if not `lever` itself
+  id: TAYLOR_RULE, label: 'Taylor rule',
+  lever: 'keyRate',               // the POLICY lever it moves while unlocked
   suggestion: 'keyRateSuggestion',
-  shadow: ['ruleRate'],           // variables that only feed the suggestion on Manual
+  current: (c) => 100 * c.v('keyRate'),  // the value in force, in the lever's units
+  shadow: ['ruleRate', 'ruleAnchor', 'ruleTarget'],  // variables that only feed the suggestion while locked
   threshold: 0.125,               // lever units; half the lever's step calls exactly when Apply would move it
   description: 'The central bank’s Taylor rule: …',
   feed: { raise: 'The Taylor rule would raise the key rate to {value}%', lower: 'The Taylor rule would cut the key rate to {value}%', indicator: 'keyRate' },
 }],
 ```
 
-`engine.stabilisers()` then reports each one: `suggested`, `current` (the lever), `gap`, `calling` (Manual and the gap above the threshold) and `automatic`. The interface turns a calling lever red with the suggestion and an "Apply" button, marks the offset lever with the rule's value on Automatic, and the engine narrates a call in the feed. List the shadow variables in `shadow`: on Manual they drive nothing, so ideas at play leaves them out (the suggestion is always left out, because it restates the rule in lever units), and the compiler checks that no other rule reads them on Manual. Keep the baseline identical in both modes: at the steady state the rule must suggest exactly what the lever's default gives.
+`engine.stabilisers()` then reports each one: `lock`, `locked`, `suggested`, `current`, `gap` and `calling` (locked and the gap above the threshold). The interface draws a padlock beside the lever, shows the live value while unlocked, turns a calling lever red with the suggestion and an "Apply" button, and the engine narrates a call in the feed. List the shadow variables in `shadow`: while the stabiliser is locked they drive nothing, so ideas at play leaves them out (the suggestion is always left out, because it restates the rule in lever units), unless a rule that still acts reads them; the compiler checks that no other rule reads them when every stabiliser is locked. Keep the baseline identical locked or not: at the steady state the rule must suggest exactly what the lever's default gives.
+
+**Old scenarios.** A model that had the old global Manual / Automatic setting describes it in `ModelDef.legacyStabiliserMode` (its lever and default, the held levels by their new ids, the offsets), and `migrateScenario` rewrites a version-1 scenario to padlocks (decision 0010).
 
 **A one-off.** `fire` may change only non-stock state, through the restricted `ShockApi`. Here it lifts last month's wage rate, so the jump is felt this month:
 
@@ -302,8 +295,8 @@ Published whole-model responses are **checks**, never equations:
 ```ts
 {
   id: 'rate-hike-output',
-  label: 'Key rate +1 pp for 2 years: output trough, % vs baseline',
-  scenario: [{ t: 0, lever: 'keyRateAddon', value: 1 }, { t: 24, lever: 'keyRateAddon', value: 0 }],
+  label: 'Key rate locked 1 pp above neutral for 2 years, then unlocked: output trough, % vs baseline',
+  scenario: [{ t: 0, lever: 'keyRate', value: 4 }, { t: 24, lever: 'keyRateLock', value: 0 }],
   months: 60,
   measure: (run) => Math.min(...run.series('output')),
   range: [-3, -0.05],
@@ -341,11 +334,11 @@ bun run levers --paths reports/levers/paths   # also the full monthly paths (lar
 
 It writes `reports/levers/<model>.md` for reading and `reports/levers/<model>.json` for tools, and prints how long it took: about 0.1 s for the reference economy and 6 s for Iceland. The output depends on nothing but the model, so a rerun changes the files only when behaviour changes. Treat the diff like a golden scenario: when you change a model on purpose, regenerate the report, read what moved, and commit it with the change.
 
-**What it runs.** A setting runs at its min, its max and a moderate step each way from its default (a quarter of the distance to each bound, snapped to the lever's step). A one-off fires at its min, its max, its default size and half of it, and at those two with the opposite sign where the range allows. A choice runs every option other than the default, which is the no-change run. Each value is applied before month 1 and held; a one-off fires once. Each runs in both stabiliser modes, except in a mode where `showWhen` hides the lever; the report says which runs it skipped. The stabiliser setting itself is not run as a lever: its two values are the modes. A lever that can only act on top of another shock (a migration buffer needs job changes to buffer; the choice of bond buyer needs bonds to be sold) declares a **companion shock** in `src/harness/lever-headlines.ts`: it is run again with the companion, and those runs are measured against the run with the companion alone.
+**What it runs.** A setting runs at its min, its max and a moderate step each way from its default (a quarter of the distance to each bound, snapped to the lever's step). A one-off fires at its min, its max, its default size and half of it, and at those two with the opposite sign where the range allows. A choice runs every option other than the default, which is the no-change run. Each value is applied before month 1 and held; a one-off fires once. Each runs in every lock configuration: `unlocked` (every rule acts, the default), `locked` (every padlock closed at month 0) and any a model adds in `lever-headlines.ts` (Iceland adds `key rate locked`: the key rate held, the debt rule acting). Moving a policy lever locks it, so its own runs hold it in every configuration. The padlocks are not run as levers: they set up the configurations. A lever that can only act on top of another shock (a migration buffer needs job changes to buffer; the choice of bond buyer needs bonds to be sold) declares a **companion shock** in `src/harness/lever-headlines.ts`: it is run again with the companion, and those runs are measured against the run with the companion alone.
 
-**What it measures.** Every effect is the run minus the **no-change run in the same mode**: the same engine and mode with no lever event, compared month by month. It is never measured from month 0, so drift, the mode and anything else the two runs share cancel out. Effects are in the variable's display unit, and the report's legend defines each unit it uses (`UNIT_MEANINGS`): **%** is the percent difference from the no-change level; **pp** a difference in percentage points of a rate or share; **pp of GDP** a difference in a ratio to nominal GDP (this month's, or the past 12 months'), which does not grow with prices; **pp of baseline GDP** a difference in a nominal amount measured in % of baseline GDP, which does. A headline or indicator whose unit is not defined stops the report, so a new unit gets a definition before anyone reads it; where a model's own unit is ambiguous, `indicatorUnits` in `lever-headlines.ts` restates it and the report says why. For every indicator and every headline variable the report records the effect at months 1, 3, 6, 12, 24, 36, 60, 120 and 240, the peak and its month, and the long-run value (the mean over the final 12 months).
+**What it measures.** Every effect is the run minus the **no-change run in the same lock configuration**: the same engine and padlocks with no lever event, compared month by month. It is never measured from month 0, so drift, the padlocks and anything else the two runs share cancel out. Effects are in the variable's display unit, and the report's legend defines each unit it uses (`UNIT_MEANINGS`): **%** is the percent difference from the no-change level; **pp** a difference in percentage points of a rate or share; **pp of GDP** a difference in a ratio to nominal GDP (this month's, or the past 12 months'), which does not grow with prices; **pp of baseline GDP** a difference in a nominal amount measured in % of baseline GDP, which does. A headline or indicator whose unit is not defined stops the report, so a new unit gets a definition before anyone reads it; where a model's own unit is ambiguous, `indicatorUnits` in `lever-headlines.ts` restates it and the report says why. For every indicator and every headline variable the report records the effect at months 1, 3, 6, 12, 24, 36, 60, 120 and 240, the peak and its month, and the long-run value (the mean over the final 12 months).
 
-**Headline variables** are declared per model in `src/harness/lever-headlines.ts`: an indicator, or a level computed from variables (real consumption is nominal consumption ÷ the price level). Mark as `gradual` the ones that should adjust over months (output, jobs, spending, stocks of debt and money), and as `policy` the instruments that stabilisers move. The same file lists the policy instruments that must hold still on Manual, each with the levers allowed to move it, and any companion shocks. A new model needs an entry there; the tests check that every id exists.
+**Headline variables** are declared per model in `src/harness/lever-headlines.ts`: an indicator, or a level computed from variables (real consumption is nominal consumption ÷ the price level). Mark as `gradual` the ones that should adjust over months (output, jobs, spending, stocks of debt and money), and as `policy` the instruments that stabilisers move. The same file lists the policy instruments that must hold still while they are held (their padlock closed, or always for one without a rule), each with the levers allowed to move it and its padlock, any companion shocks, and any extra lock configurations. A new model needs an entry there; the tests check that every id exists.
 
 **Flags.** Each run lists its flags, one bullet per kind, and the summary table counts them by lever. The report states every threshold (`LEVER_THRESHOLDS` in `src/harness/lever-report.ts`).
 
@@ -353,13 +346,13 @@ It writes `reports/levers/<model>.md` for reading and `reports/levers/<model>.js
 |---|---|
 | Non-finite, Residual, Sign, Implausible | The run is broken: a NaN, an accounting leak, an overdrawn position or an impossible value. Fix the model before reading anything else |
 | Extreme | A headline level moved by more than 50% of its no-change value, or a rate or ratio by more than 25 pp. No routine policy change does that within 20 years; it is usually a runaway nominal path (the price level, the króna, money) that the long Unsettled list would otherwise hide |
-| Policy moved | On Manual, a policy instrument moved although its own lever did not: a rule reacts where only a stabiliser may ([decision 0004](decisions/0004-stabilisers.md)) |
+| Policy moved | A held policy instrument (its padlock closed, or one without a rule) moved although its own lever did not: a rule reacts where only an unlocked stabiliser may ([decisions 0004 and 0010](decisions/0010-policy-padlocks.md)) |
 | Month-1 jump | A variable that should build up gradually does most of its moving in the first month. Sometimes it is accounting (public spending is output at once); often a missing adjustment speed |
 | Sawtooth | The path zigzags from one month to the next. Economies do not; a floor or cap switching on and off, or an overshooting adjustment, does |
 | Flicker | A rule's regime label changes many times within five years: the floor or cap behind a sawtooth, named |
 | Unsettled, Explosive | Still moving after 20 years, or growing without bound. A permanent change in inflation moves the price level for ever, which is right; a debt ratio or exchange rate that runs away usually is not |
 | Asymmetry | The moderate up and down steps give responses of different size or direction per unit of lever. Caps and floors that bind one way cause it; check that the one that binds is meant to |
-| Mode sign | Manual and Automatic move a headline in opposite directions at month 12. Often right (the Taylor rule turns an inflationary boom into a slowdown), but each one deserves a sentence of explanation |
+| Lock sign | The runs with every policy lever locked and every one unlocked move a headline in opposite directions at month 12. Often right (the Taylor rule turns an inflationary boom into a slowdown), but each one deserves a sentence of explanation |
 | Inert | No run moves anything. The lever either needs another shock to act on (declare a companion) or is not wired to anything |
 | Regimes | Informational: every rule whose regime differs from the no-change run, with the months. It tells you which floor, cap or limit drives the result |
 
@@ -368,13 +361,13 @@ The Regimes and Flicker flags see only rules with a regime label. A rule that co
 **How to vet a lever.** Read its definition first, then for each run ask, in order:
 
 1. *Is the run healthy?* No flags from the first row of the table above.
-2. *Is the sign right?* Name the theory that predicts it: a higher key rate cools demand and strengthens the currency (uncovered interest parity), a tax cut raises disposable income, a higher foreign rate weakens the króna. Where Manual and Automatic differ, say which stabiliser explains it.
+2. *Is the sign right?* Name the theory that predicts it: a higher key rate cools demand and strengthens the currency (uncovered interest parity), a tax cut raises disposable income, a higher foreign rate weakens the króna. Where the locked and unlocked runs differ, say which stabiliser explains it.
 3. *Is the timing right?* Prices and wages move first where contracts or pass-through say so; output, jobs and credit build up over quarters. Check the month-1 column and the peak month.
 4. *Is the size plausible?* Compare with the calibration checks and with published estimates; per unit of lever, the moderate steps should be about the same size as the extremes unless a regime binds.
 5. *Does it settle?* After a persistent setting, ratios should reach a new level; after a one-off, most effects should fade.
 6. *What drives it?* The regimes list names the binding floors and caps; the interface's inspector shows the terms behind any variable in any month.
 
-**Expectations.** Every model declares what theory predicts in `src/models/<id>/expectations.ts`, and the report marks each one ✓ or ✗ (and counts them in the summary). They are a regression gate: the harness's robustness layer runs them all and fails when one does not hold, when a lever other than the stabiliser setting has none, or when a run it makes is broken; `bun run levers` exits with code 1 on the same failures, after writing its reports. An expectation is a sign that any sound model should show, backed by a theory and a source, over a span of months the model can resolve:
+**Expectations.** Every model declares what theory predicts in `src/models/<id>/expectations.ts`, and the report marks each one ✓ or ✗ (and counts them in the summary). They are a regression gate: the harness's robustness layer runs them all and fails when one does not hold, when a lever other than the padlocks has none, or when a run it makes is broken; `bun run levers` exits with code 1 on the same failures, after writing its reports. An expectation is a sign that any sound model should show, backed by a theory and a source, over a span of months the model can resolve:
 
 ```ts
 import type { LeverExpectation } from '../../harness/lever-report.ts';
@@ -388,11 +381,11 @@ export const expectations: LeverExpectation[] = [
 ];
 ```
 
-`setting` is a lever value or a role (`min`, `max`, `up`, `down`, `default`, `half`, `-default`, `-half`); `mode` is `Manual`, `Automatic` or `any`; `variable` is a headline or an indicator id; `sign` is +1, −1 or 0 for the mean effect over the months (0: smaller than the report's floor of 0.01). Set `withCompanion: true` to check the runs on top of the lever's companion shock instead. An expectation that matches no run fails, so a renamed lever cannot pass silently, and one that names a lever the model does not have stops the report. The stabiliser setting is not run as a lever; an expectation on it (`setting` the mode's value, `mode` the mode switched from) is checked on the switch with no shock, the other mode's no-change run measured against its own.
+`setting` is a lever value or a role (`min`, `max`, `up`, `down`, `default`, `half`, `-default`, `-half`); `mode` is a lock configuration (`unlocked`, `locked`, or one the model adds) or `any`; `variable` is a headline or an indicator id; `sign` is +1, −1 or 0 for the mean effect over the months (0: smaller than the report's floor of 0.01). Set `withCompanion: true` to check the runs on top of the lever's companion shock instead. An expectation that matches no run fails, so a renamed lever cannot pass silently, and one that names a lever the model does not have stops the report. A padlock is not run as a lever; an expectation on one (`setting` 1 to close it or 0 to open it, `mode` the configuration it starts from) is checked by closing or opening it at month 0 with no shock, against that configuration's no-change run.
 
 How to write them:
 
-- **Every lever needs some.** Cover what the lever is for (its main channel, with the timing theory gives), the policy reaction on Automatic where there is one, and anything the model must not do (a policy instrument that must hold still on Manual: sign 0).
+- **Every lever needs some.** Cover what the lever is for (its main channel, with the timing theory gives), the policy reaction where a rule acts (unlocked), and anything the model must not do (a policy instrument that must hold still while locked: sign 0).
 - **Name a theory and a source** a reader can look up, in plain English. A sign without a reason is only a snapshot of today's model.
 - **Choose windows the model can resolve.** A sign over months 1–3 of a variable that builds up over quarters, or a 0 over twenty years where the model is known to leave a small gap, is too strong for a simplified model; say so rather than write it.
 - **Do not weaken an expectation to make it pass.** When one fails, decide whether the model or the expectation is wrong. Fix a small, safe model error with a test. A larger one stays out of the file and goes to the open problems in [the lever-vetting record](audit/lever-vetting.md), with the numbers; an expectation that is wrong or too strong is dropped there with the reason.
@@ -409,7 +402,7 @@ How to write them:
 
 **Add a lever.** Add a `LeverDef` with a precise `definition`. Bind a setting to a parameter or exogenous variable (with `scale` if the units differ), or let a rule read it through `levers`. For a one-off, write `fire` using only `ShockApi.get` and `setLagged`. Give it a range the model survives: the harness pulls random combinations within it. Add its expectations to `src/models/<id>/expectations.ts` (the harness fails on a lever without any), then run `bun run levers --model <id>`, vet its section of the report and leave the report clean (section 12).
 
-**Add a policy reaction.** Declare it as a stabiliser (section 7): a shadow value computed in both modes, a suggestion in the lever's units, a `StabiliserDef`, and rules that apply it only on Automatic. Check the model in Manual too: the harness's property tests draw the mode like any other lever.
+**Add a policy reaction.** Declare it as a stabiliser (section 7): a shadow value computed locked or not, a suggestion and a value in force in the lever's units, a `StabiliserDef`, and rules that apply it only while its padlock is open and step it from the value in force. Check the model locked too: the harness runs every lever with every padlock closed, and its property tests draw the padlocks like any other lever.
 
 **Add a chart.** Add an `IndicatorDef` with `drivers`, `concepts` and the right `display`. The harness stores every indicator in the golden scenarios, so run `bun run harness --update-golden` once and commit the new files.
 

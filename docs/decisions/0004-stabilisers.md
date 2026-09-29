@@ -1,6 +1,6 @@
 # 0004. Stabilisers: policy is held unless you say otherwise
 
-Status: accepted (September 2026).
+Status: accepted (September 2026). The global Manual / Automatic setting, the offset levers and `showWhen` are superseded by [decision 0010](0010-policy-padlocks.md): a padlock on each lever with a rule. Manual now reads "every padlock locked" and Automatic "every padlock unlocked"; the rest of this record (declared stabilisers, suggestions, Apply, narration, shadows) stands.
 
 ## The request
 

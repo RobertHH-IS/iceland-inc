@@ -1,5 +1,7 @@
 # Lever vetting, 29 September 2026
 
+> **Note (padlocks, decision 0010).** This record predates padlocks and keeps its words: **Manual** now means *every policy lever locked* and **Automatic** *every policy lever unlocked* (the default). The offsets it mentions (`keyRateAddon`, `incomeTaxOffset`, the reference economy's tax lever on Automatic) and the stabiliser switch are gone; `keyRateFixed` is now `keyRate`. Their expectations were rewritten as expectations on locking the key rate or income tax higher or lower with the other rule acting, or on opening and closing a padlock; one was dropped (below). Moving a policy lever now locks only that lever, which the old modes never did; the flags that new configuration raises are listed in decision 0010.
+
 Economists vetted every lever of both models against theory and evidence. They proposed the signs any sound model should show, and those signs are now a regression gate: `src/models/<id>/expectations.ts`, checked by the harness and by `bun run levers` ([authoring §12](../authoring.md#12-vetting-levers)). This record says how the vetting was done, what each lever was found to do, what was fixed, what was refuted, and what is still open.
 
 ## How the vetting was done
@@ -205,7 +207,8 @@ Each item names the re-vetting finding it carries (in brackets) and gives the fi
 
 - The vetters themselves left out long-run "does not move" expectations wherever a known gap sits just above the report's floor of 0.01 (the reference economy's long run, the Iceland real wage after a settlement), and long-run nominal signs for tax levers until the nominal drift is fixed.
 - The expectations in open items 1, 2, 16 and 18 are not dropped: their theory is right and the model is not yet. They return to the file when those fixes land (the tourism one in item 2 already has).
-- The stabiliser switch expectations are kept, though at month 0 they are weak: they confirm decision 0004's single baseline, not the smooth takeover after a hold.
+- The stabiliser switch expectations are kept, though at month 0 they are weak: they confirm decision 0004's single baseline, not the smooth takeover after a hold. (Since decision 0010 they are expectations on opening and closing the padlocks; the takeover has module tests of its own.)
+- **Dropped with padlocks (decision 0010):** the reference economy's "key-rate offset at its max: inflation lower over months 12–240" (Taylor 1993; Woodford 2003). It held because a lasting offset worked like a lower inflation target that the rule leaned toward. Rules can no longer be tilted, and a key rate held high by hand is not a rule with a lower target: in this economy the interest it pays is spent, and with the debt rule acting inflation still falls for years, but the sign over twenty years no longer follows from the theory the expectation cited. Its companion on output (months 6–60) stays, on the key rate locked at its highest.
 
 ## How to rerun
 

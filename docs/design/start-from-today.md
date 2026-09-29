@@ -2,6 +2,8 @@
 
 Status: proposal (design only; nothing here is implemented). Written against the code at commit `71812b5` and the data briefs for `data/iceland/current-hagstofa.json` and `data/iceland/current-financial.json`, which were still being fetched when this was written. Data as of 28 September 2026.
 
+Since [decision 0010](../decisions/0010-policy-padlocks.md), read *Manual* as "every policy lever locked" and *Automatic* as "every policy lever unlocked" (now the default); the offset levers and `keyRateFixed` (now `keyRate`) are gone.
+
 Iceland Inc. starts today from a stylised steady state: zero growth, zero inflation, the key rate at its 3% neutral level and every sector's net lending at zero. This proposal lets it start from Iceland as it is now, while keeping exact stock-flow accounting and the rule that effects compare a shocked run with an unshocked run in the same variant. Today means inflation of 5.6% (August 2026), a key rate of 8.00%, unemployment of about 6.8% and output 1.1% lower than a year earlier (2026Q2).
 
 ## Summary

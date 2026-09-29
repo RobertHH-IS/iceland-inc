@@ -2,6 +2,8 @@
 
 Status: proposal, 29 September 2026. Nothing here is built yet.
 
+Since [decision 0010](../decisions/0010-policy-padlocks.md), read *Manual* as "every policy lever locked" and *Automatic* as "every policy lever unlocked" (now the default); the offset levers and `keyRateFixed` (now `keyRate`) are gone.
+
 Scope: the chart panel (`src/ui/views/Charts.tsx`, `ChartSvg.tsx`, `src/ui/model/charts.ts`), the indicator module (`src/models/iceland/modules/indicators.ts`) and the small engine and API changes they need. It assumes the separate change that starts Iceland Inc. from today's economy (2026 data, Hagstofa first) instead of a stylised steady state.
 
 What the user asked for:

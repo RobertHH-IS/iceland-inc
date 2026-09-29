@@ -242,7 +242,7 @@ None of these changes the harness, the golden scenarios or any number.
 
 ### 5.1 The URL
 
-- Add `locale?: Locale` to `HashState` in `src/ui/model/scenario-url.ts` under the key `l`, for example `#m=iceland&t=36&e=0:keyRateAddon:1&x=firms&l=is`. The decoder already ignores unknown keys, so old links keep working, and older builds ignore `l`.
+- Add `locale?: Locale` to `HashState` in `src/ui/model/scenario-url.ts` under the key `l`, for example `#m=iceland&v=2&t=36&e=0:keyRate:4&x=firms&l=is`. The decoder already ignores unknown keys, so old links keep working, and older builds ignore `l`.
 - Resolution order at start-up:
   1. `l` in the hash;
   2. the last choice kept in `localStorage`, read and written in `try/catch` as a per-viewer convenience only;
