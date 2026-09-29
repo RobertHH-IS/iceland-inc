@@ -8,7 +8,8 @@
  * queries the views have asked for (see docs/interface.md).
  *
  * The clock: while playing, the client advances `speed` months (1, 3 or 6) every tick of
- * TICK_MS (about four ticks a second), recording every indicator month by month for the charts.
+ * TICK_MS (two ticks a second, so 1× plays a year in six seconds), recording every indicator month
+ * by month for the charts.
  * setLever and fire start the clock when it is paused. seek moves anywhere between month 0 and
  * the furthest month simulated so far (the horizon); going back replays from the engine's
  * snapshots, so the numbers are identical to a straight run.
@@ -27,8 +28,8 @@ import { keepHiddenAtDefault } from './model/levers.ts';
 
 export type Speed = 1 | 3 | 6;
 export const SPEEDS: readonly Speed[] = [1, 3, 6];
-/** Milliseconds between ticks: about four a second. */
-export const TICK_MS = 250;
+/** Milliseconds between ticks: two a second, so 1× plays a year in six seconds. */
+export const TICK_MS = 500;
 /** The clock stops here (100 years): the history of every variable is kept for seek(). */
 export const MAX_MONTHS = 1200;
 
