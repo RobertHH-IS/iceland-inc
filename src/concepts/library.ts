@@ -292,6 +292,27 @@ const ref = {
     title: 'isee systems, "Delay builtins" (first- and third-order delays in system dynamics), Stella/iThink help',
     url: 'https://www.iseesystems.com/resources/help/v10/Content/Reference/Builtins/Delay_builtins.htm',
   },
+  obstfeldRogoff: {
+    title: 'Obstfeld & Rogoff (1996), Foundations of International Macroeconomics, MIT Press',
+  },
+  cordenNeary: {
+    title: 'Corden & Neary (1982), "Booming sector and de-industrialisation in a small open economy", Economic Journal 92(368)',
+  },
+  corden1984: {
+    title: 'Corden (1984), "Booming sector and Dutch disease economics: survey and consolidation", Oxford Economic Papers 36(3)',
+  },
+  matthiasson2008: {
+    title: 'Matthíasson (2008), "Rent collection, rent distribution, and cost recovery: an analysis of Iceland\'s ITQ catch fee experiment", Marine Resource Economics 23(1)',
+  },
+  bohn1998: {
+    title: 'Bohn (1998), "The behavior of U.S. public debt and deficits", Quarterly Journal of Economics 113(3)',
+  },
+  mauro2015: {
+    title: 'Mauro, Romeu, Binder & Zaman (2015), "A modern history of fiscal prudence and profligacy", Journal of Monetary Economics 76',
+  },
+  publicFinanceAct: {
+    title: 'Lög um opinber fjármál nr. 123/2015 (Public Finance Act no. 123/2015), article 7 on the fiscal rules',
+  },
 } satisfies Record<string, Ref>;
 
 /* ----------------------------------------------------------------- concepts */
@@ -369,7 +390,7 @@ export const concepts: ConceptDef[] = [
     ),
     school: 'accounting',
     references: [ref.sna2008],
-    related: ['indexation', 'revaluation', 'net-worth', 'interest-distribution', 'double-entry'],
+    related: ['indexation', 'revaluation', 'net-worth', 'interest-distribution', 'double-entry', 'haig-simons-income'],
   },
   {
     id: 'revaluation',
@@ -385,6 +406,21 @@ export const concepts: ConceptDef[] = [
     school: 'accounting',
     references: [ref.sna2008, ref.cbiFs2026],
     related: ['net-worth', 'accrual-vs-cash', 'indexation', 'floating-exchange-rate', 'housing-wealth-effect', 'funded-pensions'],
+  },
+
+  {
+    id: 'haig-simons-income',
+    title: 'Income after inflation (Haig–Simons income)',
+    oneLiner:
+      'What you could spend while keeping your wealth intact. Inflation eats savings, so part of the interest on them is not really income.',
+    body: p(
+      `The economists Robert Haig and Henry Simons defined income as what you could spend in a period and still end it as wealthy as you began. By that measure inflation is a cost to anyone who holds money. If prices rise 5% a year, a deposit of a million krónur loses 50,000 krónur of buying power although its balance does not change. Interest of 3% on it is then a real loss of 2%, not a gain.`,
+      `Godley and Lavoie (2007) build their consumption functions on this *Haig–Simons income*: households spend out of their income after the inflation loss on their money, not out of the cash that reaches their accounts. So when people expect faster inflation, they save more to keep the real value of their savings. The reference economy works this way, which is why a burst of inflation there cuts spending.`,
+      `How far people really see through inflation is debated. *Money illusion*, confusing amounts in krónur with what they buy, is common, and some surveys find that households who expect higher inflation spend more now, before prices rise. The strength of the effect is a modelling choice worth testing.`,
+    ),
+    school: 'accounting',
+    references: [ref.godleyLavoie, ref.doepkeSchneider],
+    related: ['accrual-vs-cash', 'consumption-function', 'adaptive-expectations', 'net-worth', 'indexation'],
   },
 
   /* ================================= Money ================================= */
@@ -744,7 +780,7 @@ export const concepts: ConceptDef[] = [
     ),
     school: 'keynesian',
     references: [ref.imfKeynes, ref.qmm2019, ref.godleyLavoie],
-    related: ['multiplier', 'paradox-of-thrift', 'habit-persistence', 'housing-wealth-effect', 'credit-impulse', 'import-leakage'],
+    related: ['multiplier', 'paradox-of-thrift', 'habit-persistence', 'housing-wealth-effect', 'credit-impulse', 'import-leakage', 'haig-simons-income'],
   },
   {
     id: 'paradox-of-thrift',
@@ -919,10 +955,25 @@ export const concepts: ConceptDef[] = [
       `A *fiscal rule* is a legal limit on government budgets. In 2025 the Althingi added a *stability rule* (*stöðugleikaregla*) to article 7 of the Public Finance Act: the underlying expenditure of the central government's A1 part may grow by at most 2% a year in real terms. It applies from 2026.`,
       `"Underlying" means some items are excluded, notably interest costs, unemployment benefits, pension obligations, investment contributions and statutory transfers to municipalities. Spending may also grow faster if new revenue measures pay for it. The rule aims to stop spending growing systematically faster than the economy, and to stop temporary revenue, such as a boom's windfall, being spent on permanent programmes. The fiscal plan for 2027–2031 projects real growth well below the 2% ceiling.`,
       `Because benefits and interest are outside the cap, automatic stabilisers still work in a downturn. The IMF says the rule should help counter Iceland's history of *pro-cyclical* policy, spending more in booms and less in slumps, and suggests reassessing the 2% limit regularly. Critics of spending rules in general warn that they can squeeze public investment or push spending off budget.`,
+      `Iceland Inc. does not impose this spending cap: spending levers are set by the user. Its only fiscal rule is a stylised debt-to-tax feedback (see debt-tied tax rule).`,
     ),
     school: 'institutional',
     references: [ref.fiscalPlan, ref.imf2026],
-    related: ['automatic-stabilisers', 'bond-buyers', 'sectoral-balances', 'multiplier', 'deficits-and-money'],
+    related: ['automatic-stabilisers', 'bond-buyers', 'sectoral-balances', 'multiplier', 'deficits-and-money', 'debt-feedback'],
+  },
+  {
+    id: 'debt-feedback',
+    title: 'Debt-tied tax rule (fiscal reaction function)',
+    oneLiner:
+      'Taxes rise when government debt is above its anchor and fall when it is below, so debt cannot drift away for good.',
+    body: p(
+      `A *fiscal reaction function* describes how a government's budget responds to its debt. Bohn (1998) showed that if the primary balance (taxes minus spending, before interest) rises whenever the debt ratio rises, debt stays sustainable: every increase is eventually worked off. Estimated responses are small, roughly 0.02–0.1% of GDP of primary balance per point of debt (Mauro et al. 2015).`,
+      `Iceland's legal anchor is the debt rule in article 7 of the Public Finance Act (123/2015): debt, net of cash and deposits, of at most 30% of GDP, with any excess cut by at least a twentieth a year. Since 2026 a stability rule on spending growth sits beside it (see the fiscal stability rule).`,
+      `Both economies in Iceland Inc. use a stylised stand-in, not the law. It works only through the income-tax rate, has no threshold and leaves spending alone. It anchors debt at its baseline ratio (about 57% of GDP of bonds, net of spare treasury cash, in the Iceland model), not at 30%, and moves the tax rate toward 0.25 points per point of debt above it (0.3 in the reference economy), closing about two-fifths of the gap a year. That is several times stronger than estimated reactions, so debt settles within years. It acts only when stabilisers are on Automatic; on Manual it only suggests.`,
+    ),
+    school: 'institutional',
+    references: [ref.bohn1998, ref.mauro2015, ref.publicFinanceAct],
+    related: ['fiscal-rule', 'automatic-stabilisers', 'deficits-and-money', 'bond-buyers'],
   },
   {
     id: 'macroprudential-policy',
@@ -998,7 +1049,7 @@ export const concepts: ConceptDef[] = [
     ),
     school: 'accounting',
     references: [ref.bpm6, ref.imfCurrentAccount, ref.imf2026],
-    related: ['sectoral-balances', 'export-sectors', 'import-leakage', 'floating-exchange-rate', 'net-worth'],
+    related: ['sectoral-balances', 'export-sectors', 'import-leakage', 'floating-exchange-rate', 'net-worth', 'terms-of-trade', 'resource-rent'],
   },
   {
     id: 'real-exchange-rate',
@@ -1013,7 +1064,7 @@ export const concepts: ConceptDef[] = [
     ),
     school: 'empirical',
     references: [ref.imfRealExchangeRate, ref.imf2026],
-    related: ['purchasing-power-parity', 'floating-exchange-rate', 'export-sectors', 'wage-bargaining', 'exchange-rate-pass-through'],
+    related: ['purchasing-power-parity', 'floating-exchange-rate', 'export-sectors', 'wage-bargaining', 'exchange-rate-pass-through', 'terms-of-trade', 'dutch-disease'],
   },
   {
     id: 'purchasing-power-parity',
@@ -1042,7 +1093,51 @@ export const concepts: ConceptDef[] = [
     ),
     school: 'empirical',
     references: [ref.islandsbanki2026, ref.imf2026],
-    related: ['current-account', 'real-exchange-rate', 'floating-exchange-rate', 'migration-buffer', 'import-leakage'],
+    related: ['current-account', 'real-exchange-rate', 'floating-exchange-rate', 'migration-buffer', 'import-leakage', 'terms-of-trade', 'dutch-disease', 'resource-rent'],
+  },
+
+  {
+    id: 'terms-of-trade',
+    title: 'Terms of trade',
+    oneLiner:
+      'The price of what Iceland sells abroad compared with the price of what it buys. When fish or aluminium prices rise, Iceland is richer.',
+    body: p(
+      `The *terms of trade* are export prices divided by import prices, both in foreign currency. They measure how many imports a unit of exports can buy. If the world price of cod rises 10% while import prices stay put, the same catch pays for 10% more imported fuel, cars and holidays abroad: Iceland is richer without producing more (Obstfeld & Rogoff 1996).`,
+      `This is an *income effect*, not a *volume effect*. Quotas fix the catch and the smelters run at capacity, so a better price changes what exports earn, not how much is shipped. The gain lands first with the exporters: the fishing firms and, for aluminium, the smelters' foreign owners (see resource rent). How much reaches households depends on wages, taxes and dividends.`,
+      `Iceland's terms of trade swing more than those of most rich countries, because fish and aluminium make up about a third of export revenue. Better terms of trade tend to strengthen the króna, which spreads the gain to everyone who buys imports but squeezes the other exporters (see Dutch disease).`,
+      `World inflation is different. If every foreign price rises together, the terms of trade do not change; import prices in krónur rise, and over time the króna tends to strengthen to offset it (see purchasing power parity).`,
+    ),
+    school: 'empirical',
+    references: [ref.obstfeldRogoff, ref.islandsbanki2026],
+    related: ['export-sectors', 'real-exchange-rate', 'current-account', 'dutch-disease', 'resource-rent', 'purchasing-power-parity'],
+  },
+  {
+    id: 'dutch-disease',
+    title: 'Dutch disease',
+    oneLiner: 'A boom in one export lifts wages and the currency, which makes other exports, such as tourism, less competitive.',
+    body: p(
+      `The name comes from the Netherlands in the 1960s, where natural-gas exports strengthened the guilder and hurt manufacturing. Corden and Neary (1982) set out the mechanism. A boom in one export sector, from a higher world price or a new discovery, works in two ways:`,
+      `- **Spending effect:** part of the extra income is spent at home, raising wages and domestic prices.\n- **Resource-movement effect:** the booming sector draws workers and capital from the rest of the economy.`,
+      `Both raise the *real exchange rate*: the country becomes more expensive compared with its trading partners, so exporters that did not share in the boom lose ground and shrink.`,
+      `Iceland has seen versions of this, in the aluminium and credit boom before 2008 and in the tourism boom since 2015, which lifted the króna and wages for everyone. Whether it is really a disease is debated (Corden 1984). If the boom lasts, moving resources into it is efficient; the risk is that the sectors it crowds out are hard to rebuild when it ends. In Iceland Inc., a lasting rise in fish prices strengthens the króna over the years, and tourism and other exports lose sales.`,
+    ),
+    school: 'empirical',
+    references: [ref.cordenNeary, ref.corden1984],
+    related: ['terms-of-trade', 'real-exchange-rate', 'export-sectors', 'floating-exchange-rate', 'resource-rent'],
+  },
+  {
+    id: 'resource-rent',
+    title: 'Resource rent',
+    oneLiner:
+      'Profit from a natural resource beyond what it takes to keep producing, such as the value of fishing quotas or of cheap hydropower.',
+    body: p(
+      `An *economic rent* is income above what it takes to keep a resource in use. Natural resources earn rent because they are scarce and nobody made them: the fish in Icelandic waters, and the country's cheap hydro and geothermal power. When the world price of fish or aluminium rises, costs barely move, so most of the extra revenue is rent.`,
+      `Who gets the rent is a political choice. Fishing rights are tradable quotas, so quota holders earn most of the fisheries' rent; the state collects part of it through the fishing fee (*veiðigjald*), whose size has been argued over for decades (Matthíasson 2008). The three aluminium smelters are foreign-owned, so a higher aluminium price mostly becomes profit paid abroad, which counts as primary income in the current account (IMF BPM6); the mainly state-owned power companies capture part of the rent through the price of electricity.`,
+      `That is why a commodity windfall can do less for Icelanders' incomes than the export figures suggest. In Iceland Inc., follow a price shock through the exporters' profits to the dividends they pay their owners, at home and abroad.`,
+    ),
+    school: 'institutional',
+    references: [ref.matthiasson2008, ref.bpm6],
+    related: ['terms-of-trade', 'export-sectors', 'current-account', 'dutch-disease'],
   },
 
   /* ================================ Housing ================================ */
@@ -1223,7 +1318,7 @@ export const concepts: ConceptDef[] = [
  * exactly one theme (checked by tests/concepts.test.ts).
  */
 export const conceptThemes: { theme: string; ids: Id[] }[] = [
-  { theme: 'Accounting', ids: ['double-entry', 'stock-flow-consistency', 'net-worth', 'sectoral-balances', 'accrual-vs-cash', 'revaluation'] },
+  { theme: 'Accounting', ids: ['double-entry', 'stock-flow-consistency', 'net-worth', 'sectoral-balances', 'accrual-vs-cash', 'revaluation', 'haig-simons-income'] },
   { theme: 'Money', ids: ['endogenous-money', 'money-destruction', 'reserves-and-payments', 'deficits-and-money', 'broad-money'] },
   {
     theme: 'Credit',
@@ -1258,10 +1353,20 @@ export const conceptThemes: { theme: string; ids: Id[] }[] = [
       'migration-buffer',
     ],
   },
-  { theme: 'Policy', ids: ['taylor-rule', 'interest-rate-channel', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'macroprudential-policy', 'bond-buyers'] },
+  { theme: 'Policy', ids: ['taylor-rule', 'interest-rate-channel', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'debt-feedback', 'macroprudential-policy', 'bond-buyers'] },
   {
     theme: 'External',
-    ids: ['floating-exchange-rate', 'carry-trade', 'current-account', 'real-exchange-rate', 'purchasing-power-parity', 'export-sectors'],
+    ids: [
+      'floating-exchange-rate',
+      'carry-trade',
+      'current-account',
+      'real-exchange-rate',
+      'purchasing-power-parity',
+      'export-sectors',
+      'terms-of-trade',
+      'dutch-disease',
+      'resource-rent',
+    ],
   },
   { theme: 'Housing', ids: ['credit-and-house-prices', 'housing-wealth-effect'] },
   { theme: 'Pensions', ids: ['funded-pensions', 'pension-entitlements'] },

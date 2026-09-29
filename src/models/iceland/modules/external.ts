@@ -257,7 +257,7 @@ export const external: ModuleDef = {
       target: 'worldPrice',
       category: 'BEHAVIOUR',
       params: ['worldPrice0', 'worldPriceShift'],
-      terms: terms(['normal', 'Level at the start', undefined, (c) => c.p('worldPrice0')], ['shift', 'World-prices lever', 'exchange-rate-pass-through', (c) => c.p('worldPrice0') * c.p('worldPriceShift')]),
+      terms: terms(['normal', 'Level at the start', undefined, (c) => c.p('worldPrice0')], ['shift', 'World-prices lever', 'purchasing-power-parity', (c) => c.p('worldPrice0') * c.p('worldPriceShift')]),
       explain: { what: 'Foreign-currency prices of what Iceland imports and of fish and aluminium.', rule: 'World prices = their level at the start {worldPrice0} × (1 + the world-prices lever).' },
     },
     {
@@ -267,8 +267,8 @@ export const external: ModuleDef = {
       inputs: ['worldPrice'],
       params: ['fishPrice0', 'worldPrice0', 'fishPriceShift'],
       terms: terms(
-        ['world', 'World prices', 'exchange-rate-pass-through', (c) => (c.p('fishPrice0') * c.v('worldPrice')) / c.p('worldPrice0')],
-        ['fishMarket', 'Fish-price lever', 'export-sectors', (c) => ((c.p('fishPrice0') * c.v('worldPrice')) / c.p('worldPrice0')) * c.p('fishPriceShift')],
+        ['world', 'World prices', 'purchasing-power-parity', (c) => (c.p('fishPrice0') * c.v('worldPrice')) / c.p('worldPrice0')],
+        ['fishMarket', 'Fish-price lever', 'terms-of-trade', (c) => ((c.p('fishPrice0') * c.v('worldPrice')) / c.p('worldPrice0')) * c.p('fishPriceShift')],
       ),
       explain: { what: 'What foreign buyers pay for Icelandic fish, in foreign currency (1 at baseline).', rule: 'Fish prices = their level at the start {fishPrice0} × (world prices ÷ their level at the start) × (1 + the fish-price lever).' },
     },
@@ -279,8 +279,8 @@ export const external: ModuleDef = {
       inputs: ['worldPrice'],
       params: ['aluminiumPrice0', 'worldPrice0', 'aluminiumPriceShift'],
       terms: terms(
-        ['world', 'World prices', 'exchange-rate-pass-through', (c) => (c.p('aluminiumPrice0') * c.v('worldPrice')) / c.p('worldPrice0')],
-        ['metalMarket', 'Aluminium-price lever', 'export-sectors', (c) => ((c.p('aluminiumPrice0') * c.v('worldPrice')) / c.p('worldPrice0')) * c.p('aluminiumPriceShift')],
+        ['world', 'World prices', 'purchasing-power-parity', (c) => (c.p('aluminiumPrice0') * c.v('worldPrice')) / c.p('worldPrice0')],
+        ['metalMarket', 'Aluminium-price lever', 'terms-of-trade', (c) => ((c.p('aluminiumPrice0') * c.v('worldPrice')) / c.p('worldPrice0')) * c.p('aluminiumPriceShift')],
       ),
       explain: {
         what: 'The world aluminium price in foreign currency (1 at baseline), set on the London Metal Exchange.',
@@ -614,8 +614,8 @@ export const external: ModuleDef = {
       terms: terms(
         ['exports', 'Exports', 'export-sectors', (c) => c.v('exportValue')],
         ['imports', 'Imports', 'import-leakage', (c) => -IMPORTS.reduce((s, [k]) => s + c.v(`imports${k}`), 0)],
-        ['incomeIn', 'Income on foreign assets', undefined, (c) => c.v('fxReserveIncome') + c.v('foreignAssetIncome') + c.v('kronaLoanInterestW')],
-        ['incomeOut', 'Interest and dividends paid abroad', 'export-sectors', (c) => -(c.v('depositInterestW') + c.v('bondInterestW') + c.v('dividendsAbroad'))],
+        ['incomeIn', 'Income on foreign assets', 'current-account', (c) => c.v('fxReserveIncome') + c.v('foreignAssetIncome') + c.v('kronaLoanInterestW')],
+        ['incomeOut', 'Interest and dividends paid abroad', 'current-account', (c) => -(c.v('depositInterestW') + c.v('bondInterestW') + c.v('dividendsAbroad'))],
       ),
       concepts: ['current-account', 'sectoral-balances'],
       explain: {
@@ -797,7 +797,7 @@ export const external: ModuleDef = {
       description: 'Foreign-currency prices of imports and of fish and aluminium.',
       definition:
         'Level shift in world prices in foreign currency, in percent, applied at once and persistent while set. Fish and aluminium revenue in krónur jumps at once, and so does the import bill, about three times as large, since imports are invoiced in foreign currency: at first Iceland pays more abroad than it earns and the current account worsens. Importers pass the dearer imports on to prices at home within a year or two. What buyers pay for imported goods rises by less, since part of it is the Icelandic cost of getting the goods to them: +10 raises consumer prices about 2% within a year and 2.7% within two on Automatic. The króna is a little stronger after a year, as the key rate rises and purchasing-power parity slowly absorbs the new world prices, which takes back part of the rise in krónur over several years. Setting it back to 0 ends it.',
-      concepts: ['exchange-rate-pass-through'],
+      concepts: ['exchange-rate-pass-through', 'purchasing-power-parity'],
     },
     {
       id: 'fishPrices',
@@ -814,7 +814,7 @@ export const external: ModuleDef = {
       description: 'What foreign buyers pay for Icelandic fish, in foreign currency.',
       definition:
         'Level shift in the world price of marine products, in percent, on top of the world-prices lever; applied at once and persistent while set. Quotas cap the catch, so most of the change goes into fisheries’ revenue and profit; volume moves only a little (about 3% at +30), through fuller use of quotas, the product mix and aquaculture, and the stronger króna that follows takes back part of the gain. A third of fisheries’ profit above normal goes to the state as the fishing fee two years later. Held for many years, a rise keeps strengthening the króna, which takes back other exports: at +30 output is about 0.4% lower and unemployment 0.5 point higher after 20 years on Automatic, and 2% lower and 1 point higher with the key rate held (Manual), a known gap in how the current account closes (decision 0002 §6). Setting it back to 0 ends it.',
-      concepts: ['export-sectors', 'exchange-rate-pass-through'],
+      concepts: ['terms-of-trade', 'export-sectors', 'resource-rent', 'dutch-disease'],
     },
     {
       id: 'aluminiumPrice',
@@ -831,7 +831,7 @@ export const external: ModuleDef = {
       description: 'The aluminium price on world markets, in dollars.',
       definition:
         'Level shift in the world aluminium price, in percent, on top of the world-prices lever; applied at once and persistent while set. The smelters produce at capacity, so revenue moves one for one while their alumina bill does not, and their foreign owners take almost all of the extra profit. Setting it back to 0 ends it.',
-      concepts: ['export-sectors', 'current-account'],
+      concepts: ['terms-of-trade', 'export-sectors', 'resource-rent', 'current-account'],
     },
   ],
   tests: [

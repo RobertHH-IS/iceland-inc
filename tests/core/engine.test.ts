@@ -117,7 +117,7 @@ describe('forks and counterfactuals', () => {
     const hike: ScenarioEvent[] = [{ t: 0, lever: 'keyRateAddon', value: 1 }];
     const e = fresh();
     e.load({ modelId: 'reference', events: hike, months: 24 });
-    const noSaving = e.fork({ disableTerms: ['consumption.realRate', 'investmentReal.realRate'] });
+    const noSaving = e.fork({ disableTerms: ['consumption.realRate', 'investmentPlan.realRate'] });
     // the disabled terms sit at their baseline values
     const inf = noSaving.influences('consumption').terms.find((t) => t.id === 'realRate')!;
     expect(inf.change).toBe(0);
@@ -170,7 +170,7 @@ describe('influences: exact within each rule', () => {
     expect(inf.regime).toBeNull();
     expect(inf.category).toBe('POLICY');
     expect(inf.params.find((p) => p.id === 'taylorInflation')!.provenance.basis).toBe('assumed');
-    expect(inf.rule!.rule).toContain('1.5 × 12-month inflation'); // {taylorInflation} filled in
+    expect(inf.rule!.rule).toContain('1.5 × inflation above the 0% target'); // {taylorInflation} filled in
   });
 
   test('flows and indicators have influences too', () => {

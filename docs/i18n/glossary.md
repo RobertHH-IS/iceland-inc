@@ -103,6 +103,7 @@ The interface has no Icelandic precedent for its own words (lever, pipe, inspect
 | accrual basis / cash basis | rekstrargrunnur / greiðslugrunnur | | ÍÐ-HAG |
 | accrual (a posting: no cash moves) | áfallið (lýsingarorð); áföllnun | "Mortgage indexation (accrued)" → "Verðbætur íbúðalána (áfallnar)" | PROP (from ÍÐ-HAG) |
 | revaluation | endurmat | | ÍÐ-HAG, ÍÐ-ENDUR |
+| income after inflation (Haig–Simons income) | tekjur að frádreginni verðbólgurýrnun | "Haig–Simons-tekjur" in brackets on first use | PROP |
 | write-off | niðurfærsla | "afskrift" also means depreciation (Hagstofa "Afskrift fjármunaeignar"), so use niðurfærsla for losses on claims | ÍÐ-HAG (afskrifa), PROP |
 | payment (transfer posting) | greiðsla; tilfærsla | For transfer payments, ÍÐ-HAG gives tilfærsla / millifærsla | ÍÐ-HAG |
 | purchase (of a real asset) | kaup | | PROP |
@@ -329,6 +330,7 @@ The interface has no Icelandic precedent for its own words (lever, pipe, inspect
 | surplus | afgangur | | HAG-THJ05111 |
 | fiscal rule | fjármálaregla | | FJR |
 | debt rule | skuldaregla | | FJR |
+| debt-tied tax rule (fiscal reaction function) | skuldaregla um tekjuskatt | As the stabiliser's name in §1. The models' stylised rule, not the Public Finance Act's *skuldaregla* on net debt | PROP |
 | Iceland's fiscal stability rule | stöðugleikaregla | The expenditure rule for the A1 part from 2026 | FJR |
 | fiscal policy | stefna í ríkisfjármálum | The statutory plan is *fjármálastefna*, with *fjármálaáætlun* | ÍÐ-HAG, FJR |
 | fiscal stance | aðhaldsstig ríkisfjármála | | SÍ-PM |
@@ -367,6 +369,8 @@ The interface has no Icelandic precedent for its own words (lever, pipe, inspect
 | floating exchange rate | fljótandi gengi | | ÍÐ-HAG |
 | purchasing power parity | jafnvirðisgengi | Also "kaupmáttarjöfnuður" | ÍÐ-HAG |
 | terms of trade | viðskiptakjör | | ÍÐ-HAG, SÍ-PM |
+| Dutch disease | hollenska veikin | | MEDIA |
+| resource rent | auðlindarenta | Fishing fee: *veiðigjald* | MEDIA, FJR |
 | foreign demand | erlend eftirspurn | | PROP |
 | foreign interest rate | erlendir vextir | | PROP |
 | króna sentiment | tiltrú á krónunni | "Króna sentiment shock" → "tiltrúarskellur krónunnar" | PROP |

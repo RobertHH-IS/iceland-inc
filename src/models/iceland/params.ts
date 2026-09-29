@@ -85,7 +85,7 @@ P('ueTarget', d(sp + 'unemployment'), '% of GDP/yr', 'POLICY', 'Baseline unemplo
 P('vatTarget', d('tax_revenue_pct_gdp.vat_and_taxes_on_goods'), '% of GDP/yr', 'POLICY', 'Baseline VAT and taxes on goods; they fix the effective VAT rate on consumer spending.', dataProv('tax_revenue_pct_gdp.vat_and_taxes_on_goods'));
 P('citTarget', d('tax_revenue_pct_gdp.corporate_income_tax'), '% of GDP/yr', 'POLICY', 'Baseline corporate income tax; it fixes the effective tax rate on profits.', dataProv('tax_revenue_pct_gdp.corporate_income_tax'));
 P('css', 0.0635, 'fraction', 'POLICY', 'Payroll tax (tryggingagjald) on gross wages. Firms pay it to the government; on public staff the government pays it to itself, so there it nets out of the cash budget.', assumed('Statutory social security tax rate.'));
-P('phiTau', 0.25, 'fraction', 'POLICY', 'Debt-tied tax rule: the income-tax rate rises 0.25 points per point of debt-to-GDP above baseline.', assumed());
+P('phiTau', 0.25, 'fraction', 'POLICY', 'Debt-tied tax rule: the income-tax rate rises 0.25 points per point of debt-to-GDP above baseline.', assumed('Deliberately strong, for teaching: on a tax base of about two-thirds of GDP it moves revenue about 0.16% of GDP per point of debt, several times the 0.02–0.1% that estimated fiscal reaction functions give (Bohn 1998; Mauro et al. 2015).'));
 P('lamTau', 0.5, 'per year', 'POLICY', 'How fast the debt-tied tax rule phases in (a slow stabiliser).', assumed());
 
 /* -------------------------------------------------------------- pensions */

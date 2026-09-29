@@ -102,17 +102,17 @@ The harness's own baseline layer now runs on Manual (the default); `automatic-no
 
 The same pattern: a `stabilisers` module and setting, `keyRateFixed` (Manual) and `keyRateAddon` (Automatic) with `showWhen`, and two stabilisers, `taylorRule` (lever `keyRateFixed`, offset `keyRateAddon`, threshold 0.125) and `debtRule` (lever `taxRate`, threshold 0.25). The Taylor rule moved from `keyRate` to a new `ruleRate` (its add-on still shifts the rule's target, as the lever always said, so on Automatic its suggestion includes your offset); `keyRate` is the rule's rate on Automatic and the lever's level on Manual. The debt rule moved from `taxRate` to `debtRuleRate`; `taxRate` is that rate on Automatic and the normal rate on Manual. On Automatic every result is bit-for-bit as before (baseline and calibration goldens unchanged).
 
-**Its default stays Automatic.** The reference economy has no anchor other than its two rules. Held on Manual it swings for decades after a small shock (largest output deviation, %, 240 months):
+**Its default stays Automatic.** The reference economy has no nominal anchor other than its two rules. Held on Manual it swings for years after a small shock (largest output deviation, %, 240 months; since decision 0008, which anchored expectations partly to the target and calmed the demand block):
 
 | Shock | Manual, years 1–10 | Manual, years 11–20 | Manual, month 240 | Automatic, years 1–10 | Automatic, month 240 |
 |---|---:|---:|---:|---:|---:|
-| Spending +1% of GDP | 10.1 | 8.9 | −4.6 | 1.9 | 0.3 |
-| Tax +1 pp | 8.5 | 7.4 | 0.4 | 1.4 | −0.2 |
-| Wages +10% | 5.5 | 11.0 | −6.2 | 7.5 | 0.1 |
-| Lending +1% of GDP | 7.3 | 9.4 | −9.4 | 1.5 | 0.6 |
-| Key rate held at 4% | 5.6 | 12.4 | 12.2 | – | – |
+| Spending +1% of GDP | 3.8 | 3.4 | 2.7 | 1.6 | 0.5 |
+| Tax +1 pp | 3.2 | 3.1 | −2.3 | 1.2 | −0.3 |
+| Wages +10% | 3.4 | 0.8 | −0.2 | 4.7 | 0.1 |
+| Lending +1% of GDP | 2.3 | 0.7 | −0.7 | 1.1 | 0.6 |
+| Key rate held at 4% | 1.5 | 1.6 | 1.6 | – | – |
 
-Everything stays finite and the books balance, but a teaching model in which 1% of GDP of spending moves output by 10% for twenty years (the cycle takes some sixty years to die away) would teach the wrong lesson. Its author added the two rules as its stabilisers, so it starts on Automatic; Manual is one click away and shows why they are there. The rule for authors is unchanged: automatic policy reactions exist only as declared stabilisers, and act only on Automatic.
+Everything stays finite and the books balance, but with the key rate held nothing else anchors prices: a lasting shock keeps moving output by 3–4% for twenty years and prices drift for good. Before decision 0008 it was worse: 1% of GDP of spending moved output by 10% for twenty years, and the cycle took some sixty years to die away. Its author added the two rules as its stabilisers, so it starts on Automatic; Manual is one click away and shows why they are there, and its lever texts say that effects beyond two or three years on Manual show an economy without its nominal anchor. The rule for authors is unchanged: automatic policy reactions exist only as declared stabilisers, and act only on Automatic.
 
 ## The interface
 

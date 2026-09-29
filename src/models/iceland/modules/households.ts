@@ -148,7 +148,7 @@ const perGroup: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
         ['gross', 'Gross taxable income', undefined, (c) => c.v(gross)],
         ['tax', 'Income tax at the baseline rate', 'automatic-stabilisers', (c) => -c.p('tau0') * c.v(gross)],
         ['taxChange', 'Income tax: your change to the rate', 'multiplier', (c) => -(c.v(tax) - (c.p('tau0') + debtRuleRate(c)) * c.v(gross))],
-        ['debtRule', 'Income tax: the debt rule’s change to the rate (Automatic)', 'fiscal-rule', (c) => -debtRuleRate(c) * c.v(gross)],
+        ['debtRule', 'Income tax: the debt rule’s change to the rate (Automatic)', 'debt-feedback', (c) => -debtRuleRate(c) * c.v(gross)],
         ...(g !== 'O' ? ([['familyTaxFree', 'Tax-free child and housing benefits', 'consumption-function', (c: Ctx) => (1 - c.p('famTaxableShare')) * c.v(fam)]] as [string, string, string, (c: Ctx) => number][]) : []),
         ...(g !== 'O' ? ([['mortgage', 'Mortgage interest paid in cash', 'interest-distribution', (c: Ctx) => -(c.v(mB) + c.v(mPF))]] as [string, string, string, (c: Ctx) => number][]) : []),
       ),

@@ -31,7 +31,8 @@ Each module (`ModuleDef`) bundles players, instruments, variables, parameters, r
 | `central-bank.ts` | `central-bank` | Taylor rule (a stabiliser), reserves, open-market operations; key-rate levers |
 | `government.ts` | `government` | spending, the debt rule (a stabiliser), taxes, deficit, bonds; spending and tax levers |
 | `indicators.ts` | `indicators` | 8 charts and the narration feed |
-| `calibration.ts` | (model level) | 3 calibration checks |
+| `calibration.ts` | (model level) | 6 calibration checks |
+| `expectations.ts` | (lever report) | what theory predicts for each lever (section 12) |
 
 **Units.** Money flows are % of baseline annual GDP at annual rates (unit `'% of GDP/yr'`), money stocks % of baseline GDP (`'% of GDP'`), rates are fractions per year (`'fraction/yr'`), prices are indices (`'index'`). Baseline GDP is 100.
 
@@ -125,13 +126,13 @@ Every variable has a unit and a kind; variables with a `kind` other than `'exoge
   label: 'Consumption function',
   inputs: ['disposableIncome', 'depositRate', 'expectedInflation'], // same-month values
   stocks: [['deposits', 'HH']],                                      // end of last month
-  params: ['propensityFromIncome', 'propensityFromWealth', 'savingIncentive', 'neutralRate', 'depositSpread'],
+  params: ['propensityFromIncome', 'inflationAwareness', 'propensityFromWealth', 'savingIncentive', 'neutralRate', 'depositSpread'],
   adjust: { speed: 'consumptionSpeed' },                             // partial adjustment
   terms: [
     { id: 'income', label: 'Spending out of income', concept: 'consumption-function',
       compute: (c) => c.p('propensityFromIncome') * c.v('disposableIncome') },
-    { id: 'inflationLoss', label: 'Inflation eats savings', concept: 'accrual-vs-cash',
-      compute: (c) => -c.p('propensityFromIncome') * c.v('expectedInflation') * c.stock('deposits', 'HH') },
+    { id: 'inflationLoss', label: 'Inflation eats savings', concept: 'haig-simons-income',
+      compute: (c) => -c.p('inflationAwareness') * c.v('expectedInflation') * c.stock('deposits', 'HH') },
     { id: 'wealth', label: 'Spending out of savings', concept: 'stock-flow-consistency',
       compute: (c) => c.p('propensityFromWealth') * c.stock('deposits', 'HH') },
     { id: 'realRate', label: 'Reward for saving', concept: 'interest-rate-channel',

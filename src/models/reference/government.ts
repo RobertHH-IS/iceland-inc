@@ -33,8 +33,25 @@ const params: ParamDef[] = [
     description: 'Income-tax rate when government debt is at its baseline level.',
     provenance: { basis: 'calibrated', note: 'Solved by the baseline so that debt is 55% of GDP with a balanced budget.' },
   },
-  { id: 'fiscalResponse', value: 0.3, unit: 'fraction', category: 'POLICY', description: 'Tax-rate points added per point of debt-to-GDP above baseline, divided by 100 (0.3: +3 points of tax for 10 points of debt).', provenance: { basis: 'assumed' } },
-  { id: 'fiscalSpeed', value: 0.5, unit: 'per year', category: 'POLICY', description: 'How fast the tax rate moves toward what the debt rule says (budgets change slowly).', provenance: { basis: 'assumed' } },
+  {
+    id: 'fiscalResponse',
+    value: 0.3,
+    unit: 'fraction',
+    category: 'POLICY',
+    description: 'Tax-rate points added per point of debt-to-GDP above baseline, divided by 100 (0.3: +3 points of tax for 10 points of debt).',
+    provenance: {
+      basis: 'assumed',
+      note: 'Deliberately strong, for teaching: with a tax base of about 87% of GDP, 0.3 moves revenue about 0.26% of GDP per point of debt. Estimated fiscal reaction functions give about 0.02–0.1% of GDP (Bohn 1998, 2008; Mauro et al. 2015), so this rule settles debt several times faster than real governments do.',
+    },
+  },
+  {
+    id: 'fiscalSpeed',
+    value: 0.5,
+    unit: 'per year',
+    category: 'POLICY',
+    description: 'How fast the tax rate moves toward what the debt rule says (budgets change slowly).',
+    provenance: { basis: 'assumed', note: 'Teaching value: the rule closes about two-fifths of the gap to its target rate in a year, about one budget round.' },
+  },
   { id: 'taxShift', value: 0, unit: 'fraction', category: 'POLICY', description: 'Your change in the tax rate (set by the tax lever); on Automatic it is added to the debt rule’s rate.', provenance: { basis: 'assumed', note: 'Zero at baseline; moved by a lever.' } },
   { id: 'treasuryTarget', value: 2, unit: '% of GDP', category: 'POLICY', description: 'Money the government keeps in its account at the central bank.', provenance: { basis: 'assumed' } },
   { id: 'treasuryTopUp', value: 6, unit: 'per year', category: 'POLICY', description: 'How fast bond sales restore the account to its target.', provenance: { basis: 'assumed' } },
@@ -96,14 +113,14 @@ export const government: ModuleDef = {
         {
           id: 'debtRule',
           label: 'Debt above its starting level',
-          concept: 'deficits-and-money',
+          concept: 'debt-feedback',
           compute: (c) => (c.p('fiscalResponse') * (c.lag('debtRatio') - c.base('debtRatio'))) / 100,
         },
       ],
-      concepts: ['policy-lags'],
+      concepts: ['debt-feedback', 'policy-lags'],
       explain: {
         what: 'The income-tax rate the government’s debt rule calls for. With stabilisers on Automatic it is the tax rate (before your lever); on Manual it is only a suggestion.',
-        rule: 'The rate moves toward {normalTaxRate%} + {fiscalResponse} × (debt ratio − its starting level) ÷ 100, at speed {fiscalSpeed} a year, in both modes: 10 more points of debt mean about 3 more points of tax. Without such a rule, interest on a growing debt could feed on itself.',
+        rule: 'The rate moves toward {normalTaxRate%} + {fiscalResponse} × (debt ratio − its starting level) ÷ 100, at speed {fiscalSpeed} a year, in both modes: 10 more points of debt mean about 3 more points of tax. Without such a rule, interest on a growing debt could feed on itself. Because the rule keeps leaning until debt is back where the tax rate balances the budget, it undoes any lasting change to the tax lever in the end; its strength sets how fast, and how far debt moves meanwhile (the tax change ÷ {fiscalResponse}, in points of GDP). At {fiscalResponse} it is several times stronger than real governments’ estimated reactions, so debt settles within a decade.',
       },
     },
     {
@@ -127,7 +144,7 @@ export const government: ModuleDef = {
       params: ['normalTaxRate'],
       levers: ['stabilisers'],
       terms: [
-        { id: 'rule', label: 'The debt rule (Automatic)', concept: 'deficits-and-money', compute: (c) => (automatic(c) ? c.v('debtRuleRate') : 0) },
+        { id: 'rule', label: 'The debt rule (Automatic)', concept: 'debt-feedback', compute: (c) => (automatic(c) ? c.v('debtRuleRate') : 0) },
         { id: 'normal', label: 'The normal rate (Manual)', compute: (c) => (automatic(c) ? 0 : c.p('normalTaxRate')) },
       ],
       concepts: ['policy-lags'],
@@ -147,13 +164,13 @@ export const government: ModuleDef = {
       // or the debt rule's (review TAX-4). The three terms add up to (tax rate + your change) × income.
       terms: [
         { id: 'normalRate', label: 'Normal rate × income', concept: 'automatic-stabilisers', compute: (c) => onIncome(c, c.p('normalTaxRate')) },
-        { id: 'debtRule', label: 'The debt rule’s change to the rate × income (Automatic)', concept: 'deficits-and-money', compute: (c) => onIncome(c, c.v('taxRate')) - onIncome(c, c.p('normalTaxRate')) },
+        { id: 'debtRule', label: 'The debt rule’s change to the rate × income (Automatic)', concept: 'debt-feedback', compute: (c) => onIncome(c, c.v('taxRate')) - onIncome(c, c.p('normalTaxRate')) },
         { id: 'taxShift', label: 'Your change to the rate × income', concept: 'multiplier', compute: (c) => onIncome(c, c.v('taxRate') + c.p('taxShift')) - onIncome(c, c.v('taxRate')) },
       ],
       concepts: ['automatic-stabilisers', 'multiplier'],
       explain: {
         what: 'Income tax households pay. It rises and falls with income, which steadies the economy.',
-        rule: 'Tax = (the debt rule’s rate + any change set by the tax lever, now {taxShift pp}) × (wages + interest + dividends).',
+        rule: 'Tax = (the income-tax rate before your lever, which is the debt rule’s rate on Automatic and the normal rate {normalTaxRate%} on Manual, + your tax lever, now {taxShift pp}) × (wages + interest + dividends).',
       },
     },
     {
@@ -277,7 +294,7 @@ export const government: ModuleDef = {
       binds: { param: 'govSpendingReal', mode: 'add' },
       description: 'More (or less) government purchases, at baseline prices.',
       definition:
-        'Level shift in real government purchases, % of baseline GDP a year, persistent while set. Nominal spending also rises with the price level. Setting it back to 0 returns spending to its baseline level; the debt built up meanwhile remains.',
+        'Level shift in real government purchases, % of baseline GDP a year, persistent while set. Nominal spending also rises with the price level. A large lasting cut can push the key rate to zero on Automatic, where the Taylor rule and deposit rates can fall no further (a liquidity trap): at −3 the key rate stays at or just above zero for about 15 years, output is still about 4% lower after ten and 1.4% lower after twenty, and it recovers only as the debt rule cuts taxes. Setting it back to 0 returns spending to its baseline level; the debt built up meanwhile remains.',
       concepts: ['multiplier', 'deficits-and-money'],
     },
     {
@@ -294,8 +311,8 @@ export const government: ModuleDef = {
       binds: { param: 'taxShift', mode: 'add', scale: 0.01 },
       description: 'Raises (or cuts) the tax rate on household income by this many points: on top of the debt rule on Automatic, the whole change on Manual.',
       definition:
-        'Level shift in the income-tax rate, in percentage points, persistent while set. On Automatic the debt rule then gradually offsets it as debt moves away from target; on Manual nothing offsets it and the debt rule only suggests. Setting it back to 0 removes the shift; on Automatic the debt rule unwinds what it did.',
-      concepts: ['automatic-stabilisers'],
+        'Level shift in the income-tax rate, in percentage points, persistent while set. On Automatic the debt rule then gradually offsets it as debt moves away from target; on Manual nothing offsets it and the debt rule only suggests. A large rise can push the key rate to zero on Automatic: at +3 it stays at or just above zero for about four years, from the fourth year, and output is about 3% lower after five. Setting it back to 0 removes the shift; on Automatic the debt rule unwinds what it did.',
+      concepts: ['multiplier', 'debt-feedback'],
     },
   ],
   stabilisers: [
@@ -308,7 +325,7 @@ export const government: ModuleDef = {
       threshold: 0.25, // half the lever's half-point step: calls when Apply would move the lever
       description:
         'The government’s debt rule: about 3 points more income tax for 10 points more debt, reached gradually. On Automatic it sets the tax rate and your lever adds to it; on Manual it suggests a shift for the tax lever, which turns red when applying it would move the lever.',
-      concepts: ['policy-lags'],
+      concepts: ['debt-feedback', 'policy-lags'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'govDebt' },
     },
   ],

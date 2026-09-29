@@ -147,7 +147,7 @@ export const centralBank: ModuleDef = {
       stocks: [['fxReserves', 'CB']],
       terms: terms(
         ['normal', 'Normal yield on the reserves', 'current-account', (c) => c.p('iFXR') * c.stock('fxReserves', 'CB')],
-        ['foreignRate', 'Change in rates abroad', 'carry-trade', (c) => (c.v('foreignRate') - c.p('iF0')) * c.stock('fxReserves', 'CB')],
+        ['foreignRate', 'Change in rates abroad', 'current-account', (c) => (c.v('foreignRate') - c.p('iF0')) * c.stock('fxReserves', 'CB')],
       ),
       concepts: ['current-account'],
       explain: {
