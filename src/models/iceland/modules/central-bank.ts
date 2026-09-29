@@ -9,7 +9,8 @@
  * the stabiliser setting (decision 0004): in Manual you do, and the rule only suggests where it is
  * heading; in Automatic the rule does, and your lever is an offset to it. It never goes below zero.
  * The central bank pays the key rate on banks' reserves, earns interest on its bonds and foreign
- * reserves, and hands its profit to the government.
+ * reserves, and hands its profit to the government. It sells the normal yield on its foreign reserves
+ * for krónur and slowly brings the reserves back toward their target share of GDP.
  */
 import type { ModuleDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
@@ -20,7 +21,7 @@ export const centralBank: ModuleDef = {
   label: 'Central bank',
   description: 'The key rate (set by you, or by a smoothed Taylor-type rule plus your offset), interest on reserves and the profit remitted to the government.',
   requires: ['stabilisers', 'structure', 'prices', 'government', 'external'],
-  params: pickParams(ALL_PARAMS, ['i0', 'piT', 'aPi', 'aPiA', 'aY', 'lamPol', 'iFXR', 'potentialOutput', 'bondCB', 'fxr', 'eqCB']),
+  params: pickParams(ALL_PARAMS, ['i0', 'piT', 'aPi', 'aPiA', 'aY', 'lamPol', 'iFXR', 'lamRes', 'potentialOutput', 'bondCB', 'fxr', 'eqCB']),
   vars: [
     { id: 'ruleTarget', label: 'Key rate the rule is heading for', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'Where the central bank’s inflation rule would put the key rate if it moved there at once, before your offset. Computed in both stabiliser modes.' },
     { id: 'ruleAnchor', label: 'Key rate the rule steps from', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'The rate the rule starts next month’s step from: its own rate while it is in charge (Automatic), the key rate you hold (Manual).' },
@@ -29,8 +30,8 @@ export const centralBank: ModuleDef = {
     { id: 'keyRate', label: 'Key interest rate', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('keyRate') },
     { id: 'reserveInterest', label: 'Interest on reserves', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
     { id: 'fxReserveIncome', label: 'Income on foreign reserves', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
-    { id: 'fxReserveSales', label: 'Reserves sold for krónur', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', description: 'Foreign reserves the central bank sells to non-residents for krónur: the normal yield on its reserves.' },
-    { id: 'reserveIncomeKept', label: 'Reserve income kept abroad', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0, description: 'The part of the income on foreign reserves that stays in the reserves: what they earn above their normal yield.' },
+    { id: 'fxReserveSales', label: 'Reserves sold for krónur', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', description: 'Foreign reserves the central bank sells to non-residents for krónur: the normal yield on its reserves, plus a slow return toward their target share of GDP (below zero when it buys).' },
+    { id: 'reserveIncomeKept', label: 'Reserve income kept abroad', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0, description: 'The part of the income on foreign reserves that stays in the reserves: what they earn above their normal yield, less any reserves sold above their target (below zero when the bank sells more than it earns).' },
     { id: 'cbProfit', label: 'Central-bank profit', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('cbProfit') },
   ],
   rules: [
@@ -159,13 +160,22 @@ export const centralBank: ModuleDef = {
       target: 'fxReserveSales',
       category: 'POLICY',
       label: 'Reserve management',
-      params: ['iFXR'],
+      params: ['iFXR', 'fxr', 'lamRes'],
       stocks: [['fxReserves', 'CB']],
-      compute: (c) => c.p('iFXR') * c.stock('fxReserves', 'CB'),
+      lagInputs: ['gdpTrailing12'],
+      terms: terms(
+        ['normal', 'Normal yield turned into krónur', 'reserves-and-payments', (c) => c.p('iFXR') * c.stock('fxReserves', 'CB')],
+        [
+          'target',
+          'Reserves above or below their target',
+          'reserves-and-payments',
+          (c) => c.p('lamRes') * (c.stock('fxReserves', 'CB') - (c.p('fxr') / 100) * lastMonth(c, 'gdpTrailing12')),
+        ],
+      ),
       concepts: ['reserves-and-payments'],
       explain: {
-        what: 'Foreign currency the central bank sells to non-residents for krónur, out of its reserves.',
-        rule: 'Sales = the normal reserve yield {iFXR%} × the reserves’ value in krónur: the central bank turns the normal return on its reserves into krónur, which it hands to the government with the rest of its profit, and keeps anything its reserves earn above that in foreign currency. So at the normal foreign rate the reserves stay the same size, and when rates abroad rise the extra income builds up the reserves instead of being turned into krónur. Non-residents pay out of their króna deposits.',
+        what: 'Foreign currency the central bank sells to non-residents for krónur, out of its reserves (below zero when it buys).',
+        rule: 'Sales = the normal reserve yield {iFXR%} × the reserves’ value in krónur + {lamRes} a year × (the reserves − their target of {fxr}% of GDP over the past 12 months). The central bank turns the normal return on its reserves into krónur, which it hands to the government with the rest of its profit. Anything the reserves earn above that, when rates abroad rise, first builds up the reserves in foreign currency, so it takes no krónur from non-residents at once. The bank then sells reserves above its target slowly back into krónur, and buys when they are below it, so the reserves settle near {fxr}% of GDP instead of growing without end. Non-residents pay out of their króna deposits.',
       },
     },
     {
@@ -175,7 +185,7 @@ export const centralBank: ModuleDef = {
       inputs: ['fxReserveIncome', 'fxReserveSales'],
       compute: (c) => c.v('fxReserveIncome') - c.v('fxReserveSales'),
       explain: {
-        what: 'The part of the income on foreign reserves that stays abroad in the reserves, a yearly rate: zero at the normal foreign rate.',
+        what: 'The part of the income on foreign reserves that stays abroad in the reserves, a yearly rate: zero at baseline.',
         rule: 'Kept = income on foreign reserves − reserves sold for krónur. It counts in the current account like any income, but it is not paid in krónur, so it does not take krónur from non-residents.',
       },
     },

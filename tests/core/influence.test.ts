@@ -225,6 +225,15 @@ describe('what is at play on Manual and Automatic', () => {
     }
   });
 
+  test('the rule’s smoothing is gradual adjustment, not a policy lag, in both models (lever review MON-7)', () => {
+    for (const e of [ice(), ref()]) {
+      const r = e.model.rules.find((x) => x.id === 'ruleRate')!;
+      expect(r.concepts).toContain('gradual-adjustment');
+      expect(r.concepts).toContain('taylor-rule');
+      expect(r.concepts).not.toContain('policy-lags');
+    }
+  });
+
   test('selecting the shadow itself still shows what drives it', () => {
     const e = ice();
     e.fire('wageSettlement', 10);

@@ -199,14 +199,21 @@ describe('Iceland model: balance sheets stay possible', () => {
     e.setLever('pfForeign', -20);
     e.setLever('tourism', 30);
     let borrowed = 0;
+    const loans: number[] = [];
     for (let m = 1; m <= 240; m++) {
       e.step(1);
       borrowed = Math.max(borrowed, e.stock('kronaLoansW', 'W'));
+      loans.push(e.stock('kronaLoansW', 'W'));
       expect(e.stock('deposits', 'W')).toBeGreaterThan(-1e-9);
     }
     expect(borrowed).toBeGreaterThan(0.005);
-    // they repay from deposits above what they keep, so slowly while the surplus lasts: more than half by month 240
-    expect(e.stock('kronaLoansW', 'W')).toBeLessThan(0.5 * borrowed);
+    // The much dearer króna shrinks the reserves in krónur below their target, so the central bank
+    // buys foreign currency from non-residents with krónur (lever review FX-1 follow-up): they need
+    // to borrow less (about 3.1% of GDP at the peak, 4.4% before). They repay from deposits above
+    // what they keep, so slowly while the surplus lasts: every two years from month 72 they owe
+    // less, and by month 240 at most two-thirds of the peak.
+    for (let m = 72; m + 24 <= 240; m += 24) expect(loans[m + 24 - 1]).toBeLessThan(loans[m - 1]);
+    expect(e.stock('kronaLoansW', 'W')).toBeLessThan((2 / 3) * borrowed);
   });
 
   test('non-residents borrow exactly what a month would overdraw, and repay from deposits above what they keep, never more than they owe (review M6)', () => {

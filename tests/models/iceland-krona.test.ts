@@ -42,27 +42,54 @@ describe('Iceland model: the foreign interest rate (review E3)', () => {
     expect(Math.min(...series(e, 'inflation'))).toBeGreaterThan(-1.5);
   });
 
-  test('the central bank keeps its extra reserve income abroad: the long drift is a third of what it was (lever review FX-1)', () => {
-    // Reserve income is paid in foreign currency into the reserves, and the bank sells only the
-    // normal yield for krónur, so a higher foreign rate no longer drains non-residents' krónur
-    // through the reserves. Before, per point held for 20 years: Automatic 5–6% stronger, prices
-    // about 3% lower and inflation still falling; Manual 9–11.5% stronger, prices 6–6.5% lower.
+  test('the central bank keeps its extra reserve income abroad at first, then sells reserves above target: the reserves settle (lever review FX-1)', () => {
+    // Reserve income is paid in foreign currency into the reserves, and the bank sells the normal
+    // yield for krónur plus lamRes a year of anything above its target of fxr% of GDP. The reserves
+    // therefore settle where the target sales cover the extra income, about fxr × Δi ÷ (lamRes − Δi)
+    // above target, instead of compounding at the foreign rate (18% of GDP to 45.6% after 20 years
+    // at +5 pp, with the whole accrued profit handed to the government in krónur and broad money
+    // still rising). A small reserve gap never moves the baseline: the target term is zero there.
+    const q = (id: string) => model.params.find((x) => x.id === id)!.value;
+    const reserves = (e: ReturnType<typeof run>) => (100 * e.balanceSheet('CB').assets.find((a) => a.instrument === 'fxReserves')!.value) / e.value('gdpTrailing12');
+    expect(reserves(base)).toBeCloseTo(q('fxr'), 9);
     for (const automatic of [true, false]) {
-      const e = run('foreignRate', 1, automatic, 240);
-      const [k, p, pi] = [series(e, 'krona'), series(e, 'priceLevel'), series(e, 'inflation')];
+      // +1 pp: within a point of the target after 20 years
+      const one = run('foreignRate', 1, automatic, 240);
+      expect(Math.abs(reserves(one) - q('fxr'))).toBeLessThan(1);
+      // +5 pp: below where the target sales cover the extra income, and nearly still
+      const five = run('foreignRate', 5, automatic, 228);
+      const r228 = reserves(five);
+      five.step(12);
+      const settle = q('fxr') * (1 + 0.05 / (q('lamRes') - 0.05));
+      expect(reserves(five)).toBeLessThan(settle);
+      expect(reserves(five) - r228).toBeLessThan(0.2);
+    }
+    // on Automatic broad money and the current account settle: 20 years at +5 pp
+    const e = run('foreignRate', 5, true, 240);
+    const [bm, ca] = [series(e, 'broadMoney'), series(e, 'currentAccount')];
+    const [bm0, ca0] = [series(base, 'broadMoney')[0], series(base, 'currentAccount')[0]];
+    expect(Math.abs(bm[240] - bm0)).toBeLessThan(2); // was +27% and rising
+    expect(Math.abs(bm[240] - bm[228])).toBeLessThan(1);
+    expect(ca[240] - ca0).toBeLessThan(0.25 * (Math.max(...ca) - ca0)); // was +2.81 and rising
+    // selling the extra income for krónur again drains non-residents' krónur, so part of v1's drift
+    // returns (known gap below). Per point held 20 years, v1: Automatic 5–6% stronger, prices about
+    // 3% lower, inflation 0.24 pp below; Manual about 9% stronger, prices about 6.5% lower.
+    for (const automatic of [true, false]) {
+      const x = run('foreignRate', 1, automatic, 240);
+      const [k, p, pi] = [series(x, 'krona'), series(x, 'priceLevel'), series(x, 'inflation')];
       if (automatic) {
-        expect(Math.abs(k[240])).toBeLessThan(1.5);
-        expect(Math.abs(p[240])).toBeLessThan(1);
-        expect(Math.abs(pi[240])).toBeLessThan(0.1);
+        expect(Math.abs(k[240])).toBeLessThan(4);
+        expect(Math.abs(p[240])).toBeLessThan(2);
+        expect(Math.abs(pi[240])).toBeLessThan(0.25);
       } else {
-        expect(k[240]).toBeLessThan(5);
-        expect(p[240]).toBeGreaterThan(-3);
+        expect(k[240]).toBeLessThan(8);
+        expect(p[240]).toBeGreaterThan(-5);
       }
     }
-    // the reserves take the extra income: after a year of +1 pp they have grown by about a point of it
-    const e = run('foreignRate', 1, false, 12);
-    expect(e.value('reserveIncomeKept')).toBeGreaterThan(0.15);
-    expect(e.baseline('reserveIncomeKept')).toBe(0);
+    // the reserves take the extra income first: after a year of +1 pp they have grown by about a point of it
+    const y = run('foreignRate', 1, false, 12);
+    expect(y.value('reserveIncomeKept')).toBeGreaterThan(0.1);
+    expect(y.baseline('reserveIncomeKept')).toBe(0);
   });
 
   test('known gap: the funds’ extra foreign income is still paid home in krónur, and no foreign-currency debt pays the foreign rate', () => {
@@ -140,14 +167,22 @@ describe('Iceland model: portfolio balance is bounded and nets out the carry tra
     }
   });
 
-  test('income tax +10 held on Manual: the króna stays within about a third of purchasing-power parity for 20 years', () => {
+  test('income tax +10 held on Manual: the króna stays within a fifth of purchasing-power parity for 15 years and about a third for 20 (known gap: the review asked for 0.2 log points throughout)', () => {
     // v1: non-residents' krónur ran out and the unbounded premium made the króna 1462% stronger
     // while prices fell 86%, 2.3 times beyond parity. The deflation itself (the key rate held) remains.
     const e = run('incomeTax', 10, false, 240);
     const k = series(e, 'krona');
     const p = series(e, 'priceLevel');
-    for (const m of [60, 120, 180]) expect(Math.abs(Math.log((1 + k[m] / 100) * (1 + p[m] / 100)))).toBeLessThan(Math.log(1.2));
-    expect(Math.abs(Math.log((1 + k[240] / 100) * (1 + p[240] / 100)))).toBeLessThan(Math.log(1.35));
+    const beyondParity = (m: number) => Math.abs(Math.log((1 + k[m] / 100) * (1 + p[m] / 100)));
+    for (const m of [60, 120, 180]) expect(beyondParity(m)).toBeLessThan(Math.log(1.2));
+    // Known gap (decision 0007): the review asked for less than 0.2 log points through month 240.
+    // From about month 190 non-residents are short of krónur and the premium sits at its bound,
+    // betaH × log((fxDepth ÷ 2) ÷ (krona0 + fxDepth)) ≈ −0.34, so the króna ends about 0.27 log
+    // points beyond parity. A bound inside 0.2 needs a deeper market or a smaller betaH, which
+    // flattens the slope the tourism-slump and world-price checks need. Tripwire: if this passes
+    // below 0.2, tighten the bound to the review's 0.2 and remove the gap from decision 0007.
+    expect(beyondParity(240)).toBeGreaterThan(0.2);
+    expect(beyondParity(240)).toBeLessThan(Math.log(1.35));
     // the premium never passes its bound, however few krónur non-residents hold
     const ps = e.influences('logExchangeRate').params;
     const q = (id: string) => ps.find((x) => x.id === id)!.value;

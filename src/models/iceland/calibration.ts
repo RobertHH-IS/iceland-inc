@@ -91,7 +91,8 @@ const QMM_RATE =
 const SRC = {
   rate: `${QMM_RATE} The ranges are v1’s bands around the QMM figures (v1 SPEC §7.3). ${QMM_URL}`,
   rateTiming: `${QMM_RATE} The range is v1’s band around QMM’s quarter 5 (v1 SPEC §7.3). The model’s output trough is month 13 or 14, the first months after the hold, in quarter 5 as QMM’s: the rule takes over from the rate held, so the tight policy fades over several months rather than ending at once. ${QMM_URL}`,
-  rateInflation: `${QMM_RATE} The range is v1’s band around QMM’s −0.24 pp (v1 SPEC §7.3). The model’s trough, about −0.34 pp in month 14–15, is deeper than QMM’s: its prices react to the rate through the króna and wages as well as through slack. How far capacity pressure lifts prices (eta, prices.ts) is calibrated to keep it in the band now that the rule takes over smoothly; with v1’s 0.5 the trough was about −0.47 pp. ${QMM_URL}`,
+  rateOutput: `${QMM_RATE} The range is v1’s band around QMM’s −0.41% (v1 SPEC §7.3). KNOWN GAP: the model’s trough, about −0.58% in quarter 5, is about 40% deeper than QMM’s, near the band’s lower edge (KNOWN_GAPS). Until the review of 29 September 2026 it was about −0.44%, but only because the key rate dropped about 1.5 pp when the rule took over; with the gradual takeover the tight policy lasts longer. Holding the króna’s response to the rate at baseline (the carry and portfolio terms) gives about −0.44%: the extra fall comes through a stronger króna and lower net exports. ${QMM_URL}`,
+  rateInflation: `${QMM_RATE} The range is v1’s band around QMM’s −0.24 pp (v1 SPEC §7.3). KNOWN GAP: the model’s trough, about −0.33 pp in month 14–15, is about 40% deeper than QMM’s and near the band’s lower edge (KNOWN_GAPS). Holding the króna’s response to the rate at baseline gives about −0.25 pp and holding housing costs in the CPI about −0.14 pp, while the capacity term (eta) adds only about 0.02 pp. So the extra depth comes from the króna and housing channels, not from slack. How far capacity pressure lifts prices (eta, prices.ts) was cut from v1’s 0.5 to 0.07 to keep the trough in the band once the rule took over smoothly; with 0.5 it is about −0.46 pp. ${QMM_URL}`,
   rateKrona: `CBI QMM v2.1 (Monetary Bulletin): the króna rises 0.67% on impact per 1 pp of interest-rate differential, with its real peak in quarter 4 (research report, "Policy rate +1 pp" and the dial table; the "+0.7–1%" once quoted here belongs to the wage experiment). QMM is quarterly, so its impact is the first quarter; the check measures the model’s first-quarter average. The range is v1’s band of 0.3–1.5 (v1 SPEC §7.3), which no source gives. KNOWN GAP: the model’s first-quarter rise is about 0.56%, about 0.44% in month 1 and 0.65% by month 3, so its króna is a little less sensitive to the rate gap than QMM’s (KNOWN_GAPS). It comes from the carry term (betaI) and from the carry trade wanting to hold more krónur when Icelandic rates are high (the portfolio term, psiB). ${QMM_URL}`,
   wage: 'Research report, "Wages +10%": CPI about +2% in year 1 rising toward about +4% as pass-through completes (CBI MB 2026/2 Box 2); the ranges are v1’s bands around those figures (v1 SPEC §7.3). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageLevel:
@@ -107,7 +108,7 @@ const SRC = {
     'CBI WP85 finds exchange-rate pass-through to the CPI of 0.15 within the quarter and 0.23 in the long run per 1% of sustained depreciation, so within a year it lies between the two (research report, "A 10% króna depreciation"). The scenario is a −10% sentiment shock that fades at 10% a year: the realised króna falls about 9% by month 3 and recovers about a fifth of that within a year and half within two, as portfolio balance and the higher key rate pull it back. So the check divides the price level at month 12 by how much dearer foreign currency was on average over months 1–12: the pass-through per point of the depreciation actually seen. A króna held about 10% weaker for a year gives nearly the same ratio (tests/models, iceland-credit-and-checks). What buyers in Iceland pay for imported goods includes a domestic distribution margin (distM), so only part of a depreciation reaches it. Beyond the first year the model keeps passing through as wages catch up, to about 0.34 after two years and 0.43 after three when the króna is held weaker: nearer the IMF’s 0.4 at 36 months than WP85’s long-run 0.23. Within the quarter it is slower than WP85, about 0.07 against 0.15, because shops reprice imports gradually (lamPm). (This check replaces v1’s krona-price-level-8q, the price level at month 24 against 1.5–3, which asked for about twice WP85’s pass-through per point of realised depreciation; review E6, 29 September 2026.) https://ideas.repec.org/p/ice/wpaper/wp85.html',
   credit: 'Credit-impulse definition (Biggs, Mayer & Pick 2010; Keen 2011): positive while new credit accelerates, negative when a temporary boost ends, near zero when a higher flow is merely held (research report, "Banks’ lending appetite rises"; v1 SPEC §7.3). https://www.bde.es/f/webpi/SES/seminars/2015/files/sie1515.pdf',
   tourism:
-    'Reasoned from 2020: foreign visitor numbers fell by about three-quarters and the króna lost nearly 10% in trade-weighted terms over the year (euro 14.9% dearer), cushioned by pension funds pausing FX purchases and by central-bank FX sales (Íslandsbanki, Economic review 2020; Landsbankinn, 8 January 2021; CBI Monetary Bulletin 2020/4). Scaled to a 30% fall, about 4%; the model has no FX intervention, so up to 10%. Tourism is 13% of GDP of exports and the exporter most sensitive to the exchange rate, so its output must fall most (calibration.json: firm_sectors.tourism). https://www.landsbankinn.is/en/news/2021/01/08/the-icelandic-krona-depreciated-in-2020',
+    'Reasoned from 2020: foreign visitor numbers fell by about three-quarters and the króna lost nearly 10% in trade-weighted terms over the year (euro 14.9% dearer), cushioned by pension funds pausing FX purchases and by central-bank FX sales (Íslandsbanki, Economic review 2020; Landsbankinn, 8 January 2021; CBI Monetary Bulletin 2020/4). Scaled to a 30% fall, about 4%; the model’s central bank only brings its reserves slowly back toward target (lamRes) and does not lean against the króna, so up to 10%. Tourism is 13% of GDP of exports and the exporter most sensitive to the exchange rate, so its output must fall most (calibration.json: firm_sectors.tourism). https://www.landsbankinn.is/en/news/2021/01/08/the-icelandic-krona-depreciated-in-2020',
   aluminium:
     'Reasoned from ownership and tax: the three smelters are wholly foreign-owned (Rio Tinto, Alcoa, Century), so every króna of profit they do not reinvest is paid abroad; corporate tax takes about 9% of profit (effective rate from Hagstofa THJ05132); inward-FDI equity income was 78% dividends and 22% reinvested earnings in 2024 (Eurostat bop_c6_a). So 60–95% of a windfall should leave within two years (calibration.json: firm_sectors.aluminium).',
   world:
@@ -115,7 +116,7 @@ const SRC = {
   worldCpi:
     'CBI WP85: exchange-rate pass-through to the CPI of 0.15 within the quarter and 0.23 in the long run per 1% of sustained depreciation. A lasting 10% rise in world prices raises import prices in krónur as a 10% depreciation would (and, as it does, lifts fish and aluminium revenue), so after a year the CPI should be about 1.5–2.3% higher; the range is that one. The króna strengthens a little meanwhile (world-prices-krona-year1), which the check does not net out. After two years the CPI is about 2.8% higher, above WP85’s long-run 2.3% but below 3%, the upper edge of v1’s 8-quarter band for the same size of shock (tests/models, iceland-credit-and-checks). What buyers in Iceland pay for imported goods and inputs includes a domestic distribution margin (distM); before it was added they paid world prices in krónur one for one, and the CPI rose 2.7% in a year and 3.7% in two (review E6, 29 September 2026). https://ideas.repec.org/p/ice/wpaper/wp85.html',
   foreignRate:
-    'Uncovered interest parity: a higher foreign rate narrows the rate gap with abroad, so carry traders and domestic savers move money out of krónur and the króna weakens (CBI QMM v2.1: the króna moves 0.67% on impact per 1 pp of interest-rate differential). The range mirrors the rate-krona band (0.3–1.5% per point, v1 SPEC §7.3), sign reversed, for the average over the first two years. After about three years the funds’ higher foreign income, spent at home, strengthens the króna, and that drift does not level off (a known gap: a transfer effect with no steady state; decision 0002 §6), so the check covers only quarters 1–8 (review E3, 29 September 2026). https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf',
+    'Uncovered interest parity: a higher foreign rate narrows the rate gap with abroad, so carry traders and domestic savers move money out of krónur and the króna weakens (CBI QMM v2.1: the króna moves 0.67% on impact per 1 pp of interest-rate differential). The range mirrors the rate-krona band (0.3–1.5% per point, v1 SPEC §7.3), sign reversed, for the average over the first two years. Later the higher income from abroad strengthens it: the central bank sells the part of its reserves above target back into krónur, and the pension funds’ higher foreign income is paid home in krónur. Per point held on Automatic the króna is weaker for about seven years and about 3% stronger after twenty, still drifting slowly (a known gap: the model has no foreign-currency debt that pays the foreign rate, so Iceland’s income from abroad rises too much; decision 0007 and decision 0002 §6), so the check covers only quarters 1–8 (review E3; lever review FX-1, 29 September 2026). https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf',
   manualHeld: 'Design of the stabiliser setting (decision 0004): on Manual no policy lever moves unless the user moves it, so the key rate is the level of its lever, exactly, whatever else happens.',
   manualTax:
     'Reasoned: +1 pp on a tax base of about 65% of GDP raises revenue by about 0.65% of GDP. Tax multipliers are at or below spending multipliers (cross-country median spending multiplier about 0.7, IMF WP 2026/043, smaller in open economies), and with the key rate held there is no monetary offset: a year-2 multiplier of 0.25–1.2 gives output −0.15% to −0.8%. https://www.elibrary.imf.org/view/journals/001/2026/043/article-A001-en.xml',
@@ -187,7 +188,7 @@ const wageBack = (id: string, label: string): CalibrationCheck => ({
 export const calibration: CalibrationCheck[] = [
   {
     id: 'rate-output-trough',
-    label: 'Key rate held +1 pp for 4 quarters, then the rule: output trough, % vs baseline',
+    label: 'Key rate held +1 pp for 4 quarters, then the rule: output trough, % vs baseline (known gap: about 40% deeper than QMM’s −0.41%; v1’s band)',
     scenario: RATE,
     months: 72,
     measure: (run) => {
@@ -195,7 +196,7 @@ export const calibration: CalibrationCheck[] = [
       return a[argmin(a, 1, 48)];
     },
     range: [-0.6, -0.25],
-    source: SRC.rate,
+    source: SRC.rateOutput,
   },
   {
     id: 'rate-output-timing',
@@ -209,7 +210,7 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'rate-inflation-trough',
-    label: 'Key rate held +1 pp for 4 quarters, then the rule: 12-month inflation trough, pp vs baseline',
+    label: 'Key rate held +1 pp for 4 quarters, then the rule: 12-month inflation trough, pp vs baseline (known gap: about 40% deeper than QMM’s −0.24 pp; v1’s band)',
     scenario: RATE,
     months: 72,
     measure: (run) => {
@@ -496,6 +497,14 @@ export const calibration: CalibrationCheck[] = [
  * cited as [x, x]. Entries without `cited` have their own tripwire test, named in `why`.
  */
 export const KNOWN_GAPS: Record<string, { cited?: [number, number]; why: string }> = {
+  'rate-output-trough': {
+    cited: [-0.41, -0.41],
+    why: 'Output falls about 0.58% at the trough against QMM’s 0.41%. Holding the króna’s response to the rate at baseline (logExchangeRate carry and portfolio terms) gives about −0.44%, so most of the extra fall is a stronger króna cutting net exports; the rest is investment (betaRI: 0.6 in place of 1.5 gives about −0.50%, but pushes wage-unemployment-peak to its lower edge). Until the review of 29 September 2026 it was −0.44% only because the key rate dropped about 1.5 pp when the rule took over.',
+  },
+  'rate-inflation-trough': {
+    cited: [-0.24, -0.24],
+    why: 'Inflation falls about 0.33 pp at the trough against QMM’s 0.24 pp. Decomposition (terms held at baseline): the króna channel adds about 0.09 pp (−0.25 without it), housing costs in the CPI about 0.19 pp (−0.14 without them), capacity pressure (eta) about 0.02 pp. eta was cut from v1’s 0.5 to 0.07 to keep the trough inside v1’s band once the rule took over from the rate held; flat price Phillips curves (Hazell, Herreño, Nakamura and Steinsson 2022; Del Negro, Lenza, Primiceri and Tambalotti 2020) make a small eta plausible but are not an estimate of it. With 0.5 the trough is about −0.46 pp.',
+  },
   'rate-krona': {
     cited: [0.67, 0.67],
     why: 'The króna rises about 0.56% in the first quarter against QMM’s 0.67% on impact. Until the review of 29 September 2026 it was 0.41%: lamFX was not the cause (doubling it only raised the rise to 0.47%), the carry response was. The carry trade’s wanted holdings now count in the portfolio term (psiB), which closed most of the gap; raising betaI further deepens the rate experiment’s inflation trough (rate-inflation-trough) below its band.',

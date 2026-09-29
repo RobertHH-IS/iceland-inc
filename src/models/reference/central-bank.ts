@@ -56,7 +56,7 @@ export const centralBank: ModuleDef = {
       ],
       combine: (t) => Math.max(0, t.neutral + t.inflation + t.outputGap + t.addOn),
       regime: (_c, _v, t) => (t.neutral + t.inflation + t.outputGap + t.addOn < 0 ? 'Zero lower bound binds' : null),
-      concepts: ['taylor-rule'],
+      concepts: ['taylor-rule', 'gradual-adjustment'],
       explain: {
         what: 'The key rate the Taylor rule calls for. With stabilisers on Automatic it is the key rate; on Manual it is only a suggestion beside the key-rate lever.',
         rule: 'Target = {neutralRate%} + {taylorInflation} × 12-month inflation + {taylorOutput} × last month’s output gap, plus your offset on Automatic, never below zero. The rate moves toward the target at speed {policySpeed} a year, in both modes.',
