@@ -48,16 +48,37 @@ describe('engine client', () => {
     c.dispose();
   });
 
-  test('playing advances `speed` months per tick', async () => {
-    const c = fresh({ tickMs: 5 });
-    c.setSpeed(3);
+  test('playing advances one month per tick, and speed shortens the tick', async () => {
+    const slow = fresh({ tickMs: 60 });
+    slow.play();
+    await new Promise((r) => setTimeout(r, 150));
+    slow.pause();
+    const fast = fresh({ tickMs: 60 });
+    fast.setSpeed(6); // 10 ms a month
+    fast.play();
+    await new Promise((r) => setTimeout(r, 150));
+    fast.pause();
+    expect(slow.getFrame().t).toBeGreaterThanOrEqual(1);
+    expect(slow.getFrame().t).toBeLessThanOrEqual(3);
+    expect(fast.getFrame().t).toBeGreaterThan(slow.getFrame().t * 2);
+    slow.dispose();
+    fast.dispose();
+  });
+
+  test('changing speed while playing reschedules the clock', async () => {
+    const c = fresh({ tickMs: 1e9 });
     c.play();
-    await new Promise((r) => setTimeout(r, 60));
-    c.pause();
-    const t = c.getFrame().t;
-    expect(t).toBeGreaterThanOrEqual(3);
-    expect(t % 3).toBe(0);
+    c.setSpeed(6);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(c.getFrame().t).toBe(0);
     c.dispose();
+    const d = fresh({ tickMs: 60 });
+    d.play();
+    d.setSpeed(6); // from 60 ms to 10 ms a month, without waiting for the old tick
+    await new Promise((r) => setTimeout(r, 55));
+    d.pause();
+    expect(d.getFrame().t).toBeGreaterThanOrEqual(2);
+    d.dispose();
   });
 
   test('seek back and forward reproduces the same numbers (deterministic replay)', () => {

@@ -7,9 +7,9 @@
  * worker would post Frames, and the detail methods would answer from the latest results of the
  * queries the views have asked for (see docs/interface.md).
  *
- * The clock: while playing, the client advances `speed` months (1, 3 or 6) every tick of
- * TICK_MS (two ticks a second, so 1× plays a year in six seconds), recording every indicator month
- * by month for the charts.
+ * The clock: while playing, the client advances one month per tick, recording every indicator
+ * month by month for the charts. A tick comes every TICK_MS ÷ speed: at 1× a month every two
+ * seconds, at 3× every two-thirds of a second, at 6× every third of a second.
  * setLever and fire start the clock when it is paused. seek moves anywhere between month 0 and
  * the furthest month simulated so far (the horizon); going back replays from the engine's
  * snapshots, so the numbers are identical to a straight run.
@@ -28,8 +28,8 @@ import { keepHiddenAtDefault } from './model/levers.ts';
 
 export type Speed = 1 | 3 | 6;
 export const SPEEDS: readonly Speed[] = [1, 3, 6];
-/** Milliseconds between ticks: two a second, so 1× plays a year in six seconds. */
-export const TICK_MS = 500;
+/** Milliseconds per month at 1×; a speed of 3 or 6 divides it. */
+export const TICK_MS = 2000;
 /** The clock stops here (100 years): the history of every variable is kept for seek(). */
 export const MAX_MONTHS = 1200;
 
@@ -287,7 +287,7 @@ class MainThreadClient implements EngineClient {
 
   private tick = (): void => {
     if (!this.playing) return;
-    this.act(() => this.advance(this.speed));
+    this.act(() => this.advance(1));
   };
 
   private start(): void {
@@ -296,7 +296,7 @@ class MainThreadClient implements EngineClient {
       return;
     }
     this.playing = true;
-    if (this.timer === null) this.timer = setInterval(this.tick, this.tickMs);
+    if (this.timer === null) this.timer = setInterval(this.tick, this.tickMs / this.speed);
   }
 
   private halt(): void {
@@ -321,6 +321,10 @@ class MainThreadClient implements EngineClient {
 
   setSpeed(s: Speed): void {
     this.speed = SPEEDS.includes(s) ? s : 1;
+    if (this.timer !== null) {
+      this.stopTimer();
+      this.timer = setInterval(this.tick, this.tickMs / this.speed);
+    }
     this.publish();
   }
 

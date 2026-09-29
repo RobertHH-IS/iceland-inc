@@ -26,7 +26,7 @@ src/ui/
 
 | Method | What it does |
 |---|---|
-| `play()`, `pause()`, `toggle()`, `setSpeed(1 \| 3 \| 6)`, `step(n)` | The clock. While playing, each tick (every 500 ms, two a second) advances `speed` months, so 1× plays a year in six seconds, one at a time, recording every indicator |
+| `play()`, `pause()`, `toggle()`, `setSpeed(1 \| 3 \| 6)`, `step(n)` | The clock. While playing, each tick advances one month, and a tick comes every 2 s ÷ `speed` (1× is a month every two seconds), one at a time, recording every indicator |
 | `reset()` | Back to the baseline; clears the scenario |
 | `seek(month)` | Anywhere between month 0 and the furthest month simulated (the timeline slider). Going back replays from the engine's snapshots, so the numbers match a straight run exactly |
 | `setLever(id, value)`, `fire(id, size)` | Change a lever. Both start the clock if it is paused |

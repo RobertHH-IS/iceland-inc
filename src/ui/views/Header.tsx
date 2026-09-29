@@ -6,6 +6,12 @@
 import { memo, useCallback, useEffect, useRef, type ChangeEvent } from 'react';
 import type { Id, ScenarioEvent, SignViolation } from '../../core/types.ts';
 import { SPEEDS, type ChecksSummary, type EngineClient, type Speed } from '../engine-client.ts';
+
+const SPEED_LABELS: Record<Speed, string> = {
+  1: 'A month every 2 seconds',
+  3: 'Three months every 2 seconds',
+  6: 'Six months every 2 seconds',
+};
 import { fmtClock, fmtResidual } from '../model/format.ts';
 import type { ModelInfo } from '../model/info.ts';
 import { leverValueLabel } from '../model/levers.ts';
@@ -59,9 +65,9 @@ export const Header = memo(function Header(p: HeaderProps) {
         <button type="button" className="icon-btn" onClick={() => client.step(1)} aria-label="Step one month" title="Step one month" disabled={p.ended}>
           <Icon name="step" />
         </button>
-        <div className="speeds" role="group" aria-label="Months per tick">
+        <div className="speeds" role="group" aria-label="Playback speed">
           {SPEEDS.map((s) => (
-            <button key={s} type="button" className={`seg ${p.speed === s ? 'on' : ''}`} aria-pressed={p.speed === s} aria-label={`${s} month${s > 1 ? 's' : ''} per tick`} onClick={() => client.setSpeed(s)}>
+            <button key={s} type="button" className={`seg ${p.speed === s ? 'on' : ''}`} aria-pressed={p.speed === s} aria-label={SPEED_LABELS[s]} title={SPEED_LABELS[s]} onClick={() => client.setSpeed(s)}>
               {s}×
             </button>
           ))}
