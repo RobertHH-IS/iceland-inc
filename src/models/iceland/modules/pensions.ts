@@ -53,14 +53,22 @@ const INCOME: [Id, string, Id | undefined][] = [
  * nor switch between buying and selling from month to month (review E1). Each reader declares the
  * inputs, params and stocks below.
  */
-const CASH_PARAMS: Id[] = ['liquiditySpeed', 'pfLiquidityFloorShare', 'dPF0', 'pfForeignShift', 'pfForeignTarget'];
-const CASH_STOCKS: [Id, Id][] = [['deposits', 'PF']];
 const pos = (x: number) => Math.max(0, x);
-/** Relative change in the funds' domestic targets (bank bonds, deposits) when the lever shifts the
- *  foreign target by s: −s ÷ (1 − the normal foreign share). The funds make room for more foreign
- *  assets by holding proportionally less of the rest. */
-const domesticShift = (c: Ctx) => -c.p('pfForeignShift') / (1 - c.p('pfForeignTarget'));
-/** The least the funds keep in deposits. Declare input 'pensionFundAssets'. */
+/** The shift of the funds' target foreign share: the lever's, plus psiPF per point the foreign
+ *  interest rate is above normal (higher yields abroad draw more of their savings abroad). Declare
+ *  SHIFT_INPUTS and SHIFT_PARAMS. */
+const SHIFT_INPUTS: Id[] = ['foreignRate'];
+const SHIFT_PARAMS: Id[] = ['pfForeignShift', 'psiPF', 'iF0', 'pfForeignTarget'];
+const returnsShift = (c: Ctx) => c.p('psiPF') * (c.v('foreignRate') - c.p('iF0'));
+const foreignShift = (c: Ctx) => c.p('pfForeignShift') + returnsShift(c);
+/** Relative change in the funds' domestic targets (bank bonds, deposits) when the foreign target
+ *  shifts by s: −s ÷ (1 − the normal foreign share). The funds make room for more foreign assets by
+ *  holding proportionally less of the rest. */
+const domesticShift = (c: Ctx) => -foreignShift(c) / (1 - c.p('pfForeignTarget'));
+const CASH_INPUTS: Id[] = ['pensionFundAssets', ...SHIFT_INPUTS];
+const CASH_PARAMS: Id[] = ['liquiditySpeed', 'pfLiquidityFloorShare', 'dPF0', ...SHIFT_PARAMS];
+const CASH_STOCKS: [Id, Id][] = [['deposits', 'PF']];
+/** The least the funds keep in deposits. Declare CASH_INPUTS. */
 const pfFloor = (c: Ctx) => c.p('pfLiquidityFloorShare') * c.p('dPF0') * (1 + domesticShift(c)) * c.v('pensionFundAssets');
 /** Cash the funds can still put into assets this month after the purchases `spent` (a yearly rate;
  *  negative: cash they must raise). A sale among `spent` adds its proceeds. */
@@ -73,6 +81,7 @@ const foreignToTarget = (c: Ctx) => {
   return gapRate(c.p('lamFA'), c.dt) * (c.p('pfForeignTarget') * (c.v('pensionFundAssets') + reval) - c.stock('foreignAssets', 'PF') - reval);
 };
 const foreignLever = (c: Ctx) => gapRate(c.p('lamFA'), c.dt) * c.p('pfForeignShift') * (c.v('pensionFundAssets') + c.v('revaluationForeignAssets') * c.dt);
+const foreignReturns = (c: Ctx) => gapRate(c.p('lamFA'), c.dt) * returnsShift(c) * (c.v('pensionFundAssets') + c.v('revaluationForeignAssets') * c.dt);
 /** Foreign assets the funds hold at this month's exchange rate. Declare the stock and the
  *  revaluation input. */
 const foreignHeld = (c: Ctx) => pos(c.stock('foreignAssets', 'PF') + c.v('revaluationForeignAssets') * c.dt);
@@ -232,43 +241,51 @@ const rules: RuleDef[] = [
     target: 'foreignAssetIncome',
     category: 'BEHAVIOUR',
     inputs: ['foreignRate'],
+    params: ['iF0', 'pfForeignRatePass'],
     stocks: [['foreignAssets', 'PF']],
-    compute: (c) => c.v('foreignRate') * c.stock('foreignAssets', 'PF'),
-    explain: { what: 'Interest and dividends on pension funds’ foreign assets, paid in krónur.', rule: 'Income = foreign rate × the assets’ króna value.' },
+    terms: terms(
+      ['normal', 'Normal yield', 'funded-pensions', (c) => c.p('iF0') * c.stock('foreignAssets', 'PF')],
+      ['foreignRate', 'Change in rates abroad (their bonds and deposits)', 'carry-trade', (c) => c.p('pfForeignRatePass') * (c.v('foreignRate') - c.p('iF0')) * c.stock('foreignAssets', 'PF')],
+    ),
+    explain: {
+      what: 'Interest and dividends on pension funds’ foreign assets, paid in krónur.',
+      rule: 'Income = (the normal yield {iF0%} + {pfForeignRatePass} × (the foreign interest rate − its normal level {iF0%})) × the assets’ króna value. Only their foreign bonds and deposits, about {pfForeignRatePass%} of the portfolio, earn more when rates abroad rise; the rest is shares, whose dividends do not follow interest rates.',
+    },
   },
   {
     id: 'foreignAssetPurchases',
     target: 'foreignAssetPurchases',
     category: 'BEHAVIOUR',
     label: 'Foreign allocation',
-    inputs: ['pensionFundAssets', 'revaluationForeignAssets', 'bondIssuePF', 'currentAccount'],
+    inputs: [...CASH_INPUTS, 'revaluationForeignAssets', 'bondIssuePF', 'currentAccount'],
     params: ['lamFA', ...CASH_PARAMS],
     stocks: [['foreignAssets', 'PF'], ['deposits', 'W'], ['govBonds', 'W'], ...CASH_STOCKS],
     terms: terms(
       ['target', 'Toward the target foreign share', 'funded-pensions', foreignToTarget],
       ['lever', 'Foreign-allocation lever', 'floating-exchange-rate', foreignLever],
+      ['returns', 'Higher (or lower) interest rates abroad', 'carry-trade', foreignReturns],
       ['cash', 'Cash to spend above their buffer (negative: cash to raise)', 'funded-pensions', (c) => pfCash(c, ['bondIssuePF'])],
     ),
     // Buy only with cash above the buffer, and sell when below it; sell no more than they hold,
     // nor more than non-residents have krónur to pay for.
-    combine: (t, c) => Math.max(Math.min(t.target + t.lever, t.cash), -foreignHeld(c) / c.dt, -kronurAbroad(c)),
+    combine: (t, c) => Math.max(Math.min(t.target + t.lever + t.returns, t.cash), -foreignHeld(c) / c.dt, -kronurAbroad(c)),
     regime: (c, _v, t) => {
-      const want = Math.min(t.target + t.lever, t.cash);
+      const want = Math.min(t.target + t.lever + t.returns, t.cash);
       const [held, kronur] = [foreignHeld(c) / c.dt, kronurAbroad(c)];
       if (want < -Math.min(held, kronur)) return held <= kronur ? 'Sales limited by holdings' : 'Sales limited by the krónur non-residents hold';
-      if (t.cash < t.target + t.lever) return t.cash < 0 ? 'Selling foreign assets to raise cash' : 'Purchases limited by cash in hand';
+      if (t.cash < t.target + t.lever + t.returns) return t.cash < 0 ? 'Selling foreign assets to raise cash' : 'Purchases limited by cash in hand';
       return null;
     },
     explain: {
       what: 'Foreign assets the funds buy (negative: sell) with krónur, a yearly rate. Buying means selling krónur to foreigners.',
-      rule: 'They close the gap between the target ({pfForeignTarget%} of assets, plus the lever) and their foreign holdings, both valued at this month’s exchange rate, at speed {lamFA} a year. A weaker króna makes the foreign share too high, so they sell some foreign assets back. They keep a cash buffer: deposits of at least {pfLiquidityFloorShare%} of their usual share of assets ({dPF0%}, less when the lever raises the foreign target). They buy only with cash above that buffer, at most about 63% of it in a month (the liquidity speed, {liquiditySpeed} a year), after paying for new government bonds. When their deposits are below the buffer they sell foreign assets instead, raising about 63% of the shortfall in a month, so their deposits climb back smoothly. They sell no more than they hold, nor more than non-residents can pay for with about 63% of their krónur; bank bonds cover the rest.',
+      rule: 'They close the gap between the target ({pfForeignTarget%} of assets, plus the lever, plus {psiPF} points for each point the foreign interest rate is above its normal {iF0%}) and their foreign holdings, both valued at this month’s exchange rate, at speed {lamFA} a year. A weaker króna makes the foreign share too high, so they sell some foreign assets back. They keep a cash buffer: deposits of at least {pfLiquidityFloorShare%} of their usual share of assets ({dPF0%}, less when the foreign target is raised). They buy only with cash above that buffer, at most about 63% of it in a month (the liquidity speed, {liquiditySpeed} a year), after paying for new government bonds. When their deposits are below the buffer they sell foreign assets instead, raising about 63% of the shortfall in a month, so their deposits climb back smoothly. They sell no more than they hold, nor more than non-residents can pay for with about 63% of their krónur; bank bonds cover the rest.',
     },
   },
   {
     id: 'bankBondPurchases',
     target: 'bankBondPurchases',
     category: 'BEHAVIOUR',
-    inputs: ['pensionFundAssets', 'bondIssuePF', 'foreignAssetPurchases'],
+    inputs: [...CASH_INPUTS, 'bondIssuePF', 'foreignAssetPurchases'],
     params: ['bbSh0', 'lamReb', ...CASH_PARAMS],
     stocks: [['bankBonds', 'PF'], ...CASH_STOCKS],
     terms: terms(
@@ -287,14 +304,14 @@ const rules: RuleDef[] = [
     concepts: ['broad-money'],
     explain: {
       what: 'Bank bonds the funds buy from banks (negative: let run off). Paying cancels the funds’ deposits, so broad money shrinks.',
-      rule: 'They close the gap to {bbSh0%} of assets at speed {lamReb} a year. When the foreign-allocation lever raises the foreign target, the bank-bond target shrinks in proportion to the rest of the portfolio, so bank bonds run off to pay for foreign assets. They buy only with the cash above their buffer that new government bonds and foreign assets left. When their deposits are below the buffer and selling foreign assets does not raise enough (they have none left, or non-residents lack the krónur to pay), they let bank bonds run off to cover the rest.',
+      rule: 'They close the gap to {bbSh0%} of assets at speed {lamReb} a year. When the foreign-allocation lever or higher rates abroad raise the foreign target, the bank-bond target shrinks in proportion to the rest of the portfolio, so bank bonds run off to pay for foreign assets. They buy only with the cash above their buffer that new government bonds and foreign assets left. When their deposits are below the buffer and selling foreign assets does not raise enough (they have none left, or non-residents lack the krónur to pay), they let bank bonds run off to cover the rest.',
     },
   },
   {
     id: 'bondPurchasesPF',
     target: 'bondPurchasesPF',
     category: 'BEHAVIOUR',
-    inputs: ['pensionFundAssets', 'bondIssuePF', 'foreignAssetPurchases', 'bankBondPurchases', 'bondIssueB'],
+    inputs: [...CASH_INPUTS, 'bondIssuePF', 'foreignAssetPurchases', 'bankBondPurchases', 'bondIssueB'],
     params: ['lamReb', ...CASH_PARAMS],
     stocks: [['govBonds', 'PF'], ['govBonds', 'B'], ...CASH_STOCKS],
     terms: terms(
@@ -318,7 +335,7 @@ const rules: RuleDef[] = [
     concepts: ['bond-buyers'],
     explain: {
       what: 'Government bonds the funds buy from banks when they have more deposits than they like (negative: sell bonds to raise cash).',
-      rule: 'They close the gap between their deposits and {dPF0%} of assets (less in proportion when the foreign-allocation lever raises the foreign target) at speed {lamReb} a year, by trading bonds with banks. They buy only with the cash above their buffer that their other purchases left, and only bonds banks hold. They sell only bonds they hold.',
+      rule: 'They close the gap between their deposits and {dPF0%} of assets (less in proportion when the lever or higher rates abroad raise the foreign target) at speed {lamReb} a year, by trading bonds with banks. They buy only with the cash above their buffer that their other purchases left, and only bonds banks hold. They sell only bonds they hold.',
     },
   },
 ];
@@ -328,7 +345,7 @@ export const pensions: ModuleDef = {
   label: 'Pension funds',
   description: 'Contributions, pension rights, payouts, credited returns and retirement; the funds’ portfolio, foreign assets and the foreign-allocation lever.',
   requires: ['structure', 'labour-and-wages', 'banks', 'government', 'firms', 'mortgages', 'external'],
-  params: pickParams(ALL_PARAMS, ['payout', 'ageing', 'lamPFnw', 'lamPFinc', 'lamFA', 'lamReb', 'nwPF0', 'pfForeignTarget', 'pfForeignShift', 'bbSh0', 'dPF0', 'pfLiquidityFloorShare', 'conTarget', 'pfAssets', 'pfForeignShare', 'pfDepShare', 'pfNWshare', 'eShareW', 'pfGovShare']),
+  params: pickParams(ALL_PARAMS, ['payout', 'ageing', 'lamPFnw', 'lamPFinc', 'lamFA', 'lamReb', 'nwPF0', 'pfForeignTarget', 'pfForeignShift', 'pfForeignRatePass', 'psiPF', 'bbSh0', 'dPF0', 'pfLiquidityFloorShare', 'conTarget', 'pfAssets', 'pfForeignShare', 'pfDepShare', 'pfNWshare', 'eShareW', 'pfGovShare']),
   vars,
   rules,
   flows: [

@@ -198,7 +198,7 @@ export const external: ModuleDef = {
       category: 'POLICY',
       params: ['iFnow', 'foreignRateShift'],
       terms: terms(['normal', 'Foreign rate at the start', undefined, (c) => c.p('iFnow')], ['shift', 'Foreign-rate lever', 'carry-trade', (c) => c.p('foreignRateShift')]),
-      explain: { what: 'Interest rates abroad, set by foreign central banks. It is also the cash yield on pension funds’ foreign assets.', rule: 'Foreign rate = the rate at the start {iFnow%} + the foreign-rate lever.' },
+      explain: { what: 'Interest rates abroad, set by foreign central banks. Carry traders compare it with the key rate, and it sets the yield on the central bank’s reserves and on pension funds’ foreign bonds.', rule: 'Foreign rate = the rate at the start {iFnow%} + the foreign-rate lever.' },
     },
     {
       id: 'kronaSentiment',
@@ -627,9 +627,9 @@ export const external: ModuleDef = {
       max: 5,
       step: 0.25,
       binds: { param: 'foreignRateShift', mode: 'add', scale: 0.01 },
-      description: 'Interest rates abroad; a higher rate pulls carry money out of krónur.',
+      description: 'Interest rates abroad; a higher rate pulls carry money and pension savings out of krónur, so the króna weakens.',
       definition:
-        'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. It also changes the cash yield on pension funds’ foreign assets and on the central bank’s foreign reserves, and so the profit the central bank hands to the government. Setting it back to 0 ends it.',
+        'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. The rate gap with abroad narrows, so carry traders sell króna bonds and pension funds raise their foreign target by 1 point of assets per point: the króna weakens for the first few years (about 1% on average over two years per point on Automatic). It also raises the yield on the central bank’s reserves and on the funds’ foreign bonds (not their shares), and so the profit the central bank hands to the government. That extra income, spent at home, strengthens the króna slowly: after about three and a half years it is stronger than at the start, by 2–3% after ten years per point held (a known gap, decision 0002 §6: the model has no steady state with a lasting surplus of foreign income, so prices drift down slowly). Setting it back to 0 ends it.',
       concepts: ['carry-trade'],
     },
     {

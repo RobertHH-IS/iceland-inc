@@ -1,7 +1,7 @@
 /**
  * Iceland Inc.: the 20 calibration checks of engine v1 (legacy/v1-engine/tools/calibration_checks.js),
- * three checks on the firm sectors (decision 0003), one on the world-prices lever (audit H5) and
- * five on the stabiliser setting (decision 0004).
+ * three checks on the firm sectors (decision 0003), one on the world-prices lever (audit H5), one
+ * on the foreign-rate lever (review E3) and five on the stabiliser setting (decision 0004).
  * After the audit of 29 September 2026 (docs/audit/2026-09-29-audit.md: M12/M20, M13, M14/M21, L26)
  * each check's scenario is the experiment its source describes, and its range is the source's where
  * the source gives one. Where the model lies outside a cited estimate, or inside its band only
@@ -9,7 +9,7 @@
  * label and source, and is listed in KNOWN_GAPS for a calibration decision.
  *
  * Every published response these checks compare with comes from an economy whose policy reacts:
- * the central bank follows its rule and the debt rule leans on income tax. So each of these 24
+ * the central bank follows its rule and the debt rule leans on income tax. So each of these 25
  * scenarios sets stabilisers to Automatic (AUTO), at month 0, or at month 12 in the rate
  * experiment, which first holds the key rate as its source does. The Manual checks run with the
  * default setting.
@@ -77,6 +77,7 @@ const LEND_HELD: ScenarioEvent[] = [AUTO, { t: 0, lever: 'lendingAppetite', valu
 const TOURISM: ScenarioEvent[] = [AUTO, { t: 0, lever: 'tourism', value: -30 }];
 const ALUMINIUM: ScenarioEvent[] = [AUTO, { t: 0, lever: 'aluminiumPrice', value: 20 }];
 const WORLD: ScenarioEvent[] = [AUTO, { t: 0, lever: 'importPrices', value: 10 }];
+const FOREIGN_RATE: ScenarioEvent[] = [AUTO, { t: 0, lever: 'foreignRate', value: 1 }];
 /** Stabilisers on Manual (the default): policy levers stay where they are set. */
 const M_TAX: ScenarioEvent[] = [{ t: 0, lever: 'incomeTax', value: 1 }];
 const M_WAGE: ScenarioEvent[] = [{ t: 0, lever: 'wageSettlement', value: 10, fire: true }];
@@ -111,6 +112,8 @@ const SRC = {
     'Reasoned from ownership and tax: the three smelters are wholly foreign-owned (Rio Tinto, Alcoa, Century), so every króna of profit they do not reinvest is paid abroad; corporate tax takes about 9% of profit (effective rate from Hagstofa THJ05132); inward-FDI equity income was 78% dividends and 22% reinvested earnings in 2024 (Eurostat bop_c6_a). So 60–95% of a windfall should leave within two years (calibration.json: firm_sectors.aluminium).',
   world:
     'Purchasing-power parity is a slow anchor: Sarno and Taylor (2002) report half-lives of three to five years for deviations from PPP, so parity alone absorbs 13–21% of a lasting rise in world prices within a year, about 2% of a 10% rise. With policy reacting, the higher key rate adds a carry appreciation (0.3–1.5% per point, the rate-krona range above; the rule raises the rate by up to about 2 points). So after a year the króna should have strengthened by well under half the shock: 0–5%. Fish revenue in krónur must still be up by at least half the shock after 6 months (audit H5, 29 September 2026). https://doi.org/10.1017/CBO9780511754920',
+  foreignRate:
+    'Uncovered interest parity: a higher foreign rate narrows the rate gap with abroad, so carry traders and domestic savers move money out of krónur and the króna weakens (CBI QMM v2.1: the króna moves 0.67% on impact per 1 pp of interest-rate differential). The range mirrors the rate-krona band (0.3–1.5% per point, v1 SPEC §7.3), sign reversed, for the average over the first two years. In the long run the funds’ higher foreign income, spent at home, strengthens the króna a little (a transfer effect; decision 0002 §6), so the check covers only quarters 1–8 (review E3, 29 September 2026). https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf',
   manualHeld: 'Design of the stabiliser setting (decision 0004): on Manual no policy lever moves unless the user moves it, so the key rate is the level of its lever, exactly, whatever else happens.',
   manualTax:
     'Reasoned: +1 pp on a tax base of about 65% of GDP raises revenue by about 0.65% of GDP. Tax multipliers are at or below spending multipliers (cross-country median spending multiplier about 0.7, IMF WP 2026/043, smaller in open economies), and with the key rate held there is no monetary offset: a year-2 multiplier of 0.25–1.2 gives output −0.15% to −0.8%. https://www.elibrary.imf.org/view/journals/001/2026/043/article-A001-en.xml',
@@ -394,6 +397,15 @@ export const calibration: CalibrationCheck[] = [
     measure: (run) => (pctOf(run, 'exportsFish', 6) >= 5 ? run.series('krona')[12] : NaN),
     range: [0, 5],
     source: SRC.world,
+  },
+  {
+    id: 'foreign-rate-krona-2y',
+    label: 'Foreign interest rate +1 pp held: króna value, average of months 1–24, % vs baseline (+ stronger)',
+    scenario: FOREIGN_RATE,
+    months: 72,
+    measure: (run) => run.series('krona').slice(1, 25).reduce((s, x) => s + x, 0) / 24,
+    range: [-1.5, -0.3],
+    source: SRC.foreignRate,
   },
   {
     id: 'wage-squeeze-labour-intensive',
