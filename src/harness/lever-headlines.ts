@@ -8,6 +8,10 @@
  * over months, not jump (output, jobs, spending, stocks): the report flags a month-1 jump for
  * those only. `policy` marks a policy instrument, which the Manual-versus-Automatic sign test
  * leaves out because the stabilisers move it on Automatic by design.
+ *
+ * Units must say what they measure (UNIT_MEANINGS in lever-report.ts defines each one the report
+ * may show): a ratio to nominal GDP is 'pp of GDP'; a nominal amount in % of baseline GDP is
+ * 'pp of baseline GDP'.
  */
 import type { Id, IndicatorDef } from '../core/types.ts';
 
@@ -20,7 +24,7 @@ export type HeadlineSpec =
       vars: Id[];
       level: (v: (id: Id) => number) => number;
       display: Exclude<IndicatorDef['display'], 'level'>;
-      /** Unit of the effect for display 'deviation' (for example 'pp of GDP'). */
+      /** Unit of the effect for display 'deviation' (for example 'pp of GDP' for a ratio to GDP). */
       unit?: string;
       gradual?: boolean;
       policy?: boolean;
@@ -33,11 +37,23 @@ export interface PolicyInstrument {
   levers: Id[];
 }
 
+/** A shock a lever needs before it can act (a migration buffer needs job changes to buffer): the
+ *  lever is also run with it, and measured against the run with the companion alone. */
+export interface Companion {
+  lever: Id;
+  value: number;
+  why: string;
+}
+
 export interface LeverReportSpec {
   headlines: HeadlineSpec[];
   policy: PolicyInstrument[];
   /** Headline topics the model does not have, named in the report so their absence is visible. */
   missing?: string[];
+  /** Report units for indicators whose model unit is ambiguous, with the reason. */
+  indicatorUnits?: Record<Id, { unit: string; why: string }>;
+  /** Companion shocks, by lever id. */
+  companions?: Record<Id, Companion>;
 }
 
 const real = (nominal: Id[], price: Id) => (v: (id: Id) => number) => nominal.reduce((a, id) => a + v(id), 0) / v(price);
@@ -55,9 +71,11 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
       { id: 'investment', label: 'Investment (real)', vars: ['investmentReal'], level: (v) => v('investmentReal'), display: 'deviation-pct', gradual: true },
       { indicator: 'privateDebt', gradual: true },
       { indicator: 'broadMoney', gradual: true },
-      { id: 'deficit', label: 'Government deficit', vars: ['deficit'], level: (v) => v('deficit'), display: 'deviation', unit: 'pp of GDP' },
+      // Ratios to this month's nominal GDP, like the debt indicators: a nominal level in % of
+      // baseline GDP would grow with the price level.
+      { id: 'deficit', label: 'Government deficit (to GDP)', vars: ['deficit', 'gdp'], level: (v) => (100 * v('deficit')) / v('gdp'), display: 'deviation', unit: 'pp of GDP' },
       { indicator: 'govDebt', gradual: true },
-      { id: 'bankEquity', label: 'Bank equity', vars: ['bankEquity'], level: (v) => v('bankEquity'), display: 'deviation', unit: 'pp of GDP', gradual: true },
+      { id: 'bankEquity', label: 'Bank equity (to GDP)', vars: ['bankEquity', 'gdp'], level: (v) => (100 * v('bankEquity')) / v('gdp'), display: 'deviation', unit: 'pp of GDP', gradual: true },
       { id: 'realDisposableIncome', label: 'Disposable income (real)', vars: ['disposableIncome', 'price'], level: real(['disposableIncome'], 'price'), display: 'deviation-pct' },
       { id: 'realProfit', label: 'Firms’ cash profit (real)', vars: ['firmProfit', 'price'], level: real(['firmProfit'], 'price'), display: 'deviation-pct' },
       // The rate taxes are actually charged at: the debt rule's rate plus the lever's shift, which
@@ -76,6 +94,9 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
       { variable: 'taxRate', label: 'debt rule’s income-tax rate', levers: [] },
     ],
     missing: ['the króna', 'exports', 'imports', 'the current account', 'house prices (a closed economy without housing)'],
+    indicatorUnits: {
+      creditImpulse: { unit: 'pp of baseline GDP', why: 'the indicator is the credit-impulse flow itself (baseline GDP = 100), not divided by current GDP, although the model labels it pp of GDP' },
+    },
   },
   iceland: {
     headlines: [
@@ -114,5 +135,10 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
       { variable: 'taxRate', label: 'income-tax rate', levers: ['incomeTax', 'incomeTaxOffset'] },
       { variable: 'vatRate', label: 'VAT rate', levers: ['vat'] },
     ],
+    companions: {
+      ltvCap: { lever: 'lendingAppetite', value: 3, why: 'the cap applies only to new lending beyond what replaces repayments, and there is none at baseline' },
+      migration: { lever: 'foreignDemand', value: -20, why: 'the buffer acts only on changes in jobs from the baseline, and there are none without a shock' },
+      bondBuyers: { lever: 'publicInvestment', value: 2, why: 'the choice acts only on new bonds, and the baseline budget balances, so none are sold without a deficit' },
+    },
   },
 };

@@ -2,15 +2,17 @@
  * `bun run levers [--model <id>] [--months <n>] [--paths <dir>]`
  *
  * Moves every lever of every model (or one) hard, one at a time, and writes
- * reports/levers/<model>.md and reports/levers/<model>.json (lever-report.ts). With --paths it
- * also writes <dir>/<model>.json, the full monthly effect path of every headline in every run;
- * those files are large, so reports/levers/paths/ is git-ignored. Prints the runtime.
+ * reports/levers/<model>.md and reports/levers/<model>.json (lever-report.ts). Another horizon
+ * writes reports/levers/<model>-<n>m.md and .json instead, which are git-ignored, so the committed
+ * 240-month reports stay as they are. With --paths it also writes <dir>/<model>.json, the full
+ * monthly effect path of every headline in every run; those files are large, so
+ * reports/levers/paths/ is git-ignored. Prints the runtime.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { models } from '../models/index.ts';
 import { DEFAULT_MONTHS, leverReport } from './lever-report.ts';
-import { renderLeverJson, renderLeverMarkdown, renderLeverPaths } from './lever-render.ts';
+import { renderLeverJson, renderLeverMarkdown, renderLeverPaths, reportName } from './lever-render.ts';
 
 const root = resolve(import.meta.dir, '..', '..');
 const args = process.argv.slice(2);
@@ -47,13 +49,14 @@ const shown = (p: string) => relative(process.cwd(), p) || p;
 for (const def of selected) {
   const t0 = performance.now();
   const r = leverReport(def, { months, paths: !!pathsDir });
-  const md = join(outDir, `${def.id}.md`),
-    json = join(outDir, `${def.id}.json`);
+  const name = reportName(def.id, months);
+  const md = join(outDir, `${name}.md`),
+    json = join(outDir, `${name}.json`);
   writeFileSync(md, renderLeverMarkdown(r));
   writeFileSync(json, renderLeverJson(r));
   const written = [md, json];
   if (pathsDir) {
-    const p = join(pathsDir, `${def.id}.json`);
+    const p = join(pathsDir, `${name}.json`);
     writeFileSync(p, renderLeverPaths(r));
     written.push(p);
   }

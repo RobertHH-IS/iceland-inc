@@ -3,7 +3,11 @@
  * agents and tools, and the optional full paths. Nothing here depends on the clock, so the same
  * model always renders the same files.
  */
-import { FLAG_KINDS, LEVER_THRESHOLDS, LONG_RUN_MONTHS, fmtEffect, type Flag, type LeverReport, type LeverRun, type LeverSection } from './lever-report.ts';
+import { DEFAULT_MONTHS, FLAG_KINDS, LEVER_THRESHOLDS, LONG_RUN_MONTHS, fmtEffect, type Flag, type LeverReport, type LeverRun, type LeverSection } from './lever-report.ts';
+
+/** File name (without extension) of a model's report: `<model>` at the default horizon, which is
+ *  committed, and `<model>-<n>m` at any other, which is git-ignored. */
+export const reportName = (modelId: string, months: number) => (months === DEFAULT_MONTHS ? modelId : `${modelId}-${months}m`);
 
 const fmt = fmtEffect;
 
@@ -11,9 +15,10 @@ const esc = (s: string) => s.replace(/\|/g, '/');
 const flagTitle = (k: string) => FLAG_KINDS.find((f) => f.kind === k)?.title ?? k;
 const modeText = (mode: string) => (mode ? `, ${mode}` : '');
 
-function flagLine(flags: Flag[]): string {
-  if (!flags.length) return 'Flags: none.';
-  return `Flags: ${flags.map((f) => `**${flagTitle(f.kind)}**: ${esc(f.detail)}`).join('; ')}.`;
+/** A run's flags: 'Flags: none.', or one bullet per kind (details are '; '-separated lists). */
+function flagLines(flags: Flag[], indent = ''): string[] {
+  if (!flags.length) return [`${indent}Flags: none.`];
+  return [`${indent}Flags:`, ...(indent ? [] : ['']), ...flags.map((f) => `${indent}- **${flagTitle(f.kind)}**: ${esc(f.detail)}.`)];
 }
 
 function runTable(r: LeverReport, run: LeverRun): string[] {
@@ -30,7 +35,7 @@ function runTable(r: LeverReport, run: LeverRun): string[] {
   });
   if (rows.length) L.push(`| Variable (unit) | ${r.horizons.map((h) => `m${h}`).join(' | ')} | Peak | Peak month | Long run |`, `|---|${r.horizons.map(() => '---:').join('|')}|---:|---:|---:|`, ...rows, '');
   if (still.length) L.push(`Unmoved (every effect below ${LEVER_THRESHOLDS.unmoved}): ${still.join(', ')}.`, '');
-  L.push(flagLine(run.flags), '');
+  L.push(...flagLines(run.flags), '');
   if (run.regimes.length) {
     L.push('Regimes that differ from the no-change run:', '');
     for (const g of run.regimes) {
@@ -53,10 +58,14 @@ function leverSection(r: LeverReport, s: LeverSection): string[] {
   L.push(`**Definition.** ${s.definition}`, '');
   L.push(`Runs: ${s.settings.map((x) => x.label).join('; ')}.${s.kind === 'oneoff' ? ' A one-off fires once, before month 1.' : ' Each is set before month 1 and held.'}`, '');
   for (const k of s.skipped) L.push(`Not run on ${k.mode}: ${k.why}.`, '');
+  if (s.companion) L.push(`Also run on top of a companion shock, **${esc(s.companion.label)}** (\`${s.companion.lever}\`), because ${esc(s.companion.why)}. Those runs are measured against the run with the companion shock alone, in the same mode, and follow the plain runs.`, '');
   const cross = s.crossFlags;
   if (cross.length) {
     L.push('Comparisons between runs:', '');
-    for (const f of cross) L.push(`- **${flagTitle(f.kind)}**${f.mode ? ` (${f.mode})` : ''}: ${esc(f.detail)}`);
+    for (const f of cross) {
+      const where = [f.companion ? 'with the companion shock' : '', f.mode ?? ''].filter(Boolean).join(', ');
+      L.push(`- **${flagTitle(f.kind)}**${where ? ` (${where})` : ''}: ${esc(f.detail)}.`);
+    }
     L.push('');
   }
   const ex = r.expectations?.filter((x) => x.lever === s.id) ?? [];
@@ -64,12 +73,16 @@ function leverSection(r: LeverReport, s: LeverSection): string[] {
     L.push('Expectations:', '');
     for (const x of ex) {
       const got = x.checks.length ? x.checks.map((c) => `${c.value}${modeText(c.mode)}: ${fmt(c.mean)}`).join('; ') : 'no matching run';
-      L.push(`- ${x.pass ? '✓' : '✗'} ${x.variable} ${x.sign > 0 ? 'rises' : x.sign < 0 ? 'falls' : 'does not move'} over months ${x.fromMonth}–${x.toMonth} (${x.setting}, ${x.mode}): ${got}. ${esc(x.theory)} (${esc(x.source)})`);
+      L.push(`- ${x.pass ? '✓' : '✗'} ${x.variable} ${x.sign > 0 ? 'rises' : x.sign < 0 ? 'falls' : 'does not move'} over months ${x.fromMonth}–${x.toMonth} (${x.setting}, ${x.mode}${x.withCompanion ? ', with the companion shock' : ''}): ${got}. ${esc(x.theory)} (${esc(x.source)})`);
     }
     L.push('');
   }
   for (const run of s.runs) {
     L.push(`### ${esc(run.label)}${modeText(run.mode)}`, '');
+    L.push(...runTable(r, run));
+  }
+  for (const run of s.companionRuns) {
+    L.push(`### ${esc(run.label)}${modeText(run.mode)}, with ${esc(s.companion!.label)}`, '');
     L.push(...runTable(r, run));
   }
   return L;
@@ -83,24 +96,33 @@ export function renderLeverMarkdown(r: LeverReport): string {
     '',
   );
   L.push(
-    `Units: **%** is the percent difference from the no-change run's level; **pp** a difference in percentage points (rates and shares); **pp of GDP** a difference in % of baseline annual GDP. Columns m1 … m${r.horizons[r.horizons.length - 1]} are the effect in those months; *Peak* is the largest effect in absolute value and its month; *Long run* is the mean effect over the final ${LONG_RUN_MONTHS} months. Effects below ${LEVER_THRESHOLDS.unmoved} show as 0.`,
+    `Columns m1 … m${r.horizons[r.horizons.length - 1]} are the effect in those months; *Peak* is the largest effect in absolute value and its month; *Long run* is the mean effect over the final ${LONG_RUN_MONTHS} months. Effects below ${LEVER_THRESHOLDS.unmoved} show as 0. Each variable's unit is in brackets after its name:`,
     '',
   );
+  for (const u of r.units) L.push(`- **${u.unit}**: ${u.meaning}.`);
+  L.push('');
+  for (const n of r.unitNotes) L.push(`\`${n.id}\` is reported in ${n.unit}: ${esc(n.why)}.`, '');
+  if (r.untraced.length)
+    L.push(
+      `Kinks not traced: ${r.untraced.map((x) => `\`${x}\``).join(', ')} combine their terms non-additively (a min, a max, a cap) but carry no regime label, so the Regimes and Flicker flags cannot show when they bind or switch.`,
+      '',
+    );
   L.push('The JSON file beside this one has the same data, every indicator at the same horizons, and the thresholds. How to read and vet the report: `docs/authoring.md`, “Vetting levers”.', '');
 
   L.push('## Flags', '', '| Flag | Meaning and threshold |', '|---|---|');
   for (const f of FLAG_KINDS) L.push(`| ${f.title} | ${f.meaning} |`);
   L.push('');
 
-  L.push('## Summary', '', 'Number of runs with each flag (comparisons between runs count once per pair).', '');
+  L.push('## Summary', '', 'Number of runs with each flag (comparisons between runs count once per pair; an inert lever once). *Runs* adds the runs on top of a companion shock after a +.', '');
   const kinds = FLAG_KINDS.map((f) => f.kind);
   const exCol = r.expectations ? ' | Expectations ✓/✗' : '';
   L.push(`| Lever | Runs | ${FLAG_KINDS.map((f) => f.title).join(' | ')}${exCol} |`, `|---|---:|${kinds.map(() => '---:').join('|')}${r.expectations ? '|---:' : ''}|`);
   for (const s of r.levers) {
-    const counts = kinds.map((k) => s.runs.filter((x) => x.flags.some((f) => f.kind === k)).length + s.crossFlags.filter((f) => f.kind === k).length);
+    const all = [...s.runs, ...s.companionRuns];
+    const counts = kinds.map((k) => all.filter((x) => x.flags.some((f) => f.kind === k)).length + s.crossFlags.filter((f) => f.kind === k).length);
     const ex = r.expectations?.filter((x) => x.lever === s.id) ?? [];
     const exCell = r.expectations ? ` | ${ex.length ? `${ex.filter((x) => x.pass).length}/${ex.filter((x) => !x.pass).length}` : ''}` : '';
-    L.push(`| [${esc(s.label)}](#${anchor(s)}) (\`${s.id}\`) | ${s.runs.length} | ${counts.map((c) => (c ? String(c) : '')).join(' | ')}${exCell} |`);
+    L.push(`| [${esc(s.label)}](#${anchor(s)}) (\`${s.id}\`) | ${s.runs.length}${s.companionRuns.length ? ` + ${s.companionRuns.length}` : ''} | ${counts.map((c) => (c ? String(c) : '')).join(' | ')}${exCell} |`);
   }
   L.push('');
   if (r.stabiliserLever) L.push(`The stabiliser setting (\`${r.stabiliserLever}\`) is not run as a lever: its values are the modes every other lever runs in.`, '');
@@ -114,7 +136,10 @@ export function renderLeverMarkdown(r: LeverReport): string {
   L.push(`Policy instruments checked on Manual: ${r.policy.map((p) => `the ${p.label} (\`${p.variable}\`, ${p.levers.length ? `moved only by ${p.levers.map((x) => `\`${x}\``).join(' or ')}` : 'moved by no lever on Manual'})`).join('; ')}.`, '');
 
   L.push('## No-change runs', '');
-  for (const n of r.noChange) L.push(`- ${n.mode || 'The model'}: largest move of a headline from its baseline ${n.drift.toExponential(2)} (display units). ${flagLine(n.flags)}`);
+  for (const n of r.noChange) {
+    const f = flagLines(n.flags, '  ');
+    L.push(`- ${n.mode || 'The model'}: largest move of a headline from its baseline ${n.drift.toExponential(2)} (display units). ${n.flags.length ? '' : f[0].trim()}`.trimEnd(), ...(n.flags.length ? f : []));
+  }
   L.push('');
 
   if (r.expectations) {
@@ -160,7 +185,7 @@ export function renderLeverJson(r: LeverReport): string {
   return jsonLines(
     head,
     'levers',
-    levers.map(({ runs, ...h }) => ({ head: h, runs: runs.map(({ paths: _, ...run }) => run) })),
+    levers.map(({ runs, companionRuns, ...h }) => ({ head: h, runs: [...runs, ...companionRuns].map(({ paths: _, ...run }) => run) })),
   );
 }
 
@@ -169,6 +194,6 @@ export function renderLeverPaths(r: LeverReport): string {
   return jsonLines(
     { format: `${r.format}-paths`, modelId: r.modelId, months: r.months, headlines: r.headlines.map((h) => h.id) },
     'levers',
-    r.levers.map((s) => ({ head: { id: s.id }, runs: s.runs.map((run) => ({ value: run.value, mode: run.mode, paths: run.paths ?? {} })) })),
+    r.levers.map((s) => ({ head: { id: s.id }, runs: [...s.runs, ...s.companionRuns].map((run) => ({ value: run.value, mode: run.mode, ...(run.companion ? { companion: true } : {}), paths: run.paths ?? {} })) })),
   );
 }

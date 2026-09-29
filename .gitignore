@@ -6,3 +6,4 @@ reports/*.tmp
 .vercel
 .env*
 reports/levers/paths/
+reports/levers/*-[0-9]*m.*

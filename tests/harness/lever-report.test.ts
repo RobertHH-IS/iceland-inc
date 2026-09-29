@@ -15,8 +15,10 @@ import type { LeverDef } from '../../src/core/types.ts';
 import { models } from '../../src/models/index.ts';
 import { leverReportSpecs } from '../../src/harness/lever-headlines.ts';
 import {
+  DEFAULT_MONTHS,
   HORIZONS,
   LEVER_THRESHOLDS,
+  UNIT_MEANINGS,
   effectOf,
   hiddenIn,
   leverReport,
@@ -28,12 +30,15 @@ import {
   regimeUses,
   sawtooth,
   summarise,
+  untracedRules,
   type LeverReport,
 } from '../../src/harness/lever-report.ts';
-import { renderLeverJson, renderLeverMarkdown, renderLeverPaths } from '../../src/harness/lever-render.ts';
+import { renderLeverJson, renderLeverMarkdown, renderLeverPaths, reportName } from '../../src/harness/lever-render.ts';
 
 const refDef = models.find((m) => m.id === 'reference')!;
 const ref = compile(refDef);
+const iceDef = models.find((m) => m.id === 'iceland')!;
+const ice = compile(iceDef);
 const lever = (id: string) => ref.levers.find((l) => l.id === id)!;
 const values = (l: LeverDef) => leverSettings(l).map((s) => s.value);
 
@@ -48,6 +53,18 @@ describe('settings', () => {
     expect(roles).toEqual([['min'], ['down'], ['up'], ['max']]);
     // keyRateFixed: default 3, range 0 to 10, step 0.25: down 3 − 0.75, up 3 + 1.75
     expect(values(lever('keyRateFixed'))).toEqual([0, 2.25, 4.75, 10]);
+  });
+
+  test('the moderate steps mirror each other on a symmetric range, halves rounding away from the default', () => {
+    // ±3 in steps of 0.1: a quarter is 0.75, 7.5 steps, so both ways go 8 steps (not −0.7 and +0.8)
+    const l: LeverDef = { id: 'x', label: 'x', group: 'Policy', kind: 'setting', unit: '% of GDP', default: 0, min: -3, max: 3, step: 0.1, description: '', definition: '' };
+    expect(values(l)).toEqual([-3, -0.8, 0.8, 3]);
+    expect(values(ice.levers.find((x) => x.id === 'health')!)).toEqual([-3, -0.8, 0.8, 3]);
+    // off-centre default: 30 in 0–80 by 5 goes down 7.5 → 10 and up 12.5 → 15
+    expect(values(ice.levers.find((x) => x.id === 'migration')!)).toEqual([0, 20, 45, 80]);
+    // a one-off's half is snapped the same way on either sign
+    const o: LeverDef = { id: 'o', label: 'o', group: 'Policy', kind: 'oneoff', unit: '%', default: 5, min: -5, max: 5, step: 1, description: '', definition: '' };
+    expect(values(o)).toEqual([-5, -3, 3, 5]);
   });
 
   test('a moderate step is at least one step, and a setting at a bound has no step that way', () => {
@@ -272,6 +289,98 @@ describe('flags', () => {
   });
 });
 
+describe('units', () => {
+  test('every unit a report shows is defined, and the legend defines each one', () => {
+    const r = report();
+    const used = new Set([...r.headlines, ...r.indicators].map((h) => h.unit));
+    expect(new Set(r.units.map((u) => u.unit))).toEqual(used);
+    const md = renderLeverMarkdown(r);
+    for (const u of r.units) {
+      expect(UNIT_MEANINGS[u.unit]).toBeDefined();
+      expect(md).toContain(`- **${u.unit}**: ${UNIT_MEANINGS[u.unit]}.`);
+    }
+  });
+
+  test('a unit the report does not define fails loudly', () => {
+    const spec = { ...leverReportSpecs.reference, headlines: [{ id: 'odd', label: 'Odd', vars: ['deficit'], level: (v: (id: string) => number) => v('deficit'), display: 'deviation' as const, unit: 'pp of widgets' }] };
+    expect(() => leverReport(ref, { months: 12, levers: ['govSpending'], spec, expectations: null })).toThrow(/pp of widgets/);
+  });
+
+  test('the reference fiscal headlines are ratios to current GDP, like the debt indicators', () => {
+    const r = report();
+    for (const id of ['deficit', 'bankEquity']) expect(r.headlines.find((h) => h.id === id)!.unit).toBe('pp of GDP');
+    const k = r.headlines.findIndex((h) => h.id === 'deficit');
+    const run = r.levers.find((s) => s.id === 'taxRate')!.runs.find((x) => x.mode === 'Manual' && x.roles.includes('min'))!;
+    const mode = ref.def.stabiliserMode!;
+    const modeEv = { t: 0, lever: mode.lever, value: mode.manual };
+    const shocked = runScenario(ref, [modeEv, { t: 0, lever: 'taxRate', value: run.value }], 240);
+    const none = runScenario(ref, [modeEv], 240);
+    const ratio = (x: typeof none, t: number) => (100 * x.value('deficit', t)) / x.value('gdp', t);
+    expect(run.headlines[k].at[HORIZONS.indexOf(240)]).toBeCloseTo(ratio(shocked, 240) - ratio(none, 240), 9);
+    // the credit impulse is a nominal flow, and the report says so
+    expect(r.indicators.find((h) => h.id === 'creditImpulse')!.unit).toBe('pp of baseline GDP');
+    expect(r.unitNotes.map((n) => n.id)).toEqual(['creditImpulse']);
+  });
+});
+
+describe('what the report cannot see, and levers that need help', () => {
+  test('rules that combine terms non-additively without a regime label are listed as kinks not traced', () => {
+    expect(untracedRules(ref)).toEqual([]);
+    const u = untracedRules(ice);
+    expect(u).toContain('employmentFC');
+    expect(u).toContain('exportVolumeTourism');
+    for (const id of u) {
+      const rule = ice.rules.find((r) => r.id === id)!;
+      expect(rule.combine).toBeDefined();
+      expect(rule.regime).toBeUndefined();
+    }
+    const r = leverReport(ice, { months: 12, levers: ['vat'], expectations: null });
+    expect(r.untraced).toEqual(u);
+    expect(renderLeverMarkdown(r)).toContain('Kinks not traced: ');
+  });
+
+  test('a lever that moves nothing is inert; its companion shock gives it something to act on', () => {
+    const r = leverReport(ice, {
+      months: 36,
+      levers: ['migration'],
+      expectations: [{ lever: 'migration', setting: 'min', mode: 'Manual', variable: 'unemployment', fromMonth: 3, toMonth: 24, sign: 1, theory: 'Without the buffer, residents take the job losses.', source: 'test', withCompanion: true }],
+    });
+    const s = r.levers[0];
+    expect(s.crossFlags.filter((f) => f.kind === 'inert' && !f.companion)).toHaveLength(1);
+    expect(s.companion).toMatchObject({ lever: 'foreignDemand', value: -20 });
+    expect(s.companionRuns).toHaveLength(s.runs.length);
+    expect(s.crossFlags.some((f) => f.kind === 'inert' && f.companion)).toBe(false);
+    const k = r.headlines.findIndex((h) => h.id === 'unemployment');
+    const min = s.companionRuns.find((x) => x.mode === 'Manual' && x.roles.includes('min'))!;
+    expect(min.companion).toBe(true);
+    expect(min.headlines[k].peak).toBeGreaterThan(0.1);
+    // measured against the companion alone, so the effect is the buffer's, not the demand shock's
+    const mode = ice.def.stabiliserMode!;
+    const modeEv = { t: 0, lever: mode.lever, value: mode.manual };
+    const extra = { t: 0, lever: 'foreignDemand', value: -20 };
+    const both = runScenario(ice, [modeEv, extra, { t: 0, lever: 'migration', value: 0 }], 36);
+    const alone = runScenario(ice, [modeEv, extra], 36);
+    expect(min.headlines[k].at[HORIZONS.indexOf(12)]).toBeCloseTo(100 * (both.value('unemployment', 12) - alone.value('unemployment', 12)), 9);
+    expect(r.expectations![0]).toMatchObject({ pass: true, withCompanion: true });
+    expect(r.expectations![0].checks).toHaveLength(1);
+    expect(renderLeverMarkdown(r)).toContain(', with Foreign demand -20 %');
+  });
+
+  test('a runaway headline is extreme; a routine one is not', () => {
+    const r = report();
+    const tax = r.levers.find((s) => s.id === 'taxRate')!;
+    const kinds = (roles: string, mode: string) => tax.runs.find((x) => x.mode === mode && x.roles.includes(roles))!.flags.map((f) => f.kind);
+    // a 3-point tax cut on Manual more than doubles the price level in 20 years
+    expect(kinds('min', 'Manual')).toContain('extreme');
+    expect(kinds('up', 'Automatic')).not.toContain('extreme');
+  });
+});
+
+test('another horizon writes its own, git-ignored, report files', () => {
+  expect(reportName('iceland', DEFAULT_MONTHS)).toBe('iceland');
+  expect(reportName('iceland', 120)).toBe('iceland-120m');
+});
+
 test('every model has a headline list whose variables exist', () => {
   for (const def of models) {
     const m = compile(def);
@@ -289,5 +398,10 @@ test('every model has a headline list whose variables exist', () => {
       expect(m.varIndex.has(p.variable)).toBe(true);
       for (const l of p.levers) expect(m.leverIndex.has(l)).toBe(true);
     }
+    for (const [id, c] of Object.entries(spec.companions ?? {})) {
+      expect(m.leverIndex.has(id)).toBe(true);
+      expect(m.leverIndex.has(c.lever)).toBe(true);
+    }
+    for (const id of Object.keys(spec.indicatorUnits ?? {})) expect(m.indicatorIndex.has(id)).toBe(true);
   }
 });

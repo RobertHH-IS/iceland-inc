@@ -333,23 +333,24 @@ The harness proves that the accounting holds and that the calibration checks pas
 ```bash
 bun run levers                           # every model, 240 months
 bun run levers --model iceland           # one model
-bun run levers --months 120              # a shorter horizon
+bun run levers --months 120              # another horizon: writes <model>-120m.md and .json (git-ignored)
 bun run levers --paths reports/levers/paths   # also the full monthly paths (large, git-ignored)
 ```
 
 It writes `reports/levers/<model>.md` for reading and `reports/levers/<model>.json` for tools, and prints how long it took: about 0.1 s for the reference economy and 6 s for Iceland. The output depends on nothing but the model, so a rerun changes the files only when behaviour changes. Treat the diff like a golden scenario: when you change a model on purpose, regenerate the report, read what moved, and commit it with the change.
 
-**What it runs.** A setting runs at its min, its max and a moderate step each way from its default (a quarter of the distance to each bound, snapped to the lever's step). A one-off fires at its min, its max, its default size and half of it, and at those two with the opposite sign where the range allows. A choice runs every option. Each value is applied before month 1 and held; a one-off fires once. Each runs in both stabiliser modes, except in a mode where `showWhen` hides the lever; the report says which runs it skipped. The stabiliser setting itself is not run as a lever: its two values are the modes.
+**What it runs.** A setting runs at its min, its max and a moderate step each way from its default (a quarter of the distance to each bound, snapped to the lever's step). A one-off fires at its min, its max, its default size and half of it, and at those two with the opposite sign where the range allows. A choice runs every option other than the default, which is the no-change run. Each value is applied before month 1 and held; a one-off fires once. Each runs in both stabiliser modes, except in a mode where `showWhen` hides the lever; the report says which runs it skipped. The stabiliser setting itself is not run as a lever: its two values are the modes. A lever that can only act on top of another shock (a migration buffer needs job changes to buffer; the choice of bond buyer needs bonds to be sold) declares a **companion shock** in `src/harness/lever-headlines.ts`: it is run again with the companion, and those runs are measured against the run with the companion alone.
 
-**What it measures.** Every effect is the run minus the **no-change run in the same mode**: the same engine and mode with no lever event, compared month by month. It is never measured from month 0, so drift, the mode and anything else the two runs share cancel out. Effects are in the variable's display unit: % of the no-change level for levels, pp for rates and shares, pp of GDP for ratios to GDP. For every indicator and every headline variable the report records the effect at months 1, 3, 6, 12, 24, 36, 60, 120 and 240, the peak and its month, and the long-run value (the mean over the final 12 months).
+**What it measures.** Every effect is the run minus the **no-change run in the same mode**: the same engine and mode with no lever event, compared month by month. It is never measured from month 0, so drift, the mode and anything else the two runs share cancel out. Effects are in the variable's display unit, and the report's legend defines each unit it uses (`UNIT_MEANINGS`): **%** is the percent difference from the no-change level; **pp** a difference in percentage points of a rate or share; **pp of GDP** a difference in a ratio to nominal GDP (this month's, or the past 12 months'), which does not grow with prices; **pp of baseline GDP** a difference in a nominal amount measured in % of baseline GDP, which does. A headline or indicator whose unit is not defined stops the report, so a new unit gets a definition before anyone reads it; where a model's own unit is ambiguous, `indicatorUnits` in `lever-headlines.ts` restates it and the report says why. For every indicator and every headline variable the report records the effect at months 1, 3, 6, 12, 24, 36, 60, 120 and 240, the peak and its month, and the long-run value (the mean over the final 12 months).
 
-**Headline variables** are declared per model in `src/harness/lever-headlines.ts`: an indicator, or a level computed from variables (real consumption is nominal consumption ÷ the price level). Mark as `gradual` the ones that should adjust over months (output, jobs, spending, stocks of debt and money), and as `policy` the instruments that stabilisers move. The same file lists the policy instruments that must hold still on Manual, each with the levers allowed to move it. A new model needs an entry there; the tests check that every id exists.
+**Headline variables** are declared per model in `src/harness/lever-headlines.ts`: an indicator, or a level computed from variables (real consumption is nominal consumption ÷ the price level). Mark as `gradual` the ones that should adjust over months (output, jobs, spending, stocks of debt and money), and as `policy` the instruments that stabilisers move. The same file lists the policy instruments that must hold still on Manual, each with the levers allowed to move it, and any companion shocks. A new model needs an entry there; the tests check that every id exists.
 
-**Flags.** Each run gets a flags line, and the summary table counts them by lever. The report states every threshold (`LEVER_THRESHOLDS` in `src/harness/lever-report.ts`).
+**Flags.** Each run lists its flags, one bullet per kind, and the summary table counts them by lever. The report states every threshold (`LEVER_THRESHOLDS` in `src/harness/lever-report.ts`).
 
 | Flag | What it usually means |
 |---|---|
 | Non-finite, Residual, Sign, Implausible | The run is broken: a NaN, an accounting leak, an overdrawn position or an impossible value. Fix the model before reading anything else |
+| Extreme | A headline level moved by more than 50% of its no-change value, or a rate or ratio by more than 25 pp. No routine policy change does that within 20 years; it is usually a runaway nominal path (the price level, the króna, money) that the long Unsettled list would otherwise hide |
 | Policy moved | On Manual, a policy instrument moved although its own lever did not: a rule reacts where only a stabiliser may ([decision 0004](decisions/0004-stabilisers.md)) |
 | Month-1 jump | A variable that should build up gradually does most of its moving in the first month. Sometimes it is accounting (public spending is output at once); often a missing adjustment speed |
 | Sawtooth | The path zigzags from one month to the next. Economies do not; a floor or cap switching on and off, or an overshooting adjustment, does |
@@ -357,7 +358,10 @@ It writes `reports/levers/<model>.md` for reading and `reports/levers/<model>.js
 | Unsettled, Explosive | Still moving after 20 years, or growing without bound. A permanent change in inflation moves the price level for ever, which is right; a debt ratio or exchange rate that runs away usually is not |
 | Asymmetry | The moderate up and down steps give responses of different size or direction per unit of lever. Caps and floors that bind one way cause it; check that the one that binds is meant to |
 | Mode sign | Manual and Automatic move a headline in opposite directions at month 12. Often right (the Taylor rule turns an inflationary boom into a slowdown), but each one deserves a sentence of explanation |
+| Inert | No run moves anything. The lever either needs another shock to act on (declare a companion) or is not wired to anything |
 | Regimes | Informational: every rule whose regime differs from the no-change run, with the months. It tells you which floor, cap or limit drives the result |
+
+The Regimes and Flicker flags see only rules with a regime label. A rule that combines its terms with a min, a max or a cap but has no label can bind unseen, so the report lists every such rule under *Kinks not traced*; give it a regime label (section 5) and the report will show it.
 
 **How to vet a lever.** Read its definition first, then for each run ask, in order:
 
@@ -382,7 +386,7 @@ export const expectations: LeverExpectation[] = [
 ];
 ```
 
-`setting` is a lever value or a role (`min`, `max`, `up`, `down`, `default`, `half`, `-default`, `-half`); `mode` is `Manual`, `Automatic` or `any`; `variable` is a headline or an indicator id; `sign` is +1, −1 or 0 for the mean effect over the months (0: smaller than the report's floor of 0.01). An expectation that matches no run fails, so a renamed lever cannot pass silently.
+`setting` is a lever value or a role (`min`, `max`, `up`, `down`, `default`, `half`, `-default`, `-half`); `mode` is `Manual`, `Automatic` or `any`; `variable` is a headline or an indicator id; `sign` is +1, −1 or 0 for the mean effect over the months (0: smaller than the report's floor of 0.01). Set `withCompanion: true` to check the runs on top of the lever's companion shock instead. An expectation that matches no run fails, so a renamed lever cannot pass silently.
 
 ## 13. How to …
 

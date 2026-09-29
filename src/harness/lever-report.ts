@@ -14,6 +14,8 @@
  *              for levels, pp for rates and shares, the indicator's unit otherwise), at fixed
  *              horizons, with the peak and the long-run value
  *   flags      each with a threshold in LEVER_THRESHOLDS, explained in the report
+ *   companions a lever that can act only on top of another shock (lever-headlines.ts) is also
+ *              run with that shock and measured against the run with the shock alone
  *
  * `bun run levers` (lever-cli.ts) writes reports/levers/<model>.md and .json; lever-render.ts
  * renders them. The headline variables per model are declared in lever-headlines.ts.
@@ -24,7 +26,7 @@ import { compile, type KModel } from '../core/compile.ts';
 import { createEngine, type KernelEngine } from '../core/engine.ts';
 import { runScenario } from '../core/scenario.ts';
 import type { Id, IndicatorDef, LeverDef, ModelDef, ScenarioEvent } from '../core/types.ts';
-import { leverReportSpecs, type LeverReportSpec, type PolicyInstrument } from './lever-headlines.ts';
+import { leverReportSpecs, type Companion, type LeverReportSpec, type PolicyInstrument } from './lever-headlines.ts';
 import { firstNonFinite, plausibilityBounds, plausibilityBreaches } from './plausibility.ts';
 import { stabiliserModes } from './scenarios.ts';
 
@@ -39,6 +41,10 @@ export const LONG_RUN_MONTHS = 12;
 export const LEVER_THRESHOLDS = {
   /** Largest accounting residual allowed (any of the four checks). */
   residual: 1e-9,
+  /** Extreme: a headline level moves by more than extremePct % of its no-change level, or a
+   *  headline rate or ratio by more than extremePp pp, in some month. */
+  extremePct: 50,
+  extremePp: 25,
   /** A policy instrument moved on Manual when it differs from the no-change run by more than
    *  this, in model units (a fraction for rates). */
   policyMove: 1e-9,
@@ -84,6 +90,7 @@ export type FlagKind =
   | 'residual'
   | 'sign'
   | 'implausible'
+  | 'extreme'
   | 'policyMoved'
   | 'jump'
   | 'sawtooth'
@@ -92,6 +99,7 @@ export type FlagKind =
   | 'asymmetry'
   | 'modeSign'
   | 'flicker'
+  | 'inert'
   | 'regime';
 
 /** The flags in report order, with a column title and what each means (for the report). */
@@ -100,6 +108,7 @@ export const FLAG_KINDS: { kind: FlagKind; title: string; meaning: string }[] = 
   { kind: 'residual', title: 'Residual', meaning: `An accounting check's residual exceeded ${LEVER_THRESHOLDS.residual}.` },
   { kind: 'sign', title: 'Sign', meaning: 'A position took the wrong sign for its role (CheckReport.signViolations): an overdrawn asset or a liability turned into a claim.' },
   { kind: 'implausible', title: 'Implausible', meaning: 'A variable broke an economic bound of the harness (plausibility.ts): unemployment outside [0, 50%], a price index at or below zero, a negative key rate.' },
+  { kind: 'extreme', title: 'Extreme', meaning: `A headline moved further than any routine policy change should move it: a level by more than ${LEVER_THRESHOLDS.extremePct}% of its no-change value, or a rate or ratio by more than ${LEVER_THRESHOLDS.extremePp} pp, in some month. Usually a runaway nominal path; check it before anything else in the run.` },
   { kind: 'policyMoved', title: 'Policy moved', meaning: `On Manual, a policy instrument whose own levers were not moved differs from the no-change run by more than ${LEVER_THRESHOLDS.policyMove} (model units).` },
   { kind: 'jump', title: 'Month-1 jump', meaning: `A headline that should adjust gradually has ${100 * LEVER_THRESHOLDS.jumpShare}% or more of its peak effect already in month 1 (peak at least ${LEVER_THRESHOLDS.jumpFloor}).` },
   { kind: 'sawtooth', title: 'Sawtooth', meaning: `In the first ${LEVER_THRESHOLDS.sawWindow} months, ${LEVER_THRESHOLDS.sawRun} or more sign alternations in a row of month-to-month changes, each above max(${LEVER_THRESHOLDS.sawAbs}, ${100 * LEVER_THRESHOLDS.sawRel}% of the peak).` },
@@ -108,6 +117,7 @@ export const FLAG_KINDS: { kind: FlagKind; title: string; meaning: string }[] = 
   { kind: 'asymmetry', title: 'Asymmetry', meaning: `At month ${LEVER_THRESHOLDS.asymMonth}, the effects per unit of lever of the moderate up and down steps differ in sign or by more than ${LEVER_THRESHOLDS.asymRatio}× (larger effect at least ${LEVER_THRESHOLDS.asymFloor}). Caps and floors that bind one way are the usual cause.` },
   { kind: 'modeSign', title: 'Mode sign', meaning: `At month ${LEVER_THRESHOLDS.modeMonth}, Manual and Automatic move a non-policy headline in opposite directions (each at least ${LEVER_THRESHOLDS.modeFloor}).` },
   { kind: 'flicker', title: 'Flicker', meaning: `A rule's regime label changed ${LEVER_THRESHOLDS.flickerSwitches} or more times within ${LEVER_THRESHOLDS.sawWindow} months: a floor or cap switching on and off.` },
+  { kind: 'inert', title: 'Inert', meaning: `No run of the lever moves any headline or indicator by ${LEVER_THRESHOLDS.unmoved} or more in any month. Either the lever needs another shock to act on (then the report also runs it with a declared companion shock), or it is not wired to anything.` },
   { kind: 'regime', title: 'Regimes', meaning: 'At least one rule ran in a different regime (a floor, cap or limit binding or released) from the no-change run in the same month. Informational: it shows what drives the result.' },
 ];
 
@@ -116,11 +126,21 @@ export interface Flag {
   detail: string;
 }
 
+/** What each unit the report shows means. A tracked unit missing here fails the report, so a new
+ *  unit gets defined before anyone reads it. */
+export const UNIT_MEANINGS: Record<string, string> = {
+  '%': 'the percent difference from the no-change run’s level in the same month',
+  '% (+ stronger)': 'the percent difference from the no-change run’s level; positive is a stronger króna',
+  pp: 'the difference in percentage points of a rate or a share (a rate of 4% against 3% is +1 pp)',
+  'pp of GDP': 'the difference, in percentage points, of a ratio to nominal GDP: this month’s GDP at an annual rate, or GDP over the past 12 months, as the variable’s definition says. A ratio does not grow with the price level',
+  'pp of baseline GDP': 'the difference in a nominal amount, in % of baseline annual GDP (baseline GDP = 100). It is not divided by current GDP, so it grows with the price level',
+};
+
 /** A series the report follows: a headline or an indicator, as a level with a display transform. */
 export interface Tracked {
   id: Id;
   label: string;
-  /** Unit of the effect: '%', 'pp', 'pp of GDP'… */
+  /** Unit of the effect, a key of UNIT_MEANINGS. */
   unit: string;
   display: IndicatorDef['display'];
   gradual: boolean;
@@ -170,6 +190,7 @@ export interface ExpectationResult {
   sign: number;
   theory: string;
   source: string;
+  withCompanion: boolean;
   /** Mean effect over the window per matching run, and whether its sign is the expected one. */
   checks: { value: number; mode: string; mean: number; pass: boolean }[];
   /** True when every matching run passes (false when none matched). */
@@ -182,6 +203,8 @@ export interface LeverRun {
   label: string;
   roles: string[];
   mode: string;
+  /** True for a run on top of the lever's companion shock, measured against the companion alone. */
+  companion?: boolean;
   headlines: SeriesSummary[];
   indicators: SeriesSummary[];
   flags: Flag[];
@@ -205,9 +228,15 @@ export interface LeverSection {
   /** Modes in which the lever is hidden (LeverDef.showWhen) and therefore not run. */
   skipped: { mode: string; why: string }[];
   runs: LeverRun[];
-  /** Flags that compare runs: asymmetry of the moderate steps, and Manual against Automatic. */
-  crossFlags: (Flag & { mode?: string; value?: number })[];
+  /** The declared companion shock, and the runs on top of it (lever-headlines.ts). */
+  companion?: Companion & { label: string };
+  companionRuns: LeverRun[];
+  /** Flags that compare runs: asymmetry of the moderate steps, Manual against Automatic, and an
+   *  inert lever. `companion` marks those among the companion runs. */
+  crossFlags: CrossFlag[];
 }
+
+export type CrossFlag = Flag & { mode?: string; value?: number; companion?: boolean };
 
 export interface LeverReport {
   format: typeof LEVER_REPORT_FORMAT;
@@ -222,6 +251,13 @@ export interface LeverReport {
   indicators: { id: Id; label: string; unit: string }[];
   policy: PolicyInstrument[];
   missing: string[];
+  /** Units used in the report, with their meaning (UNIT_MEANINGS). */
+  units: { unit: string; meaning: string }[];
+  /** Indicators whose unit the report states differently from the model, with the reason. */
+  unitNotes: { id: Id; unit: string; why: string }[];
+  /** Rules with a non-additive combine (a min, a max, a cap) but no regime label: when their
+   *  kinks bind, the Regimes and Flicker flags cannot see it. */
+  untraced: Id[];
   /** The no-change run in each mode: its flags and largest move of a headline level from the
    *  baseline (it should stay flat). */
   noChange: { mode: string; flags: Flag[]; drift: number }[];
@@ -244,6 +280,8 @@ export interface LeverExpectation {
   sign: 1 | -1 | 0;
   theory: string;
   source: string;
+  /** Match the runs on top of the lever's companion shock instead of the plain runs. */
+  withCompanion?: boolean;
 }
 
 export interface LeverReportOptions {
@@ -271,7 +309,9 @@ const num = fmtEffect;
 /* ------------------------------------------------------------------ settings */
 
 const clean = (x: number) => Number(x.toFixed(10));
-const snap = (l: LeverDef, x: number) => clean(l.step ? Math.round(x / l.step) * l.step : x);
+/** `from` moved by `delta`, the distance snapped to the lever's step with halves rounded away
+ *  from zero, so a step up and a step down of the same distance mirror each other. */
+const stepFrom = (l: LeverDef, from: number, delta: number) => clean(from + Math.sign(delta) * (l.step ? l.step * Math.round(clean(Math.abs(delta) / l.step)) : Math.abs(delta)));
 const fmtValue = (x: number) => String(clean(x));
 
 /**
@@ -298,7 +338,7 @@ export function leverSettings(l: LeverDef): LeverSetting[] {
       hi = l.max ?? Math.abs(l.default);
     add(lo, 'min');
     add(hi, 'max');
-    const half = snap(l, l.default / 2);
+    const half = stepFrom(l, 0, l.default / 2);
     add(l.default, 'default');
     add(half, 'half');
     add(-l.default, '-default');
@@ -309,8 +349,8 @@ export function leverSettings(l: LeverDef): LeverSetting[] {
     add(lo, 'min');
     add(hi, 'max');
     const step = l.step ?? 0;
-    if (hi > l.default) add(Math.min(hi, Math.max(snap(l, l.default + (hi - l.default) / 4), l.default + step)), 'up');
-    if (lo < l.default) add(Math.max(lo, Math.min(snap(l, l.default - (l.default - lo) / 4), l.default - step)), 'down');
+    if (hi > l.default) add(Math.min(hi, Math.max(stepFrom(l, l.default, (hi - l.default) / 4), l.default + step)), 'up');
+    if (lo < l.default) add(Math.max(lo, Math.min(stepFrom(l, l.default, -(l.default - lo) / 4), l.default - step)), 'down');
   }
   const list = [...out.values()].sort((a, b) => a.value - b.value);
   for (const s of list) if (!s.label) s.label = `${fmtValue(s.value)} ${l.unit} (${s.roles.join(', ')})`;
@@ -383,7 +423,7 @@ export function trackedSeries(m: KModel, base: KernelEngine, spec: LeverReportSp
     return {
       id: ind.id,
       label: over.label ?? ind.label,
-      unit: effectUnit(ind.unit),
+      unit: spec.indicatorUnits?.[ind.id]?.unit ?? effectUnit(ind.unit),
       display: ind.display,
       gradual: !!over.gradual,
       policy: !!over.policy,
@@ -413,6 +453,8 @@ export function trackedSeries(m: KModel, base: KernelEngine, spec: LeverReportSp
       },
     };
   });
+  for (const t of [...headlines, ...indicators])
+    if (!(t.unit in UNIT_MEANINGS)) throw new Error(`lever report: '${t.id}' of model '${m.def.id}' has the unit '${t.unit}', which UNIT_MEANINGS in src/harness/lever-report.ts does not define`);
   return { headlines, indicators };
 }
 
@@ -493,6 +535,8 @@ interface Reference {
   mode: string;
   modeValue?: number;
   modeEvent?: ScenarioEvent;
+  /** The companion shock both runs share, if any. */
+  extra?: ScenarioEvent;
   engine: KernelEngine;
   headlines: Float64Array[];
   indicators: Float64Array[];
@@ -511,7 +555,8 @@ function ranges(months: number[]): [number, number][] {
   return out;
 }
 
-const listed = (xs: string[], max = 6) => (xs.length <= max ? xs.join(', ') : `${xs.slice(0, max).join(', ')} and ${xs.length - max} more`);
+/** Items joined with semicolons (each item may hold commas of its own). */
+const listed = (xs: string[], max = 6) => (xs.length <= max ? xs.join('; ') : `${xs.slice(0, max).join('; ')}; and ${xs.length - max} more`);
 
 /** Flags of the run's own health: non-finite values, residuals, signs, bounds. */
 function healthFlags(m: KModel, e: KernelEngine, bounds = plausibilityBounds(m)): Flag[] {
@@ -519,7 +564,7 @@ function healthFlags(m: KModel, e: KernelEngine, bounds = plausibilityBounds(m))
   const nf = firstNonFinite(m, e);
   if (nf) flags.push({ kind: 'nonFinite', detail: nf });
   const res = e.maxResiduals().filter((r) => !(r.residual <= LEVER_THRESHOLDS.residual));
-  if (res.length) flags.push({ kind: 'residual', detail: res.map((r) => `${r.id} ${r.residual.toExponential(2)}`).join(', ') });
+  if (res.length) flags.push({ kind: 'residual', detail: listed(res.map((r) => `${r.id} ${r.residual.toExponential(2)}`)) });
   const breaches = plausibilityBreaches(m, e, bounds);
   const signs = breaches.filter((b) => b.kind === 'sign'),
     bnd = breaches.filter((b) => b.kind === 'bound');
@@ -530,6 +575,8 @@ function healthFlags(m: KModel, e: KernelEngine, bounds = plausibilityBounds(m))
 
 /** The regime rules of a model, by rule index. */
 const regimeRules = (m: KModel) => m.rules.flatMap((r, j) => (r.regime ? [j] : []));
+/** Rules that combine their terms non-additively but carry no regime label. */
+export const untracedRules = (m: Pick<KModel, 'rules'>) => m.rules.filter((r) => r.combine && !r.regime).map((r) => r.id);
 
 function regimeHistory(e: KernelEngine, rules: number[]): (string | null)[][] {
   const out: (string | null)[][] = [];
@@ -634,13 +681,14 @@ function setup(def: ModelDef | KModel, months: number, specOverride?: LeverRepor
   };
 }
 
-/** The no-change run of one stabiliser mode. */
-function reference(S: Setup, mode: { label: string; event?: ScenarioEvent }, months: number): Reference {
-  const e = runScenario(S.base, mode.event ? [mode.event] : [], months).engine;
+/** The no-change run of one stabiliser mode, or the run with a companion shock alone. */
+function reference(S: Setup, mode: { label: string; event?: ScenarioEvent }, months: number, extra?: ScenarioEvent): Reference {
+  const e = runScenario(S.base, [...(mode.event ? [mode.event] : []), ...(extra ? [extra] : [])], months).engine;
   return {
     mode: mode.label,
     modeValue: mode.event?.value,
     modeEvent: mode.event,
+    extra,
     engine: e,
     headlines: S.headlines.map((h) => h.levels(e)),
     indicators: S.indicators.map((h) => h.levels(e)),
@@ -656,7 +704,7 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
   const { m, base, spec, headlines, indicators, horizons } = S;
   const expectations = opts.expectations !== undefined ? opts.expectations : readExpectations(m.def.id);
   const expResults: ExpectationResult[] | null = expectations
-    ? expectations.map((x) => ({ lever: x.lever, setting: x.setting, mode: x.mode ?? 'any', variable: x.variable, fromMonth: x.fromMonth, toMonth: x.toMonth, sign: x.sign, theory: x.theory, source: x.source, checks: [], pass: false }))
+    ? expectations.map((x) => ({ lever: x.lever, setting: x.setting, mode: x.mode ?? 'any', variable: x.variable, fromMonth: x.fromMonth, toMonth: x.toMonth, sign: x.sign, theory: x.theory, source: x.source, withCompanion: !!x.withCompanion, checks: [], pass: false }))
     : null;
 
   // the no-change run of each mode
@@ -674,10 +722,15 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
   const modeLever = m.def.stabiliserMode?.lever;
   const levers = m.levers.filter((l) => l.id !== modeLever && (!opts.levers || opts.levers.includes(l.id)));
   let runCount = 0;
+  const eventOf = (l: LeverDef, value: number): ScenarioEvent => (l.kind === 'oneoff' ? { t: 0, lever: l.id, value, fire: true } : { t: 0, lever: l.id, value });
   const sections: LeverSection[] = levers.map((l) => {
     const settings = leverSettings(l);
     const skipped: { mode: string; why: string }[] = [];
     const runs: LeverRun[] = [];
+    const companionRuns: LeverRun[] = [];
+    const comp = spec.companions?.[l.id];
+    const compLever = comp ? m.levers.find((x) => x.id === comp.lever) : undefined;
+    if (comp && !compLever) throw new Error(`lever report: the companion of '${l.id}' is '${comp.lever}', which is not a lever of model '${m.def.id}'`);
     for (const ref of refs) {
       if (hiddenIn(m, l, ref.modeValue)) {
         const w = l.showWhen!;
@@ -685,13 +738,24 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
         skipped.push({ mode: ref.mode, why: shownIn.length ? `the lever is shown only on ${shownIn.join(' and ')} (showWhen)` : `the lever is shown only when ${w.lever} is ${[w.equals].flat().join(' or ')} (showWhen)` });
         continue;
       }
+      const before = ref.modeEvent ? [ref.modeEvent] : [];
       for (const s of settings) {
-        const ev: ScenarioEvent = l.kind === 'oneoff' ? { t: 0, lever: l.id, value: s.value, fire: true } : { t: 0, lever: l.id, value: s.value };
-        const e = runScenario(base, ref.modeEvent ? [ref.modeEvent, ev] : [ev], months).engine;
+        const e = runScenario(base, [...before, eventOf(l, s.value)], months).engine;
         runCount++;
         runs.push(measureRun(S, e, ref, { lever: l, setting: s, paths: !!opts.paths, expResults }));
       }
+      if (comp && compLever) {
+        const extra = eventOf(compLever, comp.value);
+        const compRef = reference(S, { label: ref.mode, event: ref.modeEvent }, months, extra);
+        for (const s of settings) {
+          const e = runScenario(base, [...before, extra, eventOf(l, s.value)], months).engine;
+          runCount++;
+          companionRuns.push(measureRun(S, e, compRef, { lever: l, setting: s, paths: !!opts.paths, expResults }));
+        }
+      }
     }
+    const cross = crossFlags(l, settings, runs, headlines, horizons);
+    if (comp) cross.push(...crossFlags(l, settings, companionRuns, headlines, horizons).map((f) => ({ ...f, companion: true })));
     return {
       id: l.id,
       label: l.label,
@@ -706,7 +770,9 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
       settings,
       skipped,
       runs,
-      crossFlags: crossFlags(l, settings, runs, headlines, horizons),
+      ...(comp && compLever ? { companion: { ...comp, label: `${compLever.label} ${fmtValue(comp.value)} ${compLever.unit}` } } : {}),
+      companionRuns,
+      crossFlags: cross,
     };
   });
   if (expResults) for (const x of expResults) x.pass = x.checks.length > 0 && x.checks.every((c) => c.pass);
@@ -724,6 +790,9 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
     indicators: indicators.map((h) => ({ id: h.id, label: h.label, unit: h.unit })),
     policy: spec.policy,
     missing: spec.missing ?? [],
+    units: [...new Set([...headlines, ...indicators].map((t) => t.unit))].map((unit) => ({ unit, meaning: UNIT_MEANINGS[unit] })),
+    unitNotes: Object.entries(spec.indicatorUnits ?? {}).map(([id, x]) => ({ id, unit: x.unit, why: x.why })),
+    untraced: untracedRules(m),
     noChange,
     levers: sections,
     expectations: expResults,
@@ -761,6 +830,14 @@ function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): L
     });
   const headlines = measure(S.headlines, ref.headlines, true);
   const indicators = measure(S.indicators, ref.indicators, false);
+  // headlines far outside any routine response
+  const extreme: string[] = [];
+  S.headlines.forEach((tr, i) => {
+    const h = headlines[i];
+    const limit = tr.display === 'deviation-pct' ? LEVER_THRESHOLDS.extremePct : LEVER_THRESHOLDS.extremePp;
+    if (Math.abs(h.peak) > limit) extreme.push(`${tr.label} ${num(h.peak)} ${tr.unit} at month ${h.peakMonth}`);
+  });
+  if (extreme.length) flags.push({ kind: 'extreme', detail: listed(extreme, 5) });
   // policy instruments on Manual (or in a model without a stabiliser setting)
   if (ref.mode === 'Manual' || ref.mode === '') {
     const now = S.policySeries(e);
@@ -793,7 +870,7 @@ function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): L
 
   if (c.expResults && c.lever)
     for (const x of c.expResults) {
-      if (x.lever !== c.lever.id) continue;
+      if (x.lever !== c.lever.id || x.withCompanion !== !!ref.extra) continue;
       if (typeof x.setting === 'number' ? x.setting !== c.setting.value : !c.setting.roles.includes(x.setting)) continue;
       if (x.mode !== 'any' && x.mode !== ref.mode) continue;
       const path = effects.get(x.variable);
@@ -813,6 +890,7 @@ function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): L
     label: c.setting.label,
     roles: c.setting.roles,
     mode: ref.mode,
+    ...(ref.extra ? { companion: true } : {}),
     headlines,
     indicators,
     flags,
@@ -821,10 +899,14 @@ function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): L
   };
 }
 
-/** Flags that compare runs of one lever: the moderate up and down steps, and the two modes. */
-function crossFlags(l: LeverDef, settings: LeverSetting[], runs: LeverRun[], headlines: Tracked[], horizons: number[]): (Flag & { mode?: string; value?: number })[] {
+/** Flags that compare runs of one lever: an inert lever, the moderate up and down steps, and the
+ *  two modes. */
+function crossFlags(l: LeverDef, settings: LeverSetting[], runs: LeverRun[], headlines: Tracked[], horizons: number[]): CrossFlag[] {
   const T = LEVER_THRESHOLDS;
-  const out: (Flag & { mode?: string; value?: number })[] = [];
+  const out: CrossFlag[] = [];
+  const still = (x: SeriesSummary) => Math.abs(x.peak) < T.unmoved;
+  if (runs.length && runs.every((r) => r.headlines.every(still) && r.indicators.every(still)))
+    out.push({ kind: 'inert', detail: `none of its ${runs.length} runs moves a headline or an indicator by ${T.unmoved} or more in any month` });
   const at = (run: LeverRun, i: number, month: number) => {
     const k = horizons.indexOf(month);
     return k < 0 ? NaN : run.headlines[i].at[k];
