@@ -53,3 +53,40 @@ describe('Iceland model: the foreign interest rate (review E3)', () => {
     expect(pass).toBeLessThan(0.5);
   });
 });
+
+describe('Iceland model: the króna-shock lever does what its definition says (review M21)', () => {
+  test('−10: about 8% weaker by month 3, about half of that gone after a year, in either mode', () => {
+    for (const automatic of [false, true]) {
+      const krona = series(run('kronaShock', -10, automatic, 24), 'krona');
+      expect(krona[3]).toBeGreaterThan(-9);
+      expect(krona[3]).toBeLessThan(-7.5);
+      expect(Math.min(...krona.slice(1, 13))).toBeGreaterThan(-9);
+      expect(krona[12] / krona[3]).toBeGreaterThan(0.4);
+      expect(krona[12] / krona[3]).toBeLessThan(0.6);
+      expect(krona[24] / krona[3]).toBeLessThan(0.25); // most of it gone after two years
+    }
+  });
+});
+
+describe('Iceland model: fish and aluminium volumes follow their own price (review L12)', () => {
+  test('the fish-price and aluminium-price levers move volume the way their explanation says', () => {
+    // Volume ∝ (world price of the line in krónur ÷ domestic prices)^elasticity, smoothed at lamRer.
+    for (const [lever, line, elas] of [
+      ['fishPrices', 'Fish', 'eFish'],
+      ['aluminiumPrice', 'Aluminium', 'eAlu'],
+    ] as const) {
+      const e = run(lever, 20, false, 36);
+      const up = e.valueAt(`exportVolume${line}`, 36) / e.valueAt(`exportVolume${line}`, 0) - 1;
+      const k = e.influences(`exportVolume${line}`).params.find((p) => p.id === elas)!.value;
+      const profit = e.value(`profitability${line}`);
+      expect(profit).toBeGreaterThan(1.1);
+      expect(up).toBeCloseTo(Math.pow(profit, k) - 1, 6);
+    }
+  });
+
+  test('at a common world price the lines’ profitability equals the real exchange rate', () => {
+    const e = run('importPrices', 10, true, 24);
+    expect(e.value('profitabilityFish')).toBeCloseTo(e.value('realExchangeRate'), 12);
+    expect(e.value('profitabilityAluminium')).toBeCloseTo(e.value('realExchangeRate'), 12);
+  });
+});

@@ -104,12 +104,12 @@ export const centralBank: ModuleDef = {
       params: ['iFXR', 'iF0'],
       stocks: [['fxReserves', 'CB']],
       terms: terms(
-        ['normal', 'Normal yield on the reserves', undefined, (c) => c.p('iFXR') * c.stock('fxReserves', 'CB')],
-        ['foreignRate', 'Change in rates abroad', undefined, (c) => (c.v('foreignRate') - c.p('iF0')) * c.stock('fxReserves', 'CB')],
+        ['normal', 'Normal yield on the reserves', 'current-account', (c) => c.p('iFXR') * c.stock('fxReserves', 'CB')],
+        ['foreignRate', 'Change in rates abroad', 'carry-trade', (c) => (c.v('foreignRate') - c.p('iF0')) * c.stock('fxReserves', 'CB')],
       ),
       explain: {
         what: 'Interest and dividends the central bank earns on its foreign reserves.',
-        rule: 'Income = (normal reserve yield {iFXR%} + the change in the foreign interest rate since normal, {iF0%}) × the reserves’ value in krónur. Reserves are held in foreign bonds and deposits, so their yield follows rates abroad.',
+        rule: 'Income = (the normal reserve yield {iFXR%} + (the foreign interest rate − its normal level {iF0%})) × the reserves’ value in krónur. Reserves are held in foreign bonds and deposits, so their yield follows rates abroad point for point.',
       },
     },
     {

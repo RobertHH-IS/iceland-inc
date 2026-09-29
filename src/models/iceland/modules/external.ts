@@ -6,9 +6,10 @@
  * balance) and sentiment. Parity is a slow anchor: the target follows domestic prices at once, but
  * world prices only as a slowly moving anchor absorbs them, over years. Each exporter sells one export line (decision 0003): fish
  * and aluminium are priced in foreign currency at their own world prices, tourism and other
- * exports in krónur. Volumes react to the real exchange rate, tourism most and aluminium least:
- * for tourism and other exports because a weaker króna makes them cheaper abroad, for fish and
- * aluminium, which sell at world prices, because it makes them more profitable in krónur.
+ * exports in krónur. Volumes react to relative prices, tourism most and aluminium least: for
+ * tourism and other exports to the real exchange rate, because a weaker króna makes them cheaper
+ * abroad; for fish and aluminium, which sell at world prices, to their own world price in krónur
+ * against domestic costs, because that is what makes them more profitable.
  * Imports are split by what they are for and who pays for them, and each exporter buys domestic
  * inputs from retail and service firms. Foreign assets are revalued when the króna moves, and
  * non-resident carry traders buy or sell government bonds as the rate gap changes.
@@ -34,21 +35,48 @@ const DEMAND: Record<string, { params: Id[]; f: (c: Ctx) => number; label: strin
   Other: { params: ['foreignDemandShift'], f: (c) => 1 + c.p('foreignDemandShift'), label: 'Foreign demand', rule: ' × (1 + the foreign-demand lever)', why: 'buyers in competitive markets react strongly' },
 };
 
+/** What a line priced abroad earns in krónur against domestic costs, smoothed like the real
+ *  exchange rate (1 at baseline): the world price of fish or aluminium × the exchange rate ÷
+ *  domestic prices. */
+const profitabilityOf = (k: string) => `profitability${k}`;
+
 const exportRules: RuleDef[] = EXPORTS.flatMap(([k, seller, base0, elas, what, price]): RuleDef[] => [
+  ...(price
+    ? [
+        {
+          id: profitabilityOf(k),
+          target: profitabilityOf(k),
+          category: 'BEHAVIOUR',
+          inputs: ['exchangeRate', price, 'domesticPrice'],
+          adjust: { speed: 'lamRer', form: 'exponential' },
+          terms: terms([
+            'relativePrice',
+            `World ${k === 'Fish' ? 'fish' : 'aluminium'} price in krónur ÷ domestic prices`,
+            'real-exchange-rate',
+            (c) => (c.v('exchangeRate') * c.v(price)) / c.v('domesticPrice'),
+          ]),
+          concepts: ['real-exchange-rate', 'export-sectors'],
+          explain: {
+            what: `How well exporting ${what} pays: what the ${FIRM_NAME[seller]}’ sales earn in krónur against their costs at home (1 at baseline).`,
+            rule: `Moves toward the world ${k === 'Fish' ? 'fish' : 'aluminium'} price × the exchange rate ÷ domestic prices at speed {lamRer} a year, as the real exchange rate does: producers take time to respond.`,
+          },
+        } satisfies RuleDef,
+      ]
+    : []),
   {
     id: `exportVolume${k}`,
     target: `exportVolume${k}`,
     category: 'BEHAVIOUR',
-    inputs: ['realExchangeRate'],
+    inputs: [price ? profitabilityOf(k) : 'realExchangeRate'],
     params: [base0, elas, ...DEMAND[k].params],
     terms: terms(
       ['normal', 'Baseline volume', undefined, (c) => c.p(base0)],
       ['demand', DEMAND[k].label, 'export-sectors', DEMAND[k].f],
       [
         'competitiveness',
-        price ? 'Profitability: world prices in krónur ÷ domestic prices' : 'Real exchange rate',
+        price ? `Profitability: the world ${k === 'Fish' ? 'fish' : 'aluminium'} price in krónur ÷ domestic prices` : 'Real exchange rate',
         'real-exchange-rate',
-        (c) => Math.pow(Math.max(1e-6, c.v('realExchangeRate')), c.p(elas)),
+        (c) => Math.pow(Math.max(1e-6, c.v(price ? profitabilityOf(k) : 'realExchangeRate')), c.p(elas)),
       ],
     ),
     combine: (t) => t.normal * Math.max(0, t.demand) * t.competitiveness,
@@ -56,7 +84,7 @@ const exportRules: RuleDef[] = EXPORTS.flatMap(([k, seller, base0, elas, what, p
     explain: {
       what: `Volume of ${what} exports, sold by ${FIRM_NAME[seller]}, at baseline prices.`,
       rule: price
-        ? `Volume = baseline {${base0}}${DEMAND[k].rule} × (real exchange rate)^{${elas}}. ${FIRM_NAME[seller][0].toUpperCase() + FIRM_NAME[seller].slice(1)} sell at world prices in foreign currency, so a weaker real króna does not make their ${what} cheaper abroad; it raises what they earn in krónur compared with their costs at home, which lifts volume a little. ${DEMAND[k].why[0].toUpperCase() + DEMAND[k].why.slice(1)}.`
+        ? `Volume = baseline {${base0}}${DEMAND[k].rule} × (profitability)^{${elas}}, where profitability is the world ${k === 'Fish' ? 'fish' : 'aluminium'} price in krónur ÷ domestic prices. ${FIRM_NAME[seller][0].toUpperCase() + FIRM_NAME[seller].slice(1)} sell at world prices in foreign currency, so a weaker króna does not make their ${what} cheaper abroad; it raises what they earn in krónur compared with their costs at home, as a higher world ${k === 'Fish' ? 'fish' : 'aluminium'} price does, which lifts volume a little. ${DEMAND[k].why[0].toUpperCase() + DEMAND[k].why.slice(1)}.`
         : `Volume = baseline {${base0}}${DEMAND[k].rule} × (real exchange rate)^{${elas}}. A weaker real króna makes Icelandic ${what} cheaper abroad; ${DEMAND[k].why}.`,
     },
   },
@@ -123,6 +151,9 @@ const vars: VarDef[] = [
   { id: 'logExchangeRate', label: 'Exchange rate (log)', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0 },
   { id: 'exchangeRate', label: 'Exchange rate', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Krónur per unit of foreign currency (1 at baseline); up means a weaker króna.' },
   { id: 'realExchangeRate', label: 'Real exchange rate (as trade sees it)', unit: 'index', kind: 'price', scale: 'none', initial: 1, description: 'Foreign prices in krónur ÷ domestic prices, smoothed; up means Iceland is cheaper.' },
+  ...EXPORTS.flatMap(([k, , , , what, price]): VarDef[] =>
+    price ? [{ id: profitabilityOf(k), label: `Profitability of ${what} exports`, unit: 'index', kind: 'price', scale: 'none', initial: 1, description: `The world price of ${what} in krónur ÷ domestic prices, smoothed; up means exporting ${what} pays better.` }] : [],
+  ),
   ...EXPORTS.flatMap(([k, , , , what]): VarDef[] => [
     { id: `exportVolume${k}`, label: `Exports of ${what} (real)`, unit: '% of GDP/yr', kind: 'quantity', scale: 'real' },
     { id: `exports${k}`, label: `Exports of ${what}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
@@ -213,7 +244,7 @@ export const external: ModuleDef = {
       concepts: ['floating-exchange-rate'],
       explain: {
         what: 'A shift in what investors think the króna is worth, with no change in fundamentals. Positive means they want fewer krónur.',
-        rule: 'Sentiment = last month’s sentiment × e^(−{lamSent} × one month) + any new shock: a shock fades at about 10% of its size a year.',
+        rule: 'Sentiment = last month’s sentiment, less a small share of it ({lamSent} a year: about 0.8% a month, 10% a year), + any new shock. A shock fades slowly: after five years about 60% of it is left.',
       },
     },
     {
@@ -264,7 +295,7 @@ export const external: ModuleDef = {
       concepts: ['floating-exchange-rate', 'purchasing-power-parity'],
       explain: {
         what: 'The exchange rate in logs: krónur per unit of foreign currency. Up means a weaker króna.',
-        rule: 'Moves toward a target at speed {lamFX} a year. Target = log of domestic prices − the world prices the króna has adjusted to (purchasing-power parity: in the long run the króna keeps Icelandic goods as dear as before; it follows domestic prices at once, so domestic inflation does not change the real exchange rate for long, but absorbs a change in world prices only over years, at {lamPPP} a year) + sentiment − {betaI} × the rate gap with abroad (carry traders buy krónur for higher rates). The rate gap is the key rate above its normal nominal level (the neutral real rate {i0%} + the inflation target {piT%}) minus the foreign rate above its normal {iF0%} + {betaH} × log of non-residents’ real króna holdings relative to normal (they want paying to hold more).',
+        rule: 'Moves toward a target at speed {lamFX} a year, about 63% of the way each month. Target = log of domestic prices − the world prices the króna has adjusted to + sentiment − {betaI} × the rate gap with abroad + {betaH} × log of non-residents’ real króna holdings relative to normal. The first two are purchasing-power parity: in the long run the króna keeps Icelandic goods as dear as before, so it follows domestic prices at once, but absorbs a change in world prices only over years, at {lamPPP} a year. The rate gap term is the carry trade: when Icelandic rates are high compared with rates abroad, investors buy krónur, so the króna is stronger. The holdings term is portfolio balance: the more krónur non-residents already hold, the cheaper the króna must be before they will hold more. The rate gap is the key rate above its normal level (the neutral real rate {i0%} + the inflation target {piT%}) minus the foreign interest rate above its normal level {iF0%}.',
       },
     },
     {
@@ -611,7 +642,7 @@ export const external: ModuleDef = {
       step: 1,
       description: 'A one-off shift in what investors think the króna is worth. Negative means a weaker króna.',
       definition:
-        'One-off shift in the króna’s target value by this percentage (−10: about 10% weaker), fired once. It then fades at about 10% of its size a year; the króna itself moves toward the shifted target within a few months, and prices, rates and trade respond.',
+        'One-off shift in the króna’s target value by this percentage (−10: a target 10% weaker), fired once. The króna falls by most of it within a quarter (−10: about 8% by month 3). Then the rate gap and non-residents’ holdings pull it back, so about half the fall is gone after a year (about 4% weaker at month 12) and most of it after two. The shift in the target itself fades at about 10% of its size a year. Prices, rates and trade respond.',
       concepts: ['floating-exchange-rate', 'exchange-rate-pass-through'],
       fire: (s, size) => s.setLagged('sentimentShock', s.get('sentimentShock') - Math.log(1 + size / 100)),
     },
