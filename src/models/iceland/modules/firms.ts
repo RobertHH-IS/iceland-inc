@@ -21,7 +21,8 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { EXPORT_OF, FIRMS, FIRM_NAME, isExporter, lastMonth, pickParams, stepsIn, sum, sumTerms, terms, type Firm } from '../util.ts';
+import { stepByStep, stepsAMonth } from '../testing.ts';
+import { EXPORT_OF, FIRMS, FIRM_NAME, gapRate, isExporter, lastMonth, pickParams, stepsIn, sum, sumTerms, terms, type Firm } from '../util.ts';
 
 /** Labour cost of a sector: wage × employment × (1 + employer contribution + payroll tax). Ids are
  *  built once per sector, not on every evaluation: several of these rules sit in the income–spending
@@ -317,6 +318,11 @@ function dividendsRule(j: Firm): RuleDef {
     return least;
   };
   const wanted = (t: Record<Id, number>) => fromProfit(t) + t.debt + t.spare;
+  // Spare cash is named once it is material, deposits more than 1% above their usual level:
+  // deposits that follow their target as a first-order lag (the borrowing rule) sit a hair above it
+  // after many shocks, and a label for a payout of a millionth of GDP switched on and off
+  // (decision 0011).
+  const SPARE_MATERIAL = 0.01;
   return {
     id: `dividends${j}`,
     target: `dividends${j}`,
@@ -346,7 +352,7 @@ function dividendsRule(j: Firm): RuleDef {
           ? 'Owners put money in: debt above normal'
           : t.normal + t.profits < 0
             ? 'Profits too low to pay out'
-            : t.spare > 1e-9
+            : t.spare > SPARE_MATERIAL * c.p('paySpare') * c.p(dep0) * lastMonth(c, 'nominalGDP')
               ? 'Pays out spare cash'
               : null,
     concepts: ['stock-flow-consistency', 'minsky-instability'],
@@ -413,7 +419,7 @@ function firmRules(j: Firm): RuleDef[] {
         ['tax', 'Corporate tax', undefined, (c) => c.v(`corporateTax${j}`)],
         ['dividends', 'Dividends', undefined, (c) => c.v(`dividends${j}`)],
         ['profit', 'Profit', 'profit-squeeze', (c) => -c.v(`profits${j}`)],
-        ['cash', 'Restore target deposits', 'endogenous-money', (c) => c.p('firmCashSpeed') * (c.p(`dep${j}0`) * c.v('nominalGDP') - c.stock('deposits', j))],
+        ['cash', 'Restore target deposits', 'endogenous-money', (c) => gapRate(c.p('firmCashSpeed'), c.dt) * (c.p(`dep${j}0`) * c.v('nominalGDP') - c.stock('deposits', j))],
       ),
       // A firm can repay no more than it owes: once its loans are paid off, spare cash stays in
       // its deposits rather than turning the loan into a claim on the bank.
@@ -422,7 +428,7 @@ function firmRules(j: Firm): RuleDef[] {
       concepts: ['endogenous-money'],
       explain: {
         what: `New bank loans ${who} take (negative: repay). Each loan creates a deposit; each repayment destroys one.`,
-        rule: `Borrowing = investment + corporate tax + dividends − profit (the cash they are short of this month) + {firmCashSpeed} × a year of any shortfall of deposits below {dep${j}0} of GDP. At {firmCashSpeed} a year the gap closes within about a month. They never repay more than they owe: once their loans are paid off, spare cash stays in their deposits.`,
+        rule: `Borrowing = investment + corporate tax + dividends − profit (the cash they are short of this month) + what closes any shortfall of deposits below {dep${j}0} of GDP at speed {firmCashSpeed} a year: about 63% of it within a month, 95% within a quarter. They never repay more than they owe: once their loans are paid off, spare cash stays in their deposits.`,
       },
     },
   ];
@@ -600,7 +606,7 @@ export const firms: ModuleDef = {
       },
       explain: {
         what: 'GDP over the past 12 months. Official statistics divide debts by the GDP of the past year, not by this month’s pace, which runs ahead of it while prices are rising.',
-        rule: 'Trailing GDP = the average of GDP (at an annual rate) in this month and the 11 months before it.',
+        rule: 'Trailing GDP = the average of GDP (at an annual rate) over the past 12 months, this month included: over every step of them, two a month.',
       },
     },
   ],
@@ -696,16 +702,30 @@ export const firms: ModuleDef = {
     },
     {
       id: 'firms-keep-target-deposits',
-      label: 'After a shock firms borrow so that their deposits stay at their target share of GDP',
+      label: 'After a shock firms borrow so that their deposits follow their target share of GDP: each kernel step closes the share 1 − e^(−firmCashSpeed × step) of the gap, and six months after a 10% wage settlement they are within half a percent of it',
       run: (e) => {
-        e.fire('wageSettlement', 10);
-        e.step(6);
-        const ke = e as unknown as { stock(i: string, p: string): number };
-        const out = (['FR', 'XT'] as const).map((j) => {
-          const want = e.influences(`borrowing${j}`).params.find((p) => p.id === `dep${j}0`)!.value * e.value('nominalGDP');
-          return { j, want, got: ke.stock('deposits', j) };
+        const firms = ['FR', 'XT'] as const;
+        const { engine: f, steps } = stepByStep(e, (r) => ({ gdp: r.value('nominalGDP'), dep: firms.map((j) => r.stock('deposits', j)) }));
+        const p = (j: Firm, id: string) => e.influences(`borrowing${j}`).params.find((q) => q.id === id)!.value;
+        f.fire('wageSettlement', 10);
+        f.step(6);
+        // since decision 0011 the gap closes at speed firmCashSpeed as a first-order lag, whatever the
+        // step, rather than all at once each step
+        const keep = Math.exp(-p('FR', 'firmCashSpeed') * (f.model.def.dt / stepsAMonth(f)));
+        let worst = 0;
+        firms.forEach((j, k) => {
+          let before = f.baseStock('deposits', j);
+          for (const x of steps) {
+            const target = p(j, `dep${j}0`) * x.gdp;
+            worst = Math.max(worst, Math.abs(target - x.dep[k] - keep * (target - before)));
+            before = x.dep[k];
+          }
         });
-        return { pass: out.every((x) => Math.abs(x.got - x.want) < 1e-6 * Math.abs(x.want) + 1e-3), detail: out.map((x) => `${x.j}: deposits ${x.got.toFixed(4)} vs target ${x.want.toFixed(4)}`).join('; ') };
+        const out = firms.map((j) => ({ j, want: p(j, `dep${j}0`) * f.value('nominalGDP'), got: f.stock('deposits', j) }));
+        return {
+          pass: worst < 1e-9 && out.every((x) => Math.abs(x.got - x.want) < 0.005 * Math.abs(x.want)),
+          detail: `${out.map((x) => `${x.j}: deposits ${x.got.toFixed(4)} vs target ${x.want.toFixed(4)}`).join('; ')}; largest step off the lag ${worst.toExponential(1)}`,
+        };
       },
     },
     {

@@ -31,6 +31,9 @@ export interface HarnessOptions {
   extremeMonths: number;
   /** Replace the expectations the model declares (tests); null: as if it declared none. */
   expectations?: LeverExpectation[] | null;
+  /** The full run (`--full`, before a merge): the half-step test also runs four times the
+   *  sub-steps, measures each check's order of convergence and gates on the limit at that order. */
+  full?: boolean;
 }
 
 export interface LayerResult {
@@ -48,6 +51,7 @@ export interface HarnessResult {
   label: string;
   pass: boolean;
   layers: LayerResult[];
+  /** Microseconds a shocked month, each of ModelDef.substeps kernel steps. */
   microsPerStep: number;
   /** What the step timing ran: the shock, how many fresh runs of how many months, and the most
    *  solver iterations in a month (above 1 shows the shock kept the simultaneous block working). */
@@ -57,10 +61,17 @@ export interface HarnessResult {
 }
 
 export const DRIFT_TOL = 1e-9;
-export const HALF_STEP_TOL = 0.1; // relative change of each continuous calibration measure
-/** For a measure near zero a relative change means little, so the change may also be as large as
- *  HALF_STEP_TOL × HALF_STEP_BAND of the width of the check's range (when both ends are finite). */
-export const HALF_STEP_BAND = 0.5;
+export const HALF_STEP_TOL = 0.1; // relative change of a measure whose range is open on one side
+/** A measure with a bounded range may move by this share of the range's width when the step is
+ *  halved, whatever its value: the range is the scale on which the check judges it, and a ratio
+ *  near zero (a real variable back to baseline) is judged no more strictly than one far from it. */
+export const HALF_STEP_WIDTH = 0.1;
+/** Slack, as a share of the range's width, when the estimated continuous-time limit is compared
+ *  with the range (rounding in drift measures near zero). */
+export const LIMIT_SLACK = 0.01;
+/** The orders of convergence at which the full run trusts its limit (decision 0011); outside
+ *  them a measure's limit is only indicative (CalibrationCheck.limitIndicative). */
+export const ORDER_BAND: [number, number] = [0.5, 2];
 /** A timing measure (CalibrationCheck.kind 'timing', in whole quarters) may move by one quarter. */
 export const HALF_STEP_TIMING_TOL = 1;
 export const SOLVER_TOL_TOL = 1e-6; // indicator change when the solver tolerance is loosened
@@ -72,13 +83,41 @@ const verdict = (ok: boolean) => (ok ? 'PASS' : 'FAIL');
 /**
  * How far a calibration measure moved when the time step was halved, as a share of what is
  * allowed (at most 1 passes; NaN fails). A timing measure may move by HALF_STEP_TIMING_TOL
- * quarters; any other by HALF_STEP_TOL of its value, or of HALF_STEP_BAND × the width of its
- * range when that is larger (a measure near zero).
+ * quarters; a measure with a bounded range by HALF_STEP_WIDTH of the range's width; any other by
+ * HALF_STEP_TOL of its value.
  */
 export function halfStepShare(c: CalibrationCheck, v: number, vh: number): number {
   if (c.kind === 'timing') return Math.abs(vh - v) / HALF_STEP_TIMING_TOL;
   const width = Number.isFinite(c.range[0]) && Number.isFinite(c.range[1]) ? c.range[1] - c.range[0] : 0;
-  return Math.abs(vh - v) / Math.max(Math.abs(v), HALF_STEP_BAND * width, 1e-9) / HALF_STEP_TOL;
+  if (width > 0) return Math.abs(vh - v) / (HALF_STEP_WIDTH * width);
+  return Math.abs(vh - v) / Math.max(Math.abs(v), 1e-9) / HALF_STEP_TOL;
+}
+
+/**
+ * The model's answer as the step goes to zero, estimated by Richardson extrapolation from the
+ * standard step h and half of it: with an error ∝ h^p the limit is v(h/2) + (v(h/2) − v(h)) ÷
+ * (2^p − 1), and v(h) − limit is the standard step's own error. The kernel is first order, so the
+ * default is p = 1: 2 × v(h/2) − v(h).
+ */
+export const stepLimit = (v: number, vh: number, p = 1): number => vh + (vh - v) / (2 ** p - 1);
+
+/** The observed order of convergence from three steps h, h/2, h/4: log2(|v − vh| ÷ |vh − vq|).
+ *  NaN when a difference is below 1e-12 (the measure does not move with the step). */
+export function observedOrder(v: number, vh: number, vq: number): number {
+  const a = Math.abs(v - vh),
+    b = Math.abs(vh - vq);
+  return a > 1e-12 && b > 1e-12 ? Math.log2(a / b) : NaN;
+}
+
+/** Is the observed order one the full run trusts for its limit? */
+export const orderTrusted = (p: number): boolean => p >= ORDER_BAND[0] && p <= ORDER_BAND[1];
+
+/** Is the estimated continuous-time limit inside the check's range (with LIMIT_SLACK)? */
+export function limitInRange(c: CalibrationCheck, lim: number): boolean {
+  if (c.kind === 'timing') return true;
+  const [lo, hi] = c.range;
+  const slack = Number.isFinite(lo) && Number.isFinite(hi) ? LIMIT_SLACK * (hi - lo) : 0;
+  return lim >= lo - slack && lim <= hi + slack;
 }
 
 /**
@@ -377,61 +416,91 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       '',
     );
   }
-  // 6c. half-step sensitivity
+  // 6c. half-step sensitivity, the estimated continuous-time limit and (full run) the order
   {
     const rows: string[] = [];
-    let worstRel = 0,
-      worstQuarters = 0;
+    let worstShare = 0,
+      worstQuarters = 0,
+      limitsOut = 0,
+      indicative = 0;
     let ok = true;
-    let half: KernelEngine | null = null;
-    try {
-      half = createEngine({ ...def, dt: def.dt / 2 }, { onCheckFailure: 'throw' });
-    } catch (err) {
-      ok = false;
-      rows.push(`| (half-step model) | | | threw: ${(err as Error).message} | FAIL |`);
-    }
+    const n = def.substeps ?? 1;
+    const ks = opts.full ? [2, 4] : [2];
+    const engines = ks.map((k) => {
+      try {
+        return createEngine({ ...def, substeps: n * k }, { onCheckFailure: 'throw' });
+      } catch (err) {
+        ok = false;
+        rows.push(`| (${n * k} sub-steps a month) | | | | | | | threw: ${(err as Error).message} | FAIL |`);
+        return null;
+      }
+    });
+    // k times the sub-steps a month: the same months, events and measures, at 1/k of the kernel step
+    const refined = (c: CalibrationCheck, k: number, eng: KernelEngine): number => c.measure(run(`${n * k} sub-steps ${c.id}`, c.scenario, c.months, eng));
+    const [half, quarter] = engines;
     if (half)
       calib.forEach((c, j) => {
         let vh = NaN,
+          vq = NaN,
           note = '';
         try {
-          const events = c.scenario.map((e) => ({ ...e, t: e.t * 2 }));
-          const r = run(`half-step ${c.id}`, events, c.months * 2, half);
-          // The engine lets a measure's own comparison run (calibration.ts fundsFinancedRun) use the same step.
-          const sub: RunResult & { engine: KernelEngine } = {
-            months: c.months,
-            series: (id) => r.series(id).filter((_, t) => t % 2 === 0),
-            value: (id, month) => r.value(id, month * 2),
-            engine: r.engine,
-          };
-          vh = c.measure(sub);
+          vh = refined(c, 2, half);
+          if (quarter) vq = refined(c, 4, quarter);
         } catch (err) {
           note = ` (threw: ${(err as Error).message})`;
         }
         const v = measures[j];
         const share = halfStepShare(c, v, vh);
-        const pass = share <= 1;
-        ok &&= pass;
-        let change: string;
+        let pass = share <= 1;
+        let limitCell = '',
+          errorCell = '',
+          orderCell = '',
+          why = '';
         if (c.kind === 'timing') {
           worstQuarters = Math.max(worstQuarters, Math.abs(vh - v));
-          change = `${f(vh - v, 0)} quarter(s)`;
         } else {
-          const rel = share * HALF_STEP_TOL;
-          worstRel = Math.max(worstRel, Number.isNaN(rel) ? Infinity : rel);
-          change = `${f(100 * rel, 1)}%`;
+          worstShare = Math.max(worstShare, Number.isNaN(share) ? Infinity : share);
+          // the order: measured by the full run; the default run takes the kernel's first order
+          const p = opts.full ? observedOrder(v, vh, vq) : NaN;
+          const still = Math.abs(v - vh) <= 1e-12; // the measure does not move with the step
+          const trusted = still || !opts.full ? true : orderTrusted(p);
+          const lim = still ? v : stepLimit(v, vh, opts.full && trusted ? p : 1);
+          const gated = opts.full ? trusted : !c.limitIndicative;
+          const limOk = limitInRange(c, lim);
+          limitCell = f(lim);
+          errorCell = f(v - lim);
+          orderCell = opts.full ? (still ? 'none' : f(p, 2)) : '';
+          if (!gated) {
+            indicative++;
+            why = ' (limit indicative, not gated)';
+            if (opts.full && !c.limitIndicative) {
+              pass = false;
+              why = ` (order outside ${ORDER_BAND[0]}–${ORDER_BAND[1]}: declare limitIndicative)`;
+            }
+          } else if (!limOk) {
+            limitsOut++;
+            pass = false;
+            why = ' (limit outside range)';
+          }
         }
-        rows.push(`| ${c.id} | ${f(v)} | ${f(vh)}${note} | ${change} | ${verdict(pass)} |`);
+        ok &&= pass;
+        const change = c.kind === 'timing' ? `${f(vh - v, 0)} quarter(s)` : `${f(share, 2)} of allowed`;
+        rows.push(`| ${c.id} | ${f(v)} | ${f(vh)}${note} |${opts.full ? ` ${f(vq)} |` : ''} ${change} | ${limitCell} | ${errorCell} |${opts.full ? ` ${orderCell} |` : ''} ${verdict(pass)}${why} |`);
       });
     pass6 &&= ok;
-    sum6.push(`half-step ${f(100 * worstRel, 1)}%${calib.some((c) => c.kind === 'timing') ? ` and ${f(worstQuarters, 0)} quarter(s)` : ''}`);
+    sum6.push(`half-step share ${f(worstShare, 2)}${calib.some((c) => c.kind === 'timing') ? ` and ${f(worstQuarters, 0)} quarter(s)` : ''}, ${limitsOut} limit(s) outside range${indicative ? `, ${indicative} indicative` : ''}${opts.full ? ' (full run)' : ''}`);
+    const declared = calib.filter((c) => c.limitIndicative);
     body6.push(
-      '### Half-step sensitivity',
+      '### Half-step sensitivity and the continuous-time limit',
       '',
-      `Each calibration scenario rerun with half the time step (dt = ${def.dt / 2}). A timing measure (the quarter of a peak or trough) may move by ${HALF_STEP_TIMING_TOL} quarter; any other measure by at most ${100 * HALF_STEP_TOL}% of its value, or ${100 * HALF_STEP_TOL * HALF_STEP_BAND}% of the width of its target range when that is larger (a measure near zero). ${verdict(ok)}.`,
+      `Each calibration scenario rerun with half the kernel step: ${2 * n} sub-steps a month instead of ${n}${opts.full ? `, and a quarter of it (${4 * n})` : ''}. A timing measure (the quarter of a peak or trough) may move by ${HALF_STEP_TIMING_TOL} quarter; a measure with a bounded range by ${100 * HALF_STEP_WIDTH}% of the range's width, whatever its value; any other measure by ${100 * HALF_STEP_TOL}% of its value. The kernel is first order, so v(h/2) + (v(h/2) − v(h)) estimates the answer as the step goes to zero (Richardson), and that limit must lie inside the check's range too, with ${100 * LIMIT_SLACK}% of its width as slack. ${
+        opts.full
+          ? `This is the full run: the third run gives each measure's observed order of convergence p, and the limit is taken at that order, v(h/2) + (v(h/2) − v(h)) ÷ (2^p − 1). Where p is outside ${ORDER_BAND[0]}–${ORDER_BAND[1]} (a peak or trough whose month moves with the step) the limit is only indicative and is not gated; such a measure must say so (CalibrationCheck.limitIndicative), so the default run knows.`
+          : `The default run takes the order to be 1 and skips the third run; \`bun run harness --full\` measures it (decision 0011).`
+      }${declared.length ? ` Limits declared indicative by the last full run: ${declared.map((c) => `${c.id} (${c.limitIndicative})`).join('; ')}.` : ''} ${verdict(ok)}.`,
       '',
-      '| Check | dt | dt / 2 | Change | Verdict |',
-      '|---|---|---|---|---|',
+      opts.full ? '| Check | step h | h / 2 | h / 4 | Change | Limit | Error at h | Order | Verdict |' : '| Check | step h | h / 2 | Change | Limit | Error at h | Verdict |',
+      opts.full ? '|---|---|---|---|---|---|---|---|---|' : '|---|---|---|---|---|---|---|',
       ...rows,
       '',
     );

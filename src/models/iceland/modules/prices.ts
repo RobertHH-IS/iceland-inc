@@ -72,7 +72,7 @@ export const prices: ModuleDef = {
       initial: 1,
       description: 'The CPI without its housing part: domestic and imported goods and services with VAT (1 at baseline). It turns household spending into a volume.',
     },
-    { id: 'inflation', label: 'Inflation (this month, annualised)', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: 0 },
+    { id: 'inflation', label: 'Inflation (right now, annualised)', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: 0 },
     { id: 'inflation12', label: 'Inflation (12 months)', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0 },
     { id: 'inflation12ExTax', label: 'Inflation at constant VAT (12 months)', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'How much consumer prices at constant VAT rose over the past 12 months.' },
     { id: 'adaptiveInflation', label: 'Remembered inflation', unit: 'fraction/yr', kind: 'expectation', scale: 'none', initial: 0, description: 'A slowly updated average of recent inflation.' },
@@ -257,7 +257,7 @@ export const prices: ModuleDef = {
       inputs: ['cpi'],
       lagInputs: ['cpi'],
       compute: (c) => Math.log(c.v('cpi') / c.lag('cpi')) / c.dt,
-      explain: { what: 'How fast consumer prices rose this month, at an annual rate.', rule: 'Inflation = log change in the CPI this month ÷ one month.' },
+      explain: { what: 'How fast consumer prices are rising at the end of the month, at an annual rate.', rule: 'Inflation = log change in the CPI over the model’s last step ÷ its length (half a month: the model takes each month in two steps).' },
     },
     {
       id: 'inflation12',

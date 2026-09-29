@@ -97,13 +97,16 @@ Non-additive rules (a `min` of caps, a product) set `nonAdditive: true`. They sh
 
 Lagged inputs never create loops, so gradual adjustment is also the cheapest way to keep a model explicit. The compiler warns about unused parameters, variables without history, levers bound to nothing and concepts referenced but not defined.
 
-### 4.2 One step (one month)
+### 4.2 One month
 
 1. Apply the lever events scheduled for this month (settings change parameters or exogenous variables; one-offs call `fire` through the restricted `ShockApi`).
-2. Evaluate the schedule in order. Simultaneous blocks are solved by Gauss–Seidel iteration to tolerance, with Newton as a fallback. Record every term, the desired value and the regime.
-3. Post every leg (amount × dt) through the **payment system** and the posting rules.
-4. Run the accounting checks, and the position-sign diagnostic beside them.
-5. Record history: variables, legs, terms and indicators. Take a full-state snapshot every 12 months for fast `seek`.
+2. Take the month in N kernel steps (`ModelDef.substeps`, 1 by default; the Iceland model takes 2), each of dt ÷ N and each complete:
+   - evaluate the schedule in order, solving simultaneous blocks by Gauss–Seidel iteration to tolerance, with Newton as a fallback, and record every term, the desired value and the regime;
+   - post every leg (amount × dt ÷ N) through the **payment system** and the posting rules;
+   - run the accounting checks, and the position-sign diagnostic beside them.
+3. Record the month: variables, stocks and indicators at its end; each leg as the month's total ÷ dt (its average annual rate); each term as its rule says (a change per step summed over the month, a level carried in at the month's first step, anything else at its last); each regime if it held in any step, flagged when it switched; and the worst residual of the steps. Take a full-state snapshot every 12 months for fast `seek`.
+
+The model is a continuous-time economy observed monthly: speeds are per year, adjustment is the exact first-order lag, behavioural information lags are a month. The kernel's first-order error halves with each halving of the step, so more steps a month bring the answer closer to the continuous-time one without changing what a month shows (decision [0011](decisions/0011-sub-steps.md)).
 
 ### 4.3 The payment system
 
@@ -115,7 +118,7 @@ Every cash leg settles according to each side's `settlement`:
 
 Because this is implemented once, *money creation is never computed by a formula*. It emerges from who pays whom. The same mortgage creates money when a bank lends it and moves existing money when a pension fund does. Government deficits create money when banks or the central bank buy the bonds, and move existing money when pension funds or savers buy them.
 
-### 4.4 Accounting checks (every step, tolerance 1e-9)
+### 4.4 Accounting checks (every kernel step, tolerance 1e-9)
 
 | Check | Meaning |
 |---|---|
@@ -171,7 +174,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 6. **Robustness:**
    - **property tests:** random lever combinations within range produce no NaNs (in variables, stocks or chart series), no failed checks, no implausible values (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate) and no position with the wrong sign for its role (`checks().signViolations`, which leaves out the positions a model declares with `mayGoNegative`, each listed in decision 0005). Any of these fails the run;
    - **lever extremes:** every lever alone at its min and at its max for 240 months, with every policy lever unlocked and with every one locked (the padlocks set up these configurations and are not moved as levers), with the same requirements;
-   - **numerics:** half-step and tolerance sensitivity (a timing measure may move by one quarter, any other by 10%);
+   - **numerics:** half-step and tolerance sensitivity. Each calibration scenario is rerun at twice the steps a month: a measure with a bounded range may move by 10% of the range's width, one with a half-open range by 10% of its value, a timing measure by one quarter; and the Richardson estimate of the answer as the step goes to zero must lie in the check's range. `bun run harness --full` also runs four times the steps, measures each measure's order of convergence and gates on the limit at that order ([decision 0011](decisions/0011-sub-steps.md));
    - **determinism:** the same scenario gives identical results;
    - **golden scenarios:** stored outputs, so any change in results is visible in review. A golden run must also meet the plausibility and sign requirements, so no stored path is one a real economy could not take;
    - **lever expectations:** the signs theory predicts for each lever (`src/models/<id>/expectations.ts`), measured as the lever report measures them (`docs/authoring.md` §12). Every expectation must hold, every lever but the padlocks must have at least one, and no run may be broken. Only the runs an expectation needs are made, and those the lever extremes already made are reused.
@@ -224,7 +227,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | 4 | Additive terms, with non-additivity flagged | Exact, honest within-rule influences |
 | 5 | Payment system in the kernel | Money creation emerges from who pays whom, so it cannot drift from the accounting |
 | 6 | Deterministic scenarios and forks | Time travel, sharing, video, honest counterfactuals |
-| 7 | Monthly step, flows at annual rates in % of baseline GDP | Readable numbers; the step can be changed; the harness checks sensitivity |
+| 7 | Monthly record, flows at annual rates in % of baseline GDP | Readable numbers; the step can be changed; the harness checks sensitivity |
 | 8 | Engine v1 kept in `legacy/` | A reference to port from and to compare results against |
 | 9 | Groups are views over players, not players ([0003](decisions/0003-player-hierarchy.md)) | Opening and closing groups can never change the accounting; pipes and balance sheets at any level are sums of the same legs and positions |
 | 10 | Policy is held unless a declared rule moves it; stabilisers are declared ([0004](decisions/0004-stabilisers.md)) | Every automatic policy reaction is declared, and is a visible suggestion whenever it does not act |
@@ -234,6 +237,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | 14 | The reference economy's inflation expectations are partly anchored to the target, its Taylor rule looks partly through price jumps, and its lending appetite works through the flow of net credit ([0008](decisions/0008-reference-anchored-expectations.md)) | Fully adaptive expectations with full indexation gave huge second-round effects and deflationary traps at the zero lower bound; partial indexation hid the anchoring in the wage rule. Spending that follows net credit fades as repayments catch up, as the credit impulse says |
 | 15 | The key-rate rule learns its neutral rate; the debt rule steps from the rate in force and raises no taxes while the key rate is stuck at zero; reserve management is an operating rule ([0009](decisions/0009-policy-rules-learn.md)) | A rule with a fixed neutral rate left every lasting shock with a lasting gap on Automatic; a debt rule that tightened at the zero bound turned a tourism collapse into a twenty-year slump; rules that react in both modes without a lever are institutions, not policy settings |
 | 16 | A padlock on each lever with a rule, unlocked by default, instead of one Manual / Automatic setting ([0010](decisions/0010-policy-padlocks.md)) | The owner's design: each rule is handed over or held on its own lever; moving a lever takes control of it; locks are lever events, so they replay and travel in links; old scenarios migrate |
+| 17 | Two kernel steps a month; what a month shows does not depend on them; the half-step test asks whether the converged answer lies in range ([0011](decisions/0011-sub-steps.md)) | The monthly step's first-order error was as large as a seventh of some checks' ranges and blocked sound fixes; the old test judged a ratio settling toward zero ever more strictly |
 
 ## 10. Roadmap
 

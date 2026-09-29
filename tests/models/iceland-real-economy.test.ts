@@ -321,7 +321,12 @@ describe('labour-LAB-2: a wage settlement erodes mostly through prices', () => {
     const r = twins([['wageSettlement', 10]], false, 12);
     const givenBack = 10 - r.pct('wage', 12);
     expect(r.pct('cpi', 12)).toBeGreaterThan(givenBack);
-    expect(givenBack).toBeLessThan(2);
+    // Restated for decision 0011 (two kernel steps a month): the give-back was 1.97 points at one
+    // step a month, is 2.01 at two and about 2.05 as the step goes to zero (2.03 at four steps,
+    // 2.04 at eight). The monthly step's error had been hiding part of the known gap that wages give
+    // back too much in the first year (lever-vetting record, LAB-2); the bound follows the
+    // converged value so that it still catches a return toward the old 2.7, and is not a target.
+    expect(givenBack).toBeLessThan(2.1);
   });
 
   test('labour cost reaches unit cost faster than import cost', () => {

@@ -12,6 +12,7 @@ import { icelandModel } from '../../src/models/iceland/index.ts';
 import { calibration } from '../../src/models/iceland/calibration.ts';
 import { flooredUnemployed } from '../../src/models/iceland/modules/labour-and-wages.ts';
 import { withConcepts } from '../../src/models/index.ts';
+import { stepByStep } from '../../src/models/iceland/testing.ts';
 
 const model = compile(withConcepts(icelandModel));
 const term = (e: KernelEngine, id: string, t: string) => e.influences(id).terms.find((x) => x.id === t)!.value;
@@ -55,15 +56,22 @@ describe('Stage 0: i0 is the real neutral rate; nominal comparisons use i0 + piT
 
 describe('L13: the central bank’s reserves earn the foreign rate', () => {
   test('a foreign rate 1 pp higher raises reserve income by 1% of the reserves at once, as it does pension funds’ foreign yield', () => {
-    const e = createEngine(model);
+    // every kernel step's income and the reserves after it (decision 0011: two steps a month)
+    const { engine: e, steps } = stepByStep(createEngine(model), (x) => ({ income: x.value('fxReserveIncome'), reserves: x.stock('fxReserves', 'CB') }));
     lockAll(e); // both policy levers locked
     const reserves = e.stock('fxReserves', 'CB');
     const inc0 = e.baseline('fxReserveIncome');
     e.setLever('foreignRate', 1);
     e.step(1);
-    // income accrues on the reserves held at the start of the month
+    // income accrues on the reserves held at the start of each step, from the first step on
     const normal = e.influences('fxReserveIncome').params.find((p) => p.id === 'iFXR')!.value;
-    expect(e.value('fxReserveIncome')).toBeCloseTo((normal + 0.01) * reserves, 12);
+    expect(steps.length).toBe(model.def.substeps ?? 1);
+    let start = reserves;
+    for (const x of steps) {
+      expect(x.income).toBeCloseTo((normal + 0.01) * start, 12);
+      start = x.reserves;
+    }
+    expect(e.value('fxReserveIncome')).toBe(steps[steps.length - 1].income);
     expect(inc0).toBeCloseTo(normal * reserves, 12);
     expect(e.value('cbProfit') - e.baseline('cbProfit')).toBeGreaterThan(0.009 * reserves);
   });

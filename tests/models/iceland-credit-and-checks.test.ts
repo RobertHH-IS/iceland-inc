@@ -10,6 +10,7 @@ import { runScenario } from '../../src/core/scenario.ts';
 import { calibration, KNOWN_GAPS } from '../../src/models/iceland/calibration.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 import { withConcepts } from '../../src/models/index.ts';
+import { stepByStep } from '../../src/models/iceland/testing.ts';
 
 const model = compile(withConcepts(icelandModel));
 /** A fresh engine with both policy levers locked (the old default Manual setting these tests were
@@ -85,14 +86,17 @@ describe('Iceland parameters: provenance says what the value is (audit L16)', ()
 describe('Iceland charts: one GDP base for every "% of GDP" chart (design L2/L3, audit L17)', () => {
   const unit = (id: string) => model.indicators.find((i) => i.id === id)!.unit;
 
-  test('GDP over the past 12 months is the average of this month’s and the 11 before, and equals GDP at baseline', () => {
-    const e = fresh();
+  test('GDP over the past 12 months is the average of every step of this month and the 11 before, and equals GDP at baseline', () => {
+    // Two kernel steps a month (decision 0011): the year is 24 steps, each read as it happens.
+    const gdp: number[] = [];
+    const e = createEngine(model, { testHooks: { afterSubstep: (_m, _s, r) => void gdp.push(r.value('nominalGDP')) } });
     expect(e.value('gdpTrailing12')).toBeCloseTo(e.value('nominalGDP'), 12);
     e.fire('wageSettlement', 10);
     e.step(18);
-    let total = 0;
-    for (let m = 7; m <= 18; m++) total += e.valueAt('nominalGDP', m);
-    expect(e.value('gdpTrailing12')).toBeCloseTo(total / 12, 12);
+    const N = model.def.substeps ?? 1;
+    expect(N).toBe(2);
+    const year = gdp.slice(-12 * N);
+    expect(e.value('gdpTrailing12')).toBeCloseTo(year.reduce((a, b) => a + b, 0) / year.length, 12);
     expect(e.value('gdpTrailing12')).not.toBeCloseTo(e.value('nominalGDP'), 3); // prices are rising, so it lags
   });
 
@@ -111,20 +115,27 @@ describe('Iceland charts: one GDP base for every "% of GDP" chart (design L2/L3,
   });
 
   test('debt charts and the debt rule divide debt by GDP over the past 12 months', () => {
-    const e = fresh();
+    // Each kernel step's debt, treasury cash and trailing GDP, as they are after it (decision 0011:
+    // two steps a month).
+    const steps: { debt: number; cash: number; trailing: number }[] = [];
+    const e = createEngine(model, {
+      testHooks: { afterSubstep: (_m, _s, r) => void steps.push({ debt: r.stock('govBonds', 'G') + r.stock('indexedBonds', 'G'), cash: r.stock('treasuryAccount', 'G'), trailing: r.value('gdpTrailing12') }) },
+    });
     e.fire('wageSettlement', 10);
-    e.step(13);
-    const debtStart = e.stock('govBonds', 'G') + e.stock('indexedBonds', 'G');
-    const trailingLast = e.value('gdpTrailing12');
-    e.step(1);
+    e.step(14);
     const debt = e.stock('govBonds', 'G') + e.stock('indexedBonds', 'G');
     const debt0 = e.baseStock('govBonds', 'G') + e.baseStock('indexedBonds', 'G');
     expect(e.indicator('govDebt')).toBeCloseTo((debt / e.value('gdpTrailing12')) * 100 - debt0, 9);
     const mort = ['mortgagesN', 'mortgagesI'].flatMap((i) => ['B', 'PF'].map((l) => e.stock(i, l))).reduce((a, b) => a + b, 0);
     const mort0 = ['mortgagesN', 'mortgagesI'].flatMap((i) => ['B', 'PF'].map((l) => e.baseStock(i, l))).reduce((a, b) => a + b, 0);
     expect(e.indicator('mortgageDebt')).toBeCloseTo((mort / e.value('gdpTrailing12')) * 100 - mort0, 9);
-    // the debt rule reads the ratio at the start of the month, over the year to last month
-    expect(e.value('debtRatio')).toBeCloseTo(debtStart / trailingLast, 12);
+    // the debt rule reads the ratio at the start of its step (debt and treasury cash above its
+    // target after the step before) over the year to a month before (trailing GDP N steps earlier)
+    const N = model.def.substeps ?? 1;
+    const last = steps.length - 1;
+    const tga = e.influences('debtRatio').params.find((p) => p.id === 'tga')!.value;
+    const start = steps[last - 1];
+    expect(e.value('debtRatio')).toBeCloseTo((start.debt - (start.cash - tga)) / steps[last - N].trailing, 12);
   });
 });
 
@@ -272,16 +283,27 @@ describe('Iceland calibration: each check runs the experiment its source describ
     for (const c of calibration) if (/known gap/.test(c.label)) expect(KNOWN_GAPS[c.id]).toBeDefined();
   });
 
-  test('the rule takes over from the rate held: the key rate moves one smoothed step in month 13, not to the path the rule followed while it was not in charge (lever review MON-2)', () => {
+  test('the rule takes over from the rate held: the key rate moves one month’s smoothed step in month 13, not to the path the rule followed while it was not in charge (lever review MON-2)', () => {
     const r = run('rate-inflation-trough');
     const lamPol = model.params.find((q) => q.id === 'lamPol')!.value;
-    const k = 1 - Math.exp(-lamPol / 12);
-    // month 13: last month's held rate + k × (where the rule was heading − held rate)
+    // two kernel steps a month (decision 0011): each closes ks of the gap, a month's share compounded
+    const N = model.def.substeps ?? 1;
+    const ks = 1 - Math.exp(-lamPol / 12 / N);
+    const { engine, steps } = stepByStep(fresh(), (x) => ({ key: x.value('keyRate'), target: x.value('ruleTarget') }));
+    engine.load({ modelId: 'iceland', events: check('rate-inflation-trough').scenario, months: 24 });
+    expect(steps.length).toBe(24 * N);
+    // month 13: from last month's held rate, each step + ks × (where the rule is heading − the rate before it)
     const held = r.value('keyRate', 12);
-    expect(r.value('keyRate', 13)).toBeCloseTo(held + k * (r.value('ruleTarget', 13) - held), 12);
+    expect(engine.valueAt('keyRate', 12)).toBe(held);
+    let prev = held;
+    for (const x of steps.slice(12 * N, 13 * N)) {
+      expect(x.key).toBeCloseTo(prev + ks * (x.target - prev), 12);
+      prev = x.key;
+    }
+    expect(r.value('keyRate', 13)).toBe(prev);
     expect(Math.abs(r.value('keyRate', 13) - held)).toBeLessThan(0.0025 + 1e-9); // about 0.2 pp, not 1.5
-    // and it keeps easing gradually: no month moves the key rate by more than k of the gap
-    for (let m = 13; m <= 24; m++) expect(Math.abs(r.value('keyRate', m) - r.value('keyRate', m - 1))).toBeLessThanOrEqual(k * Math.abs(r.value('ruleTarget', m) - r.value('keyRate', m - 1)) + 1e-12);
+    // and it keeps easing gradually: no step moves the key rate by more than ks of the gap
+    for (let j = 12 * N + 1; j < 24 * N; j++) expect(Math.abs(steps[j].key - steps[j - 1].key)).toBeLessThanOrEqual(ks * Math.abs(steps[j].target - steps[j - 1].key) + 1e-12);
     // the rate checks are inside their bands without a drop: the output trough falls in QMM's quarter 5
     expect(check('rate-output-timing').measure(r)).toBe(5);
     const v = check('rate-inflation-trough').measure(r);

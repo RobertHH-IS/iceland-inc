@@ -7,7 +7,7 @@
  * state variables use the kernel's `adjust: { speed, form: 'exponential' }`, which is the same
  * arithmetic.
  */
-import type { Ctx, Id, ParamDef, Provenance, RuleDef } from '../../core/types.ts';
+import type { Ctx, Id, ParamDef, Provenance, RuleDef, TermDef } from '../../core/types.ts';
 import raw from '../../../data/iceland/calibration.json' with { type: 'json' };
 
 /** Share of a gap closed in one step at speed λ per year (v1's kf). */
@@ -28,10 +28,14 @@ export const annuity = (r: number, T: number): number => (Math.abs(r) < 1e-12 ? 
 /** One step as a fraction of a year, rounded to whole steps: "n years ago" for lag(). */
 export const stepsIn = (c: Ctx, years: number): number => Math.max(1, Math.round(years / c.dt));
 
+/** The model's month (ModelDef.dt), in years. A rule that must say what happens over a whole month,
+ *  whatever the kernel's step (ModelDef.substeps), uses it; everything else uses c.dt. */
+export const MONTH = 1 / 12;
+
 /** A variable's value one month ago. Behaviour reacts to last month's news whatever the step
- *  length, so halving the step does not halve the model's reaction lags (at the standard step of
- *  one month this is simply the previous step). Accounting lags (this step's change in a price)
- *  use c.lag(id) directly. */
+ *  length, so sub-steps (two a month, decision 0011) do not shorten the model's reaction lags (at
+ *  one step a month this is simply the previous step). Accounting lags (this step's change in a
+ *  price) and a state's own previous value use c.lag(id) directly: the previous kernel step. */
 export const lastMonth = (c: Ctx, id: Id): number => c.lag(id, stepsIn(c, 1 / 12));
 
 /** The two stabilisers (decision 0010): the central bank's inflation rule on the key rate
@@ -115,6 +119,13 @@ export const solved = (note: string): Provenance => ({ basis: 'calibrated', note
 /** Terms of a rule, from [id, label, concept, compute] tuples. */
 export function terms(...ts: [id: Id, label: string, concept: Id | undefined, compute: (c: Ctx) => number][]): RuleDef['terms'] {
   return ts.map(([id, label, concept, compute]) => (concept ? { id, label, concept, compute } : { id, label, compute }));
+}
+
+/** Say how a month of several kernel steps shows some of a rule's terms (TermDef.month, decision
+ *  0011): 'first' for the level the month starts from, 'sum' for a change per step. */
+export function overMonth(ts: RuleDef['terms'], how: Record<Id, 'sum' | 'first'>): TermDef[] {
+  for (const id of Object.keys(how)) if (!ts?.some((t) => t.id === id)) throw new Error(`overMonth: no term '${id}'`);
+  return (ts ?? []).map((t) => (how[t.id] ? { ...t, month: how[t.id] } : t));
 }
 
 /** Pick parameter definitions by id from a table (each module owns the ones it lists). */

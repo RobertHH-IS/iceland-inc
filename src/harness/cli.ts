@@ -1,8 +1,11 @@
 /**
- * `bun run harness [--update-golden] [--model <id>] [--runs <n>] [--seed <n>]`
+ * `bun run harness [--update-golden] [--full] [--model <id>] [--runs <n>] [--seed <n>]`
  *
  * Runs the six test layers for every model in src/models/index.ts, writes
  * reports/harness-<modelId>.md, prints a summary and exits with code 1 on any failure.
+ * `--full` (before a merge, and nightly) also runs the half-step test at four times the sub-steps
+ * a month, to measure each calibration measure's order of convergence (decision 0011); it takes
+ * about half as long again, so the everyday run leaves it out.
  * Implausible values and wrong-signed positions in the property runs, the lever-extremes sweep
  * and the golden scenarios are failures (decision 0005); only a model's declared exemptions
  * (InstrumentDef.mayGoNegative) are left out.
@@ -28,6 +31,7 @@ const opts: HarnessOptions = {
   propertyMonths: 120,
   seed: Number(option('--seed') ?? 20260928),
   extremeMonths: 240,
+  full: flag('--full'),
 };
 const only = option('--model');
 const selected = only ? models.filter((m) => m.id === only) : models;
@@ -54,7 +58,7 @@ for (const def of selected) {
   allPass &&= result.pass;
   console.log(`\n${def.id}  ${def.label}`);
   for (const l of result.layers) console.log(`  ${l.n} ${l.title.padEnd(14)} ${l.pass ? 'PASS' : 'FAIL'}  ${l.summary}`);
-  console.log(`  step time ${result.microsPerStep.toFixed(1)} µs; harness ${((performance.now() - t0) / 1000).toFixed(1)} s; report ${path.slice(root.length + 1)}`);
+  console.log(`  step time ${result.microsPerStep.toFixed(1)} µs a month (${def.substeps ?? 1} kernel step(s)); harness ${((performance.now() - t0) / 1000).toFixed(1)} s; report ${path.slice(root.length + 1)}`);
 }
 console.log(`\n${allPass ? 'ALL PASS' : 'FAILURES: see the reports'}`);
 process.exit(allPass ? 0 : 1);

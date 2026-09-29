@@ -2,14 +2,17 @@
  * The engine: createEngine(model) compiles the model, solves its baseline and returns an
  * Engine (types.ts) that steps month by month.
  *
- * One step (architecture §4.2):
+ * One month (architecture §4.2):
  *   1. apply the lever events scheduled for this month (settings change parameters or
  *      exogenous variables; one-offs call fire() through the restricted ShockApi);
- *   2. evaluate the schedule; simultaneous blocks by Gauss–Seidel (Newton as a fallback);
- *      record every term, desired value and regime;
- *   3. post every leg (amount × dt) through the payment system;
- *   4. run the four accounting checks, and the position-sign diagnostic beside them;
- *   5. record history, and take a full snapshot every 12 months for fast seek().
+ *   2. N kernel sub-steps (ModelDef.substeps, 1 by default), each a complete step of dt / N:
+ *      evaluate the schedule (simultaneous blocks by Gauss–Seidel, Newton as a fallback), post
+ *      every leg (amount × dt / N) through the payment system, run the four accounting checks
+ *      and the position-sign diagnostic;
+ *   3. record the month (decision 0011's display contract): variables and positions at the
+ *      month's end, each leg as the month's total ÷ dt, each term as TermDef.month says, each
+ *      regime if it held in any sub-step (flagged when it switched), the worst residual of the
+ *      sub-steps; and take a full snapshot every 12 months for fast seek().
  *
  * Events at month t are applied on arrival at t, after that month's snapshot, so replaying
  * from any snapshot reproduces a straight run bit for bit.
@@ -39,8 +42,8 @@ import type {
   SignViolation,
   StabiliserState,
 } from './types.ts';
-import { compile, isCompiled, isLocked, ROLE_ISSUER, type CLever, type KModel } from './compile.ts';
-import { Machine, type MachineState } from './machine.ts';
+import { compile, isCompiled, isLocked, ROLE_ISSUER, TERM_FIRST, TERM_SUM, type CLever, type KModel } from './compile.ts';
+import { Machine, substepsOf, type MachineState } from './machine.ts';
 import type { Ledger } from './ledger.ts';
 import { baselineReport, solveBaseline, type Baseline, type BaselineReport } from './steady.ts';
 import { CHECKS, DEFAULT_SIGN_TOLERANCE, DEFAULT_TOLERANCE, measureChecks, measureSigns, type CheckSpec, type SignSpec } from './checks.ts';
@@ -78,9 +81,16 @@ export interface EngineOptions {
   disableTerms?: Id[];
   /** Parameter overrides applied AFTER the baseline is solved (fork counterfactuals). */
   forkParams?: Record<Id, number>;
-  /** Testing only: called after each step's postings and before its checks, so kernel tests
-   *  can break a posting on purpose and see the checks catch it. */
-  testHooks?: { afterPost?: (ledger: Ledger, step: number) => void };
+  /** Testing only: called after each kernel step's postings and before its checks, with the
+   *  month being stepped to and the sub-step within it (0 to N − 1), so kernel tests can break a
+   *  posting on purpose and see the checks catch it. */
+  testHooks?: {
+    afterPost?: (ledger: Ledger, month: number, substep: number) => void;
+    /** After each kernel step has posted and its values have become the lags: its variables and
+     *  positions (Ctx.stock convention), so tests can check a rule's arithmetic sub-step by
+     *  sub-step, where the month records only its end. */
+    afterSubstep?: (month: number, substep: number, read: { value(id: Id): number; stock(instrument: Id, player: Id): number }) => void;
+  };
 }
 
 /** The Engine interface plus kernel extras used by the harness, tests and interface. */
@@ -100,16 +110,21 @@ export interface KernelEngine extends Engine {
   /** Signed positions at a past month ([instrument * NP + player], asset +). */
   positionsAt(month: number): Float64Array;
   /** Every rule's regime label at a past month of the current history, in rule order
-   *  (`model.rules`), null where the rule names none. Read-only. */
+   *  (`model.rules`), null where the rule names none: with sub-steps, the label of the last
+   *  sub-step that named one (a regime binds for the month if it binds in any sub-step). Read-only. */
   regimesAt(month: number): readonly (string | null)[];
+  /** The rules (indices in `model.rules`) whose regime changed between the sub-steps of a past
+   *  month; always empty at one step a month. */
+  regimeSwitchesAt(month: number): readonly number[];
   /** The history so far as a RunResult (for calibration measures). */
   runResult(): RunResult;
-  /** A fork is a kernel engine too. */
-  fork(opts?: { disableTerms?: Id[]; params?: Record<Id, number> }): KernelEngine;
+  /** A fork is a kernel engine too. `testHooks` replace the parent's in the fork (tests only). */
+  fork(opts?: { disableTerms?: Id[]; params?: Record<Id, number>; testHooks?: EngineOptions['testHooks'] }): KernelEngine;
   /** Largest residual of each accounting check over the current history. */
   maxResiduals(): { id: Id; residual: number }[];
-  /** Timing and solver statistics since creation. */
-  stats(): { steps: number; microsPerStep: number; newtonFallbacks: number; maxIterations: number };
+  /** Timing and solver statistics since creation: `steps` and `microsPerStep` count months,
+   *  each of `substeps` kernel steps. */
+  stats(): { steps: number; microsPerStep: number; substeps: number; newtonFallbacks: number; maxIterations: number };
 }
 
 /** What the stabiliser narration remembers from one month to the next (per stabiliser). */
@@ -166,12 +181,35 @@ class KEngine implements KernelEngine {
   private readonly src: InfluenceSource;
   private readonly shock: ShockApi;
   private readonly checkBuf = new Float64Array(4);
+  private readonly subBuf = new Float64Array(4);
+  /** Kernel steps a month (ModelDef.substeps): the machine advances by dt / N. */
+  private readonly N: number;
+  /** Terms a month shows as a sum over its sub-steps, as its first sub-step's value, and as its
+   *  last sub-step's value (TermDef.month). */
+  private readonly sumTerms: Int32Array;
+  private readonly firstTerms: Int32Array;
+  private readonly lastTerms: Int32Array;
+  /** Rules with a regime label. */
+  private readonly regimeRules: Int32Array;
+  /** Baseline term values as a month shows them ('sum' terms × N), per lock
+   *  configuration (indexed by lock mask) when the model has stabilisers. */
+  private readonly baseShown: Float64Array;
+  private readonly baseShownByMask: Float64Array[] | null;
+  /** The month being stepped: term values as the month shows them, leg sums, regimes. */
+  private readonly termMonth: Float64Array;
+  private readonly legMonth: Float64Array;
+  private readonly regimeMonth: (string | null)[];
+  private readonly switchMonth: Uint8Array;
   private script: ScenarioEvent[] = [];
   private snaps = new Map<number, Snapshot>();
   private hVars: Float64Array[] = [];
   private hTerms: Float64Array[] = [];
   private hDesired: Float64Array[] = [];
   private hRegimes: (string | null)[][] = [];
+  /** Rules whose regime switched between the sub-steps of each recorded month. */
+  private hSwitches: number[][] = [];
+  /** Each recorded month's legs: the month's total ÷ dt (the average of its sub-steps). */
+  private hLegs: Float64Array[] = [];
   /** Padlocks (lock mask) each recorded month's term values were computed under. */
   private hLocks: number[] = [];
   private hInd: Float64Array[] = [];
@@ -196,6 +234,7 @@ class KEngine implements KernelEngine {
     this.tol = opts.tolerance ?? DEFAULT_TOLERANCE;
     this.signTol = opts.signTolerance ?? DEFAULT_SIGN_TOLERANCE;
     this.every = Math.max(1, Math.round(opts.snapshotEvery ?? 12));
+    this.N = substepsOf(m.def);
     const base = opts.baseline ?? solveBaseline(m, { params: opts.params, dev: opts.dev, lagWindow: opts.lagWindow });
     this.baselineData = base;
     this.warnings = [...m.warnings, ...base.warnings];
@@ -211,6 +250,21 @@ class KEngine implements KernelEngine {
     M.baseVars = base.vars;
     M.baseTerms = base.terms;
     if (base.byMask) M.baseTermsByMask = base.byMask.map((x) => x.terms);
+    const shown = (terms: Float64Array) => {
+      const out = new Float64Array(terms);
+      for (const j of this.sumTerms) out[j] *= this.N;
+      return out;
+    };
+    this.sumTerms = new Int32Array(m.cterms.flatMap((t, j) => (t.month === TERM_SUM ? [j] : [])));
+    this.firstTerms = new Int32Array(m.cterms.flatMap((t, j) => (t.month === TERM_FIRST ? [j] : [])));
+    this.lastTerms = new Int32Array(m.cterms.flatMap((t, j) => (t.month === TERM_SUM || t.month === TERM_FIRST ? [] : [j])));
+    this.regimeRules = new Int32Array(m.crules.flatMap((cr) => (cr.def.regime ? [cr.idx] : [])));
+    this.baseShown = shown(base.terms);
+    this.baseShownByMask = base.byMask ? base.byMask.map((x) => shown(x.terms)) : null;
+    this.termMonth = new Float64Array(m.cterms.length);
+    this.legMonth = new Float64Array(m.clegs.length);
+    this.regimeMonth = m.crules.map(() => null);
+    this.switchMonth = new Uint8Array(m.crules.length);
     for (const key of opts.disableTerms ?? []) {
       const j = m.termKeyIndex.get(key);
       if (j === undefined) throw new Error(`fork: unknown term '${key}' (use 'ruleId.termId' or 'varId.termId')`);
@@ -253,8 +307,11 @@ class KEngine implements KernelEngine {
     });
     const self = this;
     // baseline terms and desired values under the padlocks that the current term values were
-    // computed under (not the padlocks as they are now: a lock or unlock shows at the next step)
-    const baseNow = () => (base.byMask ? base.byMask[M.evalLocks] : base);
+    // computed under (not the padlocks as they are now: a lock or unlock shows at the next step).
+    // The month on show (decision 0011): its recorded terms, desired values, regimes and legs, so
+    // what the inspector says of "this month" does not depend on the sub-steps.
+    const locks = () => self.hLocks[self.month];
+    const baseNow = () => (base.byMask ? base.byMask[locks()] : base);
     this.src = {
       m,
       get cur() {
@@ -262,25 +319,31 @@ class KEngine implements KernelEngine {
       },
       baseVars: base.vars,
       get termVal() {
-        return M.termVal;
+        return self.hTerms[self.month];
       },
       get baseTerms() {
-        return baseNow().terms;
+        return self.baseShownByMask ? self.baseShownByMask[locks()] : self.baseShown;
       },
       get desired() {
-        return M.desired;
+        return self.hDesired[self.month];
       },
       get baseDesired() {
         return baseNow().desired;
       },
       get regimes() {
-        return M.regimes;
+        return self.hRegimes[self.month];
+      },
+      get regimeSwitches() {
+        return self.hSwitches[self.month];
+      },
+      get legs() {
+        return self.hLegs[self.month];
       },
       get pEff() {
         return M.pEff;
       },
       get locks() {
-        return M.evalLocks;
+        return locks();
       },
       ctxOf: (r) => M.ctxOf(r),
       indicatorLevel: (i) => self.levelNow(i),
@@ -314,7 +377,12 @@ class KEngine implements KernelEngine {
   /* ---------------------------------------------------------------- state */
 
   get t(): number {
-    return this.M.t;
+    return this.month;
+  }
+
+  /** Recorded steps (months) so far: the machine's sub-steps ÷ N (whole at every month end). */
+  private get month(): number {
+    return this.M.t / this.N;
   }
 
   get events(): ScenarioEvent[] {
@@ -334,12 +402,19 @@ class KEngine implements KernelEngine {
     M.desired.set(b.desired);
     M.evalLocks = M.lockMask();
     b.regimes.forEach((r, j) => (M.regimes[j] = r));
+    // month 0 shows the baseline: its terms as a month shows them, its legs, its regimes
+    this.termMonth.set(this.baseShownByMask ? this.baseShownByMask[M.evalLocks] : this.baseShown);
+    this.model.clegs.forEach((l, i) => (this.legMonth[i] = M.cur[l.amount]));
+    b.regimes.forEach((r, j) => (this.regimeMonth[j] = r));
+    this.switchMonth.fill(0);
     this.script = [];
     this.snaps = new Map();
     this.hVars = [];
     this.hTerms = [];
     this.hDesired = [];
     this.hRegimes = [];
+    this.hSwitches = [];
+    this.hLegs = [];
     this.hLocks = [];
     this.hInd = [];
     this.hPos = [];
@@ -360,7 +435,7 @@ class KEngine implements KernelEngine {
   }
 
   /** The position-sign diagnostic for the current month: record each position's first breach. */
-  private checkSigns(): void {
+  private checkSigns(month = this.month): void {
     const { M, model: m } = this;
     const out = this.signBuf;
     out.length = 0;
@@ -374,7 +449,7 @@ class KEngine implements KernelEngine {
         instrument: m.instruments[Math.floor(j / m.NP)].id,
         player: m.players[j % m.NP].id,
         role: issuer ? 'issuer' : 'holder',
-        t: M.t,
+        t: month,
         value: issuer ? -pos[j] : pos[j],
       });
     }
@@ -388,12 +463,18 @@ class KEngine implements KernelEngine {
     return this.model.indicators[i].compute(this.ictx);
   }
 
+  /** Record the month: variables and positions at its end, terms, legs and regimes as the month
+   *  shows them (termMonth, legMonth, regimeMonth and switchMonth, filled by the sub-steps). */
   private record(): void {
     const { M, model: m } = this;
     this.hVars.push(new Float64Array(M.cur));
-    this.hTerms.push(new Float64Array(M.termVal));
+    this.hTerms.push(new Float64Array(this.termMonth));
     this.hDesired.push(new Float64Array(M.desired));
-    this.hRegimes.push([...M.regimes]);
+    this.hRegimes.push([...this.regimeMonth]);
+    const sw: number[] = [];
+    for (let r = 0; r < this.switchMonth.length; r++) if (this.switchMonth[r]) sw.push(r);
+    this.hSwitches.push(sw);
+    this.hLegs.push(new Float64Array(this.legMonth));
     this.hLocks.push(M.evalLocks);
     const ind = new Float64Array(m.indicators.length);
     for (let i = 0; i < ind.length; i++) ind[i] = m.indicators[i].compute(this.ictx);
@@ -404,7 +485,7 @@ class KEngine implements KernelEngine {
 
   private updateFeed(log: boolean): void {
     const m = this.model;
-    const t = this.M.t;
+    const t = this.month;
     const ind = this.hInd[t];
     m.feed.forEach((f, j) => {
       const i = m.indicatorIndex.get(f.indicator)!;
@@ -424,7 +505,7 @@ class KEngine implements KernelEngine {
    */
   private updateStabiliserFeed(log: boolean): void {
     const m = this.model;
-    const t = this.M.t;
+    const t = this.month;
     const sf = this.stabFeed;
     const year = Math.max(1, Math.round(1 / m.def.dt));
     this.stabilisers().forEach((s, j) => {
@@ -447,36 +528,74 @@ class KEngine implements KernelEngine {
     });
   }
 
-  /** Advance one step (evaluate, post, check), then arrive at the new month. */
+  /** After sub-step s's evaluation: add its legs and 'sum' terms to the month, keep its 'first'
+   *  terms, and fold its regimes into the month's (the last label named; switched if they differ). */
+  private gather(s: number): void {
+    const { M, model: m, legMonth, termMonth, regimeMonth, switchMonth } = this;
+    const cur = M.cur,
+      tv = M.termVal;
+    const cl = m.clegs;
+    for (let i = 0; i < cl.length; i++) legMonth[i] += cur[cl[i].amount];
+    for (const j of this.sumTerms) termMonth[j] = s === 0 ? tv[j] : termMonth[j] + tv[j];
+    if (s === 0) for (const j of this.firstTerms) termMonth[j] = tv[j];
+    for (const r of this.regimeRules) {
+      const now = M.regimes[r];
+      if (s === 0) regimeMonth[r] = now;
+      else if (now !== regimeMonth[r]) {
+        // a switch is a change from any earlier sub-step's label; the month names the last label held
+        switchMonth[r] = 1;
+        if (now !== null) regimeMonth[r] = now;
+      }
+    }
+  }
+
+  /** Advance one month: N kernel sub-steps (evaluate, post, check each), then arrive at the new
+   *  month. Accounting is checked at every sub-step and the month records the worst residual;
+   *  the month's legs, terms and regimes are gathered as the display contract says (record()). */
   private stepOnce(): void {
-    const { M, model: m } = this;
+    const { M, model: m, N } = this;
     const t0 = performance.now();
-    M.evaluate();
-    M.post();
-    this.options.testHooks?.afterPost?.(M.ledger, M.t + 1);
-    const r = measureChecks(M.ledger, this.checkSpec, this.checkBuf);
-    M.t++;
-    M.pushRing();
+    const month = this.month + 1;
+    const worst = this.checkBuf;
+    worst.fill(0);
+    const { legMonth, termMonth, switchMonth } = this;
+    legMonth.fill(0);
+    switchMonth.fill(0);
+    for (let s = 0; s < N; s++) {
+      M.evaluate();
+      this.gather(s);
+      M.post();
+      this.options.testHooks?.afterPost?.(M.ledger, month, s);
+      const r = measureChecks(M.ledger, this.checkSpec, this.subBuf);
+      for (let k = 0; k < 4; k++) worst[k] = Number.isNaN(r[k]) ? Infinity : Math.max(worst[k], r[k]);
+      M.t++;
+      M.pushRing();
+      if (M.lastIterations > this.maxIters) this.maxIters = M.lastIterations;
+      this.options.testHooks?.afterSubstep?.(month, s, { value: this.ictx.v, stock: this.ictx.stock });
+      if (s < N - 1) this.checkSigns(month);
+    }
+    for (let i = 0; i < legMonth.length; i++) legMonth[i] /= N;
+    for (const j of this.lastTerms) termMonth[j] = M.termVal[j];
+    const r = worst;
     this.stepMillis += performance.now() - t0;
     this.stepCount++;
-    if (M.lastIterations > this.maxIters) this.maxIters = M.lastIterations;
     let failed: string | null = null;
     for (let k = 0; k < 4; k++)
       if (!(r[k] <= this.tol)) {
-        this.failures.push({ t: M.t, id: CHECKS[k].id, residual: r[k] });
+        this.failures.push({ t: month, id: CHECKS[k].id, residual: r[k] });
         failed ??= `${CHECKS[k].id} residual ${r[k]} > ${this.tol}`;
       }
     this.record();
     this.checkSigns();
     this.updateFeed(true);
-    if (M.t % this.every === 0) this.snaps.set(M.t, this.snap());
+    if (month % this.every === 0) this.snaps.set(month, this.snap());
     // Arrive fully at month t (its events applied) before any throw, so a caller that catches
     // the error and steps on stays on the path seek(), fork() and load() replay. The
     // accounting error takes precedence over an error from an event.
     try {
-      this.applyEventsAt(M.t);
+      this.applyEventsAt(month);
     } finally {
-      if (failed && this.options.onCheckFailure === 'throw') throw new Error(`accounting check failed at month ${M.t} in model '${m.def.id}': ${failed}`);
+      if (failed && this.options.onCheckFailure === 'throw') throw new Error(`accounting check failed at month ${month} in model '${m.def.id}': ${failed}`);
     }
   }
 
@@ -560,7 +679,7 @@ class KEngine implements KernelEngine {
   setLever(id: Id, value: number): void {
     const l = this.model.clevers[this.leverIx(id)];
     if (l.def.kind === 'oneoff') throw new Error(`lever '${id}' is a one-off; use fire('${id}', size)`);
-    const e: ScenarioEvent = { t: this.M.t, lever: id, value: this.clamp(l, value) };
+    const e: ScenarioEvent = { t: this.month, lever: id, value: this.clamp(l, value) };
     this.insertEvent(e);
     this.applyEvent(e);
   }
@@ -568,7 +687,7 @@ class KEngine implements KernelEngine {
   fire(id: Id, size?: number): void {
     const l = this.model.clevers[this.leverIx(id)];
     if (l.def.kind !== 'oneoff') throw new Error(`lever '${id}' is a setting; use setLever('${id}', value)`);
-    const e: ScenarioEvent = { t: this.M.t, lever: id, value: this.clamp(l, size ?? l.def.default), fire: true };
+    const e: ScenarioEvent = { t: this.month, lever: id, value: this.clamp(l, size ?? l.def.default), fire: true };
     this.insertEvent(e);
     this.applyEvent(e);
   }
@@ -600,9 +719,9 @@ class KEngine implements KernelEngine {
 
   seek(month: number): void {
     const target = Math.max(0, Math.round(month));
-    if (target === this.M.t) return;
-    if (target > this.M.t) {
-      this.step(target - this.M.t);
+    if (target === this.month) return;
+    if (target > this.month) {
+      this.step(target - this.month);
       return;
     }
     let best = 0;
@@ -616,13 +735,15 @@ class KEngine implements KernelEngine {
     this.hTerms.length = keep;
     this.hDesired.length = keep;
     this.hRegimes.length = keep;
+    this.hSwitches.length = keep;
+    this.hLegs.length = keep;
     this.hLocks.length = keep;
     this.hInd.length = keep;
     this.hPos.length = keep;
     this.hChecks.length = keep;
-    this.M.termVal.set(this.hTerms[best]);
+    // the machine's own terms, desired values and regimes are rewritten by the next evaluation;
+    // what the month shows is read from the history (the influence source)
     this.M.desired.set(this.hDesired[best]);
-    this.hRegimes[best].forEach((r, j) => (this.M.regimes[j] = r));
     this.M.evalLocks = this.hLocks[best];
     this.checkBuf.set(this.hChecks[best]);
     this.feedLog = this.feedLog.filter((f) => f.t <= best);
@@ -636,17 +757,18 @@ class KEngine implements KernelEngine {
     this.step(target - best);
   }
 
-  fork(opts: { disableTerms?: Id[]; params?: Record<Id, number> } = {}): KernelEngine {
+  fork(opts: { disableTerms?: Id[]; params?: Record<Id, number>; testHooks?: EngineOptions['testHooks'] } = {}): KernelEngine {
     const o = this.options;
     const f = new KEngine(this.model, {
       ...o,
+      ...(opts.testHooks ? { testHooks: opts.testHooks } : {}),
       baseline: this.baselineData,
       disableTerms: [...(o.disableTerms ?? []), ...(opts.disableTerms ?? [])],
       forkParams: { ...(o.forkParams ?? {}), ...(opts.params ?? {}) },
     });
     f.script = this.script.map((e) => ({ ...e }));
     f.applyEventsAt(0);
-    f.step(this.M.t);
+    f.step(this.month);
     return f;
   }
 
@@ -668,19 +790,25 @@ class KEngine implements KernelEngine {
 
   valueAt(varId: Id, month: number): number {
     const h = this.hVars[month];
-    if (!h) throw new Error(`no history at month ${month} (now at ${this.M.t})`);
+    if (!h) throw new Error(`no history at month ${month} (now at ${this.month})`);
     return h[this.vIndex(varId)];
   }
 
   positionsAt(month: number): Float64Array {
     const h = this.hPos[month];
-    if (!h) throw new Error(`no history at month ${month} (now at ${this.M.t})`);
+    if (!h) throw new Error(`no history at month ${month} (now at ${this.month})`);
     return h;
   }
 
   regimesAt(month: number): readonly (string | null)[] {
     const h = this.hRegimes[month];
-    if (!h) throw new Error(`no history at month ${month} (now at ${this.M.t})`);
+    if (!h) throw new Error(`no history at month ${month} (now at ${this.month})`);
+    return h;
+  }
+
+  regimeSwitchesAt(month: number): readonly number[] {
+    const h = this.hSwitches[month];
+    if (!h) throw new Error(`no history at month ${month} (now at ${this.month})`);
     return h;
   }
 
@@ -700,7 +828,7 @@ class KEngine implements KernelEngine {
 
   indicator(id: Id): number {
     const i = this.indIndex(id);
-    return toDisplay(this.model.indicators[i].display, this.hInd[this.M.t][i], this.baseInd[i]);
+    return toDisplay(this.model.indicators[i].display, this.hInd[this.month][i], this.baseInd[i]);
   }
 
   series(id: Id): { t: number; v: number }[] {
@@ -715,7 +843,7 @@ class KEngine implements KernelEngine {
   }
 
   runResult(): RunResult {
-    const months = this.M.t;
+    const months = this.month;
     return {
       months,
       series: (id) => this.series(id).map((p) => p.v),
@@ -725,14 +853,17 @@ class KEngine implements KernelEngine {
 
   /* ---------------------------------------------------------- flows, sheets */
 
+  /** The month's legs: its total ÷ dt, the average of its sub-steps (decision 0011). */
   legs(): LegSnapshot[] {
     const m = this.model;
-    return m.clegs.map((l) => ({
+    const now = this.hLegs[this.month];
+    return m.clegs.map((l, i) => ({
       flow: m.flows[l.flow].id,
       from: m.players[l.from].id,
       to: m.players[l.to].id,
       kind: m.flows[l.flow].kind,
-      value: this.M.cur[l.amount],
+      amount: m.vars[l.amount].id,
+      value: now[i],
       baseline: this.baselineData.vars[l.amount],
     }));
   }
@@ -828,7 +959,7 @@ class KEngine implements KernelEngine {
     let max = 0;
     for (let k = 0; k < 4; k++) max = Number.isNaN(r[k]) ? Infinity : Math.max(max, r[k]);
     return {
-      t: this.M.t,
+      t: this.month,
       maxResidual: max,
       items: CHECKS.map((c, k) => ({ id: c.id, label: c.label, residual: r[k] })),
       tolerance: this.tol,
@@ -870,6 +1001,7 @@ class KEngine implements KernelEngine {
     return {
       steps: this.stepCount,
       microsPerStep: this.stepCount ? (this.stepMillis * 1000) / this.stepCount : 0,
+      substeps: this.N,
       newtonFallbacks: this.M.newtonFallbacks,
       maxIterations: this.maxIters,
     };

@@ -17,6 +17,7 @@
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
 import { AGE_LABEL, annuity, BORROWERS, FIRMS, HH, pickParams, stepsIn, terms, lastMonth, lockPolicy } from '../util.ts';
+import { monthTotal, stepByStep, stepsAMonth } from '../testing.ts';
 import { cappedShare } from './borrowers.ts';
 
 type B = (typeof BORROWERS)[number];
@@ -536,12 +537,18 @@ export const mortgages: ModuleDef = {
     },
     {
       id: 'ltv-cap-trims-buyers',
-      label: 'The loan-to-value cap binds on its own: at 80% (the rule in force) lending is demand; 100% lends at most a few percent more; 50% cuts working-age lending by 10–30% and a 25% cap by more than half, in the first month. The first-time buyers’ 90% cap already trims some of the young’s loans, 70% (80% for them) trims more, and 50% more still',
+      label: 'The loan-to-value cap binds on its own: at 80% (the rule in force) lending is demand; 100% lends at most a few percent more; 50% cuts working-age lending by 10–30% and a 25% cap by more than half, in the first step. The first-time buyers’ 90% cap already trims some of the young’s loans, 70% (80% for them) trims more, and 50% more still',
       run: (e) => {
+        // the first kernel step (decision 0011: half a month), before the cut lending feeds back
+        // into incomes and demand in the month's later steps
         const lend = (limit: number) => {
-          const f = e.fork({ params: { ltvLimit: limit / 100 } });
+          const { engine: f, steps } = stepByStep(e, (r) => (['Y', 'W'] as const).map((g) => ({ lending: r.value(`mortgageLending${g}`), demand: r.value(`mortgageDemand${g}`) })), { ltvLimit: limit / 100 });
           f.step(1);
-          return (['Y', 'W'] as const).map((g) => ({ cut: f.value(`mortgageLending${g}`) / f.baseline(`mortgageLending${g}`) - 1, demand: f.value(`mortgageDemand${g}`) / f.baseline(`mortgageDemand${g}`) - 1, regime: f.influences(`mortgageLending${g}`).regime ?? null }));
+          return (['Y', 'W'] as const).map((g, k) => ({
+            cut: steps[0][k].lending / f.baseline(`mortgageLending${g}`) - 1,
+            demand: steps[0][k].demand / f.baseline(`mortgageDemand${g}`) - 1,
+            regime: f.influences(`mortgageLending${g}`).regime ?? null, // the month's: binding in any step
+          }));
         };
         const [l25, l50, l70, l80, l100] = [lend(25), lend(50), lend(70), lend(80), lend(100)];
         const trimmedY = 1 - e.influences('mortgageLendingY').params.find((p) => p.id === 'ltvShare0Y')!.value;
@@ -632,12 +639,14 @@ export const mortgages: ModuleDef = {
           mi0 = ke.stock('mortgagesI', 'HY');
         e.step(1);
         const dt = 1 / 12;
-        // every cash leg of the young settles in their deposits; the accrued indexation is not a cash leg
+        // every cash leg of the young settles in their deposits; the accrued indexation is not a cash
+        // leg. Legs are the month's totals ÷ dt, summed over its kernel steps (decision 0011).
         const cash = e.legs().filter((l) => l.kind === 'cash' && (l.to === 'HY' || l.from === 'HY') && l.from !== l.to);
         const depositFlow = cash.reduce((s, l) => s + (l.to === 'HY' ? l.value : -l.value), 0) * dt;
-        const idx = (e.value('indexation_HY_B') + e.value('indexation_HY_PF')) * dt;
-        const newI = (e.value('newMortgagesI_B_HY') + e.value('newMortgagesI_PF_HY')) * dt;
-        const repI = (e.value('repaymentsI_HY_B') + e.value('repaymentsI_HY_PF')) * dt;
+        const total = (...ids: string[]) => ids.reduce((s, id) => s + monthTotal(e, id), 0);
+        const idx = total('indexation_HY_B', 'indexation_HY_PF');
+        const newI = total('newMortgagesI_B_HY', 'newMortgagesI_PF_HY');
+        const repI = total('repaymentsI_HY_B', 'repaymentsI_HY_PF');
         const dDep = ke.stock('deposits', 'HY') - dep0;
         const dMI = ke.stock('mortgagesI', 'HY') - mi0;
         const ok = idx > 0 && Math.abs(dDep - depositFlow) < 1e-12 && Math.abs(dMI - (newI - repI + idx)) < 1e-12;
@@ -648,16 +657,19 @@ export const mortgages: ModuleDef = {
       id: 'bank-loan-creates-pension-loan-moves',
       label: 'A bank mortgage creates deposits; a pension-fund mortgage only moves them',
       run: (e) => {
-        const money = (f: ReturnType<typeof e.fork>) => ['HY', 'HW', 'HO', ...FIRMS, 'PF'].reduce((s, pl) => s + f.balanceSheet(pl).assets.find((a) => a.instrument === 'deposits')!.value, 0);
-        const lending = (f: ReturnType<typeof e.fork>) => (f.value('mortgageLendingY') + f.value('mortgageLendingW')) / 12;
+        // the first kernel step (decision 0011: half a month), before the new money feeds back into
+        // spending and borrowing in the month's later steps: then only who lends differs
+        const holders = ['HY', 'HW', 'HO', ...FIRMS, 'PF'];
         const effect = (pfShare: number) => {
           const params = { pfShN: pfShare, pfShI: pfShare };
-          const calm = e.fork({ params });
-          calm.step(1);
-          const push = e.fork({ params });
-          push.setLever('lendingAppetite', 2);
-          push.step(1);
-          return { money: money(push) - money(calm), extra: lending(push) - lending(calm) };
+          const first = (push: boolean) => {
+            const { engine: f, steps } = stepByStep(e, (r) => ({ money: holders.reduce((s, pl) => s + r.stock('deposits', pl), 0), lending: r.value('mortgageLendingY') + r.value('mortgageLendingW') }), params);
+            if (push) f.setLever('lendingAppetite', 2);
+            f.step(1);
+            return { money: steps[0].money, lending: (steps[0].lending * f.model.def.dt) / stepsAMonth(f) };
+          };
+          const [calm, push] = [first(false), first(true)];
+          return { money: push.money - calm.money, extra: push.lending - calm.lending };
         };
         const banks = effect(0),
           funds = effect(1);
@@ -666,7 +678,7 @@ export const mortgages: ModuleDef = {
         const ok = Math.abs(banks.extra - funds.extra) < 1e-12 && Math.abs(banks.money - funds.money - banks.extra) < 1e-9 && Math.abs(funds.money) < 0.1 * funds.extra;
         return {
           pass: ok,
-          detail: `extra mortgage lending in the first month ${banks.extra.toFixed(4)} (% of GDP): broad money ${banks.money >= 0 ? '+' : ''}${banks.money.toFixed(4)} when banks lend, ${funds.money >= 0 ? '+' : ''}${funds.money.toFixed(4)} when pension funds lend`,
+          detail: `extra mortgage lending in the first step ${banks.extra.toFixed(4)} (% of GDP): broad money ${banks.money >= 0 ? '+' : ''}${banks.money.toFixed(4)} when banks lend, ${funds.money >= 0 ? '+' : ''}${funds.money.toFixed(4)} when pension funds lend`,
         };
       },
     },

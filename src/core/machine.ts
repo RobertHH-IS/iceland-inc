@@ -19,7 +19,7 @@ export interface MachineOptions {
   tol?: number;
   /** Gauss–Seidel iteration guard before falling back to Newton (default 200). */
   maxIter?: number;
-  /** Number of past steps lag() can reach (default: two years of steps, at least 25). */
+  /** Number of past kernel steps (sub-steps) lag() can reach (default: two years of them, at least 25). */
   lagWindow?: number;
 }
 
@@ -33,8 +33,18 @@ export interface MachineState {
   pos: Float64Array;
 }
 
+/** Kernel steps per recorded step (ModelDef.substeps, a whole number, default 1). */
+export function substepsOf(def: { substeps?: number }): number {
+  const n = def.substeps ?? 1;
+  if (!(Number.isInteger(n) && n >= 1)) throw new Error(`model substeps must be a whole number of at least 1, got ${n}`);
+  return n;
+}
+
 export class Machine {
   readonly m: KModel;
+  /** Kernel steps a month (ModelDef.substeps). */
+  readonly N: number;
+  /** Years per kernel step: the model's dt ÷ N. */
   readonly dt: number;
   readonly NV: number;
   readonly K: number;
@@ -77,7 +87,9 @@ export class Machine {
 
   constructor(m: KModel, opts: MachineOptions = {}) {
     this.m = m;
-    this.dt = m.def.dt;
+    // The machine steps at dt / substeps: every rule sees that step in c.dt (ModelDef.substeps).
+    this.N = substepsOf(m.def);
+    this.dt = m.def.dt / this.N;
     this.NV = m.NV;
     this.dev = opts.dev ?? true;
     this.tol = opts.tol ?? 1e-12;
@@ -151,24 +163,32 @@ export class Machine {
   /**
    * Set the lag history before the first step. `now` holds every variable's month-0 value, which
    * the first step reads as lag 1. `history` optionally gives earlier months for some variables,
-   * by variable index: [month −1, month −2, …], read as lag 2, lag 3, …; slots older than the
-   * history given keep its oldest value. Without a history every slot holds `now`, which is
-   * exactly right for a steady state (it has no past to speak of) and what a start from data
-   * extends (docs/design/start-from-today.md §2.5).
+   * by variable index: [month −1, month −2, …]. With one step a month they are read as lag 2,
+   * lag 3, …; with N sub-steps a month (ModelDef.substeps) a lag of j sub-steps reaches back j/N
+   * of a month, and reads the straight line between the two months either side of it, so each
+   * month fills N slots. Slots older than the history given keep its oldest value. Without a
+   * history every slot holds `now`, which is exactly right for a steady state (it has no past to
+   * speak of) and what a start from data extends (docs/design/start-from-today.md §2.5).
    */
   initHistory(now: Float64Array, history?: ReadonlyMap<number, ArrayLike<number>>): void {
-    const { K, NV, ring } = this;
+    const { K, NV, N, ring } = this;
     this.head = 0;
     for (let s = 0; s < K; s++) ring.set(now, s * NV);
     if (!history) return;
     for (const [v, past] of history) {
       const id = this.m.vars[v]?.id;
       if (id === undefined) throw new Error(`initHistory: unknown variable index ${v}`);
-      if (past.length > K - 1) throw new Error(`initHistory: '${id}' has ${past.length} months of history, but lag() reaches back only ${K - 1} months before month 0`);
+      if (past.length * N > K - 1) throw new Error(`initHistory: '${id}' has ${past.length} months of history, but lag() reaches back only ${Math.floor((K - 1) / N)} months before month 0`);
       for (let k = 0; k < past.length; k++) if (!Number.isFinite(past[k])) throw new Error(`initHistory: '${id}' at month ${-(k + 1)} is not a finite number`);
       if (!past.length) continue;
-      // slot of month −k is head − k (mod K); the head (month 0) holds `now`
-      for (let k = 1; k < K; k++) ring[((K - k) % K) * NV + v] = past[Math.min(k, past.length) - 1];
+      // month −q's value (q = 0 is `now`), held at the oldest month given
+      const month = (q: number) => (q === 0 ? now[v] : past[Math.min(q, past.length) - 1]);
+      // slot of sub-step −j is head − j (mod K); the head (month 0) holds `now`
+      for (let j = 1; j < K; j++) {
+        const q = Math.floor(j / N),
+          w = (j % N) / N;
+        ring[((K - j) % K) * NV + v] = w === 0 ? month(q) : (1 - w) * month(q) + w * month(q + 1);
+      }
     }
   }
 
@@ -187,27 +207,38 @@ export class Machine {
       if (k === undefined) throw new Error(`rule '${cr.def.id}' reads unknown ${what} '${id}'`);
       return k;
     };
+    // Plain lookup tables for the hot reads: faster than Map.get on the step's inner loop, and the
+    // stock table is keyed by instrument then player, so a read builds no string.
+    const table = (map: Map<Id, number>): Record<Id, number> => Object.assign(Object.create(null), Object.fromEntries(map));
+    const inputs = table(cr.inputMap),
+      lags = table(cr.lagMap),
+      params = table(cr.paramMap);
+    const stocks: Record<Id, Record<Id, number>> = Object.create(null);
+    for (const [key, code] of cr.stockMap) {
+      const [ins, pl] = key.split('\u0000');
+      (stocks[ins] ??= Object.create(null))[pl] = code;
+    }
     return {
       v(id: Id) {
-        const k = cr.inputMap.get(id);
+        const k = inputs[id];
         if (k !== undefined) return M.cur[k];
         if (dev) M.undeclared(cr, 'v', id, 'inputs');
         return M.cur[global(m.varIndex, id, 'variable')];
       },
       lag(id: Id, kk = 1) {
-        const k = cr.lagMap.get(id);
+        const k = lags[id];
         if (k !== undefined) return kk === 1 ? M.ring[M.head * M.NV + k] : M.lagValue(k, kk);
         if (dev) M.undeclared(cr, 'lag', id, 'lagInputs');
         return M.lagValue(global(m.varIndex, id, 'variable'), kk);
       },
       p(id: Id) {
-        const k = cr.paramMap.get(id);
+        const k = params[id];
         if (k !== undefined) return M.pEff[k];
         if (dev) M.undeclared(cr, 'p', id, 'params');
         return M.pEff[global(m.paramIndex, id, 'parameter')];
       },
       stock(ins: Id, pl: Id) {
-        const code = cr.stockMap.get(ins + '\u0000' + pl);
+        const code = stocks[ins]?.[pl];
         if (code !== undefined) {
           const s = M.ledger.pos[code >> 1];
           return code & 1 ? -s : s;

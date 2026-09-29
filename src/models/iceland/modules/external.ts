@@ -17,8 +17,9 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, TermDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { EXPORTERS, FIRM_NAME, gapRate, gapShare, pickParams, sum, terms, lastMonth, type Exporter, liquidRate } from '../util.ts';
+import { EXPORTERS, FIRM_NAME, gapRate, gapShare, overMonth, pickParams, sum, terms, lastMonth, type Exporter, liquidRate } from '../util.ts';
 import { bondsBanksCanSell } from './banks.ts';
+import { monthTotal } from '../testing.ts';
 
 /** Export lines: [key, seller, baseline volume, elasticity, what, price in foreign currency (null: krónur)]. */
 const EXPORTS = [
@@ -305,9 +306,13 @@ export const external: ModuleDef = {
       category: 'BEHAVIOUR',
       lagInputs: ['kronaSentiment', 'sentimentShock'],
       params: ['lamSent'],
-      terms: terms(
-        ['fading', 'Earlier sentiment, fading', 'floating-exchange-rate', (c) => c.lag('kronaSentiment') * Math.exp(-c.p('lamSent') * c.dt)],
-        ['shock', 'New shock', 'floating-exchange-rate', (c) => c.lag('sentimentShock')],
+      terms: overMonth(
+        terms(
+          ['previous', 'Last month’s sentiment', 'floating-exchange-rate', (c) => c.lag('kronaSentiment')],
+          ['fading', 'Fading this month', 'floating-exchange-rate', (c) => c.lag('kronaSentiment') * (Math.exp(-c.p('lamSent') * c.dt) - 1)],
+          ['shock', 'New shock', 'floating-exchange-rate', (c) => c.lag('sentimentShock')],
+        ),
+        { previous: 'first', fading: 'sum', shock: 'sum' },
       ),
       concepts: ['floating-exchange-rate'],
       explain: {
@@ -855,8 +860,9 @@ export const external: ModuleDef = {
         e.fire('kronaShock', -10);
         e.step(1);
         const fa1 = e.balanceSheet('PF').assets.find((a) => a.instrument === 'foreignAssets')!.value;
-        const rev = e.value('revaluationForeignAssets') / 12;
-        const buy = e.value('foreignAssetPurchases') / 12;
+        // the month's totals, over its kernel steps (decision 0011)
+        const rev = monthTotal(e, 'revaluationForeignAssets');
+        const buy = monthTotal(e, 'foreignAssetPurchases');
         const gap = fa1 - fa0 - rev - buy;
         return { pass: rev > 0 && Math.abs(gap) < 1e-9, detail: `revaluation +${rev.toFixed(3)}, purchases ${buy.toFixed(3)}, unexplained ${gap.toExponential(2)} (% of GDP)` };
       },
@@ -867,8 +873,9 @@ export const external: ModuleDef = {
       run: (e) => {
         const gaps: number[] = [];
         const check = () => {
+          // each leg's amount at the month's last kernel step, as exportValue is (decision 0011)
           const legs = e.legs().filter((l) => l.flow === 'exports');
-          const bySeller = EXPORTERS.map((j) => legs.filter((l) => l.to === j).reduce((s, l) => s + l.value, 0));
+          const bySeller = EXPORTERS.map((j) => legs.filter((l) => l.to === j).reduce((s, l) => s + e.value(l.amount!), 0));
           gaps.push(Math.abs(sum(bySeller) - e.value('exportValue')), Math.abs(sum(EXPORTS.map(([k]) => e.value(`exportVolume${k}`))) - e.value('exportVolume')));
         };
         check();

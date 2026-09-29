@@ -12,6 +12,7 @@ import { ALL_PARAMS, BASE } from '../../src/models/iceland/steady.ts';
 import { concepts } from '../../src/concepts/library.ts';
 import { withConcepts } from '../../src/models/index.ts';
 import { snapToStep } from '../../src/ui/model/levers.ts';
+import { stepByStep } from '../../src/models/iceland/testing.ts';
 
 const model = compile(withConcepts(icelandModel));
 
@@ -95,8 +96,8 @@ describe('Iceland model: structure', () => {
     ]);
   });
 
-  test('the debt rule is counted once: after “Apply” while income tax is locked, unlocking moves the tax rate only by one smoothed step of the rule (audit M8)', () => {
-    const e = createEngine(model, { dev: false });
+  test('the debt rule is counted once: after “Apply” while income tax is locked, unlocking moves the tax rate only by the rule’s smoothed steps that month (audit M8)', () => {
+    const { engine: e, steps } = stepByStep(createEngine(model, { dev: false }), (x) => ({ tax: x.value('taxRate'), target: x.value('taxRuleTarget') }));
     lockAll(e); // both policy levers locked
     e.setLever('otherServices', 3); // debt builds up, so the rule calls for a higher tax
     e.step(48);
@@ -110,31 +111,48 @@ describe('Iceland model: structure', () => {
     const heading = e.value('taxRuleTarget');
     e.setLever('incomeTaxLock', 0);
     expect(e.leverValue('incomeTax')).toBe(applied); // the lever keeps its value; unlocked, it no longer counts
+    steps.length = 0;
     e.step(1);
     const tau0 = e.influences('taxRate').params.find((p) => p.id === 'tau0')!.value;
-    const k = 1 - Math.exp(-e.influences('taxRuleAdjustment').params.find((p) => p.id === 'lamTau')!.value / 12);
+    const lamTau = e.influences('taxRuleAdjustment').params.find((p) => p.id === 'lamTau')!.value;
+    // two kernel steps a month (decision 0011): each closes ks of the gap
+    const N = model.def.substeps ?? 1;
+    const ks = 1 - Math.exp(-lamTau / 12 / N);
     // Unlocked: the baseline rate plus the rule's adjustment, and nothing from the lever on top.
     expect(e.value('taxRate')).toBeCloseTo(tau0 + e.value('taxRuleAdjustment'), 15);
-    // The rule steps from the rate in force (the applied lever), so the rate moves by one smoothed
-    // step toward where the rule is heading, not by the whole adjustment a second time.
+    // The rule steps from the rate in force (the applied lever), so each step moves the rate by one
+    // smoothed step toward where the rule is heading, not by the whole adjustment a second time.
     expect(Math.abs(applied / 100 - heading)).toBeLessThanOrEqual(0.0025 + 1e-12);
-    expect(Math.abs(e.value('taxRate') - manual - k * (e.value('taxRuleTarget') - applied / 100))).toBeLessThan(1e-12);
+    expect(Math.abs(manual - tau0 - applied / 100)).toBeLessThan(1e-15);
+    expect(steps.length).toBe(N);
+    let prev = applied / 100;
+    for (const x of steps) {
+      expect(Math.abs(x.tax - tau0 - prev - ks * (x.target - prev))).toBeLessThan(1e-12);
+      prev = x.tax - tau0;
+    }
     expect(Math.abs(e.value('taxRate') - manual)).toBeLessThan(applied / 100 / 2);
   });
 
-  test('unlocking income tax after a held tax cut moves the tax rate one small step from the rate you held, not to the debt rule’s path (lever review MON-2 item 6)', () => {
-    const e = createEngine(model, { dev: false });
+  test('unlocking income tax after a held tax cut moves the tax rate one month’s small step from the rate you held, not to the debt rule’s path (lever review MON-2 item 6)', () => {
+    const { engine: e, steps } = stepByStep(createEngine(model, { dev: false }), (x) => ({ tax: x.value('taxRate'), target: x.value('taxRuleTarget') }));
     lockAll(e); // both policy levers locked
     e.setLever('incomeTax', -3);
     e.step(60);
     const held = e.value('taxRate');
     e.setLever('incomeTaxLock', 0);
+    steps.length = 0;
     e.step(1);
-    const k = 1 - Math.exp(-e.influences('taxRuleAdjustment').params.find((p) => p.id === 'lamTau')!.value / 12);
-    const move = e.value('taxRate') - held;
+    const N = model.def.substeps ?? 1;
+    const ks = 1 - Math.exp(-e.influences('taxRuleAdjustment').params.find((p) => p.id === 'lamTau')!.value / 12 / N);
+    // each of the month's kernel steps closes ks of the gap from the shift before it, starting at −3 points
+    let prev = -0.03;
+    for (const x of steps) {
+      const shift = prev + ks * (x.target - prev);
+      expect(Math.abs(x.tax - (held + shift + 0.03))).toBeLessThan(1e-12);
+      prev = shift;
+    }
     // before the anchor, the rate jumped from 35.53% to 39.38% in this month
-    expect(Math.abs(move - k * (e.value('taxRuleTarget') + 0.03))).toBeLessThan(1e-12);
-    expect(Math.abs(move)).toBeLessThan(0.005);
+    expect(Math.abs(e.value('taxRate') - held)).toBeLessThan(0.005);
   });
 
   test('v1’s 34 charts, with the same ids, in four tabs, plus all jobs (lever review EXPECTATION-GAPS) and 17 charts by firm sector in a fifth', () => {
@@ -239,8 +257,10 @@ describe('Iceland model: the steady state matches engine v1', () => {
 // so timing budgets are loosened there; the local budget stays tight.
 const PERF_SLACK = process.env.CI ? 10 : 1;
 
-describe('Iceland model: speed', () => {
-  test('a shocked month steps in well under 250 µs', () => {
+describe('Iceland model: speed (the budgets of decision 0011)', () => {
+  const N = model.def.substeps ?? 1;
+
+  test('a shocked month steps in well under 250 µs per kernel step', () => {
     const e = createEngine(model, { dev: false });
     lockAll(e); // both policy levers locked
     e.fire('wageSettlement', 10);
@@ -248,9 +268,36 @@ describe('Iceland model: speed', () => {
     const t0 = performance.now();
     e.step(600);
     const us = ((performance.now() - t0) * 1000) / 600;
-    console.log(`Iceland model: ${model.NV} variables, ${model.clegs.length} legs, block of ${Math.max(...model.schedule.map((b) => b.rules.length))} rules: ${us.toFixed(1)} µs per step`);
-    // About 150–180 µs alone with 413 variables; 250 leaves room for another test run sharing the
-    // machine (it measured 205 µs under load at 200, lever review perf-test-flaky).
-    expect(us).toBeLessThan(250 * PERF_SLACK);
+    console.log(`Iceland model: ${model.NV} variables, ${model.clegs.length} legs, block of ${Math.max(...model.schedule.map((b) => b.rules.length))} rules, ${N} steps a month: ${us.toFixed(1)} µs per month`);
+    // About 150–180 µs a kernel step alone with 413 variables; 250 × N leaves room for another test
+    // run sharing the machine (it measured 205 µs under load at 200, lever review perf-test-flaky).
+    expect(us).toBeLessThan(250 * N * PERF_SLACK);
+  });
+
+  test('a what-if replays 240 shocked months in under 100 ms, and a seek back takes under 20 ms', () => {
+    const e = createEngine(model, { dev: false });
+    e.fire('wageSettlement', 10);
+    e.setLever('lendingAppetite', 1);
+    e.step(240);
+    e.fork().step(12); // warm up the JIT
+    // a fork replays the whole scenario with its history, as every what-if in the interface does
+    let fork = Infinity;
+    for (let k = 0; k < 3; k++) {
+      const t0 = performance.now();
+      e.fork();
+      fork = Math.min(fork, performance.now() - t0);
+    }
+    // a seek back restores the snapshot before the month and replays the rest (at most 11 months)
+    let seek = 0;
+    for (const month of [239, 191, 143, 95, 47, 11]) {
+      e.seek(240);
+      const t0 = performance.now();
+      e.seek(month);
+      seek = Math.max(seek, performance.now() - t0);
+      expect(e.t).toBe(month);
+    }
+    console.log(`Iceland model: a 240-month fork ${fork.toFixed(1)} ms, the slowest seek back ${seek.toFixed(1)} ms (${N} steps a month)`);
+    expect(fork).toBeLessThan(100 * PERF_SLACK);
+    expect(seek).toBeLessThan(20 * PERF_SLACK);
   });
 });

@@ -51,6 +51,8 @@ export const icelandModel: ModelDef = {
     treasuryAccount: 'treasuryAccount',
   },
   dt: 1 / 12,
+  // Two kernel steps a month (dt/2 each): halves the first-order time-step error (decision 0011).
+  substeps: 2,
   steadyState: {
     // Each balancing parameter of v1's steady state is paired with the data it balances: every
     // sector's net lending is zero at the data stock. The smelters need no retention ratio: their

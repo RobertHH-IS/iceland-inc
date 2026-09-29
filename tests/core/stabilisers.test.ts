@@ -11,6 +11,7 @@ import { createEngine } from '../../src/core/engine.ts';
 import { lockAll } from '../../src/core/scenario.ts';
 import type { LeverDef, ModelDef, ModuleDef, StabiliserDef } from '../../src/core/types.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
+import { stepByStep, stepsAMonth } from '../../src/models/iceland/testing.ts';
 import { rule, tinyModel } from './fixtures.ts';
 
 const setting = (l: Partial<LeverDef> & Pick<LeverDef, 'id'>): LeverDef => ({
@@ -344,18 +345,32 @@ describe('Iceland: a locked policy lever is held', () => {
     expect(Math.abs(f.value('taxRuleAdjustment'))).toBeGreaterThan(1e-3);
   });
 
-  test('both rules take over smoothly when unlocked: the first month moves each rate one smoothed step from the rate held', () => {
-    const f = createEngine(icelandModel, { baseline: e.baselineData, dev: false });
+  test('both rules take over smoothly when unlocked: the first month moves each rate one month’s smoothed step from the rate held, a share of the gap at each kernel step', () => {
+    // every kernel step of the month (decision 0011: two a month) closes its share of the gap
+    const { engine: f, steps } = stepByStep(createEngine(icelandModel, { baseline: e.baselineData, dev: false }), (x) => ({
+      key: x.value('keyRate'),
+      keyTarget: x.value('ruleTarget'),
+      tax: x.value('taxRate'),
+      taxTarget: x.value('taxRuleTarget'),
+    }));
     f.setLever('keyRate', 6); // locks the key rate
     f.setLever('incomeTax', -3); // and income tax
     f.step(36);
     const [key, tax] = [f.value('keyRate'), f.value('taxRate')];
-    const kKey = 1 - Math.exp(-f.influences('ruleRate').params.find((p) => p.id === 'lamPol')!.value / 12);
-    const kTax = 1 - Math.exp(-f.influences('taxRuleAdjustment').params.find((p) => p.id === 'lamTau')!.value / 12);
+    const N = stepsAMonth(f);
+    const kKey = 1 - Math.exp(-f.influences('ruleRate').params.find((p) => p.id === 'lamPol')!.value / 12 / N);
+    const kTax = 1 - Math.exp(-f.influences('taxRuleAdjustment').params.find((p) => p.id === 'lamTau')!.value / 12 / N);
     lockAll(f, false);
+    steps.length = 0;
     f.step(1);
-    expect(Math.abs(f.value('keyRate') - key - kKey * (f.value('ruleTarget') - key))).toBeLessThan(1e-12);
-    expect(Math.abs(f.value('taxRate') - tax - kTax * (f.value('taxRuleTarget') + 0.03))).toBeLessThan(1e-12);
+    expect(steps.length).toBe(N);
+    let [k, x] = [key, -0.03]; // the rate and the tax shift in force before each step
+    for (const s of steps) {
+      expect(Math.abs(s.key - k - kKey * (s.keyTarget - k))).toBeLessThan(1e-12);
+      const shift = x + kTax * (s.taxTarget - x);
+      expect(Math.abs(s.tax - tax - (shift + 0.03))).toBeLessThan(1e-12);
+      [k, x] = [s.key, shift];
+    }
     expect(Math.abs(f.value('keyRate') - key)).toBeLessThan(0.005);
     expect(Math.abs(f.value('taxRate') - tax)).toBeLessThan(0.005);
   });
