@@ -152,6 +152,15 @@ const buybackShare = (c: Ctx, h: Buyer) => {
   const all = bondsHeld(c);
   return all > 0 ? c.stock('govBonds', h) / all : 0;
 };
+/** Share of nominal bonds whose coupon is reset this month: last month's new bonds (as a share of
+ *  the stock at the start of the month, which includes them) plus a month's maturities, 1 ÷ average
+ *  maturity, of the rest. Buybacks take bonds at every coupon alike, so they leave the average. */
+const repricedShare = (c: Ctx) => {
+  const stock = c.stock('govBonds', 'G');
+  if (!(stock > 0)) return 1;
+  const fresh = Math.min(1, (Math.max(0, c.lag('bondIssue')) * c.dt) / stock);
+  return fresh + (1 - fresh) * Math.min(1, c.dt / c.p('bondMaturity'));
+};
 /** New bonds a pension fund or older household can pay for this month: pension funds the cash above
  *  the buffer they keep (pensions.ts; their other purchases take what is left), older households
  *  the share hoBondCashShare of their cash in hand (the rest is for their spending, households.ts). */
@@ -434,9 +443,18 @@ const rules: RuleDef[] = [
     target: 'bondRate',
     category: 'CONTRACT',
     inputs: ['keyRate'],
-    params: ['sB'],
-    terms: terms(['keyRate', 'Key rate', 'taylor-rule', (c) => c.v('keyRate')], ['spread', 'Bond spread', undefined, (c) => c.p('sB')]),
-    explain: { what: 'Interest on government bonds, which float with the key rate: the same whoever holds them.', rule: 'Bond rate = key rate + {sB pp}.' },
+    lagInputs: ['bondRate', 'bondIssue'],
+    params: ['sB', 'bondMaturity'],
+    stocks: [['govBonds', 'G']],
+    terms: terms(
+      ['held', 'Bonds still at their old coupon', 'interest-distribution', (c) => (1 - repricedShare(c)) * c.lag('bondRate')],
+      ['repriced', 'Bonds refinanced at the key rate + spread', 'taylor-rule', (c) => repricedShare(c) * (c.v('keyRate') + c.p('sB'))],
+    ),
+    concepts: ['interest-distribution'],
+    explain: {
+      what: 'The average coupon the government pays on its nominal bonds, the same whoever holds them. Most bonds pay the fixed coupon they were sold with, so the average moves toward the key rate + {sB pp} only as bonds mature and are refinanced, and as new bonds are sold.',
+      rule: 'Rate = last month’s average × the share not repriced + (key rate + {sB pp}) × the share repriced this month. The share repriced is the bonds sold last month (as a share of all nominal bonds) plus a month’s worth, 1 ÷ {bondMaturity} years, of the rest, which mature and are refinanced. Selling many new bonds therefore moves the average faster.',
+    },
   },
   ...HOLDERS.map(
     ([h, who]): RuleDef => ({
@@ -594,7 +612,7 @@ export const government: ModuleDef = {
   requires: ['stabilisers', 'structure', 'labour-and-wages', 'prices', 'central-bank', 'banks', 'households', 'firms'],
   params: pickParams(ALL_PARAMS, [
     'gHealth', 'gEdu', 'gOther', 'gInv', 'wsHealth', 'wsEdu', 'wsOther', 'trOA', 'oaShareY', 'oaShareO', 'trFam', 'famShareY', 'famTaxableShare', 'rr', 'rrShift',
-    'vat0', 'vatShift', 'tau0', 'incomeTaxShift', 'phiTau', 'lamTau', 'debtR0', 'css', 'tauF', 'sB', 'rBI0', 'tga', 'treasuryTopUp', 'bondMixBankShare',
+    'vat0', 'vatShift', 'tau0', 'incomeTaxShift', 'phiTau', 'lamTau', 'debtR0', 'css', 'tauF', 'sB', 'bondMaturity', 'rBI0', 'tga', 'treasuryTopUp', 'bondMixBankShare',
     'compG', 'ueTarget', 'vatTarget', 'citTarget', 'govDebt', 'govIdxShare',
   ]),
   vars,
@@ -787,7 +805,7 @@ export const government: ModuleDef = {
       ],
       description: 'Banks and the central bank pay with newly created money; pension funds and households pay with existing deposits.',
       definition:
-        'Choice, persistent while set: every new bond sold from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Pension funds and older households buy only what their deposits can pay for that month; banks take the rest. When the budget is in surplus the government buys bonds back from every holder in proportion to what they hold, whatever the choice. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares. The bond rate stays at the key rate plus its spread whoever buys, so the choice changes money and who receives the interest, not interest rates. Non-residents are not an option: they buy and sell bonds with banks on their own, through the carry trade.',
+        'Choice, persistent while set: every new bond sold from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Pension funds and older households buy only what their deposits can pay for that month; banks take the rest. When the budget is in surplus the government buys bonds back from every holder in proportion to what they hold, whatever the choice. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares. New bonds pay the key rate plus its spread whoever buys, so the choice changes money and who receives the interest, not interest rates. Non-residents are not an option: they buy and sell bonds with banks on their own, through the carry trade.',
       concepts: ['bond-buyers', 'deficits-and-money', 'endogenous-money'],
     },
   ],
@@ -911,6 +929,32 @@ export const government: ModuleDef = {
         const balance = f.value('govBalance') - f.baseline('govBalance');
         const pass = Math.abs(taxed - share * dFam) < 1e-12 && Math.abs(untaxed - (1 - share) * dFam) < 1e-12 && share > 0.3 && share < 0.45 && balance < -0.8 && balance > -0.9;
         return { pass, detail: `taxable share ${share.toFixed(3)}; young: +${dFam.toFixed(4)} benefits, +${taxed.toFixed(4)} taxable, +${untaxed.toFixed(4)} tax-free; government balance ${balance.toFixed(3)} (% of GDP) in month 1` };
+      },
+    },
+    {
+      id: 'bonds-reprice-as-they-mature',
+      label: 'A key rate 1 point higher reaches the average bond coupon as bonds mature and new ones are sold, not at once (review MON-1)',
+      run: (e) => {
+        const held = e.model.levers.find((l) => l.id === 'keyRateFixed')!.default + 1;
+        const bill = (f: ReturnType<typeof e.fork>) => HOLDERS.reduce((s, [h]) => s + f.value(`bondInterest${h}`) - f.baseline(`bondInterest${h}`), 0);
+        const path = (extraSpending: number) => {
+          const f = e.fork();
+          f.setLever('keyRateFixed', held);
+          if (extraSpending) f.setLever('otherServices', extraSpending);
+          const out: { rate: number; bill: number }[] = [];
+          for (const months of [1, 11, 108]) {
+            f.step(months);
+            out.push({ rate: 100 * (f.value('bondRate') - f.baseline('bondRate')), bill: bill(f) });
+          }
+          return out;
+        };
+        const [m1, m12, m120] = path(0);
+        const deficit = path(5)[1];
+        const pass = m1.rate > 0 && m1.rate < 0.03 && m12.rate > 0.15 && m12.rate < 0.25 && m120.rate > 0.85 && deficit.rate > m12.rate && m1.bill < 0.02 && m12.bill > 0.05 && m12.bill < 0.15;
+        return {
+          pass,
+          detail: `bond rate +${m1.rate.toFixed(3)} pp in month 1, +${m12.rate.toFixed(3)} at month 12 (+${deficit.rate.toFixed(3)} with spending 5% of GDP higher), +${m120.rate.toFixed(3)} at month 120; interest bill +${m1.bill.toFixed(3)} and +${m12.bill.toFixed(3)} % of GDP`,
+        };
       },
     },
     {

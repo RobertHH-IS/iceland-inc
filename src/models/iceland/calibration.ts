@@ -90,8 +90,8 @@ const QMM_RATE =
   'CBI QMM v2.1 (Monetary Bulletin): the key rate raised 1 pp for four quarters, after which the rule takes over, lowers output about 0.41% and inflation about 0.24 pp at a trough in quarter 5 (research report, "Policy rate +1 pp"). The scenario is that experiment: the key rate is held 1 pp above baseline on Manual for 12 months, which also keeps the slow debt rule off, and the Automatic rule then takes over. The rule’s own rate eases toward its target from its own past value, which kept falling with the weaker economy during the hold, not from the key rate actually set (central-bank.ts, ruleRate); so the key rate drops about 1.5 pp in month 13, to about 0.5 pp below baseline, rather than easing down. (v1 instead added a 1 pp offset to the Automatic rule for 8 quarters, a key rate only about 0.7 pp higher on average.)';
 const SRC = {
   rate: `${QMM_RATE} The ranges are v1’s bands around the QMM figures (v1 SPEC §7.3). ${QMM_URL}`,
-  rateTiming: `${QMM_RATE} The range is v1’s band around QMM’s quarter 5 (v1 SPEC §7.3). KNOWN GAP: the model’s output trough is month 12, the last month of the hold (quarter 4, the band’s lower edge), a quarter before QMM’s. Output starts to recover the month the hold ends. When the rule takes over gradually instead, the trough is one month later and barely deeper (month 13, about 0.001 below month 12; tests/models, iceland-credit-and-checks): the path is flat there, so the quarter is set by the length of the hold rather than by the model’s own lags. ${QMM_URL}`,
-  rateInflation: `${QMM_RATE} The range is v1’s band around QMM’s −0.24 pp (v1 SPEC §7.3). KNOWN GAP: the model’s trough, about −0.33 pp in month 13, is inside the band only because of that one-month drop in the key rate. If the held rate instead closes a quarter of its gap to the rule’s suggestion each month, the trough is about −0.36 pp in month 15, outside the band (tests/models, iceland-credit-and-checks). ${QMM_URL}`,
+  rateTiming: `${QMM_RATE} The range is v1’s band around QMM’s quarter 5 (v1 SPEC §7.3). KNOWN GAP: the model’s output trough is month 12, the last month of the hold (quarter 4, the band’s lower edge), a quarter before QMM’s. Output starts to recover the month the hold ends. When the rule takes over gradually instead, the trough is one month later and barely deeper (month 13, about 0.005 below month 12; tests/models, iceland-credit-and-checks): the path is flat there, so the quarter is set by the length of the hold rather than by the model’s own lags. ${QMM_URL}`,
+  rateInflation: `${QMM_RATE} The range is v1’s band around QMM’s −0.24 pp (v1 SPEC §7.3). KNOWN GAP: the model’s trough, about −0.33 pp in month 14, is inside the band only because of that one-month drop in the key rate. If the held rate instead closes a quarter of its gap to the rule’s suggestion each month, the trough is about −0.36 pp in month 16, outside the band (tests/models, iceland-credit-and-checks). ${QMM_URL}`,
   rateKrona: `CBI QMM v2.1 (Monetary Bulletin): the króna rises 0.67% on impact per 1 pp of interest-rate differential, with its real peak in quarter 4 (research report, "Policy rate +1 pp" and the dial table; the "+0.7–1%" once quoted here belongs to the wage experiment). QMM is quarterly, so its impact is the first quarter; the check measures the model’s first-quarter average. The range is v1’s band of 0.3–1.5 (v1 SPEC §7.3), which no source gives. KNOWN GAP: the model’s first-quarter rise is about 0.41%, about 0.35% in month 1, and it peaks in month 3 rather than quarter 4, so the model’s króna is less sensitive to the rate gap than QMM’s (KNOWN_GAPS). ${QMM_URL}`,
   wage: 'Research report, "Wages +10%": CPI about +2% in year 1 rising toward about +4% as pass-through completes (CBI MB 2026/2 Box 2); the ranges are v1’s bands around those figures (v1 SPEC §7.3). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageLevel:
@@ -99,7 +99,8 @@ const SRC = {
   wageRate: 'Research report, "Wages +10%": policy rate +1 to +1.5 pp at the peak, in quarters 2–4 (CBI DYNIMO, +0.3 pp per 1 pp of wages above baseline for two years, scaled; CBI MB 2026/2). v1’s band was 0.8–2 (v1 SPEC §7.3); the range is now the cited one. https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageJobs:
     'Research report, "Wages +10%": unemployment +0.5–1 pp at the peak (CBI DYNIMO: −0.7 pp of hours per +1 pp of wages, CBI MB 2026/2; the size of the cap on a 10% shock is the report’s assumption). The range is the cited one. The model’s peak is about 0.51, near its lower edge; it was about 0.47, below it, and judged against v1’s band of 0.3–1.2 (v1 SPEC §7.3) as a known gap, until imported goods carried a domestic distribution margin (distM, review E6): wages then reach prices a little more, so the key rate rises more and output and jobs fall a little more. https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
-  wageBack: 'Research report, "Wages +10%", settles in years 3–6: real variables return to baseline because the wage share is anchored in the long run (CBI QMM v4.0 long-run homogeneity; v1 SPEC §7.3). https://cb.is/library/news-and-publications/publications/working-papers/WP82_net.pdf',
+  wageBack:
+    'Research report, "Wages +10%", settles in years 3–6: real variables return to baseline because the wage share is anchored in the long run (CBI QMM v4.0 long-run homogeneity; v1 SPEC §7.3). The peak is the largest deviation in years 1–2, the response to the settlement before that settling period. (Until review MON-1 it was the largest in years 1–6. Once government bonds kept their coupons as the key rate fell, consumption rose again in years 3–4 on the higher interest, above its year-1 peak; measured against that later peak the ratio was smaller, so easier to pass, and depended on the time step: 0.137, and 0.157 at half the step.) https://cb.is/library/news-and-publications/publications/working-papers/WP82_net.pdf',
   fiscal:
     'Research report, "Government spending +1% of GDP": the government buys 1% of GDP more from firms; output +0.3–0.6% in year 1 when deficit-financed, an inference from the ~0.7 cross-country median multiplier and Iceland’s openness (IMF WP 2026/043). Public investment is the lever that is only a purchase from firms, so the check uses it, with the cited range. (v1 used the other-services lever, about a third of which is public pay with no import leakage; that mixed multiplier is about 0.72, and v1 SPEC §7.3 widened the range to 0.8 for it.) https://www.elibrary.imf.org/view/journals/001/2026/043/article-A001-en.xml',
   money: 'Accounting mechanism: deficits add deposits when banks buy the bonds and move existing deposits when pension funds do (Bank of England 2014, "Money creation in the modern economy"; research report §1); v1 SPEC §7.3 requires a gap of at least 0.5 pp.',
@@ -172,12 +173,12 @@ function fundsFinancedRun(run: RunResult, months: number): RunResult {
 
 const wageBack = (id: string, label: string): CalibrationCheck => ({
   id: `wage-back-${id}`,
-  label: `Wages +10%: ${label} at year 6 ÷ peak deviation`,
+  label: `Wages +10%: ${label} at year 6 ÷ peak deviation in years 1–2`,
   scenario: WAGE,
   months: 72,
   measure: (run) => {
     const a = run.series(id);
-    const j = argmax(a.map(Math.abs), 1, 72);
+    const j = argmax(a.map(Math.abs), 1, 24);
     return Math.abs(a[72] / a[j]);
   },
   range: [0, 0.25],
@@ -498,7 +499,7 @@ export const calibration: CalibrationCheck[] = [
 export const KNOWN_GAPS: Record<string, { cited?: [number, number]; why: string }> = {
   'rate-output-timing': {
     cited: [5, 5],
-    why: 'The output trough is month 12, the last month of the key-rate hold (quarter 4); QMM’s is quarter 5. With a gradual takeover it moves only to month 13, about 0.001 deeper: the trough is flat at the end of the hold, so the hold’s length sets the quarter. Tripwire: the generic test, and "the rate checks’ takeover" test in tests/models.',
+    why: 'The output trough is month 12, the last month of the key-rate hold (quarter 4); QMM’s is quarter 5. With a gradual takeover it moves only to month 13, about 0.005 deeper: the trough is flat at the end of the hold, so the hold’s length sets the quarter. Tripwire: the generic test, and "the rate checks’ takeover" test in tests/models.',
   },
   'rate-inflation-trough': {
     why: 'The trough, about −0.33 pp, is inside v1’s band only because the key rate drops about 1.5 pp when the rule takes over (central-bank.ts: ruleRate eases from its own past value, not from the key rate set). With a gradual takeover it is about −0.36 pp, outside the band. Tripwire: "the rate checks’ takeover" test in tests/models fails once the drop is gone; then re-run the rate checks.',
