@@ -17,6 +17,7 @@ import { leverReportSpecs } from '../../src/harness/lever-headlines.ts';
 import {
   DEFAULT_MONTHS,
   HORIZONS,
+  IMPLIED_NEUTRAL_GRID,
   LEVER_THRESHOLDS,
   UNIT_MEANINGS,
   effectOf,
@@ -300,6 +301,14 @@ describe('flags', () => {
     expect(Math.abs(at(y.rate!))).toBeLessThan(0.01);
     expect(at(y.rate! - 0.25)).toBeGreaterThan(0);
     expect(at(y.rate! + 0.25)).toBeLessThan(0);
+    // the textbook direction, one crossing on the grid; the debt rule's reaction is reported
+    expect(y.rising).toBe(false);
+    expect(y.crossings).toBe(1);
+    expect(y.runs).toBeGreaterThan(Math.round(15 / IMPLIED_NEUTRAL_GRID));
+    const run = runScenario(base, [{ t: 0, lever: 'health', value: 3 }, { t: 0, lever: 'keyRate', value: y.rate! }], 240).engine;
+    expect(y.tax!).toBeCloseTo(100 * (run.valueAt('taxRate', 240) - base.baseline('taxRate')), 9);
+    expect(y.taxRun!).toBeGreaterThan(0);
+    expect(y.tax!).toBeGreaterThan(y.taxRun!);
     // only unlocked runs whose estimate ends at its limit; a smaller rise stays inside the band
     expect(runs.filter((x) => x.impliedNeutral).every((x) => x.mode === 'unlocked')).toBe(true);
     expect(runs.find((x) => x.mode === 'unlocked' && x.roles.includes('up'))!.impliedNeutral).toBeUndefined();
@@ -310,7 +319,32 @@ describe('flags', () => {
     const gate = leverReport(ice, { months: 240, onlyExpected: true, expectations: [{ lever: 'health', setting: 'max', mode: 'unlocked', variable: 'output', fromMonth: 1, toMonth: 12, sign: 1, theory: 't', source: 's' }] });
     expect(gate.levers[0].runs.some((x) => x.impliedNeutral)).toBe(false);
     expect(report().levers.some((s) => s.runs.some((x) => x.impliedNeutral))).toBe(false);
-  });
+  }, 60_000);
+
+  test('the implied neutral rate is found where inflation crosses target, even when it rises with the rate (tourism −60, decision 0012)', () => {
+    // Held at a constant rate after tourism −60, inflation over months 180–240 is about −0.44 pp
+    // at 0% and 1%, +0.06 at 3% and +0.10 at 15%: it rises with the rate, and it crosses target
+    // more than once, so comparing the ends of the range alone would wrongly say no rate works.
+    const r = leverReport(ice, { months: 240, levers: ['tourism'], expectations: null });
+    const min = r.levers[0].runs.find((x) => x.mode === 'unlocked' && x.roles.includes('min'))!;
+    const y = min.impliedNeutral!;
+    expect(y.estimate).toBeCloseTo(y.band[0], 9);
+    expect(y.rate).not.toBeNull();
+    expect(y.outside).toBeUndefined();
+    expect(y.rising).toBe(true);
+    expect(y.crossings).toBeGreaterThan(1);
+    // the crossing nearest the estimate (0%) lies between 1% and 3%, and held there inflation is on target
+    expect(y.rate!).toBeGreaterThan(1);
+    expect(y.rate!).toBeLessThan(3);
+    const base = createEngine(ice);
+    const e = runScenario(base, [{ t: 0, lever: 'tourism', value: -60 }, { t: 0, lever: 'keyRate', value: y.rate! }], 240).engine;
+    let s = 0;
+    for (let t = 180; t <= 240; t++) s += e.valueAt('inflation12', t) - base.baseline('inflation12');
+    expect(Math.abs((100 * s) / 61)).toBeLessThan(0.01);
+    const md = renderLeverMarkdown(r);
+    expect(md).toContain('there, inflation rises with the key rate rather than falls');
+    expect(md).not.toContain('does not fall as the rate rises');
+  }, 60_000);
 
   test('an expectation that an effect dies out compares its largest move late with its largest earlier (decision 0012)', () => {
     // a one-off wage settlement: inflation jumps in the first year and fades

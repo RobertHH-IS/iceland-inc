@@ -3,7 +3,7 @@
  * agents and tools, and the optional full paths. Nothing here depends on the clock, so the same
  * model always renders the same files.
  */
-import { DEFAULT_MONTHS, FLAG_KINDS, LEVER_THRESHOLDS, LONG_RUN_MONTHS, fmtEffect, type ExpectationResult, type Flag, type ImpliedNeutral, type LeverReport, type LeverRun, type LeverSection } from './lever-report.ts';
+import { DEFAULT_MONTHS, FLAG_KINDS, IMPLIED_NEUTRAL_GRID, LEVER_THRESHOLDS, LONG_RUN_MONTHS, fmtEffect, type ExpectationResult, type Flag, type ImpliedNeutral, type LeverReport, type LeverRun, type LeverSection } from './lever-report.ts';
 
 /** File name (without extension) of a model's report: `<model>` at the default horizon, which is
  *  committed, and `<model>-<n>m` at any other, which is git-ignored. */
@@ -21,14 +21,21 @@ function flagLines(flags: Flag[], indent = ''): string[] {
   return [`${indent}Flags:`, ...(indent ? [] : ['']), ...flags.map((f) => `${indent}- **${flagTitle(f.kind)}**: ${esc(f.detail)}.`)];
 }
 
-const outsideText = (x: ImpliedNeutral) =>
-  x.outside === 'below' ? 'inflation stays below target even at the lowest rate' : x.outside === 'above' ? 'inflation stays above target even at the highest rate' : 'inflation does not fall as the rate rises';
+const outsideText = (x: ImpliedNeutral) => `inflation stays ${x.outside} target at every rate in the range`;
+/** The fiscal rule's reaction at the implied rate, when the model reports it. */
+const taxText = (x: ImpliedNeutral) =>
+  x.tax === null
+    ? ''
+    : x.taxRun !== null && Math.abs(x.tax - x.taxRun) < 1e-9
+      ? ` and the income-tax rate ${fmt(x.tax)} points, as in the run itself (the run's own lever holds it)`
+      : ` and the income-tax rate ${fmt(x.tax)} points at the final month (${x.taxRun === null ? '' : `${fmt(x.taxRun)} with the key-rate rule acting; `}the debt rule keeps reacting to the held rate)`;
 
 /** The implied neutral rate of a run, in words. */
 function impliedText(x: ImpliedNeutral): string {
   const band = `${x.band[0].toFixed(2)}–${x.band[1].toFixed(2)}%`;
-  if (x.rate === null) return `no constant key rate within the lever's range leaves inflation on target over the final five years (${outsideText(x)}); the rule's estimate ends at ${x.estimate.toFixed(2)}%, the edge of its band of ${band}`;
-  return `${x.rate.toFixed(2)}% real (the rule's estimate ends at ${x.estimate.toFixed(2)}%, the edge of its band of ${band}); held there, unemployment is ${fmt(x.unemployment!)} pp from the no-change run over the same years`;
+  if (x.rate === null) return `no constant key rate within the lever's range leaves inflation on target over the final five years (${outsideText(x)}, scanned every ${IMPLIED_NEUTRAL_GRID} points); the rule's estimate ends at ${x.estimate.toFixed(2)}%, the edge of its band of ${band}`;
+  const how = [x.rising ? 'there, inflation rises with the key rate rather than falls' : '', x.crossings > 1 ? `inflation crosses target ${x.crossings} times across the lever's range, and this is the crossing nearest the rule's estimate` : ''].filter(Boolean);
+  return `${x.rate.toFixed(2)}% real (the rule's estimate ends at ${x.estimate.toFixed(2)}%, the edge of its band of ${band})${how.length ? `; ${how.join('; ')}` : ''}; held there, unemployment is ${fmt(x.unemployment!)} pp from the no-change run over the same years${taxText(x)}`;
 }
 
 function runTable(r: LeverReport, run: LeverRun): string[] {
@@ -162,13 +169,16 @@ export function renderLeverMarkdown(r: LeverReport): string {
     L.push(
       '## Implied neutral rates',
       '',
-      `Where the central bank's rule learns its neutral rate within a band and a run with every rule acting ends with the estimate at the edge of that band, the report asks which constant key rate would have left inflation on target over the final five years: it holds the key-rate lever at a constant level on top of the run's lever (the other rules still act) and finds that level by bisection, to 0.01 points, within the lever's range (${implied.reduce((a, { x }) => a + x.impliedNeutral!.runs, 0)} runs in all). Less the inflation target, it is the neutral real rate the economy needs; beside the band, it shows how far outside it that rate lies, and so how much of the gap left after 20 years is the band's.`,
+      `Where the central bank's rule learns its neutral rate within a band and a run with every rule acting ends with the estimate at the edge of that band, the report asks which constant key rate would have left inflation on target over the final five years. It holds the key-rate lever at a constant level on top of the run's lever, scans the lever's range every ${IMPLIED_NEUTRAL_GRID} points, and bisects to 0.01 points where inflation crosses target (${implied.reduce((a, { x }) => a + x.impliedNeutral!.runs, 0)} runs in all). Less the inflation target, it is the neutral real rate the economy needs; beside the band, it shows how far outside it that rate lies, and so how much of the gap left after 20 years is the band's.`,
       '',
-      '| Lever | Run | Implied neutral real rate, % | Rule’s estimate at the end, % | Band, % | Unemployment at that rate, pp |',
-      '|---|---|---:|---:|---|---:|',
+      `Two cautions. Inflation need not fall as the held rate rises: a higher rate also pays savers and bondholders more interest, which they spend, and over twenty years that can outweigh the squeeze on borrowers, so inflation can cross target more than once. The table then gives the crossing nearest the rule's estimate, says whether inflation falls or rises with the rate there, and counts the crossings. And the other rules keep acting: the debt rule reacts to the interest bill of the held rate, so the answer includes that fiscal tightening or loosening, shown as the income-tax rate at month ${r.months} beside its value in the run itself (the two are equal where the run's own lever holds income tax).`,
+      '',
+      '| Lever | Run | Implied neutral real rate, % | Inflation there, as the rate rises | Crossings | Rule’s estimate at the end, % | Band, % | Unemployment at that rate, pp | Income tax at that rate, pp | Income tax in the run, pp |',
+      '|---|---|---:|---|---:|---:|---|---:|---:|---:|',
       ...implied.map(({ s, x }) => {
         const y = x.impliedNeutral!;
-        return `| \`${s.id}\` | ${esc(x.label)} | ${y.rate === null ? (y.outside === 'below' ? 'below the lever’s range' : y.outside === 'above' ? 'above the lever’s range' : 'none: inflation does not fall as the rate rises') : y.rate.toFixed(2)} | ${y.estimate.toFixed(2)} | ${y.band[0].toFixed(2)}–${y.band[1].toFixed(2)} | ${y.unemployment === null ? '' : fmt(y.unemployment)} |`;
+        const opt = (v: number | null) => (v === null ? '' : fmt(v));
+        return `| \`${s.id}\` | ${esc(x.label)} | ${y.rate === null ? `none: ${y.outside} target at every rate` : y.rate.toFixed(2)} | ${y.rate === null ? '' : y.rising ? 'rises' : 'falls'} | ${y.crossings} | ${y.estimate.toFixed(2)} | ${y.band[0].toFixed(2)}–${y.band[1].toFixed(2)} | ${opt(y.unemployment)} | ${opt(y.tax)} | ${opt(y.taxRun)} |`;
       }),
       '',
     );

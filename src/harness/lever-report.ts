@@ -45,6 +45,9 @@ export const DEFAULT_MONTHS = 240;
 export const HORIZONS = [1, 3, 6, 12, 24, 36, 60, 120, 240];
 /** The long-run value is the mean effect over this many final months. */
 export const LONG_RUN_MONTHS = 12;
+/** Spacing, in points, of the grid on which the implied-neutral-rate diagnostic scans the key-rate
+ *  lever's range before it bisects (ImpliedNeutral). */
+export const IMPLIED_NEUTRAL_GRID = 0.5;
 
 /** Every threshold a flag uses, in display units (% or pp) unless stated otherwise. */
 export const LEVER_THRESHOLDS = {
@@ -238,19 +241,31 @@ export interface LeverRun {
 
 /** The constant key rate that would have left inflation on target over the final five years of a
  *  run whose learned neutral rate ends at the limit of its band (ImpliedNeutralSpec), all in % a
- *  year. `rate` is null when no level in the lever's range does it: `outside` then says whether
- *  inflation stays below target even at the lever's minimum ('below'), above it even at its maximum
- *  ('above'), or moves the other way ('neither'). */
+ *  year. The lever's range is scanned on a grid (IMPLIED_NEUTRAL_GRID) and the rate is bisected
+ *  inside the bracket where the inflation effect changes sign that lies nearest the rule's
+ *  estimate. `rate` is null only when no grid point changes sign: `outside` then says whether
+ *  inflation stays below or above target at every rate in the range. */
 export interface ImpliedNeutral {
   /** The implied neutral real rate: the constant key rate less the inflation target. */
   rate: number | null;
-  outside?: 'below' | 'above' | 'neither';
+  outside?: 'below' | 'above';
+  /** True when, across the bracket the rate was found in, inflation rises with the key rate
+   *  rather than falls: the model's response is not the textbook one there. */
+  rising?: boolean;
+  /** How many times the inflation effect changes sign along the grid: more than one means several
+   *  constant rates leave inflation on target, and `rate` is the one nearest the rule's estimate. */
+  crossings: number;
   /** The rule's own estimate at the end of the run, and its band. */
   estimate: number;
   band: [number, number];
   /** Unemployment, pp against the no-change run, over the same five years at that constant rate. */
   unemployment: number | null;
-  /** The runs the bisection made. */
+  /** The fiscal rule's instrument (ImpliedNeutralSpec.tax), pp against the no-change run at the
+   *  final month: held at that constant rate, and in the run itself with the key-rate rule acting.
+   *  The fiscal rule keeps acting against the held rate, so its reaction is part of the answer. */
+  tax: number | null;
+  taxRun: number | null;
+  /** The runs the scan and the bisection made. */
   runs: number;
 }
 
@@ -997,8 +1012,11 @@ function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): L
  * The implied-neutral-rate diagnostic (ImpliedNeutralSpec) for one run with every rule acting, or
  * null when the model declares none, the lever is the key-rate lever itself, or the run's learned
  * neutral rate is inside its band at the end. The key-rate lever is held at a constant level on top
- * of the run's own lever (setting it locks it; the other rules still act), and the level at which
- * the mean inflation effect over the final 60 months is zero is found by bisection to 0.01 points.
+ * of the run's own lever (setting it locks it; the other rules, the debt rule among them, still act).
+ * The mean inflation effect over the final 60 months need not fall as the held rate rises, so the
+ * lever's whole range is scanned every IMPLIED_NEUTRAL_GRID points first; the rate is then bisected
+ * to 0.01 points inside the bracket where the effect changes sign that lies nearest the rule's own
+ * estimate, and the direction and the number of such brackets are reported with it.
  */
 function impliedNeutral(S: Setup, e: KernelEngine, ref: Reference, event: ScenarioEvent, leverId: Id): ImpliedNeutral | null {
   const x: ImpliedNeutralSpec | undefined = S.spec.impliedNeutral;
@@ -1017,6 +1035,7 @@ function impliedNeutral(S: Setup, e: KernelEngine, ref: Reference, event: Scenar
     return k;
   };
   const [ki, ku] = [track(x.inflation), track(x.unemployment)];
+  const kt = x.tax === undefined ? -1 : track(x.tax);
   const months = e.t,
     from = Math.max(1, months - 60);
   const meanEffect = (run: KernelEngine, k: number) => {
@@ -1027,26 +1046,38 @@ function impliedNeutral(S: Setup, e: KernelEngine, ref: Reference, event: Scenar
     for (let t = from; t <= months; t++) s += effectOf(tr.display, lv[t], rl[t]);
     return s / (months - from + 1);
   };
+  const finalEffect = (run: KernelEngine, k: number) => (k < 0 ? null : effectOf(S.indicators[k].display, S.indicators[k].levels(run)[months], ref.indicators[k][months]));
   let runs = 0;
   const held = (rate: number) => {
     runs++;
     return S.run([...ref.events, event, { t: 0, lever: x.lever, value: rate }], months);
   };
-  // a higher constant rate lowers inflation: find where the mean effect changes sign
-  let [lo, hi] = [lever.min, lever.max];
-  let [flo, fhi] = [meanEffect(held(lo), ki), meanEffect(held(hi), ki)];
+  const f = (rate: number) => meanEffect(held(rate), ki);
   const band: [number, number] = [100 * (par(x.centre) - par(x.band)), 100 * (par(x.centre) + par(x.band))];
   const estimate = 100 * e.value(x.estimate);
-  if (!(flo > 0 && fhi < 0)) return { rate: null, outside: flo <= 0 && fhi < 0 ? 'below' : flo > 0 && fhi >= 0 ? 'above' : 'neither', estimate, band, unemployment: null, runs };
+  const target = 100 * par(x.target);
+  const taxRun = finalEffect(e, kt);
+  // scan the lever's range: the effect can change sign more than once, or rise with the rate
+  const n = Math.max(1, Math.round((lever.max - lever.min) / IMPLIED_NEUTRAL_GRID));
+  const grid = Array.from({ length: n + 1 }, (_, i) => lever.min! + ((lever.max! - lever.min!) * i) / n);
+  const fs = grid.map(f);
+  const brackets = grid.slice(1).flatMap((_, i) => (fs[i] > 0 !== fs[i + 1] > 0 ? [i] : []));
+  if (!brackets.length) return { rate: null, outside: fs[0] > 0 ? 'above' : 'below', crossings: 0, estimate, band, unemployment: null, tax: null, taxRun, runs };
+  // the bracket nearest the rule's own estimate (a nominal rate: the estimate plus the target)
+  const dist = (i: number) => Math.abs((grid[i] + grid[i + 1]) / 2 - (estimate + target));
+  const i = brackets.reduce((a, b) => (dist(b) < dist(a) ? b : a));
+  let [lo, hi, flo, fhi] = [grid[i], grid[i + 1], fs[i], fs[i + 1]];
+  const rising = fhi > flo;
   while (hi - lo > 0.01) {
     const mid = (lo + hi) / 2;
-    const f = meanEffect(held(mid), ki);
-    if (f > 0) [lo, flo] = [mid, f];
-    else [hi, fhi] = [mid, f];
+    const fm = f(mid);
+    if (fm > 0 === flo > 0) [lo, flo] = [mid, fm];
+    else [hi, fhi] = [mid, fm];
   }
   // the end nearer zero inflation
   const rate = Math.abs(flo) <= Math.abs(fhi) ? lo : hi;
-  return { rate: rate - 100 * par(x.target), estimate, band, unemployment: meanEffect(held(rate), ku), runs };
+  const at = held(rate);
+  return { rate: rate - target, rising, crossings: brackets.length, estimate, band, unemployment: meanEffect(at, ku), tax: finalEffect(at, kt), taxRun, runs };
 }
 
 /** Flags that compare runs of one lever: an inert lever, the moderate up and down steps, and the
