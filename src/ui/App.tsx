@@ -263,6 +263,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
         ended={frame.ended}
         events={frame.events}
         checks={frame.checks}
+        signViolations={frame.signViolations}
         models={models}
         modelId={modelId}
         onModelChange={onModelChange}

@@ -1,6 +1,6 @@
 # 0005. Position signs: a diagnostic beside the accounting checks
 
-Status: accepted (September 2026). The kernel diagnostic, the model floors and the harness gate are in place; the interface warning follows (see "What comes next").
+Status: accepted (September 2026). The kernel diagnostic, the model floors, the harness gate and the interface warning are in place.
 
 ## The problem
 
@@ -62,9 +62,9 @@ Each floor is a `combine` with a named `regime` on the existing rule, never a se
 
 The property runs, the lever-extremes sweep (every lever alone at its minimum and at its maximum for 240 months, in each stabiliser mode that shows it) and the golden scenarios fail on any sign violation the kernel reports, and on any implausible value (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate). The harness reads the violations from `checks().signViolations`, so a declared exemption is honoured there as everywhere else. There is no switch to turn the gate into a warning: a position that may take either sign is declared on the instrument and listed above. A golden path with a breach is neither compared nor written.
 
-## What comes next
+## The interface
 
-- **The interface** shows a violation as a warning, not as an accounting failure.
+A combination of levers the harness never tries (the known gaps above) can still reach a wrong-signed position. The declared exemption is not one: banks' reserves below zero are a loan from the central bank, and the balance sheet shows them as a negative number without a warning. The interface shows it as a warning, not as an accounting failure: `Frame.signViolations` carries the kernel's list, the header shows a calm amber badge ("1 impossible position") beside the accounting badge, with each position and its first month in the tooltip, and the balance sheet of the player, or of any group containing it, lists them above the table and marks the row "(went below zero)" or "(turned into a claim)"; the sentences name the first month, since the position may have recovered. The words (`src/ui/model/signs.ts`) say that the books still balance but that no real sector could hold this. Going back in time before the first month clears the warning, as the kernel's list is rebuilt. `tests/ui/inspector.test.tsx` covers it.
 
 ## Contract changes (`src/core/types.ts`)
 

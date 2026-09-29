@@ -4,7 +4,8 @@
  *   Pipe      its legs; for each leg, the amount's influence (rule, category, regime,
  *             desired vs actual, terms now vs baseline, parameters with provenance, concepts)
  *   Variable  its influence; clicking a term's input walks upstream to that variable
- *   Player    live balance sheet, net worth, biggest pipes, regimes
+ *   Player    live balance sheet, net worth, a warning on any position with the wrong sign
+ *             (decision 0005), biggest pipes, regimes
  *   Group     description, members, the balance sheet of all its players, biggest pipes
  *             against the map as it is, regimes
  *   Indicator description, drivers, a big chart and the drivers' influences
@@ -23,6 +24,7 @@ import { nodeColor, nodeLabel, nodeMembers, varLabel, type ModelInfo } from '../
 import { GROUP_NOUNS } from '../model/player-cards.ts';
 import { labels } from '../labels.ts';
 import { canBack, canForward, navCurrent, selectionKey, selectionLabel, type NavState } from '../model/navigation.ts';
+import { POSITION_NOTE, positionWarnings } from '../model/signs.ts';
 import { changeBar, deviation, signTone } from '../model/styling.ts';
 import { ChartSvg } from './ChartSvg.tsx';
 import { CategoryChip, ChangeBar, ConceptChip, ConceptChips, Delta, Disclosure, Icon, Markdown, NavLink, ProvenanceNote, type OnSelect } from './common.tsx';
@@ -249,6 +251,16 @@ function DesiredRow({ value, baseline, desired, desiredBaseline, unit }: { value
 
 /* ------------------------------------------------------------------ pipe */
 
+/** A flow's explanation with its {param} placeholders filled with the parameters in force, as
+ *  the flow's influence gives it; the declared text if that fails. */
+function flowWhat(client: EngineClient, id: Id, declared: string): string {
+  try {
+    return client.influences(`flow:${id}`).rule?.what ?? declared;
+  } catch {
+    return declared;
+  }
+}
+
 /** A player or a group, as a selection. */
 const nodeSelection = (info: ModelInfo, id: Id) => (info.playerById.has(id) ? ({ kind: 'player', id } as const) : ({ kind: 'group', id } as const));
 
@@ -291,7 +303,7 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
               </NavLink>
               {flow && <span className="muted small"> · {labels.account[flow.account]}</span>}
             </h4>
-            {flow && <p className="inf-what">{flow.explain.what}</p>}
+            {flow && <p className="inf-what">{flowWhat(client, flowId, flow.explain.what)}</p>}
             {flow && <p className="muted small">{describePosting(flow.posting, postingLabels(info.instruments))}</p>}
             {flow && <ConceptChips info={info} ids={flow.concepts ?? []} onSelect={onSelect} />}
             {legs.map((leg) => {
@@ -348,6 +360,8 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
   const memberSet = new Set(members);
   const regimes = [...info.regimeOwners].filter(([, owners]) => owners.some((o) => memberSet.has(o)));
   const path = info.ancestorsOf.get(id) ?? [];
+  const warnings = positionWarnings(info, frame.signViolations).filter((w) => memberSet.has(w.player));
+  const warned = (instrument: Id, role: 'holder' | 'issuer') => warnings.some((w) => w.instrument === instrument && w.role === role);
   const inside = new Set(info.groupById.has(id) ? [id, ...info.groups.filter((g) => (info.ancestorsOf.get(g.id) ?? []).includes(id)).map((g) => g.id), ...members] : [id]);
   return (
     <div className="detail">
@@ -392,6 +406,16 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
       )}
       <h4 className="sub">Balance sheet{group ? ' of all its players' : ''}</h4>
       <p className="muted small">% of GDP · now · baseline · change{group ? ' · not netted between members' : ''}</p>
+      {warnings.length > 0 && (
+        <div className="bs-warning" role="status">
+          <ul>
+            {warnings.map((w) => (
+              <li key={`${w.instrument}/${w.player}`}>{w.text}</li>
+            ))}
+          </ul>
+          <p>{POSITION_NOTE}</p>
+        </div>
+      )}
       <table className="bs">
         <tbody>
           <tr className="bs-head">
@@ -405,7 +429,7 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
             </tr>
           )}
           {bs.assets.map((r) => (
-            <BsRow key={r.instrument} label={r.label} value={r.value} baseline={r.baseline} />
+            <BsRow key={r.instrument} label={r.label} value={r.value} baseline={r.baseline} warn={warned(r.instrument, 'holder') ? 'went below zero' : undefined} />
           ))}
           <tr className="bs-head">
             <th colSpan={4}>Liabilities</th>
@@ -418,7 +442,7 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
             </tr>
           )}
           {bs.liabilities.map((r) => (
-            <BsRow key={r.instrument} label={r.label} value={r.value} baseline={r.baseline} />
+            <BsRow key={r.instrument} label={r.label} value={r.value} baseline={r.baseline} warn={warned(r.instrument, 'issuer') ? 'turned into a claim' : undefined} />
           ))}
           <BsRow label="Net worth" value={bs.netWorth} baseline={bs.netWorthBaseline} strong />
         </tbody>
@@ -469,11 +493,20 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
   );
 }
 
-function BsRow({ label, value, baseline, strong }: { label: string; value: number; baseline: number; strong?: boolean }) {
+/** `warn`: what went wrong with the position (decision 0005), shown after its label. */
+function BsRow({ label, value, baseline, strong, warn }: { label: string; value: number; baseline: number; strong?: boolean; warn?: string }) {
   const dev = deviation(value, baseline);
   return (
-    <tr className={strong ? 'bs-total' : undefined}>
-      <td>{label}</td>
+    <tr className={strong ? 'bs-total' : warn ? 'bs-warn' : undefined}>
+      <td>
+        {label}
+        {warn && (
+          <span className="bs-warn-mark" title="A position no real sector could hold: see the warning above">
+            {' '}
+            ({warn})
+          </span>
+        )}
+      </td>
       <td className="num mono">{fmtNum(value)}</td>
       <td className="num mono muted">{fmtNum(baseline)}</td>
       <td className="num">
@@ -542,7 +575,7 @@ function FlowDetail({ info, client, id, onSelect }: { info: ModelInfo; client: E
   return (
     <div className="detail">
       <h3 className="detail-title">{f.label}</h3>
-      <p className="inf-what">{f.explain.what}</p>
+      <p className="inf-what">{flowWhat(client, id, f.explain.what)}</p>
       <p className="muted small">
         {labels.flowKind[f.kind]} · {labels.account[f.account]} · {describePosting(f.posting, postingLabels(info.instruments))}
       </p>

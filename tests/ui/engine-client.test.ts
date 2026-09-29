@@ -5,7 +5,7 @@
 import { describe, expect, test } from 'bun:test';
 import { models } from '../../src/models/index.ts';
 import { createEngine } from '../../src/core/engine.ts';
-import { createEngineClient } from '../../src/ui/engine-client.ts';
+import { createEngineClient, type FeedItem } from '../../src/ui/engine-client.ts';
 import { stabiliserMarks } from '../../src/ui/model/levers.ts';
 
 const reference = models.find((m) => m.id === 'reference')!;
@@ -312,6 +312,24 @@ describe('engine client: stabilisers (decision 0004)', () => {
     expect(after.calling).toBe(false);
     c.step(1);
     expect(c.value('keyRate')).toBe(mark.apply / 100);
+    c.dispose();
+  });
+
+  test('a stabiliser’s feed item carries the fields a translation needs: its direction, value and change (K1)', () => {
+    const c = createEngineClient(createEngine(ibase.model, { baseline: ibase.baselineData }));
+    c.setLever('incomeTax', 1);
+    c.pause();
+    c.step(12);
+    const item: FeedItem | undefined = c.getFrame().feed.find((f) => f.stabiliser === 'keyRateRule');
+    expect(item).toBeDefined();
+    const rule = c.getFrame().stabilisers.find((s) => s.id === 'keyRateRule')!;
+    // The rule wants a lower rate after a tax rise; value and change are what the message shows.
+    expect(item!.dir).toBe(-1);
+    expect(item!.value).toBeCloseTo(rule.suggested, 0);
+    expect(typeof item!.change).toBe('number');
+    expect(item!.message).toContain(String(item!.value));
+    // a threshold message names its rule
+    expect(c.getFrame().feed.filter((f) => !f.stabiliser).every((f) => typeof f.rule === 'string')).toBe(true);
     c.dispose();
   });
 
