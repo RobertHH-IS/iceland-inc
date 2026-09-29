@@ -268,7 +268,7 @@ export const structure: ModuleDef = {
       issuers: ['G'],
       holders: ['B', 'CB', 'PF', 'HO', 'W'],
       valuation: 'nominal',
-      description: 'Floating-rate government bonds, held by banks, the central bank, pension funds, older savers and foreign carry traders.',
+      description: 'Nominal government bonds at fixed coupons, refinanced at the current rate as they mature (about five years on average). Held by banks, the central bank, pension funds, older savers and foreign carry traders.',
       concepts: ['deficits-and-money', 'bond-buyers'],
     },
     {

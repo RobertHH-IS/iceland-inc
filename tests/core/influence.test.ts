@@ -163,6 +163,62 @@ describe('weights', () => {
     expect(effects[demand]).toBeCloseTo(-0.3 * term('normal').baseline * term('competitiveness').baseline, 9); // … exports by about 3.9 pp of GDP
     expect(Math.abs(effects[demand])).toBeGreaterThan(3.5);
   });
+
+  test('Iceland: a decided tax or transfer change is the multiplier and the consumption function, not an automatic stabiliser (review TAX-4)', () => {
+    const at = (lever: string, value: number) => {
+      const e = ice();
+      e.setLever(lever, value);
+      e.step(1);
+      return e;
+    };
+    // An income-tax cut: the rate change is spent through the multiplier; the tax at the baseline
+    // rate on income that has barely moved yet is the only stabiliser.
+    const cut = at('incomeTax', -2.5);
+    expect(weightOf(cut, 'multiplier')).toBeGreaterThan(weightOf(cut, 'automatic-stabilisers'));
+    expect(weightOf(cut, 'automatic-stabilisers')).toBeLessThan(0.5);
+    const tax = cut.influences('incomeTaxW');
+    const term = (id: string) => tax.terms.find((t) => t.id === id)!.change;
+    expect(term('base') + term('rateChange') + term('debtRule')).toBeCloseTo(cut.value('incomeTaxW') - cut.baseline('incomeTaxW'), 12);
+    expect(Math.abs(term('rateChange'))).toBeGreaterThan(10 * Math.abs(term('base')));
+    // Old-age and family transfers are fixed real amounts, not stabilisers: what recipients spend leads.
+    for (const [lever, value] of [['incomeTax', -2.5], ['familyBenefits', 1], ['oldAgeTransfers', 1]] as const) {
+      const e = at(lever, value);
+      expect(weightOf(e, 'automatic-stabilisers'), lever).toBeLessThan(weightOf(e, 'consumption-function'));
+    }
+    // Unemployment benefits are the stabiliser.
+    expect(concepts(at('unemploymentBenefits', 10))[0]).toBe('automatic-stabilisers');
+  });
+
+  test('reference: a tax-lever change is the multiplier, not an automatic stabiliser; the split adds up exactly (review TAX-4)', () => {
+    for (const mode of [MANUAL, AUTOMATIC]) {
+      const e = ref();
+      e.setLever('stabilisers', mode);
+      e.setLever('taxRate', 2);
+      e.step(1);
+      expect(weightOf(e, 'multiplier')).toBeGreaterThan(weightOf(e, 'automatic-stabilisers'));
+      const taxes = e.influences('taxes');
+      const term = (id: string) => taxes.terms.find((t) => t.id === id)!.change;
+      expect(Math.abs(term('taxShift'))).toBeGreaterThan(10 * Math.abs(term('normalRate')));
+      expect(term('normalRate') + term('debtRule') + term('taxShift')).toBeCloseTo(e.value('taxes') - e.baseline('taxes'), 12);
+    }
+  });
+
+  test('Iceland: the debt rule’s tax change is the fiscal rule in households’ income too, not your change (review TAX-4)', () => {
+    const e = ice();
+    e.setLever('stabilisers', AUTOMATIC);
+    e.setLever('otherServices', 2);
+    e.step(36);
+    const term = (rule: string, id: string) => e.influences(rule).terms.find((t) => t.id === id)!.change;
+    const gross = e.value('grossIncomeW');
+    expect(Math.abs(term('incomeTaxW', 'debtRule'))).toBeGreaterThan(1e-3); // the rule is acting
+    expect(term('netLabourIncomeW', 'debtRule')).toBeCloseTo(-e.value('taxRuleAdjustment') * gross, 12);
+    expect(term('netLabourIncomeW', 'debtRule')).toBeCloseTo(-term('incomeTaxW', 'debtRule'), 12);
+    // no change of yours: the rate-change term is zero, as in the income-tax rule
+    expect(term('netLabourIncomeW', 'taxChange')).toBeCloseTo(0, 12);
+    expect(term('incomeTaxW', 'rateChange')).toBeCloseTo(0, 12);
+    const net = ['gross', 'tax', 'taxChange', 'debtRule', 'familyTaxFree', 'mortgage'].reduce((s, id) => s + term('netLabourIncomeW', id), 0);
+    expect(net).toBeCloseTo(e.value('netLabourIncomeW') - e.baseline('netLabourIncomeW'), 10);
+  });
 });
 
 describe('what is at play on Manual and Automatic', () => {

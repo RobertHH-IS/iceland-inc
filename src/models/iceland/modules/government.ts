@@ -80,7 +80,9 @@ const transferRules: RuleDef[] = [
       inputs: ['cpi'],
       params: ['trOA', 'oaShareY', 'oaShareO'],
       compute: (c) => c.p('trOA') * (g === 'Y' ? c.p('oaShareY') : g === 'O' ? c.p('oaShareO') : 1 - c.p('oaShareY') - c.p('oaShareO')) * c.v('cpi'),
-      concepts: ['automatic-stabilisers'],
+      // A fixed real amount, indexed to prices: it does not move with jobs or incomes, so it is not
+      // an automatic stabiliser. A change to it is a decision, spent through the recipients' MPC.
+      concepts: ['consumption-function', 'intergenerational-flows'],
       explain: {
         what: `Old-age and disability transfers paid to the ${AGE_LABEL[g]}.`,
         rule: g === 'O' ? 'Transfers = real level {trOA} × the older share {oaShareO} (the public pension) × CPI.' : g === 'Y' ? 'Transfers = {trOA} × the young share {oaShareY} (disability) × CPI.' : 'Transfers = {trOA} × the rest (disability) × CPI.',
@@ -95,7 +97,11 @@ const transferRules: RuleDef[] = [
       inputs: ['cpi'],
       params: ['trFam', 'famShareY'],
       compute: (c) => c.p('trFam') * (g === 'Y' ? c.p('famShareY') : 1 - c.p('famShareY')) * c.v('cpi'),
-      explain: { what: `Child, parental-leave and housing benefits paid to the ${AGE_LABEL[g]}.`, rule: `Benefits = real level {trFam} × ${g === 'Y' ? '{famShareY}' : '(1 − {famShareY})'} × CPI.` },
+      concepts: ['consumption-function'],
+      explain: {
+        what: `Child, parental-leave and housing benefits paid to the ${AGE_LABEL[g]}. Child and housing benefits are tax-free; parental-leave pay and the rest are taxed.`,
+        rule: `Benefits = real level {trFam} × ${g === 'Y' ? '{famShareY}' : '(1 − {famShareY})'} × CPI. The share {famTaxableShare%} is taxable income.`,
+      },
     }),
   ),
   ...AGES.map((g): RuleDef => {
@@ -146,14 +152,30 @@ const buybackShare = (c: Ctx, h: Buyer) => {
   const all = bondsHeld(c);
   return all > 0 ? c.stock('govBonds', h) / all : 0;
 };
+/** Share of nominal bonds whose coupon is reset this month: last month's new bonds (as a share of
+ *  the stock at the start of the month, which includes them) plus a month's maturities, 1 ÷ average
+ *  maturity, of the rest. Buybacks take bonds at every coupon alike, so they leave the average. */
+const repricedShare = (c: Ctx) => {
+  const stock = c.stock('govBonds', 'G');
+  if (!(stock > 0)) return 1;
+  const fresh = Math.min(1, (Math.max(0, c.lag('bondIssue')) * c.dt) / stock);
+  return fresh + (1 - fresh) * Math.min(1, c.dt / c.p('bondMaturity'));
+};
 /** New bonds a pension fund or older household can pay for this month: pension funds the cash above
  *  the buffer they keep (pensions.ts; their other purchases take what is left), older households
  *  the share hoBondCashShare of their cash in hand (the rest is for their spending, households.ts). */
 const buyerCash = (c: Ctx, h: 'PF' | 'HO') => (h === 'PF' ? pfCashForNewBonds(c) : c.p('hoBondCashShare') * cashToSpend(c, h));
 
 const TAXES_H = AGES.map((g) => `incomeTax${g}`);
+const GROSS_H = AGES.map((g) => `grossIncome${g}`);
+/** The debt rule's part of the income-tax rate: it acts only on Automatic (on Manual it is a suggestion). */
+const debtRulePart = (c: Ctx) => (automatic(c) ? c.v('taxRuleAdjustment') : 0);
+/** Share of consumer spending (which includes VAT) that is VAT at a given rate. */
+const vatShare = (rate: number) => rate / (1 + rate);
 const SPEND: Id[] = CHANNELS.map((ch) => `spending${ch.id[0].toUpperCase()}${ch.id.slice(1)}`);
-const TRANSFERS: Id[] = [...AGES.map((g) => `oldAgeTransfers${g}`), 'familyBenefitsY', 'familyBenefitsW', ...AGES.map((g) => `unemploymentBenefits${g}`)];
+const DECIDED_TRANSFERS: Id[] = [...AGES.map((g) => `oldAgeTransfers${g}`), 'familyBenefitsY', 'familyBenefitsW'];
+const UNEMPLOYMENT: Id[] = AGES.map((g) => `unemploymentBenefits${g}`);
+const TRANSFERS: Id[] = [...DECIDED_TRANSFERS, ...UNEMPLOYMENT];
 const INTEREST: Id[] = [...HOLDERS.map(([h]) => `bondInterest${h}`), 'indexedBondCoupon'];
 const PAYROLL: Id[] = FIRMS.map((j) => `payrollTax${j}`);
 const CORP: Id[] = FIRMS.map((j) => `corporateTax${j}`);
@@ -170,7 +192,7 @@ const vars: VarDef[] = [
   ]),
   { id: 'publicInvestment', label: 'Public investment', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   ...AGES.map((g): VarDef => ({ id: `oldAgeTransfers${g}`, label: `Old-age and disability transfers, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' })),
-  ...(['Y', 'W'] as const).map((g): VarDef => ({ id: `familyBenefits${g}`, label: `Family and housing benefits, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' })),
+  ...(['Y', 'W'] as const).map((g): VarDef => ({ id: `familyBenefits${g}`, label: `Family and housing benefits, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`familyBenefits${g}`) })),
   ...AGES.map((g): VarDef => ({ id: `unemploymentBenefits${g}`, label: `Unemployment benefits, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`unemploymentBenefits${g}`) })),
   { id: 'vatRate', label: 'VAT rate (effective)', unit: 'fraction', kind: 'rate', scale: 'none', initial: base('vatRate') },
   { id: 'vat', label: 'VAT and taxes on goods', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('vat') },
@@ -273,9 +295,17 @@ const rules: RuleDef[] = [
     target: 'vat',
     category: 'POLICY',
     inputs: ['vatRate', 'consumption'],
-    compute: (c) => (c.v('vatRate') / (1 + c.v('vatRate'))) * c.v('consumption'),
-    concepts: ['automatic-stabilisers'],
-    explain: { what: 'VAT and other taxes on goods that shops collect from consumers and pass to the government.', rule: 'VAT = rate ÷ (1 + rate) × consumer spending (which includes the VAT).' },
+    params: ['vat0'],
+    // Split so that ideas at play can tell the automatic stabiliser (VAT at the baseline rate on
+    // spending that moves with the cycle) from a decision to change the rate (review TAX-4).
+    terms: terms(
+      ['base', 'Baseline rate × spending', 'automatic-stabilisers', (c) => vatShare(c.p('vat0')) * c.v('consumption')],
+      ['rateChange', 'Your change to the rate × spending', 'multiplier', (c) => (vatShare(c.v('vatRate')) - vatShare(c.p('vat0'))) * c.v('consumption')],
+    ),
+    explain: {
+      what: 'VAT and other taxes on goods that shops collect from consumers and pass to the government.',
+      rule: 'VAT = rate ÷ (1 + rate) × consumer spending (which includes the VAT). The first part, at the baseline rate {vat0%}, rises and falls with spending by itself (an automatic stabiliser); the second is the change you make to the rate.',
+    },
   },
   {
     id: 'vatFR',
@@ -360,21 +390,33 @@ const rules: RuleDef[] = [
       ['debtRule', 'Debt rule (Automatic)', 'fiscal-rule', (c) => (automatic(c) ? c.v('taxRuleAdjustment') : 0)],
     ),
     explain: {
-      what: 'The average tax rate on wages, benefits and pensions. At {tau0%} it also stands in for property taxes, other taxes on households and non-tax revenue.',
+      what: 'The average tax rate on wages, taxable benefits and pensions. Tax-free child and housing benefits are outside it. At {tau0%} it also stands in for property taxes, other taxes on households and non-tax revenue.',
       rule: 'Who sets it depends on the Stabilisers setting. Manual (the default): rate = {tau0%} + the income-tax lever, and it stays where you set it; the debt rule only suggests a value beside the lever. Automatic: rate = {tau0%} + the debt rule’s adjustment + your offset lever.',
     },
   },
-  ...AGES.map(
-    (g): RuleDef => ({
+  ...AGES.map((g): RuleDef => {
+    const gross = `grossIncome${g}`; // built once: this rule sits in the income–spending block
+    return {
       id: `incomeTax${g}`,
       target: `incomeTax${g}`,
       category: 'POLICY',
-      inputs: ['taxRate', `grossIncome${g}`],
-      compute: ((gross) => (c: Ctx) => c.v('taxRate') * c.v(gross))(`grossIncome${g}`),
-      concepts: ['automatic-stabilisers'],
-      explain: { what: `Income tax paid by the ${AGE_LABEL[g]}.`, rule: 'Tax = income-tax rate × gross income (wages, benefits and pensions).' },
-    }),
-  ),
+      inputs: ['taxRate', 'taxRuleAdjustment', gross],
+      params: ['tau0'],
+      levers: [STABILISERS],
+      // Split so that ideas at play can tell the automatic stabiliser (tax at the baseline rate on
+      // income that moves with the cycle) from a decision to change the rate, yours or the debt
+      // rule's (review TAX-4). The three terms add up to the income-tax rate × gross income.
+      terms: terms(
+        ['base', 'Baseline rate × income', 'automatic-stabilisers', (c) => c.p('tau0') * c.v(gross)],
+        ['rateChange', 'Your change to the rate × income', 'multiplier', (c) => (c.v('taxRate') - c.p('tau0') - debtRulePart(c)) * c.v(gross)],
+        ['debtRule', 'The debt rule’s change to the rate × income (Automatic)', 'fiscal-rule', (c) => debtRulePart(c) * c.v(gross)],
+      ),
+      explain: {
+        what: `Income tax paid by the ${AGE_LABEL[g]}.`,
+        rule: 'Tax = income-tax rate × gross taxable income (wages, taxable benefits and pensions). At the baseline rate {tau0%} it rises and falls with incomes by itself (an automatic stabiliser); on top of that comes your change to the rate, and on Automatic the debt rule’s.',
+      },
+    };
+  }),
   ...FIRMS.flatMap((j): RuleDef[] => [
     {
       id: `payrollTax${j}`,
@@ -401,9 +443,18 @@ const rules: RuleDef[] = [
     target: 'bondRate',
     category: 'CONTRACT',
     inputs: ['keyRate'],
-    params: ['sB'],
-    terms: terms(['keyRate', 'Key rate', 'interest-rate-channel', (c) => c.v('keyRate')], ['spread', 'Bond spread', undefined, (c) => c.p('sB')]),
-    explain: { what: 'Interest on government bonds, which float with the key rate.', rule: 'Bond rate = key rate + {sB pp}.' },
+    lagInputs: ['bondRate', 'bondIssue'],
+    params: ['sB', 'bondMaturity'],
+    stocks: [['govBonds', 'G']],
+    terms: terms(
+      ['held', 'Bonds still at their old coupon', 'interest-distribution', (c) => (1 - repricedShare(c)) * c.lag('bondRate')],
+      ['repriced', 'Bonds refinanced at the key rate + spread', 'interest-rate-channel', (c) => repricedShare(c) * (c.v('keyRate') + c.p('sB'))],
+    ),
+    concepts: ['interest-distribution'],
+    explain: {
+      what: 'The average coupon the government pays on its nominal bonds, the same whoever holds them. Most bonds pay the fixed coupon they were sold with, so the average moves toward the key rate + {sB pp} only as bonds mature and are refinanced, and as new bonds are sold.',
+      rule: 'Rate = last month’s average × the share not repriced + (key rate + {sB pp}) × the share repriced this month. The share repriced is the bonds sold last month (as a share of all nominal bonds) plus a month’s worth, 1 ÷ {bondMaturity} years, of the rest, which mature and are refinanced. Selling many new bonds therefore moves the average faster.',
+    },
   },
   ...HOLDERS.map(
     ([h, who]): RuleDef => ({
@@ -442,14 +493,22 @@ const rules: RuleDef[] = [
     id: 'deficit',
     target: 'deficit',
     category: 'IDENTITY',
-    inputs: [...SPEND, 'publicInvestment', ...TRANSFERS, ...INTEREST, ...TAXES_H, 'vat', ...PAYROLL, ...CORP, 'cbProfit', 'bankDividendsG'],
+    inputs: [...SPEND, 'publicInvestment', ...TRANSFERS, ...INTEREST, ...TAXES_H, ...GROSS_H, 'taxRuleAdjustment', 'vat', 'consumption', ...PAYROLL, ...CORP, 'cbProfit', 'bankDividendsG'],
+    params: ['tau0', 'vat0'],
+    levers: [STABILISERS],
+    // Taxes and transfers are split as in their own rules: what moves with the cycle by itself
+    // (automatic stabilisers) apart from the decisions, yours or the debt rule's (review TAX-4).
     terms: terms(
       ['services', 'Public services', 'multiplier', sumV(SPEND)],
       ['investment', 'Public investment', 'multiplier', (c) => c.v('publicInvestment')],
-      ['transfers', 'Transfers and benefits', 'automatic-stabilisers', sumV(TRANSFERS)],
+      ['transfers', 'Old-age, disability, family and housing benefits', 'multiplier', sumV(DECIDED_TRANSFERS)],
+      ['unemploymentBenefits', 'Unemployment benefits', 'automatic-stabilisers', sumV(UNEMPLOYMENT)],
       ['interest', 'Interest on debt', 'interest-distribution', sumV(INTEREST)],
-      ['incomeTax', 'Income tax', 'automatic-stabilisers', (c) => -sumV(TAXES_H)(c)],
-      ['vat', 'VAT', 'automatic-stabilisers', (c) => -c.v('vat')],
+      ['incomeTax', 'Income tax at the baseline rate', 'automatic-stabilisers', (c) => -c.p('tau0') * sumV(GROSS_H)(c)],
+      ['incomeTaxChange', 'Income tax: your change to the rate', 'multiplier', (c) => -(sumV(TAXES_H)(c) - (c.p('tau0') + debtRulePart(c)) * sumV(GROSS_H)(c))],
+      ['incomeTaxDebtRule', 'Income tax: the debt rule’s change (Automatic)', 'fiscal-rule', (c) => -debtRulePart(c) * sumV(GROSS_H)(c)],
+      ['vat', 'VAT at the baseline rate', 'automatic-stabilisers', (c) => -vatShare(c.p('vat0')) * c.v('consumption')],
+      ['vatChange', 'VAT: your change to the rate', 'multiplier', (c) => -(c.v('vat') - vatShare(c.p('vat0')) * c.v('consumption'))],
       ['payrollTax', 'Payroll tax', undefined, (c) => -sumV(PAYROLL)(c)],
       ['corporateTax', 'Corporate tax', 'automatic-stabilisers', (c) => -sumV(CORP)(c)],
       ['centralBank', 'Central-bank profit', undefined, (c) => -c.v('cbProfit')],
@@ -458,7 +517,7 @@ const rules: RuleDef[] = [
     concepts: ['sectoral-balances', 'deficits-and-money'],
     explain: {
       what: 'The government’s cash deficit: what it pays out minus what it takes in this month (a yearly rate). The government’s deficit is the rest of the economy’s surplus.',
-      rule: 'Deficit = public services + investment + transfers + interest − income tax − VAT − payroll tax − corporate tax − central-bank profit − bank dividends.',
+      rule: 'Deficit = public services + investment + transfers and benefits + interest − income tax − VAT − payroll tax − corporate tax − central-bank profit − bank dividends. Unemployment benefits, and income tax and VAT at their baseline rates, move with jobs, incomes and spending by themselves (automatic stabilisers); the other transfers and any change in tax rates are decisions.',
     },
   },
   {
@@ -552,8 +611,8 @@ export const government: ModuleDef = {
   description: 'Seven spending channels with their own levers; income tax, VAT, payroll and corporate tax; the debt-tied tax rule (a stabiliser); bond financing and who buys the bonds.',
   requires: ['stabilisers', 'structure', 'labour-and-wages', 'prices', 'central-bank', 'banks', 'households', 'firms'],
   params: pickParams(ALL_PARAMS, [
-    'gHealth', 'gEdu', 'gOther', 'gInv', 'wsHealth', 'wsEdu', 'wsOther', 'trOA', 'oaShareY', 'oaShareO', 'trFam', 'famShareY', 'rr', 'rrShift',
-    'vat0', 'vatShift', 'tau0', 'incomeTaxShift', 'phiTau', 'lamTau', 'debtR0', 'css', 'tauF', 'sB', 'rBI0', 'tga', 'treasuryTopUp', 'bondMixBankShare',
+    'gHealth', 'gEdu', 'gOther', 'gInv', 'wsHealth', 'wsEdu', 'wsOther', 'trOA', 'oaShareY', 'oaShareO', 'trFam', 'famShareY', 'famTaxableShare', 'rr', 'rrShift',
+    'vat0', 'vatShift', 'tau0', 'incomeTaxShift', 'phiTau', 'lamTau', 'debtR0', 'css', 'tauF', 'sB', 'bondMaturity', 'rBI0', 'tga', 'treasuryTopUp', 'bondMixBankShare',
     'compG', 'ueTarget', 'vatTarget', 'citTarget', 'govDebt', 'govIdxShare',
   ]),
   vars,
@@ -589,7 +648,7 @@ export const government: ModuleDef = {
       posting: { type: 'transfer' },
       channel: 'oldAge',
       legs: AGES.map((g) => ({ from: 'G', to: HH[g], amount: `oldAgeTransfers${g}` })),
-      concepts: ['automatic-stabilisers'],
+      concepts: ['consumption-function', 'intergenerational-flows'],
       explain: { what: 'Social Insurance pays public pensions, mostly to older people, and disability benefits, mostly to working age.' },
     },
     {
@@ -600,7 +659,7 @@ export const government: ModuleDef = {
       posting: { type: 'transfer' },
       channel: 'family',
       legs: (['Y', 'W'] as const).map((g) => ({ from: 'G', to: HH[g], amount: `familyBenefits${g}` })),
-      explain: { what: 'Child benefits, parental leave and housing support, paid to young and working-age families.' },
+      explain: { what: 'Child benefits, parental leave and housing support, paid to young and working-age families. Child and housing benefits are tax-free, so a króna of them reaches families in full; parental-leave pay is taxed.' },
     },
     {
       id: 'unemploymentBenefits',
@@ -620,8 +679,9 @@ export const government: ModuleDef = {
       account: 'current',
       posting: { type: 'transfer' },
       legs: AGES.map((g) => ({ from: HH[g], to: 'G', amount: `incomeTax${g}` })),
-      concepts: ['automatic-stabilisers'],
-      explain: { what: 'Households pay income tax on wages, benefits and pensions from their deposits; banks pass reserves to the treasury, so deposits shrink.' },
+      // No flow-level tag: the income-tax rules split the automatic stabiliser (the baseline rate
+      // on income that moves with the cycle) from a change in the rate (review TAX-4).
+      explain: { what: 'Households pay income tax on wages, taxable benefits and pensions from their deposits; banks pass reserves to the treasury, so deposits shrink.' },
     },
     {
       id: 'vatPayments',
@@ -697,7 +757,7 @@ export const government: ModuleDef = {
   ],
   levers: [
     {
-      ...leverFor('incomeTax', 'Income-tax rate', 'incomeTaxShift', 'pp', -10, 10, 0.5, 'Changes the average tax rate on wages, benefits and pensions, held where you set it. The debt rule only suggests a value beside the lever.', 'Level shift in the income-tax rate, in percentage points from its baseline, applied in the month it is set and held there until you change it (stabilisers on Manual). This is the whole change: the debt rule only suggests a value beside the lever. Setting it back to 0 removes your shift. It has no effect while stabilisers are Automatic, when the debt rule and your offset set the rate.', ['automatic-stabilisers'], 0.01),
+      ...leverFor('incomeTax', 'Income-tax rate', 'incomeTaxShift', 'pp', -10, 10, 0.5, 'Changes the average tax rate on wages, benefits and pensions, held where you set it. The debt rule only suggests a value beside the lever.', 'Level shift in the income-tax rate, in percentage points from its baseline, applied in the month it is set and held there until you change it (stabilisers on Manual). This is the whole change: the debt rule only suggests a value beside the lever. Setting it back to 0 removes your shift. It has no effect while stabilisers are Automatic, when the debt rule and your offset set the rate.', ['multiplier', 'consumption-function'], 0.01),
       showWhen: { lever: STABILISERS, equals: MANUAL },
     },
     {
@@ -715,15 +775,15 @@ export const government: ModuleDef = {
       description: 'Sets the income-tax rate this many points above (or below) where the debt rule puts it.',
       definition:
         'Level shift in the income-tax rate, in percentage points on top of the baseline rate and the debt rule’s adjustment, applied in the month it is set and persistent while set (stabilisers on Automatic). The debt rule keeps leaning against government debt underneath it. Setting it back to 0 leaves the rate to the rule. It has no effect while stabilisers are Manual.',
-      concepts: ['automatic-stabilisers', 'fiscal-rule'],
+      concepts: ['multiplier', 'fiscal-rule'],
     },
-    leverFor('vat', 'VAT rate', 'vatShift', 'pp', -10, 10, 0.5, 'Changes the effective VAT rate on consumer spending; shops pass it into prices over a few months.', 'Level shift in the effective VAT rate, in percentage points, applied at once and persistent while set. VAT is paid at the new rate at once; shops pass it into their prices over a few months (about 40% in the first month, nearly all within six), keeping the difference in their margins meanwhile. Consumer prices follow, and indexed debts are revalued with them. Setting it back to 0 removes the shift (prices drop back the same way).', ['cost-pass-through'], 0.01),
+    leverFor('vat', 'VAT rate', 'vatShift', 'pp', -10, 10, 0.5, 'Changes the effective VAT rate on consumer spending; shops pass it into prices over a few months.', 'Level shift in the effective VAT rate, in percentage points, applied at once and persistent while set. VAT is paid at the new rate at once; shops pass it into their prices over a few months (about 40% in the first month, nearly all within six), keeping the difference in their margins meanwhile. Consumer prices follow, and indexed debts are revalued with them. Setting it back to 0 removes the shift (prices drop back the same way).', ['cost-pass-through', 'multiplier'], 0.01),
     leverFor('health', 'Health spending', 'gHealth', '% of GDP', -3, 3, 0.1, 'Real change in public health spending: staff pay and purchases.', 'Level shift in real health spending, % of baseline GDP a year, split between staff and purchases as at baseline; persistent while set. Nominal spending also rises with wages and prices. Setting it back to 0 returns spending to baseline; the debt built up meanwhile remains.', ['multiplier']),
     leverFor('education', 'Education spending', 'gEdu', '% of GDP', -3, 3, 0.1, 'Real change in public education spending.', 'Level shift in real education spending, % of baseline GDP a year, persistent while set, split between staff and purchases as at baseline. Setting it back to 0 returns spending to baseline.', ['multiplier']),
     leverFor('otherServices', 'Other public services', 'gOther', '% of GDP', -3, 3, 0.1, 'Real change in other public services: administration, police, culture, roads.', 'Level shift in real spending on other public services, % of baseline GDP a year, persistent while set, split between staff and purchases as at baseline. Setting it back to 0 returns spending to baseline.', ['multiplier']),
     leverFor('publicInvestment', 'Public investment', 'gInv', '% of GDP', -3, 3, 0.1, 'Real change in public investment bought from domestic firms.', 'Level shift in real public investment, % of baseline GDP a year, persistent while set; nominal spending moves with domestic prices. Setting it back to 0 returns it to baseline.', ['multiplier']),
-    leverFor('oldAgeTransfers', 'Old-age and disability transfers', 'trOA', '% of GDP', -2, 2, 0.1, 'Real change in public pensions and disability benefits (mostly to older people).', 'Level shift in real old-age and disability transfers, % of baseline GDP a year, indexed to the CPI and split by age as at baseline; persistent while set. Setting it back to 0 ends it.', ['automatic-stabilisers', 'intergenerational-flows']),
-    leverFor('familyBenefits', 'Family and housing benefits', 'trFam', '% of GDP', -2, 2, 0.1, 'Real change in child, parental-leave and housing benefits (young and working age).', 'Level shift in real family and housing benefits, % of baseline GDP a year, indexed to the CPI and split by age as at baseline; persistent while set. Setting it back to 0 ends it.', ['automatic-stabilisers']),
+    leverFor('oldAgeTransfers', 'Old-age and disability transfers', 'trOA', '% of GDP', -2, 2, 0.1, 'Real change in public pensions and disability benefits (mostly to older people).', 'Level shift in real old-age and disability transfers, % of baseline GDP a year, indexed to the CPI and split by age as at baseline; persistent while set. Setting it back to 0 ends it.', ['multiplier', 'consumption-function', 'intergenerational-flows']),
+    leverFor('familyBenefits', 'Family and housing benefits', 'trFam', '% of GDP', -2, 2, 0.1, 'Real change in child, parental-leave and housing benefits (young and working age).', 'Level shift in real family and housing benefits, % of baseline GDP a year, indexed to the CPI and split by age as at baseline; persistent while set. Setting it back to 0 ends it.', ['multiplier', 'consumption-function', 'borrowers-and-savers']),
     leverFor('unemploymentBenefits', 'Unemployment-benefit rate', 'rrShift', 'pp of wage', -30, 30, 5, 'Changes the replacement rate paid automatically to the unemployed.', 'Level shift in the replacement rate, in percentage points of the average wage, applied to everyone unemployed at once and persistent while set. Setting it back to 0 ends it.', ['automatic-stabilisers'], 0.01),
     {
       id: 'bondBuyers',
@@ -745,7 +805,7 @@ export const government: ModuleDef = {
       ],
       description: 'Banks and the central bank pay with newly created money; pension funds and households pay with existing deposits.',
       definition:
-        'Choice, persistent while set: every new bond sold from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Pension funds and older households buy only what their deposits can pay for that month; banks take the rest. When the budget is in surplus the government buys bonds back from every holder in proportion to what they hold, whatever the choice. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares.',
+        'Choice, persistent while set: every new bond sold from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Pension funds and older households buy only what their deposits can pay for that month; banks take the rest. When the budget is in surplus the government buys bonds back from every holder in proportion to what they hold, whatever the choice. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares. New bonds pay the key rate plus its spread whoever buys, so the choice changes money and who receives the interest, not interest rates. Non-residents are not an option: they buy and sell bonds with banks on their own, through the carry trade.',
       concepts: ['bond-buyers', 'deficits-and-money', 'endogenous-money'],
     },
   ],
@@ -853,6 +913,65 @@ export const government: ModuleDef = {
           out.push(`${who}: lowest deposits ${lowest.toFixed(3)}, banks took the rest in ${banksTook} months`);
         }
         return { pass, detail: out.join('; ') };
+      },
+    },
+    {
+      id: 'family-benefits-mostly-tax-free',
+      label: 'Only the taxable share of family benefits is income-taxed: a point more costs the budget about 0.85 of a point at once, not 1 − the tax rate',
+      run: (e) => {
+        const f = e.fork();
+        f.setLever('familyBenefits', 1);
+        f.step(1);
+        const share = f.influences('grossIncomeY').params.find((p) => p.id === 'famTaxableShare')!.value;
+        const dFam = f.value('familyBenefitsY') - f.baseline('familyBenefitsY');
+        const taxed = f.influences('grossIncomeY').terms.find((t) => t.id === 'family')!.change;
+        const untaxed = f.influences('netLabourIncomeY').terms.find((t) => t.id === 'familyTaxFree')!.change;
+        const balance = f.value('govBalance') - f.baseline('govBalance');
+        const pass = Math.abs(taxed - share * dFam) < 1e-12 && Math.abs(untaxed - (1 - share) * dFam) < 1e-12 && share > 0.3 && share < 0.45 && balance < -0.8 && balance > -0.9;
+        return { pass, detail: `taxable share ${share.toFixed(3)}; young: +${dFam.toFixed(4)} benefits, +${taxed.toFixed(4)} taxable, +${untaxed.toFixed(4)} tax-free; government balance ${balance.toFixed(3)} (% of GDP) in month 1` };
+      },
+    },
+    {
+      id: 'bonds-reprice-as-they-mature',
+      label: 'A key rate 1 point higher reaches the average bond coupon as bonds mature and new ones are sold, not at once (review MON-1)',
+      run: (e) => {
+        const held = e.model.levers.find((l) => l.id === 'keyRateFixed')!.default + 1;
+        const bill = (f: ReturnType<typeof e.fork>) => HOLDERS.reduce((s, [h]) => s + f.value(`bondInterest${h}`) - f.baseline(`bondInterest${h}`), 0);
+        const path = (extraSpending: number) => {
+          const f = e.fork();
+          f.setLever('keyRateFixed', held);
+          if (extraSpending) f.setLever('otherServices', extraSpending);
+          const out: { rate: number; bill: number }[] = [];
+          for (const months of [1, 11, 108]) {
+            f.step(months);
+            out.push({ rate: 100 * (f.value('bondRate') - f.baseline('bondRate')), bill: bill(f) });
+          }
+          return out;
+        };
+        const [m1, m12, m120] = path(0);
+        const deficit = path(5)[1];
+        const pass = m1.rate > 0 && m1.rate < 0.03 && m12.rate > 0.15 && m12.rate < 0.25 && m120.rate > 0.85 && deficit.rate > m12.rate && m1.bill < 0.02 && m12.bill > 0.05 && m12.bill < 0.15;
+        return {
+          pass,
+          detail: `bond rate +${m1.rate.toFixed(3)} pp in month 1, +${m12.rate.toFixed(3)} at month 12 (+${deficit.rate.toFixed(3)} with spending 5% of GDP higher), +${m120.rate.toFixed(3)} at month 120; interest bill +${m1.bill.toFixed(3)} and +${m12.bill.toFixed(3)} % of GDP`,
+        };
+      },
+    },
+    {
+      id: 'bond-buyers-leave-the-rate',
+      label: 'Who buys new bonds changes money, not the bond rate; non-residents are not an option (they trade with banks)',
+      run: (e) => {
+        const rate = (choice: number) => {
+          const f = e.fork();
+          f.setLever('bondBuyers', choice);
+          f.setLever('otherServices', 1);
+          f.step(12);
+          return f.value('bondRate');
+        };
+        const rates = [0, 1, 2, 3, 4].map(rate);
+        const options = e.model.levers.find((l) => l.id === 'bondBuyers')!.options!.map((o) => o.label);
+        const pass = Math.max(...rates) - Math.min(...rates) < 1e-15 && !options.some((o) => /non-resident|foreign/i.test(o));
+        return { pass, detail: `bond rate after 12 months for each choice: ${rates.map((r) => r.toFixed(6)).join(', ')}; options: ${options.join(', ')}` };
       },
     },
     {

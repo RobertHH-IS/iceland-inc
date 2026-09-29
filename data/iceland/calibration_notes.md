@@ -6,7 +6,7 @@ Statistics Iceland table ids (e.g. THJ05142) refer to the PX-Web API at https://
 GDP used for ratios: 2025 = 4,941,211 m ISK; 2024 = 4,576,629 m ISK (THJ01102, Aug/Sep 2026 vintage).
 
 
-Coverage: 122 leaves filled, 0 null (27 of them firm-sector values added with decision 0003).
+Coverage: 123 leaves filled, 0 null (27 of them firm-sector values added with decision 0003).
 
 
 ## population
@@ -84,6 +84,7 @@ Coverage: 122 leaves filled, 0 null (27 of them firm-sector values added with de
 - `government_economic_pct_gdp.gross_fixed_capital_formation` = 4.18 % of GDP (2025). Source: Hagstofa THJ05143 (General government total expenditure by economic type, % of GDP). [primary] Item 311 gross acquisition of non-financial assets (GFS basis, close to P.51g). 2024: 4.06.
 - `government_economic_pct_gdp.subsidies` = 1.38 % of GDP (2025). Source: Hagstofa THJ05143 (General government total expenditure by economic type, % of GDP). [primary] Item 25. 2024: 1.64.
 - `government_economic_pct_gdp.other` = 2.34 % of GDP (2025). Source: Hagstofa THJ05143 (General government total expenditure by economic type, % of GDP). [derived] Grants to intl orgs 0.33 + other expense 2.01. With CFC netted out (item 23 in current expense offset by -23 in NFA), the seven items sum to total 45.65. 2024: 3.97.
+- `government_economic_pct_gdp.taxable_social_benefits` = 5.8 % of GDP (2025). Source: Hagstofa TEK02011 (All taxable payments by sex and age, monthly withholding-tax data, summed Jan-Dec 2025). [derived] Memo item: taxable social benefits (TR/Icelandic Health Insurance payments + unemployment benefits + parental leave + municipal financial assistance) = 286.6 bn ISK / GDP 4,941.2 bn. Child, interest and housing benefits are tax-free (Income Tax Act 90/2003, art. 28) and not in it.
 
 ## tax_revenue_pct_gdp
 

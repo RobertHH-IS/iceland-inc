@@ -237,7 +237,7 @@ Parameter overrides in a start are like a variant applied after the steady state
 
 | Parameter | Today | Note |
 |---|---|---|
-| `sB` | (average effective rate on nominal government debt) − 8% | Probably negative: the stock is mostly fixed-rate. It makes month-0 interest equal the data, but the stock still reprices fully and at once when the key rate moves (appendix A4). |
+| `sB` | spread of new nominal issues over the key rate | Since review MON-1 `sB` is the spread on new bonds only, and `bondRate` is the average coupon on the stock, which reprices over `bondMaturity`. On `today` the coupon's history can start at the data's effective rate on nominal debt, so month-0 interest equals the data without a negative `sB` (appendix A4). |
 | `sMN`, `sL`, `mD`, `sBB` | Average rates on outstanding non-indexed mortgages, NFC loans, deposits and covered bonds, minus 8% | CBI interest-rate statistics. |
 | `rMI0` | Average real rate on outstanding indexed mortgages − `psiIdx`·(8% − (i0 + piT)) | |
 | `rBI0` | Average real coupon on indexed Treasury bonds | |
@@ -536,7 +536,7 @@ The drift checks `manual-no-shock-drift` and `automatic-no-shock-drift` stay `st
 | **Gaps hide misspecification** | Gaps only on BEHAVIOUR rules, fading, visible as terms, size-guarded, and listed in the report. Effects largely cancel them (same start in both runs). |
 | **The long run misses the target** (§3.5); Manual debt snowball | Document it in the UI's start description. Gate on finiteness, not convergence. Fix in stage 5 (`adjust.trend`, portfolio anchor, re-solved neutral rate, repricing of government debt at its maturity). |
 | **"Baseline" changes meaning** for users and code | Keep the `baseline()` name with a generalised meaning; add `steady()`. The UI labels the dashed line "no change from today" and never "baseline" on `today`. |
-| **Floating-rate debt** exaggerates the fiscal effect of rate moves | `sB` matches today's interest bill; flag it in the inspector of `bondRate`; stage 5 adds an effective rate on the stock that reprices over the debt's maturity. |
+| **Floating-rate debt** exaggerates the fiscal effect of rate moves | Resolved for government bonds in review MON-1: `bondRate` is an average coupon that reprices over the debt's maturity. Non-indexed mortgages still float. |
 | **Unemployment of 6.8% is a volatile monthly LFS figure** | Use the 3-month seasonally adjusted rate; the gap fades slowly (0.5/yr); the T5 range is wide. |
 | **Placeholders become "today"** (`depFX`, `eShareW`, `fxr` → data, `house0` → data, `bondO`, the loan shares) | The start report lists every placeholder used; replacing each one is a follow-up. |
 | **Performance** (the reference machine doubles steps) | Microseconds per month; lazy extension; a short-cut on `steady`. |
@@ -572,7 +572,7 @@ Each is confirmed by reading the code and, where stated, by the scratch prototyp
   - demand-side drags from nominal cash interest.
 
   Fix: stage 5.
-- **A4. Government bonds and non-indexed mortgages float with the key rate on the whole stock.** In reality the government's debt is largely fixed-rate. On `today`, `sB` can match the interest bill, but rate moves still reprice everything at once. Holding 8% on Manual snowballs the debt to about 116% of GDP in 20 years.
+- **A4. Government bonds and non-indexed mortgages float with the key rate on the whole stock.** Resolved for government bonds (review MON-1): `bondRate` is now a stock-weighted average coupon; each month last month's new bonds and 1 ÷ `bondMaturity` (five years) of the rest reset to the key rate + `sB`, so a 1-point hike moves the government balance about −0.13 points of GDP in the first month instead of −0.49 (decision 0002 §6). On `today` its history can start at the data's effective rate. Non-indexed mortgages still reprice at once. Holding 8% on Manual still snowballs the debt, more slowly, because the coupon converges to the held rate (the figure of about 116% of GDP in 20 years predates the change).
 - **A5. Steady-state pension payouts are 13.9% of GDP**, against 6.26% in the data (the `payout` comment in `pensions.ts` already says so). A start must set `payout` from data, which forces `c0O` to be re-solved.
 - **A6. The lag history is flat.** `reset()` calls `fillRing`, so any start away from the steady state begins with `inflation12`, `creditImpulse` and `creditImpulseTotal` at 0 and indexation computed from a flat CPI. Fix: history-aware initialisation (stage 0).
 - **A7. Fast-closing targets create month-1 jumps.** These are `firmCashSpeed` = 12/yr, `treasuryTopUp` = 12/yr and `lamFX` = 12/yr: any mismatch between today's holdings (or today's króna) and the steady anchors is closed within a month. Hence §2.6 N-a and the latent `kronaSentiment`.

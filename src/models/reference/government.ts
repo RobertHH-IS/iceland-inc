@@ -12,6 +12,9 @@ import { automatic } from './stabilisers.ts';
 /** The largest buyback this month (a negative issue): the bank's bonds, less what it sells the
  *  central bank this month, over one month. */
 const buybackLimit = (c: Ctx) => c.v('openMarket') - c.stock('bonds', 'B') / c.dt;
+/** A tax rate × households' income: wages, and deposit interest and dividends. The tax rule's terms
+ *  are differences of these, so they add up to the unsplit tax to the last digit (review TAX-4). */
+const onIncome = (c: Ctx, rate: number) => rate * c.v('wages') + rate * (c.v('depositInterestHH') + c.v('firmDividends') + c.v('bankDividends'));
 
 const params: ParamDef[] = [
   {
@@ -138,17 +141,16 @@ export const government: ModuleDef = {
       target: 'taxes',
       category: 'POLICY',
       inputs: ['wages', 'depositInterestHH', 'firmDividends', 'bankDividends', 'taxRate'],
-      params: ['taxShift'],
+      params: ['taxShift', 'normalTaxRate'],
+      // Split by what sets the rate, so ideas at play tell the automatic stabiliser (tax at the
+      // normal rate on income that moves with the cycle) from a decision to change the rate, yours
+      // or the debt rule's (review TAX-4). The three terms add up to (tax rate + your change) × income.
       terms: [
-        { id: 'onWages', label: 'Tax on wages', concept: 'automatic-stabilisers', compute: (c) => (c.v('taxRate') + c.p('taxShift')) * c.v('wages') },
-        {
-          id: 'onCapitalIncome',
-          label: 'Tax on interest and dividends',
-          concept: 'automatic-stabilisers',
-          compute: (c) => (c.v('taxRate') + c.p('taxShift')) * (c.v('depositInterestHH') + c.v('firmDividends') + c.v('bankDividends')),
-        },
+        { id: 'normalRate', label: 'Normal rate × income', concept: 'automatic-stabilisers', compute: (c) => onIncome(c, c.p('normalTaxRate')) },
+        { id: 'debtRule', label: 'The debt rule’s change to the rate × income (Automatic)', concept: 'deficits-and-money', compute: (c) => onIncome(c, c.v('taxRate')) - onIncome(c, c.p('normalTaxRate')) },
+        { id: 'taxShift', label: 'Your change to the rate × income', concept: 'multiplier', compute: (c) => onIncome(c, c.v('taxRate') + c.p('taxShift')) - onIncome(c, c.v('taxRate')) },
       ],
-      concepts: ['automatic-stabilisers'],
+      concepts: ['automatic-stabilisers', 'multiplier'],
       explain: {
         what: 'Income tax households pay. It rises and falls with income, which steadies the economy.',
         rule: 'Tax = (the debt rule’s rate + any change set by the tax lever, now {taxShift pp}) × (wages + interest + dividends).',

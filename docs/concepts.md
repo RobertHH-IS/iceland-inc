@@ -76,7 +76,7 @@ The 60 economic ideas that Iceland Inc. can show as "at play" when you click a f
 | `automatic-stabilisers` | Automatic stabilisers | Taxes that fall and benefits that rise in a downturn cushion incomes without any new decision by the government. | keynesian |
 | `fiscal-rule` | Iceland's fiscal stability rule | Since 2026, the state's underlying spending may grow by at most 2% a year in real terms, with some items outside the cap. | institutional |
 | `macroprudential-policy` | Macroprudential policy | Rules that protect the financial system as a whole, such as caps on mortgage borrowing and extra capital buffers for banks. | institutional |
-| `bond-buyers` | Who buys government bonds | Whether new government bonds are bought by banks, the central bank, pension funds or foreigners changes money, interest rates and the króna. | institutional |
+| `bond-buyers` | Who buys government bonds | Whether banks, the central bank, pension funds or foreigners buy new government bonds changes the money supply, who earns the interest and the króna. | institutional |
 
 ## External
 

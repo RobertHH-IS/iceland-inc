@@ -46,7 +46,9 @@ export const demand: ModuleDef = {
         { id: 'wages', label: 'Wages', compute: (c) => c.v('wages') },
         { id: 'interest', label: 'Interest on deposits', concept: 'interest-distribution', compute: (c) => c.v('depositInterestHH') },
         { id: 'dividends', label: 'Dividends', compute: (c) => c.v('firmDividends') + c.v('bankDividends') },
-        { id: 'taxes', label: 'Income tax', concept: 'automatic-stabilisers', compute: (c) => -c.v('taxes') },
+        // Untagged: the tax rule (government.ts) splits income tax into the automatic stabiliser and
+        // the decisions that change the rate (review TAX-4).
+        { id: 'taxes', label: 'Income tax', compute: (c) => -c.v('taxes') },
       ],
       explain: {
         what: 'What households have to spend or save after tax.',

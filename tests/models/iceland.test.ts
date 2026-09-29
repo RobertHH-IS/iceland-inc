@@ -147,7 +147,9 @@ describe('Iceland model: the steady state matches engine v1', () => {
   // Old-age and disability transfers now come from TR's payments (audit L15), which moves the split of
   // gross income by age, and with it the debt-to-income ratios mR* and the debt-service shares nu*.
   // v1's debt-service cap was a share of gross income; it is now a share of income after income tax
-  // (Rules 1300/2025, audit M4), so nu × (1 − tau0) is what compares with v1's nu.
+  // (Rules 1300/2025, audit M4), so nu × (1 − tau0) is what compares with v1's nu. Tax-free child and
+  // housing benefits are now outside gross income but inside the income the mortgage rules read
+  // (review SP-4), which leaves mR* as they were and moves nu* × (1 − tau0) by about 3%.
   // These six moved for a stated reason, so each is pinned at its new value (to 0.01%), and its move
   // from v1 must stay within 8%: an unintended move of a few percent fails the first check.
   const solvedValue = (id: string) => e.baselineData.pBase[model.paramIndex.get(id)!];
@@ -157,8 +159,8 @@ describe('Iceland model: the steady state matches engine v1', () => {
     rr: { v1: 0.3879, now: 0.393879, value: () => solvedValue('rr') },
     mRY: { v1: 0.8906, now: 0.923974, value: () => solvedValue('mRY') },
     mRW: { v1: 1.4206, now: 1.430036, value: () => solvedValue('mRW') },
-    'nuY × (1 − tau0)': { v1: 0.0088, now: 0.0091073, value: () => afterTax('nuY') },
-    'nuW × (1 − tau0)': { v1: 0.016, now: 0.0161091, value: () => afterTax('nuW') },
+    'nuY × (1 − tau0)': { v1: 0.0088, now: 0.0087939, value: () => afterTax('nuY') },
+    'nuW × (1 − tau0)': { v1: 0.016, now: 0.0159011, value: () => afterTax('nuW') },
   };
   const V1_MOVED: Record<string, number> = { tau0: 0.3848, c0Y: 0.9612, c0W: 9.5947, c0O: 4.4101, payout: 0.1788, ageing: 0.1159, muD: 0.0267 };
   const e = createEngine(model);

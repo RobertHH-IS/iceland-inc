@@ -100,7 +100,8 @@ const SRC = {
   wageRate: 'Research report, "Wages +10%": policy rate +1 to +1.5 pp at the peak, in quarters 2–4 (CBI DYNIMO, +0.3 pp per 1 pp of wages above baseline for two years, scaled; CBI MB 2026/2). v1’s band was 0.8–2 (v1 SPEC §7.3); the range is now the cited one. https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageJobs:
     'Research report, "Wages +10%": unemployment +0.5–1 pp at the peak (CBI DYNIMO: −0.7 pp of hours per +1 pp of wages, CBI MB 2026/2; the size of the cap on a 10% shock is the report’s assumption). The range is the cited one. The model’s peak is about 0.51, near its lower edge; it was about 0.47, below it, and judged against v1’s band of 0.3–1.2 (v1 SPEC §7.3) as a known gap, until imported goods carried a domestic distribution margin (distM, review E6): wages then reach prices a little more, so the key rate rises more and output and jobs fall a little more. https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
-  wageBack: 'Research report, "Wages +10%", settles in years 3–6: real variables return to baseline because the wage share is anchored in the long run (CBI QMM v4.0 long-run homogeneity; v1 SPEC §7.3). https://cb.is/library/news-and-publications/publications/working-papers/WP82_net.pdf',
+  wageBack:
+    'Research report, "Wages +10%", settles in years 3–6: real variables return to baseline because the wage share is anchored in the long run (CBI QMM v4.0 long-run homogeneity; v1 SPEC §7.3). The peak is the largest deviation in years 1–2, the response to the settlement before that settling period. (Until review MON-1 it was the largest in years 1–6. Once government bonds kept their coupons as the key rate fell, consumption rose again in years 3–4 on the higher interest, above its year-1 peak; measured against that later peak the ratio was smaller, so easier to pass, and depended on the time step: 0.137, and 0.157 at half the step.) https://cb.is/library/news-and-publications/publications/working-papers/WP82_net.pdf',
   fiscal:
     'Research report, "Government spending +1% of GDP": the government buys 1% of GDP more from firms; output +0.3–0.6% in year 1 when deficit-financed, an inference from the ~0.7 cross-country median multiplier and Iceland’s openness (IMF WP 2026/043). Public investment is the lever that is only a purchase from firms, so the check uses it, with the cited range. (v1 used the other-services lever, about a third of which is public pay with no import leakage; that mixed multiplier is about 0.72, and v1 SPEC §7.3 widened the range to 0.8 for it.) https://www.elibrary.imf.org/view/journals/001/2026/043/article-A001-en.xml',
   money: 'Accounting mechanism: deficits add deposits when banks buy the bonds and move existing deposits when pension funds do (Bank of England 2014, "Money creation in the modern economy"; research report §1); v1 SPEC §7.3 requires a gap of at least 0.5 pp.',
@@ -173,12 +174,12 @@ function fundsFinancedRun(run: RunResult, months: number): RunResult {
 
 const wageBack = (id: string, label: string): CalibrationCheck => ({
   id: `wage-back-${id}`,
-  label: `Wages +10%: ${label} at year 6 ÷ peak deviation`,
+  label: `Wages +10%: ${label} at year 6 ÷ peak deviation in years 1–2`,
   scenario: WAGE,
   months: 72,
   measure: (run) => {
     const a = run.series(id);
-    const j = argmax(a.map(Math.abs), 1, 72);
+    const j = argmax(a.map(Math.abs), 1, 24);
     return Math.abs(a[72] / a[j]);
   },
   range: [0, 0.25],

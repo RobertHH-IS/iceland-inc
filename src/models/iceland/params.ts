@@ -64,7 +64,17 @@ P('compG', d(eco + 'compensation_of_employees'), '% of GDP/yr', 'IDENTITY', 'Pub
   P('trFam', fam, '% of GDP/yr', 'POLICY', 'Family, housing and other benefits, real: child benefits, parental leave, housing benefits and the rest of social benefits.', {
     ...dataProv(eco + 'social_benefits'),
     basis: 'derived',
-    note: `The rest of social benefits: item 27 (${d(eco + 'social_benefits')}) − unemployment (${d(sp + 'unemployment')}) − old-age and disability pensions (${oa.toFixed(2)}) (THJ05143/THJ05142, TR 2025). Besides child, parental-leave and housing benefits it holds other TR payments (rehabilitation pension, supplements), municipal assistance, and the non-cash part of the unemployment figure, which comes from a COFOG function that includes administration.`,
+    note: `The rest of social benefits: item 27 (${d(eco + 'social_benefits')}) − unemployment (${d(sp + 'unemployment')}) − old-age and disability pensions (${oa.toFixed(2)}) (THJ05143/THJ05142, TR 2025). Besides child, parental-leave and housing benefits it holds other TR payments (rehabilitation pension, supplements), municipal assistance, and the non-cash part of the unemployment figure, which comes from a COFOG function that includes administration. Child and housing benefits are tax-free, the rest taxable (famTaxableShare).`,
+  });
+  // Only the taxable part of family benefits is income-taxed (review SP-4): taxable social benefits
+  // from withholding-tax data, less the old-age, disability and unemployment benefits (all taxable),
+  // leave the taxable part of this channel.
+  const taxable = d(eco + 'taxable_social_benefits');
+  const ue = d(sp + 'unemployment');
+  P('famTaxableShare', (taxable - oa - ue) / fam, 'fraction', 'CONTRACT', 'Share of family and housing benefits that is income-taxed: parental-leave pay, TR rehabilitation pensions and supplements, and municipal assistance. Child benefits (barnabætur), interest rebates and housing benefits (húsnæðisbætur) are tax-free.', {
+    ...dataProv(eco + 'taxable_social_benefits'),
+    basis: 'derived',
+    note: `(taxable social benefits ${taxable} − old-age and disability pensions ${oa.toFixed(2)} − unemployment ${ue}) ÷ family and other benefits ${fam.toFixed(2)} (Hagstofa TEK02011, THJ05143/THJ05142, TR 2025). Tax-free: child, interest and housing benefits (Income Tax Act 90/2003, art. 28). The unemployment figure includes some administration, so the share is if anything a little low.`,
   });
 }
 P('oaShareY', 0.07, 'fraction', 'POLICY', 'Share of old-age and disability transfers (disability) paid to the young; the rest goes to working age.', assumed());
@@ -281,7 +291,13 @@ P('divBshW', 0.2, 'fraction', 'IDENTITY', 'Share of bank dividends paid to worki
 P('i0', 0.03, 'fraction/yr', 'POLICY', 'Neutral real key rate. The nominal neutral rate, which the key rate is compared with, is i0 + piT.', assumed());
 P('piT', 0, 'fraction/yr', 'POLICY', 'Inflation target of the model. Iceland targets 2.5%; the zero-inflation baseline uses 0, so only deviations show.', assumed());
 P('mD', 0.01, 'fraction/yr', 'BEHAVIOUR', 'Deposit margin below the key rate.', assumed());
-P('sB', 0.005, 'fraction/yr', 'CONTRACT', 'Spread of the floating government-bond rate over the key rate.', assumed());
+P('sB', 0.005, 'fraction/yr', 'CONTRACT', 'Spread over the key rate of the coupon on newly sold nominal government bonds. Bonds already sold keep their coupon until they mature (bondMaturity).', assumed());
+P('bondMaturity', 5, 'years', 'CONTRACT', 'Average time to maturity of nominal government bonds: each year about 1 ÷ this of them mature and are refinanced at the current rate.', {
+  basis: 'data',
+  source: 'Lánamál ríkisins, Medium-Term Debt Management Strategy 2026–2030 (29 December 2025): average time to maturity of Treasury debt at least five years. https://lanamal.is/asset/13854/stefna-i-lanamalum-2026-2030-enska.pdf',
+  vintage: '2025',
+  note: 'The strategy’s floor, applied to the nominal bonds. Nominal debt (3- and 5-year RIKB bonds and T-bills of up to a year) is shorter than indexed RIKS (10 and 20 years), which the model treats separately; general-government loans and municipal debt are not in the strategy. Before review MON-1 the whole nominal stock repriced with the key rate every month.',
+});
 P('sL', 0.025, 'fraction/yr', 'BEHAVIOUR', 'Spread of business-loan rates over the key rate.', assumed());
 P('sMN', 0.01, 'fraction/yr', 'BEHAVIOUR', 'Spread of non-indexed mortgage rates over the key rate.', assumed());
 P('rMI0', 0.025, 'fraction/yr', 'BEHAVIOUR', 'Real rate on indexed mortgages at baseline.', assumed());
@@ -339,7 +355,7 @@ P('lamH', 1, 'per year', 'BEHAVIOUR', 'How fast real house prices adjust.', assu
 P('betaHY', 1, 'elasticity', 'BEHAVIOUR', 'Real house prices versus real household disposable income.', assumed());
 P('betaHC', 3, 'fraction', 'BEHAVIOUR', 'Real house prices versus the flow of net mortgage credit (×100: % per % of GDP).', assumed());
 P('betaHR', 2, 'fraction', 'BEHAVIOUR', 'Real house prices versus the real mortgage rate (share lost per unit of rate).', assumed());
-P('lamHC', 1, 'per year', 'BEHAVIOUR', 'How fast the housing component of the CPI follows house prices.', assumed('House prices stand in for market rents: since June 2024 Statistics Iceland measures owner-occupied housing by rental equivalence (HMS rental register), which follows house prices more loosely and slowly. Not yet re-estimated against the post-2024 CPI housing series; a rent block is planned for v3.'));
+P('lamHC', 0.7, 'per year', 'BEHAVIOUR', 'How fast the housing component of the CPI follows house prices.', { basis: 'calibrated', note: 'House prices stand in for market rents: since June 2024 Statistics Iceland measures owner-occupied housing by rental equivalence (HMS rental register), which follows house prices more loosely and slowly. Assumed 1 a year until government bonds stopped repricing at once with the key rate (review MON-1); that made a rate rise more contractionary and took the rate-inflation-trough check to −0.38 pp, outside its band, and 0.7 a year (a mean lag of about 17 months, rents following house prices more slowly) brings it back to about −0.33. Not yet re-estimated against the post-2024 CPI housing series; a rent block is planned for v3.' });
 
 /* ------------------------------------------------------------------ firms */
 P('betaPi', 0.3, 'elasticity', 'BEHAVIOUR', 'Investment versus real profits.', assumed());

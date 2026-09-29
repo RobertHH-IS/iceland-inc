@@ -240,14 +240,39 @@ describe('Iceland model: a high key rate held for years (review E7)', () => {
     expect(Math.max(...output.slice(1))).toBeLessThan(0);
   });
 
-  test('on Manual, 15% held: output below baseline for seven years, then the interest-income channel lifts it', () => {
+  test('on Manual, 15% held: output below baseline for eight years, then the interest-income channel lifts it', () => {
     // Taxes and spending are held too, so the government's interest bill feeds households' and
-    // pension funds' income (decision 0002 §6, Godley and Lavoie's model PC).
+    // pension funds' income (decision 0002 §6, Godley and Lavoie's model PC). Back above baseline
+    // from month 101; month 88 while the bonds repriced with the key rate at once (review MON-1).
     const e = run('keyRateFixed', 15, false, 120);
     const output = series(e, 'output');
-    expect(Math.max(...output.slice(1, 85))).toBeLessThan(0);
+    expect(Math.max(...output.slice(1, 97))).toBeLessThan(0);
     expect(output[120]).toBeGreaterThan(0);
     const income = (m: number) => ['Y', 'W', 'O'].reduce((s, g) => s + e.valueAt(`propertyIncome${g}`, m), 0);
     expect(income(120) / income(0)).toBeGreaterThan(1.5);
+  });
+
+  test('on Manual, any lasting move reverses, not only a high rate: +1 pp cools output for about ten years, then lifts it (review MON-1)', () => {
+    const e = run('keyRateFixed', 4, false, 240);
+    const output = series(e, 'output');
+    const trough = Math.min(...output.slice(1, 60));
+    expect(trough).toBeLessThan(-0.6); // about −0.72%, in month 35
+    expect(output.indexOf(trough)).toBeGreaterThan(24); // in the third year
+    const back = output.findIndex((y, m) => m >= 24 && y > 0);
+    expect(back).toBeGreaterThanOrEqual(114); // month 120 (106 while bonds repriced at once)
+    expect(back).toBeLessThanOrEqual(126);
+    expect(output[240]).toBeGreaterThan(0.35); // about +0.46% after 20 years
+    expect(output[240]).toBeLessThan(0.55);
+    // A cut mirrors it: about −0.31% after 20 years.
+    const cut = series(run('keyRateFixed', 2, false, 240), 'output');
+    expect(cut[240]).toBeLessThan(-0.2);
+    expect(cut[240]).toBeGreaterThan(-0.4);
+    // Bonds keep their coupons until they mature (about five years on average), so the interest bill
+    // rises gradually. The first month's −0.135 of GDP is mostly the central bank's higher interest
+    // on reserves, which cuts the profit it pays the Treasury; it was −0.49 while the whole bond
+    // stock repriced with the key rate at once.
+    const balance = e.valueAt('govBalance', 1) - e.baseline('govBalance');
+    expect(balance).toBeLessThan(-0.1);
+    expect(balance).toBeGreaterThan(-0.17);
   });
 });
