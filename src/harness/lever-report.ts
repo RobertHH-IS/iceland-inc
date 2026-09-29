@@ -35,7 +35,7 @@ import { compile, type KModel } from '../core/compile.ts';
 import { createEngine, type KernelEngine } from '../core/engine.ts';
 import { runScenario } from '../core/scenario.ts';
 import type { Id, IndicatorDef, LeverDef, ModelDef, ScenarioEvent } from '../core/types.ts';
-import { leverReportSpecs, type Companion, type LeverReportSpec, type PolicyInstrument } from './lever-headlines.ts';
+import { leverReportSpecs, type Companion, type ImpliedNeutralSpec, type LeverReportSpec, type PolicyInstrument } from './lever-headlines.ts';
 import { firstNonFinite, plausibilityBounds, plausibilityBreaches } from './plausibility.ts';
 import { LOCKED, lockConfigs, UNLOCKED, type LockConfig } from './scenarios.ts';
 
@@ -208,8 +208,12 @@ export interface ExpectationResult {
   theory: string;
   source: string;
   withCompanion: boolean;
-  /** Mean effect over the window per matching run, and whether its sign is the expected one. */
-  checks: { value: number; mode: string; mean: number; pass: boolean }[];
+  /** Set for an expectation that the effect dies out (LeverExpectation.decays). */
+  decays?: Decay;
+  /** Mean effect over the window per matching run, and whether its sign is the expected one. For
+   *  an expectation that the effect dies out, `mean` is the largest absolute effect over the window
+   *  and `earlier` the largest over the earlier window. */
+  checks: { value: number; mode: string; mean: number; earlier?: number; pass: boolean }[];
   /** True when every matching run passes (false when none matched). */
   pass: boolean;
 }
@@ -228,6 +232,26 @@ export interface LeverRun {
   regimes: RegimeUse[];
   /** Full monthly effect paths of the headlines (only when paths are asked for). */
   paths?: Record<Id, number[]>;
+  /** The implied-neutral-rate diagnostic, where the run's learned neutral rate ends at its limit. */
+  impliedNeutral?: ImpliedNeutral;
+}
+
+/** The constant key rate that would have left inflation on target over the final five years of a
+ *  run whose learned neutral rate ends at the limit of its band (ImpliedNeutralSpec), all in % a
+ *  year. `rate` is null when no level in the lever's range does it: `outside` then says whether
+ *  inflation stays below target even at the lever's minimum ('below'), above it even at its maximum
+ *  ('above'), or moves the other way ('neither'). */
+export interface ImpliedNeutral {
+  /** The implied neutral real rate: the constant key rate less the inflation target. */
+  rate: number | null;
+  outside?: 'below' | 'above' | 'neither';
+  /** The rule's own estimate at the end of the run, and its band. */
+  estimate: number;
+  band: [number, number];
+  /** Unemployment, pp against the no-change run, over the same five years at that constant rate. */
+  unemployment: number | null;
+  /** The runs the bisection made. */
+  runs: number;
 }
 
 export interface LeverSection {
@@ -281,12 +305,23 @@ export interface LeverReport {
   runs: number;
 }
 
+/** That an effect dies out: the largest absolute effect over the expectation's months is below
+ *  `below` (display units) and below `share` × the largest over the `earlier` months. For a slow
+ *  cycle that has not yet settled, whose mean over a late window can cross the floor on its upswing
+ *  while each swing is smaller than the last. */
+export interface Decay {
+  earlier: [number, number];
+  below: number;
+  share: number;
+}
+
 /** An expectation another engineer can declare in src/models/<id>/expectations.ts. `setting` is a
  *  lever value or one of the roles ('min', 'max', 'up', 'down', 'default', 'half', '-default',
  *  '-half'); `mode` a lock configuration ('unlocked', 'locked', or one the model adds in
  *  lever-headlines.ts, such as 'key rate locked') or 'any' (the default); `sign` +1, −1 or 0 for
- *  the mean effect over [fromMonth, toMonth] (0: smaller than the report's floor). On a padlock
- *  (a 'lock' lever), `setting` is 1 (close it) or 0 (open it) at month 0, with no shock. */
+ *  the mean effect over [fromMonth, toMonth] (0: smaller than the report's floor). With `decays`
+ *  (and sign 0) the test is instead that the effect dies out (Decay). On a padlock (a 'lock'
+ *  lever), `setting` is 1 (close it) or 0 (open it) at month 0, with no shock. */
 export interface LeverExpectation {
   lever: Id;
   setting: number | string;
@@ -299,6 +334,8 @@ export interface LeverExpectation {
   source: string;
   /** Match the runs on top of the lever's companion shock instead of the plain runs. */
   withCompanion?: boolean;
+  /** Test that the effect dies out instead of the sign of its mean (sign must be 0). */
+  decays?: Decay;
 }
 
 export interface LeverReportOptions {
@@ -312,7 +349,8 @@ export interface LeverReportOptions {
   /** Replace a model's declared spec (tests). */
   spec?: LeverReportSpec;
   /** Make only the runs an expectation needs (the harness gate): levers without expectations are
-   *  left out, and so are the settings, configurations and companion runs no expectation matches. */
+   *  left out, and so are the settings, configurations and companion runs no expectation matches.
+   *  It also leaves out the implied-neutral-rate diagnostic. */
   onlyExpected?: boolean;
   /** The engine at the baseline that every run starts from (default: a fresh one). */
   engine?: KernelEngine;
@@ -722,7 +760,7 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
   const { m, base, spec, headlines, indicators, horizons } = S;
   const expectations = opts.expectations !== undefined ? opts.expectations : readExpectations(m.def.id);
   const expResults: ExpectationResult[] | null = expectations
-    ? expectations.map((x) => ({ lever: x.lever, setting: x.setting, mode: x.mode ?? 'any', variable: x.variable, fromMonth: x.fromMonth, toMonth: x.toMonth, sign: x.sign, theory: x.theory, source: x.source, withCompanion: !!x.withCompanion, checks: [], pass: false }))
+    ? expectations.map((x) => ({ lever: x.lever, setting: x.setting, mode: x.mode ?? 'any', variable: x.variable, fromMonth: x.fromMonth, toMonth: x.toMonth, sign: x.sign, theory: x.theory, source: x.source, withCompanion: !!x.withCompanion, ...(x.decays ? { decays: x.decays } : {}), checks: [], pass: false }))
     : null;
 
   // the no-change run of each lock configuration
@@ -739,6 +777,7 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
 
   const locks = m.levers.filter((l) => l.kind === 'lock').map((l) => l.id);
   for (const x of expResults ?? []) {
+    if (x.decays && (x.sign !== 0 || !(x.decays.earlier[1] < x.fromMonth))) throw new Error(`expectation for '${x.lever}' that '${x.variable}' dies out needs sign 0 and an earlier window that ends before month ${x.fromMonth}`);
     if (!m.levers.some((l) => l.id === x.lever)) throw new Error(`expectation names lever '${x.lever}', which model '${m.def.id}' does not have`);
     if (x.mode !== 'any' && !modes.some((c) => c.label === x.mode)) throw new Error(`expectation for '${x.lever}' names configuration '${x.mode}', which the report of model '${m.def.id}' does not run (${modes.map((c) => `'${c.label}'`).join(', ')})`);
   }
@@ -763,7 +802,9 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
         if (!wanted(l, s, ref.mode, false)) continue;
         const e = S.run([...before, eventOf(l, s.value)], months);
         runCount++;
-        runs.push(measureRun(S, e, ref, { lever: l, setting: s, paths: !!opts.paths, expResults }));
+        const run = measureRun(S, e, ref, { lever: l, setting: s, paths: !!opts.paths, expResults });
+        const implied = !opts.onlyExpected && ref.mode === UNLOCKED && l.kind === 'setting' ? impliedNeutral(S, e, ref, eventOf(l, s.value), l.id) : null;
+        runs.push(implied ? { ...run, impliedNeutral: implied } : run);
       }
       if (comp && compLever && settings.some((s) => wanted(l, s, ref.mode, true))) {
         const extra = eventOf(compLever, comp.value);
@@ -919,6 +960,17 @@ function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): L
       if (!path) throw new Error(`expectation for '${x.lever}' names '${x.variable}', which is neither a headline nor an indicator`);
       const from = Math.max(1, x.fromMonth),
         to = Math.min(path.length - 1, x.toMonth);
+      if (x.decays) {
+        const largest = (a: number, b: number) => {
+          let w = to >= from ? 0 : NaN;
+          for (let t = Math.max(1, a); t <= Math.min(path.length - 1, b); t++) w = Math.max(w, Math.abs(path[t]));
+          return w;
+        };
+        const late = largest(from, to),
+          earlier = largest(...x.decays.earlier);
+        x.checks.push({ value: c.setting.value, mode: ref.mode, mean: late, earlier, pass: late < x.decays.below && late < x.decays.share * earlier });
+        continue;
+      }
       let s = 0;
       for (let t = from; t <= to; t++) s += path[t];
       const mean = to >= from ? s / (to - from + 1) : NaN;
@@ -939,6 +991,62 @@ function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): L
     regimes,
     ...(c.paths ? { paths } : {}),
   };
+}
+
+/**
+ * The implied-neutral-rate diagnostic (ImpliedNeutralSpec) for one run with every rule acting, or
+ * null when the model declares none, the lever is the key-rate lever itself, or the run's learned
+ * neutral rate is inside its band at the end. The key-rate lever is held at a constant level on top
+ * of the run's own lever (setting it locks it; the other rules still act), and the level at which
+ * the mean inflation effect over the final 60 months is zero is found by bisection to 0.01 points.
+ */
+function impliedNeutral(S: Setup, e: KernelEngine, ref: Reference, event: ScenarioEvent, leverId: Id): ImpliedNeutral | null {
+  const x: ImpliedNeutralSpec | undefined = S.spec.impliedNeutral;
+  if (!x || leverId === x.lever || e.influences(x.rule).regime !== x.atLimit) return null;
+  const m = S.m;
+  const par = (id: Id) => {
+    const p = m.params.find((q) => q.id === id);
+    if (!p) throw new Error(`lever report: the implied-neutral diagnostic names parameter '${id}', which model '${m.def.id}' does not have`);
+    return p.value;
+  };
+  const lever = m.levers.find((l) => l.id === x.lever);
+  if (!lever || lever.min === undefined || lever.max === undefined) throw new Error(`lever report: the implied-neutral diagnostic needs a key-rate lever '${x.lever}' with a range`);
+  const track = (id: Id) => {
+    const k = S.indicators.findIndex((t) => t.id === id);
+    if (k < 0) throw new Error(`lever report: the implied-neutral diagnostic names indicator '${id}', which model '${m.def.id}' does not have`);
+    return k;
+  };
+  const [ki, ku] = [track(x.inflation), track(x.unemployment)];
+  const months = e.t,
+    from = Math.max(1, months - 60);
+  const meanEffect = (run: KernelEngine, k: number) => {
+    const tr = S.indicators[k],
+      lv = tr.levels(run),
+      rl = ref.indicators[k];
+    let s = 0;
+    for (let t = from; t <= months; t++) s += effectOf(tr.display, lv[t], rl[t]);
+    return s / (months - from + 1);
+  };
+  let runs = 0;
+  const held = (rate: number) => {
+    runs++;
+    return S.run([...ref.events, event, { t: 0, lever: x.lever, value: rate }], months);
+  };
+  // a higher constant rate lowers inflation: find where the mean effect changes sign
+  let [lo, hi] = [lever.min, lever.max];
+  let [flo, fhi] = [meanEffect(held(lo), ki), meanEffect(held(hi), ki)];
+  const band: [number, number] = [100 * (par(x.centre) - par(x.band)), 100 * (par(x.centre) + par(x.band))];
+  const estimate = 100 * e.value(x.estimate);
+  if (!(flo > 0 && fhi < 0)) return { rate: null, outside: flo <= 0 && fhi < 0 ? 'below' : flo > 0 && fhi >= 0 ? 'above' : 'neither', estimate, band, unemployment: null, runs };
+  while (hi - lo > 0.01) {
+    const mid = (lo + hi) / 2;
+    const f = meanEffect(held(mid), ki);
+    if (f > 0) [lo, flo] = [mid, f];
+    else [hi, fhi] = [mid, f];
+  }
+  // the end nearer zero inflation
+  const rate = Math.abs(flo) <= Math.abs(fhi) ? lo : hi;
+  return { rate: rate - 100 * par(x.target), estimate, band, unemployment: meanEffect(held(rate), ku), runs };
 }
 
 /** Flags that compare runs of one lever: an inert lever, the moderate up and down steps, and the

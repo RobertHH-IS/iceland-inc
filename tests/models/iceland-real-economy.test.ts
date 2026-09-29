@@ -106,7 +106,12 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
     // (in %) and pull wage growth down for good
     const wOverPd = (e: KernelEngine) => Math.log(e.valueAt('wage', 240) / e.valueAt('domesticPrice', 240));
     expect(Math.abs(wOverPd(r.s) - wOverPd(r.b))).toBeGreaterThan(0.002);
-    expect(Math.abs(r.s.valueAt('wageGapSeen', 240))).toBeLessThan(0.0005);
+    // Restated with decision 0012 (was 0.0005, with −0.00044): what is left at month 240 is the
+    // tail of the slow cycle of the rule's learning (unemployment 0.05 points above the no-change
+    // run, inflation −0.06 pp), not a lasting gap. With the rule reading slack from unemployment it
+    // is −0.00073, and −0.00078 at month 360: a tenth of the 0.0025–0.003 a gap measured against
+    // domestic prices would leave.
+    expect(Math.abs(r.s.valueAt('wageGapSeen', 240))).toBeLessThan(0.001);
   });
 
   test('the value-added price is domestic prices less the imported inputs in them, 1 at baseline', () => {
@@ -442,6 +447,53 @@ describe('the key-rate rule learns its neutral rate (lever review AUTO-FIXED-NEU
   });
 });
 
+describe('the central bank reads its output gap from the labour market (decision 0012)', () => {
+  const potential = (r: ReturnType<typeof twins>, m: number) => r.pct('potentialOutputSeen', m);
+  test('potential output follows the labour force: newcomers raise it, workers who leave with the jobs lower it', () => {
+    // net immigration +5 thousand (about 2% of the labour force): capacity grows at once, output later
+    const imm = twins([['netImmigration', 5]], true, 60);
+    expect(potential(imm, 12)).toBeGreaterThan(1.5);
+    expect(potential(imm, 12) - imm.pct('output', 12)).toBeGreaterThan(1.5);
+    expect(potential(imm, 60)).toBeGreaterThan(imm.pct('output', 60));
+    // foreign demand −20: the more of the lost jobs are met by people leaving, the lower potential
+    const stay = twins([['foreignDemand', -20], ['migration', 0]], true, 24);
+    const leave = twins([['foreignDemand', -20], ['migration', 80]], true, 24);
+    expect(potential(leave, 24)).toBeLessThan(potential(stay, 24) - 1);
+  });
+
+  test('a shift toward public services that need many staff lowers potential while output rises, so the rule sees a tight economy', () => {
+    // With a fixed potential the rule read slack here (output −1.26% at month 240, unemployment
+    // 1.2 points below normal over years 15–20, inflation +0.62 pp).
+    const r = twins([['health', 3]], true, 60);
+    expect(r.pct('output', 60)).toBeGreaterThan(0);
+    expect(potential(r, 60)).toBeLessThan(-1);
+    expect(r.s.valueAt('outputGap', 60)).toBeGreaterThan(0.01);
+  });
+
+  test('known gaps, as tripwires: lasting shifts in public spending and fish prices still leave inflation off target after twenty years with the policy rules acting', () => {
+    // Months 180–240, pp. With a fixed potential: health +3 +0.60, education +3 +0.78, fish +30 −0.13;
+    // now +0.31, +0.39 and −0.09. What remains belongs to channels the model lacks, not to potential
+    // output: adjustment through the real exchange rate, and labour supply that follows lasting
+    // tightness (lever-vetting open item 2). The neutral-rate estimate is at its limit for health
+    // and education; the implied neutral rates are in the lever report. Tighten these as the króna
+    // work closes the channel, and restore the "does not move" expectations when they pass.
+    const late = (settings: Setting[]) => {
+      const r = twins(settings, true, 240);
+      let s = 0;
+      for (let m = 180; m <= 240; m++) s += r.pp('inflation12', m);
+      return s / 61;
+    };
+    for (const lever of ['health', 'education']) {
+      const x = late([[lever, 3]]);
+      expect(x).toBeGreaterThan(0.01);
+      expect(x).toBeLessThan(0.45);
+    }
+    const fish = late([['fishPrices', 30]]);
+    expect(Math.abs(fish)).toBeGreaterThan(0.01);
+    expect(Math.abs(fish)).toBeLessThan(0.1);
+  });
+});
+
 describe('the debt rule’s escape clause (lever review ZLB-DEBT-RULE)', () => {
   test('tourism −60 with the policy rules acting: while the key rate is stuck at zero the debt rule raises no taxes, and output recovers far more', () => {
     // before: income tax up to 3.3 points higher and output 3.85% lower after 20 years
@@ -451,7 +503,13 @@ describe('the debt rule’s escape clause (lever review ZLB-DEBT-RULE)', () => {
       if (r.s.valueAt('ruleTarget', t - 1) < -param(base, 'taxRuleTarget', 'escapeBand')) expect(r.s.valueAt('taxRate', t)).toBeLessThanOrEqual(tau0 + Math.max(0, r.s.valueAt('taxRuleAnchor', t - 1)) + 1e-12);
     }
     expect(r.s.valueAt('keyRate', 240)).toBeLessThan(1e-12);
-    expect(r.pct('output', 240)).toBeGreaterThan(-2);
+    // Restated with decision 0012 (was −2, with −1.06%): the rule now reads slack from
+    // unemployment, which rises more slowly than output falls, so the key rate reaches zero in
+    // month 41, not month 7. Until then the escape clause does not apply, and the debt rule raises
+    // income tax 1.2 points (0.003 before), so output is 2.1% lower after 20 years; the key rate is
+    // at zero for 200 months (234 before). Still far better than 3.85% without the escape clause.
+    expect(r.pct('output', 240)).toBeGreaterThan(-2.5);
+    expect(r.pp('taxRate', 240)).toBeLessThan(1.5);
     expect(r.s.influences('taxRuleTarget').regime).toBe('Escape clause: no tax rise while the key rate is stuck at zero');
   });
 });

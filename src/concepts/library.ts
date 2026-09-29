@@ -855,10 +855,10 @@ export const concepts: ConceptDef[] = [
     oneLiner:
       'How hard firms are running their existing staff and equipment. High utilisation means pressure on prices; low utilisation means slack.',
     body: p(
-      `Firms rarely run flat out. *Capacity utilisation* measures how close they are to the output they could produce with their current staff, machines and buildings. When it is high, firms struggle to meet orders, raise prices more easily and invest to expand. When it is low, there is *slack*: output could rise without much pressure on prices.`,
-      `The Central Bank of Iceland tracks this with Gallup's surveys of company executives, asking whether their firms are short of staff and could meet unexpected demand, combined with other data into a resource-utilisation indicator. In spring 2026 about 43% of executives reported difficulty responding to unexpected demand, close to the historical average, and the Bank expected a slack of just under 1% of capacity in 2026.`,
-      `Economists disagree about the long run. Mainstream models assume utilisation returns to a normal rate, so demand affects output only temporarily. Kaleckian post-Keynesian models allow utilisation to stay above or below normal for long periods, so demand can shape growth itself; others reply that firms keep investing until utilisation returns to normal.`,
-      `Capacity is the idea behind the *output gap*, one of the inputs to a central bank's policy rule.`,
+      `Firms rarely run flat out. *Capacity utilisation* measures how close they are to the output they could produce with their current staff, machines and buildings. When it is high, firms raise prices more easily and invest to expand; when it is low, there is *slack*: output could rise without much pressure on prices.`,
+      `The Central Bank of Iceland tracks it with Gallup's surveys of executives, asking whether their firms are short of staff and could meet unexpected demand. In spring 2026 about 43% reported difficulty, close to the historical average.`,
+      `Mainstream models assume utilisation returns to a normal rate in the long run. Kaleckian post-Keynesian models let it stay above or below normal for long periods, so demand can shape growth itself.`,
+      `Capacity is the idea behind a central bank's *output gap*. Iceland Inc. measures it two ways. Firms' pricing and investment compare output with the baseline's fixed capacity. The central bank reads its gap from the labour market, as the Central Bank of Iceland's own model builds potential output from the labour force: Okun's factor times how far unemployment is below normal. So a shift toward public services that need many staff reads as a tight economy even while measured output falls.`,
     ),
     school: 'post-keynesian',
     references: [ref.cbiMb2026, ref.lavoie2014],
@@ -874,6 +874,7 @@ export const concepts: ConceptDef[] = [
       `*Okun's law* is a rule of thumb, not a law of nature. Its size differs across countries, depending on how easily firms hire and fire and how much they adjust hours instead of jobs. Ball, Leigh and Loungani (2013) find it a strong and fairly stable relationship in most advanced economies, with coefficients that vary from country to country.`,
       `The Central Bank of Iceland's QMM model contains an Okun-type relation between the gap of unemployment from its natural rate and the gap between actual and potential output growth.`,
       `Iceland has a twist: migration. Foreign workers, about a fifth of the population, arrive when jobs are plentiful and fewer come when they are not. Employment can then swing with output while unemployment moves less than Okun's law would suggest (see migration as a buffer). Through unemployment benefits, the same link turns falling output into higher government spending.`,
+      `No Icelandic estimate is published, so Iceland Inc.'s central bank turns unemployment into its output gap with the model's own ratio: about 1.6% of output per point.`,
     ),
     school: 'empirical',
     references: [ref.okun2013, ref.qmm2019, ref.imf2026],
@@ -919,7 +920,7 @@ export const concepts: ConceptDef[] = [
     body: p(
       `Knut Wicksell called it the *natural rate*: the real interest rate at which spending matches what the economy can produce with inflation steady. Above it, policy cools the economy; below it, policy heats it. A Taylor rule starts from it.`,
       `The neutral rate cannot be seen, and it moves: with productivity, population, saving habits, public debt and rates abroad. Laubach and Williams (2003) estimate it from how output and inflation behave, and find that it drifts over decades. Orphanides and Williams (2002) show that a rule built on a wrong, fixed estimate leaves inflation off target for as long as the error lasts.`,
-      `So central banks revise their estimate when inflation or unemployment stays away from normal for long. That makes the rule an *integral* controller: a lasting gap keeps nudging the rate until the gap is gone. The revision is slow, so a one-off shock hardly moves it. In Iceland Inc., the rule's neutral rate is revised a little each month and kept within a band.`,
+      `So central banks revise their estimate when inflation or unemployment stays away from normal for long. That makes the rule an *integral* controller: a lasting gap keeps nudging the rate until the gap is gone. The revision is slow, so a one-off shock hardly moves it. In Iceland Inc., the rule's neutral rate is revised a little each month and kept within a band. When a lasting shock needs a rate outside that band, the lever report works out the constant rate that would have brought inflation back to target, the *implied neutral rate*, to show how far outside it lies.`,
     ),
     school: 'new-keynesian',
     references: [ref.laubachWilliams2003, ref.orphanidesWilliams2002, ref.cbiMb2026],

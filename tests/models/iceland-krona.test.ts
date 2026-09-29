@@ -75,7 +75,11 @@ describe('Iceland model: the foreign interest rate (review E3)', () => {
     const [bm, ca] = [series(e, 'broadMoney'), series(e, 'currentAccount')];
     const [bm0, ca0] = [series(base, 'broadMoney')[0], series(base, 'currentAccount')[0]];
     expect(Math.max(...bm) - bm0).toBeLessThan(10);
-    expect(bm[240] - bm0).toBeLessThan(0.75 * (Math.max(...bm) - bm0));
+    // Restated with decision 0012 (was 0.75 of the peak at month 240, with 0.73): the rule reads
+    // slack from unemployment, which moves later than output, so it eases later, broad money peaks
+    // four months later (month 148, not 144) and falls back later: 0.76 of its peak at month 240,
+    // 0.54 at month 300 (0.49 before). The fall is tested as before: still falling, and slowly.
+    expect(bm[240] - bm0).toBeLessThan(0.8 * (Math.max(...bm) - bm0));
     expect(bm[240]).toBeLessThan(bm[228]);
     expect(Math.abs(bm[240] - bm[228])).toBeLessThan(1);
     expect(ca[240] - ca0).toBeLessThan(0.25 * (Math.max(...ca) - ca0)); // was +2.81 and rising
@@ -201,22 +205,41 @@ describe('Iceland model: portfolio balance is bounded and nets out the carry tra
     expect(bound).toBeGreaterThan(-0.36);
   });
 
-  test('krónur bought for the rate gap do not weaken the króna: a credit or tax-cut boom with higher rates leaves the real króna stronger for a year and a half (the key-rate rule acting)', () => {
-    const rer = (lever: string, value: number, months: number) => {
-      const b = run('foreignDemand', 0, true, months);
-      const e = run(lever, value, true, months);
+  test('krónur bought for the rate gap do not weaken the króna: a credit or tax-cut boom with higher rates leaves the real króna stronger than with the key rate held, for a year and a half (the key-rate rule acting)', () => {
+    const effect = (lever: string, value: number, months: number, keyRateHeld = false) => {
+      const go = (id: string, v: number) => {
+        const e = run(id, v, true, 0);
+        if (keyRateHeld) e.setLever('keyRateLock', 1);
+        e.step(months);
+        return e;
+      };
+      const [b, e] = [go('foreignDemand', 0), go(lever, value)];
       return Array.from({ length: months }, (_, m) => [e.valueAt('realExchangeRate', m + 1) / b.valueAt('realExchangeRate', m + 1) - 1, e.valueAt('exportVolume', m + 1) / b.valueAt('exportVolume', m + 1) - 1]);
     };
     for (const [lever, value, months] of [
       ['lendingAppetite', 3, 18],
       ['incomeTax', -2.5, 18], // until padlocks the income-tax offset; now income tax held 2.5 points lower
-    ] as const)
-      for (const [r, x] of rer(lever, value, months)) {
-        expect(r).toBeLessThanOrEqual(1e-6);
-        expect(x).toBeLessThanOrEqual(1e-6);
+    ] as const) {
+      // The carry trade's krónur strengthen, never weaken: every month the real króna is no weaker,
+      // and exports no higher, than in the same boom with the key rate held at neutral.
+      const [acting, held] = [effect(lever, value, months), effect(lever, value, months, true)];
+      acting.forEach(([r, x], m) => {
+        expect(r - held[m][0]).toBeLessThanOrEqual(1e-6);
+        expect(x - held[m][1]).toBeLessThanOrEqual(1e-6);
+      });
+      // Known gap (lever-vetting open item 4, decision 0012): until the labour-market gap the rule
+      // raised its rate early enough that the real króna was also stronger than without the boom
+      // (at most 1e-6 weaker in months 1–18). It now reads slack from unemployment, which moves
+      // after output, so it raises the rate later (0.02 pp by month 6, was 0.10 after the tax cut)
+      // and the króna is up to 0.03% weaker in real terms by month 18 (exports 0.02% higher).
+      // Tripwire: it must not grow; the króna stage-1 fix of item 4 brings it back under 1e-6.
+      for (const [r, x] of acting) {
+        expect(r).toBeLessThanOrEqual(5e-4);
+        expect(x).toBeLessThanOrEqual(5e-4);
       }
+    }
     // a higher key rate alone (until padlocks an offset of 1 to the rule; now held 1 point above neutral): the real króna stronger for five years
-    for (const [r] of rer('keyRate', 4, 60)) expect(r).toBeLessThan(0);
+    for (const [r] of effect('keyRate', 4, 60)) expect(r).toBeLessThan(0);
   });
 });
 

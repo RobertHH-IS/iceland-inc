@@ -44,12 +44,10 @@ export const restrainingUnemployment = (c: Ctx) => {
     s = lastMonth(c, 'benefitSearch');
   return u / (1 + s * (1 - u));
 };
-/** Newcomers of the net-immigration lever as a share of the baseline labour force (0 at baseline). */
-export const newcomerShare = (c: Ctx): number => {
-  let lf = 0;
-  for (const g of AGES) lf += c.p(`U0${g}`) + c.p(`emp0${g}`);
-  return c.lag('labourInflow') / lf;
-};
+/** Normal unemployment, the rate at which wages grow only with expected inflation (the wage
+ *  curve's): uBase plus what more generous benefits add. Reads uBase, uBenefit and rrShift. The
+ *  neutral-rate estimate and the central bank's output gap measure unemployment against it. */
+export const normalUnemployment = (c: Ctx): number => c.p('uBase') + c.p('uBenefit') * c.p('rrShift');
 /** The value-added price never falls below this share of domestic prices, and bends smoothly toward
  *  that floor from twice it (only when imported inputs cost about 60% more than domestic goods). */
 const VA_PRICE_FLOOR = 0.25;
@@ -261,7 +259,7 @@ export const labourAndWages: ModuleDef = {
       concepts: ['migration-buffer'],
       explain: {
         what: 'People who have arrived from abroad through the net-immigration lever (or left, below zero), in thousands. They stay: they join the labour force for good.',
-        rule: 'The lever adds arrivals at once, and they stay. They arrive looking for work, so at first they add to the unemployed; they find jobs as the jobs appear, when their spending, their housing demand and slower wage growth raise demand for labour. The central bank counts them in the economy’s capacity (the key-rate rule’s output gap).',
+        rule: 'The lever adds arrivals at once, and they stay. They arrive looking for work, so at first they add to the unemployed; they find jobs as the jobs appear, when their spending, their housing demand and slower wage growth raise demand for labour. The central bank counts them in the economy’s capacity: its output gap is unemployment against normal, over a labour force that includes them.',
       },
     },
     {
@@ -387,7 +385,7 @@ export const labourAndWages: ModuleDef = {
       step: 0.5,
       description: 'A one-off jump in nominal wage rates, as after a collective agreement.',
       definition:
-        'One-off level shift: the wage rate, private and public, jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages follow the Phillips curve. Firms price the pay rise in within a few months, so at first the real-wage gain erodes mainly through prices (+10% with both policy levers locked: consumer prices about 2.6% higher after a year, wages about 2 points below their new level). Wage bargainers then work the rest off over the following rounds (the error correction, with a lag of about a year), until wages are back in line with what firms earn per unit of value added. With labour about half of unit cost, domestic prices rise by only about two-thirds of the wage rise at a given exchange rate, so in the end wages give back most of the settlement: with the policy rules acting the price level is about 3.4% higher after six years and about 3.1% after twenty, with wages a little above it. That is below the Central Bank of Iceland’s figure of about 4%: the model gives wages back too fast in the first year, a known gap (decision 0011).',
+        'One-off level shift: the wage rate, private and public, jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages follow the Phillips curve. Firms price the pay rise in within a few months, so at first the real-wage gain erodes mainly through prices (+10% with both policy levers locked: consumer prices about 2.6% higher after a year, wages about 2 points below their new level). Wage bargainers then work the rest off over the following rounds (the error correction, with a lag of about a year), until wages are back in line with what firms earn per unit of value added. With labour about half of unit cost, domestic prices rise by only about two-thirds of the wage rise at a given exchange rate, so in the end wages give back most of the settlement: with the policy rules acting the price level is about 3.1% higher after six years and about 2.8% after twenty, with wages a little above it. That is below the Central Bank of Iceland’s figure of about 4%: the model gives wages back too fast in the first year, a known gap (decisions 0011 and 0012). The central bank raises the key rate by about 1.5 points at the peak, in the second year, and it is still about 0.7 point up a year after the settlement (+10); after a settlement jobs fall before output, and the rule reads its slack from jobs.',
       concepts: ['wage-bargaining', 'cost-pass-through', 'profit-squeeze'],
       fire: (s, size) => s.setLagged('settlementJump', s.get('settlementJump') + Math.log(1 + size / 100)),
     },
@@ -404,7 +402,7 @@ export const labourAndWages: ModuleDef = {
       step: 0.5,
       description: 'A wave of workers arriving from abroad (or leaving), looking for work.',
       definition:
-        'One-off shift in the labour force, in thousands of people of working age, in the month the lever is fired (5 thousand is about 2% of the labour force). They stay. They arrive looking for work, so unemployment rises at once, mostly among the young and working age; wage growth slows through the Phillips curve, their benefits add to spending and they need homes. They take the first new jobs as demand grows with them, and while jobs are short a part of the shortfall moves on again (the migration buffer). At 5 thousand, unemployment is about 1.4 points higher at first. With the policy rules acting, where the central bank counts them in the economy’s capacity and eases, unemployment is 0.3 point higher after 20 years, with jobs 1.5%, output 2.8% and real house prices 4.8% higher; with both policy levers locked unemployment stays about 0.8 point higher, and jobs end 0.9%, output 1.2% and house prices 1.2% higher. A negative value is emigration, with the reverse effects. To size the share of job changes met by migration, use the migration buffer.',
+        'One-off shift in the labour force, in thousands of people of working age, in the month the lever is fired (5 thousand is about 2% of the labour force). They stay. They arrive looking for work, so unemployment rises at once, mostly among the young and working age; wage growth slows through the Phillips curve, their benefits add to spending and they need homes. They take the first new jobs as demand grows with them, and while jobs are short a part of the shortfall moves on again (the migration buffer). At 5 thousand, unemployment is about 1.4 points higher at first. With the policy rules acting, where the central bank counts them in the economy’s capacity and eases, unemployment is 0.2 point higher after 20 years, with jobs 1.7%, output 3.2% and real house prices 5.8% higher; with both policy levers locked unemployment stays about 0.8 point higher, and jobs end 0.9%, output 1.2% and house prices 1.2% higher. A negative value is emigration, with the reverse effects. To size the share of job changes met by migration, use the migration buffer.',
       concepts: ['migration-buffer', 'wage-phillips-curve'],
       fire: (s, size) => s.setLagged('labourInflow', s.get('labourInflow') + size),
     },

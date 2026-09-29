@@ -1,7 +1,7 @@
 {
  "format": "iceland-inc/golden@1",
  "modelId": "iceland",
- "scenario": "calibration-wage-inflation-timing",
+ "scenario": "calibration-wage-key-rate-month12",
  "months": 72,
  "events": [
   {

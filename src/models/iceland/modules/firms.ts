@@ -121,7 +121,7 @@ function investmentRule(j: Firm): RuleDef[] {
       concepts: ['investment-accelerator', 'policy-lags', 'minsky-instability'],
       explain: {
         what: `Investment ${FIRM_NAME[j]} plan and order, at baseline prices: what they will spend on machines and buildings once the work is under way.`,
-        rule: `Target = {${i0}} × [1 + {betaPi} × (their smoothed real profits ÷ baseline − 1) − {betaRI} × (real loan rate − baseline)${accel ? ' + {betaU} × output gap' : ''} − {betaLev} × (their bank debt ÷ its normal share {${l0}} of GDP − 1)], never below zero: firms can stop buying machines but cannot sell them back to builders, so their capital then only wears out. A firm that owes more than usual invests less, and banks lend to it more warily. Plans move toward the target at speed {lamInv} a year.`,
+        rule: `Target = {${i0}} × [1 + {betaPi} × (their smoothed real profits ÷ baseline − 1) − {betaRI} × (real loan rate − baseline)${accel ? ' + {betaU} × output gap' : ''} − {betaLev} × (their bank debt ÷ its normal share {${l0}} of GDP − 1)], never below zero: firms can stop buying machines but cannot sell them back to builders, so their capital then only wears out.${accel ? ' The output gap here is last month’s output against the fixed baseline capacity, not the central bank’s estimate of potential output, which it reads from the labour market (decision 0012).' : ''} A firm that owes more than usual invests less, and banks lend to it more warily. Plans move toward the target at speed {lamInv} a year.`,
       },
     },
     {

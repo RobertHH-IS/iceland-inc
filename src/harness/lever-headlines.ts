@@ -58,6 +58,34 @@ export interface LeverReportSpec {
   /** Lock configurations the report runs besides 'unlocked' and 'locked': a label and the
    *  padlocks it closes at month 0. */
   configs?: { label: string; locks: Id[] }[];
+  /** The implied-neutral-rate diagnostic (lever-report.ts, decision 0012). */
+  impliedNeutral?: ImpliedNeutralSpec;
+}
+
+/**
+ * Where a policy rule learns its neutral rate within a band, the report asks, for every run with
+ * every rule acting whose estimate ends at the limit of that band: which constant key rate would
+ * have left inflation on target over the final five years? It holds the key-rate lever at a
+ * constant level on top of the run's lever and finds that level by bisection within the lever's
+ * range. The answer, less the inflation target, is the implied neutral real rate; beside the band
+ * it shows how far outside it the rate the economy needs lies.
+ */
+export interface ImpliedNeutralSpec {
+  /** The key-rate lever (a setting in %), held at the constant rate. */
+  lever: Id;
+  /** The rule that learns the neutral rate, the regime label it shows at its limit, and the
+   *  variable it sets (a fraction a year). */
+  rule: Id;
+  atLimit: string;
+  estimate: Id;
+  /** Parameters: the centre of the band and its half-width (fractions a year), and the inflation
+   *  target (a fraction a year). */
+  centre: Id;
+  band: Id;
+  target: Id;
+  /** Indicators (pp) for inflation, which must be on target, and unemployment, reported. */
+  inflation: Id;
+  unemployment: Id;
 }
 
 const real = (nominal: Id[], price: Id) => (v: (id: Id) => number) => nominal.reduce((a, id) => a + v(id), 0) / v(price);
@@ -140,6 +168,8 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
     // The key rate held and the debt rule acting: how each lever works when the central bank
     // does not react but the budget does (decision 0010).
     configs: [{ label: 'key rate locked', locks: ['keyRateLock'] }],
+    // The central bank's neutral-rate estimate is kept within rStarBand of i0 (central-bank.ts).
+    impliedNeutral: { lever: 'keyRate', rule: 'neutralRate', atLimit: 'Estimate at its limit', estimate: 'neutralRate', centre: 'i0', band: 'rStarBand', target: 'piT', inflation: 'inflation', unemployment: 'unemployment' },
     companions: {
       migration: { lever: 'foreignDemand', value: -20, why: 'the buffer acts only on changes in jobs from the baseline, and there are none without a shock' },
       bondBuyers: { lever: 'publicInvestment', value: 2, why: 'the choice acts only on new bonds, and the baseline budget balances, so none are sold without a deficit' },

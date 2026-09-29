@@ -11,15 +11,20 @@
  * The rule's neutral rate is an estimate the central bank revises slowly while inflation or
  * unemployment stays away from normal, so a lasting shock does not leave inflation off target for
  * good (an integral term, clamped to a band).
+ * The rule reads its output gap from the labour market (decision 0012): Okun's factor times how far
+ * unemployment is below normal, so the potential output it measures against follows the labour force
+ * the economy has, whatever moves it (newcomers, the migration buffer, a shift toward services that
+ * need many staff). The fixed baseline capacity, `potentialOutput`, is still what the markup's
+ * capacity term and the investment accelerator read.
  * The central bank pays the key rate on banks' reserves, earns interest on its bonds and foreign
  * reserves, and hands its profit to the government. It sells the normal yield on its foreign reserves
  * for krónur and slowly brings the reserves back toward their target share of GDP.
  */
 import type { Ctx, Id, ModuleDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { newcomerShare, restrainingUnemployment } from './labour-and-wages.ts';
+import { normalUnemployment, restrainingUnemployment } from './labour-and-wages.ts';
 import { stepByStep, stepsAMonth } from '../testing.ts';
-import { gapShare, overMonth, pickParams, terms, lastMonth, MONTH, KEY_RATE_RULE } from '../util.ts';
+import { gapShare, lockPolicy, overMonth, pickParams, terms, lastMonth, MONTH, KEY_RATE_RULE } from '../util.ts';
 
 /** How far the rule was heading below zero last month, as a share of escapeBand (0 to 1): at 1 the
  *  rule is stuck at the zero lower bound. The debt rule's escape clause (government.ts) uses the
@@ -38,9 +43,11 @@ export const centralBank: ModuleDef = {
   label: 'Central bank',
   description: 'The key rate (set by a smoothed Taylor-type rule, or held by you when you lock it), interest on reserves and the profit remitted to the government.',
   requires: ['structure', 'prices', 'government', 'external'],
-  params: pickParams(ALL_PARAMS, ['i0', 'kappaR', 'kappaU', 'rStarBand', 'piT', 'aPi', 'aPiA', 'aY', 'lamPol', 'iFXR', 'lamRes', 'potentialOutput', 'bondCB', 'fxr', 'eqCB']),
+  params: pickParams(ALL_PARAMS, ['i0', 'kappaR', 'kappaU', 'rStarBand', 'piT', 'aPi', 'aPiA', 'aY', 'okunGap', 'lamPol', 'iFXR', 'lamRes', 'potentialOutput', 'bondCB', 'fxr', 'eqCB']),
   vars: [
     { id: 'neutralRate', label: 'Neutral real rate, as the central bank estimates it', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: ALL_PARAMS.i0.value, description: 'The real key rate the central bank thinks neither heats nor cools the economy. It starts at its normal level and is revised slowly while inflation stays off target.' },
+    { id: 'outputGap', label: 'Output gap, as the central bank measures it', unit: 'fraction', kind: 'ratio', scale: 'none', initial: 0, description: 'How far output is above potential output, as the central bank measures it from the labour market: what the economy can produce at normal unemployment with the workers it has. A fraction: 0.01 means output 1% above potential. Computed whether the key rate is locked or not.' },
+    { id: 'potentialOutputSeen', label: 'Potential output, as the central bank estimates it', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: ALL_PARAMS.potentialOutput.value, description: 'What the central bank estimates the economy can produce at normal unemployment with the workers it has, at baseline prices: last month’s output less the output gap it reads from the labour market. Computed whether the key rate is locked or not.' },
     { id: 'ruleTarget', label: 'Key rate the rule is heading for', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'Where the central bank’s inflation rule would put the key rate if it moved there at once. Computed whether the key rate is locked or not.' },
     { id: 'ruleAnchor', label: 'Key rate the rule steps from', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'The rate the rule starts its next step from: its own rate while it is in charge (key rate unlocked), the key rate you hold (locked).' },
     { id: 'ruleRate', label: 'Key rate the rule calls for', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'The key rate the central bank’s inflation rule sets this month: a month’s smoothed step from the rate in force toward where it is heading. Computed whether the key rate is locked or not.' },
@@ -68,7 +75,7 @@ export const centralBank: ModuleDef = {
             'labourMarket',
             'Unemployment still below (or above) normal: this month’s revision',
             'neutral-rate',
-            (c) => c.p('kappaU') * c.dt * (c.p('uBase') + c.p('uBenefit') * c.p('rrShift') - restrainingUnemployment(c)),
+            (c) => c.p('kappaU') * c.dt * (normalUnemployment(c) - restrainingUnemployment(c)),
           ],
         ),
         { previous: 'first', inflation: 'sum', labourMarket: 'sum' },
@@ -82,22 +89,50 @@ export const centralBank: ModuleDef = {
       },
     },
     {
+      id: 'outputGap',
+      target: 'outputGap',
+      category: 'POLICY',
+      label: 'Output gap from the labour market (Okun’s law)',
+      lagInputs: ['unemployment', 'benefitSearch'],
+      params: ['okunGap', 'uBase', 'uBenefit', 'rrShift'],
+      terms: terms(['labourMarket', 'Unemployment below normal, times Okun’s factor', 'okun-law', (c) => c.p('okunGap') * (normalUnemployment(c) - restrainingUnemployment(c))]),
+      concepts: ['capacity-utilisation', 'okun-law'],
+      explain: {
+        what: 'How far output is above potential output, as the central bank measures it: what the economy can produce at normal unemployment with the workers it has. A fraction: 0.01 means output 1% above potential.',
+        rule: 'Gap = {okunGap} × (normal unemployment − unemployment a month earlier). Normal unemployment is the rate at which wages grow only with expected inflation: {uBase%}, plus the part more generous benefits add; people searching longer because of the benefits are not counted. Scarce workers, not output as such, push up wages, so the central bank reads the gap from the labour market, as the Central Bank of Iceland’s own model builds potential from the labour force and the unemployment rate that keeps inflation steady. Okun’s law turns it into output: each point of unemployment below normal counts as about {okunGap}% more output than the economy can keep up. So potential output follows the labour force for every shock: newcomers, workers arriving or leaving with the jobs, and a shift of spending toward public services that need many staff for each króna of output. It is worked out every month, also while you hold the key rate locked.',
+      },
+    },
+    {
+      id: 'potentialOutputSeen',
+      target: 'potentialOutputSeen',
+      category: 'IDENTITY',
+      inputs: ['outputGap'],
+      lagInputs: ['output'],
+      compute: (c) => lastMonth(c, 'output') / (1 + c.v('outputGap')),
+      concepts: ['capacity-utilisation'],
+      explain: {
+        what: 'What the central bank estimates the economy can produce at normal unemployment with the workers it has, at baseline prices. It is the bank’s estimate from the labour market, not a measure of machines and buildings: firms’ pricing and investment still compare output with the fixed baseline capacity.',
+        rule: 'Potential = output a month earlier ÷ (1 + the output gap).',
+      },
+    },
+    {
       id: 'ruleTarget',
       target: 'ruleTarget',
       category: 'POLICY',
       label: 'Taylor-type rule: where it is heading',
-      lagInputs: ['expectedInflation', 'inflation12ExTax', 'output', 'neutralRate', 'labourInflow'],
-      params: ['piT', 'aPi', 'aPiA', 'aY', 'potentialOutput', 'chi', 'U0Y', 'U0W', 'U0O', 'emp0Y', 'emp0W', 'emp0O'],
+      inputs: ['outputGap'],
+      lagInputs: ['expectedInflation', 'inflation12ExTax', 'neutralRate'],
+      params: ['piT', 'aPi', 'aPiA', 'aY', 'chi'],
       terms: terms(
         ['neutral', 'Neutral rate (its estimate of the real neutral rate + the inflation target)', 'neutral-rate', (c) => lastMonth(c, 'neutralRate') + c.p('piT')],
         ['expectedInflation', 'Expected inflation above target', 'taylor-rule', (c) => c.p('aPi') * (lastMonth(c, 'expectedInflation') - c.p('piT'))],
         ['actualInflation', 'Inflation over the past year at constant VAT, above target', 'taylor-rule', (c) => c.p('aPiA') * (lastMonth(c, 'inflation12ExTax') - c.p('piT'))],
-        ['outputGap', 'Output above capacity', 'capacity-utilisation', (c) => c.p('aY') * (lastMonth(c, 'output') / (c.p('potentialOutput') * (1 + newcomerShare(c))) - 1)],
+        ['outputGap', 'Output above potential: unemployment below normal', 'capacity-utilisation', (c) => c.p('aY') * c.v('outputGap')],
       ),
       concepts: ['taylor-rule'],
       explain: {
         what: 'Where the central bank’s inflation rule would put the key rate if it moved there at once. The rule itself moves toward it gradually (the key rate the rule calls for).',
-        rule: 'Target = the neutral rate + {aPi} × (expected inflation − target) + {aPiA} × (inflation over the past year − target) + {aY} × the output gap. The neutral rate is the inflation target {piT%} plus the real rate the central bank thinks neither heats nor cools the economy: normally {i0%}, revised slowly while inflation or unemployment stays away from normal (see the neutral rate). The output gap is how far last month’s output is above capacity, in percent; capacity grows with the newcomers of the net-immigration lever. Like the Central Bank of Iceland, the rule looks through the one-off price effect of a VAT change: its inflation term leaves VAT out of the CPI, while expected inflation, which a VAT change does lift, counts in full. Expectations are half anchored to the target ({chi}), so a lasting point of inflation raises expected inflation about half a point, and the target by {aPi} × (1 − {chi}) + {aPiA} points in all: more than one for one (the Taylor principle), so the real interest rate people plan with rises when inflation does.',
+        rule: 'Target = the neutral rate + {aPi} × (expected inflation − target) + {aPiA} × (inflation over the past year − target) + {aY} × the output gap. The neutral rate is the inflation target {piT%} plus the real rate the central bank thinks neither heats nor cools the economy: normally {i0%}, revised slowly while inflation or unemployment stays away from normal (see the neutral rate). The output gap is the central bank’s measure of how far output is above what the economy can produce at normal unemployment with the workers it has: {okunGap} × (normal unemployment − unemployment a month earlier), in percent (see the output gap). So the rule moves the key rate {aY} × {okunGap} points for each point of unemployment below normal. Like the Central Bank of Iceland, the rule looks through the one-off price effect of a VAT change: its inflation term leaves VAT out of the CPI, while expected inflation, which a VAT change does lift, counts in full. Expectations are half anchored to the target ({chi}), so a lasting point of inflation raises expected inflation about half a point, and the target by {aPi} × (1 − {chi}) + {aPiA} points in all: more than one for one (the Taylor principle), so the real interest rate people plan with rises when inflation does.',
       },
     },
     {
@@ -313,7 +348,7 @@ export const centralBank: ModuleDef = {
       description:
         'The central bank’s key interest rate. Unlocked (the default), the central bank’s inflation rule sets it and the lever follows the rule. Move the lever, or close its padlock, to hold the rate yourself; the rule then only suggests a rate beside the lever.',
       definition:
-        'Level of the key rate in percent a year. Unlocked (the default) the central bank’s inflation rule sets it every month, and the lever shows the rule’s rate. Moving the lever, or closing its padlock, locks it: the key rate is then held at the lever’s level from the month it is set until you move it again, and the rule only suggests a rate beside the lever. Closing the padlock holds the rate in force that month. Unlocking hands the key rate back to the rule, which moves from the rate you held about a tenth of the way toward where it is heading each month, so the rate does not jump. The default, 3%, is the neutral rate, so the baseline is unchanged. While the key rate is locked, nothing anchors inflation but people’s partial trust in the target: a lasting change that keeps unemployment off its normal rate keeps inflation off target for as long as you hold the rate, and the price level drifts (decision 0002 §6). Held while income tax is unlocked, the debt rule pays for the higher interest bill with higher taxes, so a higher rate keeps cooling the economy: at 6%, output is about 1.5% below baseline after a year and 2.3% below at the trough in the fourth year, still 0.8% below after 20 years, with the price level 7.5% lower, government debt 30 points of GDP higher and income tax 3.6 points higher. At 15% the interest bill runs away: debt ends about 270 points of GDP higher and income tax 35 points higher, rates no government could sustain; treat that run as showing why real central banks do not hold such rates, not as a forecast. Held at 0%, output is 1.5% higher after a year and 3.3% after 20, with the price level 18% higher and still rising. With income tax locked too, nothing in the model reacts, and any lasting move reverses its effect on output after about ten years, roughly in proportion to its size: a rise first cools the economy, but the government then pays more interest every year, as its bonds are refinanced at the higher rate (about a fifth of them a year) and on a debt that grows with that interest, and the interest is income for households and pension funds, who spend it. At 4%, output is about 0.5% below baseline after a year and about 0.7% below at the trough early in the fourth year, back above it from about month 136 and about 0.7% above after 20 years; bigger moves reverse sooner and much further. At 6%, output is 2.2% lower at the trough, above baseline from month 124 and 2.8% higher after 20 years, with inflation 0.9 point higher. At the top of the range the run becomes explosive: at 15%, output falls 9.5% by the fourth year, is above baseline from month 110, and after 20 years is 29% higher with unemployment 3 points lower, the price level 46% higher, real wages 27% lower, government debt 350 points of GDP higher and the deficit 45% of GDP, still accelerating. That is fiscal dominance: a government that neither taxes nor cuts spending pays for its interest by borrowing, and the interest it pays is spent. A cut mirrors this.',
+        'Level of the key rate in percent a year. Unlocked (the default) the central bank’s inflation rule sets it every month, and the lever shows the rule’s rate. Moving the lever, or closing its padlock, locks it: the key rate is then held at the lever’s level from the month it is set until you move it again, and the rule only suggests a rate beside the lever. Closing the padlock holds the rate in force that month. Unlocking hands the key rate back to the rule, which moves from the rate you held about a tenth of the way toward where it is heading each month, so the rate does not jump. The default, 3%, is the neutral rate, so the baseline is unchanged. While the key rate is locked, nothing anchors inflation but people’s partial trust in the target: a lasting change that keeps unemployment off its normal rate keeps inflation off target for as long as you hold the rate, and the price level drifts (decision 0002 §6). Held while income tax is unlocked, the debt rule pays for the higher interest bill with higher taxes, so a higher rate keeps cooling the economy: at 6%, output is about 1.5% below baseline after a year, 2.3% below in the fourth year and about 2.4% below until about the tenth, still 1.2% below after 20 years, with the price level 11% lower, government debt 27 points of GDP higher and income tax 3.2 points higher. (The debt rule stands aside while the central bank’s own rule is heading below zero, and that rule now reads slack from unemployment, decision 0012, so taxes rise sooner than they did: with the fixed potential output was 0.8% below after 20 years.) At 15% the interest bill runs away: debt ends about 260 points of GDP higher and income tax 41 points higher, rates no government could sustain; treat that run as showing why real central banks do not hold such rates, not as a forecast. Held at 0%, output is 1.5% higher after a year and 3.3% after 20, with the price level 18% higher and still rising. With income tax locked too, nothing in the model reacts, and any lasting move reverses its effect on output after about ten years, roughly in proportion to its size: a rise first cools the economy, but the government then pays more interest every year, as its bonds are refinanced at the higher rate (about a fifth of them a year) and on a debt that grows with that interest, and the interest is income for households and pension funds, who spend it. At 4%, output is about 0.5% below baseline after a year and about 0.7% below at the trough early in the fourth year, back above it from about month 136 and about 0.7% above after 20 years; bigger moves reverse sooner and much further. At 6%, output is 2.2% lower at the trough, above baseline from month 124 and 2.8% higher after 20 years, with inflation 0.9 point higher. At the top of the range the run becomes explosive: at 15%, output falls 9.5% by the fourth year, is above baseline from month 110, and after 20 years is 29% higher with unemployment 3 points lower, the price level 46% higher, real wages 27% lower, government debt 350 points of GDP higher and the deficit 45% of GDP, still accelerating. That is fiscal dominance: a government that neither taxes nor cuts spending pays for its interest by borrowing, and the interest it pays is spent. A cut mirrors this.',
       concepts: ['taylor-rule', 'interest-rate-channel'],
     },
   ],
@@ -324,11 +359,11 @@ export const centralBank: ModuleDef = {
       lever: 'keyRate',
       suggestion: 'keyRateSuggestion',
       current: (c) => 100 * c.v('keyRate'),
-      shadow: ['ruleRate', 'ruleTarget', 'ruleAnchor', 'neutralRate'],
+      shadow: ['ruleRate', 'ruleTarget', 'ruleAnchor', 'neutralRate', 'outputGap', 'potentialOutputSeen'],
       // Half the lever's quarter-point step: it calls exactly when "Apply" would move the lever.
       threshold: 0.125,
       description:
-        'A Taylor-type rule: the key rate the central bank is heading for, from expected inflation, inflation over the past year at constant VAT and the output gap. It moves there gradually from the rate in force, about a tenth of the way each month, and revises its estimate of the neutral rate slowly while inflation or unemployment stays off normal. While the key rate is unlocked it sets it. While you hold the key rate locked it suggests where it is heading, and the lever turns red when that is more than an eighth of a point away from your rate, so that applying it would move the lever a quarter-point step. Unlocking starts the rule from the rate you held.',
+        'A Taylor-type rule: the key rate the central bank is heading for, from expected inflation, inflation over the past year at constant VAT and the output gap, which it reads from how far unemployment is below normal. It moves there gradually from the rate in force, about a tenth of the way each month, and revises its estimate of the neutral rate slowly while inflation or unemployment stays off normal. While the key rate is unlocked it sets it. While you hold the key rate locked it suggests where it is heading, and the lever turns red when that is more than an eighth of a point away from your rate, so that applying it would move the lever a quarter-point step. Unlocking starts the rule from the rate you held.',
       concepts: ['taylor-rule', 'gradual-adjustment'],
       feed: { raise: 'The central bank’s rule would raise the key rate to {value}%', lower: 'The central bank’s rule would cut the key rate to {value}%', indicator: 'keyRate' },
     },
@@ -389,6 +424,59 @@ export const centralBank: ModuleDef = {
         return {
           pass: Math.abs(held - 0.06) < 1e-15 && steps.length === N && worst < 1e-12 && Math.abs(move) < 0.25 * Math.abs(target - held),
           detail: `held 6% for two years (the rule heading for ${(100 * target).toFixed(2)}%); first month unlocked ${(100 * f.value('keyRate')).toFixed(2)}%, a move of ${(100 * move).toFixed(2)} pp = ${(move / (target - held)).toFixed(3)} × the gap in ${N} steps (a month’s share is ${k.toFixed(3)}); largest step off its rule ${worst.toExponential(1)}`,
+        };
+      },
+    },
+    {
+      id: 'output-gap-from-the-labour-market',
+      label: 'The rule’s output gap is Okun’s factor × (normal unemployment − unemployment a month earlier), potential output is last month’s output ÷ (1 + the gap), and the rule moves the key rate aY × okunGap = 0.8 points per point of unemployment below normal (decision 0012)',
+      run: (e) => {
+        const inf = e.influences('outputGap');
+        const p = (id: string) => inf.params.find((q) => q.id === id)!.value;
+        const aY = e.influences('ruleTarget').params.find((q) => q.id === 'aY')!.value;
+        e.fire('wageSettlement', 10);
+        e.step(11);
+        const u = e.value('unemployment'),
+          s = e.value('benefitSearch'),
+          output = e.value('output');
+        e.step(1);
+        const slack = p('uBase') + p('uBenefit') * p('rrShift') - u / (1 + s * (1 - u));
+        const gap = e.value('outputGap');
+        const term = e.influences('ruleTarget').terms.find((t) => t.id === 'outputGap')!.value;
+        const potential = e.value('potentialOutputSeen');
+        return {
+          pass:
+            Math.abs(gap - p('okunGap') * slack) < 1e-15 &&
+            Math.abs(term - aY * gap) < 1e-15 &&
+            Math.abs(potential - output / (1 + gap)) < 1e-12 &&
+            Math.abs(term / slack - 0.8) < 1e-12 &&
+            slack < -0.005,
+          detail: `a year after a 10% wage settlement: unemployment ${(100 * -slack).toFixed(2)} points above normal, gap ${(100 * gap).toFixed(3)}% = ${p('okunGap')} × that, the rule’s gap term ${(100 * term).toFixed(3)} pp (${(term / slack).toFixed(3)} per point of unemployment below normal), potential output ${potential.toFixed(3)} against output ${output.toFixed(3)} a month earlier`,
+        };
+      },
+    },
+    {
+      id: 'locked-paths-do-not-read-the-gap',
+      label: 'With both policy levers locked, the output gap only feeds the rule’s suggestion: a different Okun factor and slack response change no path but the stabilisers’ shadows and suggestions (decision 0012)',
+      run: (e) => {
+        lockPolicy(e);
+        e.fire('wageSettlement', 10);
+        e.setLever('tourism', -15);
+        const f = e.fork({ params: { aY: 1, okunGap: 2 } });
+        e.step(36);
+        f.step(36);
+        const skip = new Set(e.model.def.modules.flatMap((m) => (m.stabilisers ?? []).flatMap((x) => [...(x.shadow ?? []), x.suggestion])));
+        let worst = 0,
+          at = '';
+        for (const v of e.model.vars) {
+          if (skip.has(v.id)) continue;
+          const d = Math.abs(e.value(v.id) - f.value(v.id));
+          if (d > worst) [worst, at] = [d, v.id];
+        }
+        const moved = Math.abs(e.value('keyRateSuggestion') - f.value('keyRateSuggestion'));
+        return {
+          pass: worst === 0 && moved > 0.01,
+          detail: `after 36 months, largest difference outside the shadows ${worst}${at ? ` (${at})` : ''}; the key-rate suggestion differs by ${moved.toFixed(3)} points`,
         };
       },
     },

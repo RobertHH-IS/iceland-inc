@@ -656,13 +656,15 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     const failing = results
       .filter((x) => !x.pass)
       .map((x) => {
-        const got = x.checks.length ? x.checks.map((c) => `${c.value}${c.mode ? ` ${c.mode}` : ''}: ${f(c.mean, 4)}`).join('; ') : 'no matching run';
+        const got = x.checks.length ? x.checks.map((c) => `${c.value}${c.mode ? ` ${c.mode}` : ''}: ${f(c.mean, 4)}${c.earlier !== undefined ? ` against ${f(c.earlier, 4)}` : ''}`).join('; ') : 'no matching run';
+        const d = x.decays;
+        if (d) return `- ${x.lever} (${x.setting}, ${x.mode}${x.withCompanion ? ', with the companion shock' : ''}): ${x.variable} should die out, its largest move over months ${x.fromMonth}–${x.toMonth} below ${d.below} and below ${d.share} × its largest over months ${d.earlier[0]}–${d.earlier[1]}; largest ${got}. ${x.theory}`;
         return `- ${x.lever} (${x.setting}, ${x.mode}${x.withCompanion ? ', with the companion shock' : ''}): ${x.variable} over months ${x.fromMonth}–${x.toMonth} should ${x.sign > 0 ? 'rise' : x.sign < 0 ? 'fall' : 'not move'}; mean effect ${got}. ${x.theory}`;
       });
     body6.push(
       '### Lever expectations',
       '',
-      `The signs theory predicts for each lever, declared in \`src/models/${m.def.id}/expectations.ts\` and measured as \`bun run levers\` measures them: the mean effect over the months named, against the no-change run in the same lock configuration, must have the expected sign and be at least ${rep?.thresholds.floor ?? 0.01}, or stay below it for “does not move”. Only the runs an expectation needs are made (${gateMonths} months each): ${rep?.runs ?? 0} lever runs, ${reused} of them reused from the lever extremes. Every lever other than the padlocks must have at least one expectation, and no run may be broken (a value that is not finite, an accounting residual, a wrong-signed position or an implausible value). ${held}/${results.length} hold: ${verdict(pass)}.`,
+      `The signs theory predicts for each lever, declared in \`src/models/${m.def.id}/expectations.ts\` and measured as \`bun run levers\` measures them: the mean effect over the months named, against the no-change run in the same lock configuration, must have the expected sign and be at least ${rep?.thresholds.floor ?? 0.01}, or stay below it for “does not move”; for “dies out”, the largest move over the months named must be below its limit and below a share of the largest over an earlier window. Only the runs an expectation needs are made (${gateMonths} months each): ${rep?.runs ?? 0} lever runs, ${reused} of them reused from the lever extremes. Every lever other than the padlocks must have at least one expectation, and no run may be broken (a value that is not finite, an accounting residual, a wrong-signed position or an implausible value). ${held}/${results.length} hold: ${verdict(pass)}.`,
       '',
       ...(declared ? [] : [`The model declares no expectations (\`src/models/${m.def.id}/expectations.ts\` does not exist), so there is nothing to check.`, '']),
       ...(crash ? [`The report could not run: ${crash}.`, ''] : []),

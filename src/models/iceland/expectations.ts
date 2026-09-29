@@ -107,7 +107,15 @@ export const expectations: LeverExpectation[] = [
   { lever: 'tourism', setting: 'max', variable: 'output', fromMonth: 1, toMonth: 24, sign: 1, theory: 'More visitors raise output over the following quarters.', source: 'CBI QMM simulations' },
   { lever: 'tourism', setting: 'min', variable: 'output', fromMonth: 1, toMonth: 24, sign: -1, theory: 'A collapse in visitors lowers output at once (2010, 2020).', source: 'Statistics Iceland national accounts, 2020' },
   { lever: 'tourism', setting: 'max', variable: 'krona', fromMonth: 12, toMonth: 240, sign: 1, theory: 'A lasting export gain strengthens the currency in real and nominal terms (Dutch disease).', source: 'Corden and Neary (1982), Economic Journal 92' },
-  { lever: 'tourism', setting: 'down', mode: 'unlocked', variable: 'inflation', fromMonth: 180, toMonth: 240, sign: 0, theory: 'An inflation-targeting central bank brings inflation back to target after a lasting real shock, once it has learned the new neutral rate. Left out of the gate at the vetting (open item 2) until the rule learned its neutral rate.', source: 'Svensson (1997), European Economic Review 41; Laubach and Williams (2003), Review of Economics and Statistics 85(4)' },
+  // Re-specified with decision 0012 (owner decision 10 of the long-run-anchors proposal): it said
+  // "inflation over months 180–240 does not move", which catches the upswing of a slow learning cycle.
+  // The inflation gap after tourism −15 is about −0.08 pp at month 60, crosses zero near month 180
+  // and is +0.02 by month 240, at every strength of the rule tested; its mean over months 180–240 was
+  // +0.007 pp with the fixed potential and is +0.015 with the labour-market gap, above the 0.01
+  // floor. What theory predicts is that the gap dies out, so that is what is tested: the largest gap
+  // over months 180–240 (0.028 pp; 0.018 before) is under 0.05 pp and under half the largest over
+  // months 36–96 (0.103; 0.074 before).
+  { lever: 'tourism', setting: 'down', mode: 'unlocked', variable: 'inflation', fromMonth: 180, toMonth: 240, sign: 0, decays: { earlier: [36, 96], below: 0.05, share: 0.5 }, theory: 'An inflation-targeting central bank brings inflation back to target after a lasting real shock, once it has learned the new neutral rate: the cycle of its learning dies out.', source: 'Svensson (1997), European Economic Review 41; Laubach and Williams (2003), Review of Economics and Statistics 85(4)' },
 
   // ------------------------------------------------------------------------------ fish prices
   { lever: 'fishPrices', setting: 'max', variable: 'currentAccount', fromMonth: 1, toMonth: 24, sign: 1, theory: 'A higher world price for a quota-bound export raises export earnings one for one on impact (a terms-of-trade gain).', source: 'Obstfeld and Rogoff (1996), ch. 1; BPM6' },

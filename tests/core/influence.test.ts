@@ -395,7 +395,7 @@ describe('stabiliser shadows: declared and checked', () => {
   };
   test('a valid shadow compiles; the Iceland and reference shadows are sound', () => {
     expect(errorsOf(withShadow(['raw']))).toEqual([]);
-    expect(iceland.cstabilisers.flatMap((s) => s.shadow.map((k) => iceland.vars[k].id))).toEqual(['ruleRate', 'ruleTarget', 'ruleAnchor', 'neutralRate', 'taxRuleAdjustment', 'taxRuleTarget', 'taxRuleAnchor']);
+    expect(iceland.cstabilisers.flatMap((s) => s.shadow.map((k) => iceland.vars[k].id))).toEqual(['ruleRate', 'ruleTarget', 'ruleAnchor', 'neutralRate', 'outputGap', 'potentialOutputSeen', 'taxRuleAdjustment', 'taxRuleTarget', 'taxRuleAnchor']);
     expect(reference.cstabilisers.flatMap((s) => s.shadow.map((k) => reference.vars[k].id))).toEqual(['ruleRate', 'ruleAnchor', 'ruleTarget', 'debtRuleRate', 'taxRuleAnchor', 'taxRuleTarget']);
   });
   test('unknown ids, the suggestion itself, and a variable something reads while its stabiliser is locked are errors', () => {

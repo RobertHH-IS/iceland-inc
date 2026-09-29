@@ -133,7 +133,7 @@ Stored indicator paths in `tests/golden/reference/`, compared point by point wit
 
 ### Lever expectations
 
-The signs theory predicts for each lever, declared in `src/models/reference/expectations.ts` and measured as `bun run levers` measures them: the mean effect over the months named, against the no-change run in the same lock configuration, must have the expected sign and be at least 0.01, or stay below it for “does not move”. Only the runs an expectation needs are made (240 months each): 25 lever runs, 14 of them reused from the lever extremes. Every lever other than the padlocks must have at least one expectation, and no run may be broken (a value that is not finite, an accounting residual, a wrong-signed position or an implausible value). 52/52 hold: PASS.
+The signs theory predicts for each lever, declared in `src/models/reference/expectations.ts` and measured as `bun run levers` measures them: the mean effect over the months named, against the no-change run in the same lock configuration, must have the expected sign and be at least 0.01, or stay below it for “does not move”; for “dies out”, the largest move over the months named must be below its limit and below a share of the largest over an earlier window. Only the runs an expectation needs are made (240 months each): 25 lever runs, 14 of them reused from the lever extremes. Every lever other than the padlocks must have at least one expectation, and no run may be broken (a value that is not finite, an accounting residual, a wrong-signed position or an implausible value). 52/52 hold: PASS.
 
 | Lever | Expectations | Hold | Verdict |
 |---|---:|---:|---|

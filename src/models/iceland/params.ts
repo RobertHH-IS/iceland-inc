@@ -437,16 +437,14 @@ P('lamPia', 1.5, 'per year', 'BEHAVIOUR', 'How fast the remembered rate of infla
 
 /* ------------------------------------------------------------ policy rule */
 P('aPi', 1.3, 'fraction', 'POLICY', 'Key-rate response to expected inflation above target (points per point).', tuned());
-P(
-  'aY',
-  1,
-  'fraction',
-  'POLICY',
-  'Key-rate response to the output gap (points per % of output).',
-  assumed(
-    'Taylor’s (1999) balanced-rule weight on the output gap. No calibration check selects it: after audit H4 (the consumption deflator) and M12/M20 (the CBI QMM rate experiment), v1’s 0.6 and 1.0 both keep every rate check in range. It was raised from 0.6 because, under v1’s old rate-shock scenario (a 1 pp offset on the rule for 8 quarters), 0.6 put the output trough outside rate-output-timing’s range; decision 0006 has the history.',
-  ),
-);
+P('aY', 0.5, 'fraction', 'POLICY', 'Key-rate response to the output gap (points per % of output), with the gap read from the labour market (okunGap × unemployment below normal): 0.8 points of key rate per point of unemployment below normal.', {
+  basis: 'calibrated',
+  note: 'The calibrated quantity is the product aY × okunGap = 0.8 key-rate points per point of unemployment below normal (decision 0012). It is the 0.5 that the Central Bank of Iceland’s QMM rule puts on the four-quarter average output gap (QMM v2.1 eq. 4.1; Hunt’s Bayesian estimate is 0.47), converted at the model’s own Okun ratio (okunGap 1.6). No Okun coefficient for Iceland is published; at Ball, Leigh and Loungani’s (2017) range of ratios, QMM’s 0.5 is 0.6 to 3 per point of unemployment, and 0.8 sits at the lower end. It keeps a first-year response to a 10% wage settlement like the CBI’s (key rate at least 0.5 points higher at month 12, wage-key-rate-month12) and roughly halves the long-run inflation left after a lasting shift toward public services. 1.6 (aY 1, Taylor’s 1999 balanced-rule weight, as with the fixed potential before) removed most of the first-year response (about 0.1 points at month 12), because jobs fall before output after a settlement (lever-vetting open item 14). Revisit only in a joint refit with item 14’s factor substitution, against the CBI’s wage-shock evidence. Before decision 0012 the gap was output over a fixed potential and aY was 1; decision 0006 has the older history.',
+});
+P('okunGap', 1.6, 'fraction', 'POLICY', 'Okun factor the central bank uses to turn unemployment below normal into an output gap: % of output per point of unemployment.', {
+  basis: 'calibrated',
+  note: 'The model’s own Okun ratio for a private-demand shock, month 12 (decision 0012): tourism −15 lowers output about 1.1% and raises unemployment about 0.66 points a year in, about 1.6. That ratio includes the labour hoarding of the first year (okun 0.6), and no published Okun coefficient for Iceland exists to check it against; QMM’s unemployment equation (eq. 6.6) links unemployment only weakly to output growth, which points to a high ratio, as migration and hours absorb much of the cycle (CBI Monetary Bulletin 2021/2 Box 3). Ball, Leigh and Loungani (2017, Journal of Money, Credit and Banking 49(7)) find ratios from about 1.2 (Spain) to 6 (Japan), 2.1 for the United States; Rudebusch (2009, FRBSF Economic Letter 2009-17) uses 2. The CBI’s QMM builds trend employment as trend participation × working-age population × (1 − NAIRU) (QMM v2.1 eq. 6.11), so its potential output follows the labour force, as this gap does.',
+});
 P('aPiA', 0.5, 'fraction', 'POLICY', 'Key-rate response to actual 12-month inflation above target (at constant VAT).', {
   basis: 'calibrated',
   note: 'Raised from v1’s 0.3 so that the rule obeys the Taylor principle for lasting actual inflation too (Taylor 1993; Woodford 2003): with expectations half anchored (chi 0.5) a lasting point of inflation raises the key rate aPi × (1 − chi) + aPiA = 1.15 points, not 0.95 (lever review MON-9 and trade-taylor-fixed-potential, 29 September 2026). Checked against wage-key-rate-peak (+1 to +1.5 pp) and wage-unemployment-peak.',

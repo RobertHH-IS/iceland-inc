@@ -3,7 +3,7 @@
  * agents and tools, and the optional full paths. Nothing here depends on the clock, so the same
  * model always renders the same files.
  */
-import { DEFAULT_MONTHS, FLAG_KINDS, LEVER_THRESHOLDS, LONG_RUN_MONTHS, fmtEffect, type ExpectationResult, type Flag, type LeverReport, type LeverRun, type LeverSection } from './lever-report.ts';
+import { DEFAULT_MONTHS, FLAG_KINDS, LEVER_THRESHOLDS, LONG_RUN_MONTHS, fmtEffect, type ExpectationResult, type Flag, type ImpliedNeutral, type LeverReport, type LeverRun, type LeverSection } from './lever-report.ts';
 
 /** File name (without extension) of a model's report: `<model>` at the default horizon, which is
  *  committed, and `<model>-<n>m` at any other, which is git-ignored. */
@@ -21,6 +21,16 @@ function flagLines(flags: Flag[], indent = ''): string[] {
   return [`${indent}Flags:`, ...(indent ? [] : ['']), ...flags.map((f) => `${indent}- **${flagTitle(f.kind)}**: ${esc(f.detail)}.`)];
 }
 
+const outsideText = (x: ImpliedNeutral) =>
+  x.outside === 'below' ? 'inflation stays below target even at the lowest rate' : x.outside === 'above' ? 'inflation stays above target even at the highest rate' : 'inflation does not fall as the rate rises';
+
+/** The implied neutral rate of a run, in words. */
+function impliedText(x: ImpliedNeutral): string {
+  const band = `${x.band[0].toFixed(2)}–${x.band[1].toFixed(2)}%`;
+  if (x.rate === null) return `no constant key rate within the lever's range leaves inflation on target over the final five years (${outsideText(x)}); the rule's estimate ends at ${x.estimate.toFixed(2)}%, the edge of its band of ${band}`;
+  return `${x.rate.toFixed(2)}% real (the rule's estimate ends at ${x.estimate.toFixed(2)}%, the edge of its band of ${band}); held there, unemployment is ${fmt(x.unemployment!)} pp from the no-change run over the same years`;
+}
+
 function runTable(r: LeverReport, run: LeverRun): string[] {
   const L: string[] = [];
   const rows: string[] = [];
@@ -36,6 +46,7 @@ function runTable(r: LeverReport, run: LeverRun): string[] {
   if (rows.length) L.push(`| Variable (unit) | ${r.horizons.map((h) => `m${h}`).join(' | ')} | Peak | Peak month | Long run |`, `|---|${r.horizons.map(() => '---:').join('|')}|---:|---:|---:|`, ...rows, '');
   if (still.length) L.push(`Unmoved (every effect below ${LEVER_THRESHOLDS.unmoved}): ${still.join(', ')}.`, '');
   L.push(...flagLines(run.flags), '');
+  if (run.impliedNeutral) L.push(`Implied neutral rate: ${impliedText(run.impliedNeutral)}.`, '');
   if (run.regimes.length) {
     L.push('Regimes that differ from the no-change run:', '');
     for (const g of run.regimes) {
@@ -53,8 +64,12 @@ function runTable(r: LeverReport, run: LeverRun): string[] {
 /** Expectation bullets; `named` puts the lever id first (lists that mix levers). */
 function expectationLines(ex: ExpectationResult[], named = false): string[] {
   return ex.map((x) => {
-    const got = x.checks.length ? x.checks.map((c) => `${c.value}${modeText(c.mode)}: ${fmt(c.mean)}`).join('; ') : 'no matching run';
-    return `- ${x.pass ? '✓' : '✗'} ${named ? `\`${x.lever}\` ` : ''}${x.variable} ${x.sign > 0 ? 'rises' : x.sign < 0 ? 'falls' : 'does not move'} over months ${x.fromMonth}–${x.toMonth} (${x.setting}, ${x.mode}${x.withCompanion ? ', with the companion shock' : ''}): ${got}. ${esc(x.theory)} (${esc(x.source)})`;
+    const got = x.checks.length ? x.checks.map((c) => `${c.value}${modeText(c.mode)}: ${fmt(c.mean)}${c.earlier !== undefined ? ` against ${fmt(c.earlier)}` : ''}`).join('; ') : 'no matching run';
+    const d = x.decays;
+    const what = d
+      ? `dies out: its largest move over months ${x.fromMonth}–${x.toMonth} is below ${d.below} and below ${d.share} × its largest over months ${d.earlier[0]}–${d.earlier[1]}`
+      : `${x.sign > 0 ? 'rises' : x.sign < 0 ? 'falls' : 'does not move'} over months ${x.fromMonth}–${x.toMonth}`;
+    return `- ${x.pass ? '✓' : '✗'} ${named ? `\`${x.lever}\` ` : ''}${x.variable} ${what} (${x.setting}, ${x.mode}${x.withCompanion ? ', with the companion shock' : ''}): ${got}. ${esc(x.theory)} (${esc(x.source)})`;
   });
 }
 
@@ -141,6 +156,23 @@ export function renderLeverMarkdown(r: LeverReport): string {
     L.push(`- ${n.mode || 'The model'}: largest move of a headline from its baseline ${n.drift.toExponential(2)} (display units). ${n.flags.length ? '' : f[0].trim()}`.trimEnd(), ...(n.flags.length ? f : []));
   }
   L.push('');
+
+  const implied = r.levers.flatMap((s) => s.runs.filter((x) => x.impliedNeutral).map((x) => ({ s, x })));
+  if (implied.length) {
+    L.push(
+      '## Implied neutral rates',
+      '',
+      `Where the central bank's rule learns its neutral rate within a band and a run with every rule acting ends with the estimate at the edge of that band, the report asks which constant key rate would have left inflation on target over the final five years: it holds the key-rate lever at a constant level on top of the run's lever (the other rules still act) and finds that level by bisection, to 0.01 points, within the lever's range (${implied.reduce((a, { x }) => a + x.impliedNeutral!.runs, 0)} runs in all). Less the inflation target, it is the neutral real rate the economy needs; beside the band, it shows how far outside it that rate lies, and so how much of the gap left after 20 years is the band's.`,
+      '',
+      '| Lever | Run | Implied neutral real rate, % | Rule’s estimate at the end, % | Band, % | Unemployment at that rate, pp |',
+      '|---|---|---:|---:|---|---:|',
+      ...implied.map(({ s, x }) => {
+        const y = x.impliedNeutral!;
+        return `| \`${s.id}\` | ${esc(x.label)} | ${y.rate === null ? (y.outside === 'below' ? 'below the lever’s range' : y.outside === 'above' ? 'above the lever’s range' : 'none: inflation does not fall as the rate rises') : y.rate.toFixed(2)} | ${y.estimate.toFixed(2)} | ${y.band[0].toFixed(2)}–${y.band[1].toFixed(2)} | ${y.unemployment === null ? '' : fmt(y.unemployment)} |`;
+      }),
+      '',
+    );
+  }
 
   if (r.expectations) {
     const pass = r.expectations.filter((x) => x.pass).length;

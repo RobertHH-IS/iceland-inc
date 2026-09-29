@@ -352,7 +352,7 @@ describe('Iceland calibration: each check runs the experiment its source describ
     lockAll(e, false);
     const krona: number[] = [];
     const cpi: number[] = [];
-    for (let m = 0; m < 36; m++) {
+    for (let m = 0; m < 48; m++) {
       const now = e.indicator('krona');
       e.fire('kronaShock', m === 0 ? -10 : 100 * (0.9 / (1 + now / 100) - 1));
       e.step(1);
@@ -375,9 +375,15 @@ describe('Iceland calibration: each check runs the experiment its source describ
     expect(pass(24)).toBeGreaterThan(0.25);
     expect(pass(24)).toBeLessThan(0.35);
     expect(pass(36)).toBeGreaterThan(0.25);
-    expect(pass(36)).toBeLessThan(0.35);
-    expect(pass(36) - pass(24)).toBeLessThan(0.04);
-    expect(c.source).toMatch(/0\.30 after two years and 0\.33 after three/);
+    // Restated with decision 0012: the upper bound at 36 months was 0.35 and the third year's rise
+    // under 0.04, with 0.30, 0.33 and 0.34 after two, three and four years. With the rule reading
+    // its gap from the labour market it leans less on the export boom a weaker króna brings (jobs
+    // move less than output at first), so pass-through builds a little longer: 0.31, 0.36 and 0.38.
+    // The bound is now the IMF's 0.4 at 36 months, which the source names, and levelling off is
+    // tested a year later, where the rise is 0.022 (0.015 before), against the same 0.04.
+    expect(pass(36)).toBeLessThan(0.4);
+    expect(pass(48) - pass(36)).toBeLessThan(0.04);
+    expect(c.source).toMatch(/0\.31 after two years, 0\.36 after three and 0\.38 after four/);
     expect(KNOWN_GAPS['krona-pass-through-year1']).toBeUndefined();
   });
 

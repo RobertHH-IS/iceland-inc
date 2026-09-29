@@ -279,6 +279,65 @@ describe('flags', () => {
     expect(md).toContain('no matching run');
   });
 
+  test('the implied neutral rate: where the learned estimate ends at its limit, the constant key rate that leaves inflation on target over the final five years (decision 0012)', () => {
+    const r = leverReport(ice, { months: 240, levers: ['health'], expectations: null });
+    const runs = r.levers[0].runs;
+    const up = runs.find((x) => x.mode === 'unlocked' && x.roles.includes('max'))!;
+    const y = up.impliedNeutral!;
+    // health +3: the estimate is held at the top of its 0–6% band, and the economy needs more
+    expect(y.estimate).toBeCloseTo(y.band[1], 9);
+    expect(y.band).toEqual([0, 6]);
+    expect(y.rate!).toBeGreaterThan(y.band[1] + 1);
+    // held at that rate (the inflation target is 0), inflation over months 180–240 is on target
+    const base = createEngine(ice);
+    const mean = (events: { t: number; lever: string; value: number }[]) => {
+      const e = runScenario(base, events, 240).engine;
+      let s = 0;
+      for (let t = 180; t <= 240; t++) s += e.valueAt('inflation12', t) - base.baseline('inflation12');
+      return (100 * s) / 61;
+    };
+    const at = (rate: number) => mean([{ t: 0, lever: 'health', value: 3 }, { t: 0, lever: 'keyRate', value: rate }]);
+    expect(Math.abs(at(y.rate!))).toBeLessThan(0.01);
+    expect(at(y.rate! - 0.25)).toBeGreaterThan(0);
+    expect(at(y.rate! + 0.25)).toBeLessThan(0);
+    // only unlocked runs whose estimate ends at its limit; a smaller rise stays inside the band
+    expect(runs.filter((x) => x.impliedNeutral).every((x) => x.mode === 'unlocked')).toBe(true);
+    expect(runs.find((x) => x.mode === 'unlocked' && x.roles.includes('up'))!.impliedNeutral).toBeUndefined();
+    const md = renderLeverMarkdown(r);
+    expect(md).toContain('## Implied neutral rates');
+    expect(md).toContain(`Implied neutral rate: ${y.rate!.toFixed(2)}% real`);
+    // the harness gate leaves it out, and a model without the spec has none
+    const gate = leverReport(ice, { months: 240, onlyExpected: true, expectations: [{ lever: 'health', setting: 'max', mode: 'unlocked', variable: 'output', fromMonth: 1, toMonth: 12, sign: 1, theory: 't', source: 's' }] });
+    expect(gate.levers[0].runs.some((x) => x.impliedNeutral)).toBe(false);
+    expect(report().levers.some((s) => s.runs.some((x) => x.impliedNeutral))).toBe(false);
+  });
+
+  test('an expectation that an effect dies out compares its largest move late with its largest earlier (decision 0012)', () => {
+    // a one-off wage settlement: inflation jumps in the first year and fades
+    const x = { lever: 'wageSettlement', setting: 'max', mode: 'unlocked', variable: 'inflation', fromMonth: 48, toMonth: 60, sign: 0 as const, theory: 'A one-off fades.', source: 'test' };
+    const r = leverReport(ref, {
+      months: 60,
+      onlyExpected: true,
+      expectations: [
+        { ...x, decays: { earlier: [1, 24], below: 10, share: 0.5 } },
+        { ...x, decays: { earlier: [1, 24], below: 0, share: 0.5 } }, // nothing is below 0: deliberately wrong
+        { ...x, decays: { earlier: [1, 24], below: 10, share: 0 } }, // nor below 0 × the earlier move
+      ],
+    });
+    const [ok, low, share] = r.expectations!;
+    expect([ok.pass, low.pass, share.pass]).toEqual([true, false, false]);
+    const c = ok.checks[0];
+    // the largest absolute effect in each window, measured as the report measures every effect
+    const run = r.levers[0].runs.find((u) => u.mode === 'unlocked')!;
+    expect(c.earlier!).toBeGreaterThan(2 * c.mean);
+    expect(c.earlier!).toBeCloseTo(Math.abs(run.indicators.find((i) => i.id === 'inflation')!.peak), 12);
+    const md = renderLeverMarkdown(r);
+    expect(md).toContain('✓ inflation dies out: its largest move over months 48–60 is below 10 and below 0.5 × its largest over months 1–24');
+    // a decay test needs sign 0 and an earlier window that ends before the late one
+    expect(() => leverReport(ref, { months: 12, onlyExpected: true, expectations: [{ ...x, sign: 1, decays: { earlier: [1, 6], below: 1, share: 0.5 } }] })).toThrow(/dies out needs sign 0/);
+    expect(() => leverReport(ref, { months: 60, onlyExpected: true, expectations: [{ ...x, decays: { earlier: [1, 50], below: 1, share: 0.5 } }] })).toThrow(/earlier window/);
+  });
+
   test('with onlyExpected, only the runs an expectation needs are made, through the given runner, with the same results', () => {
     const expectations = [
       { lever: 'keyRate', setting: 'max', mode: 'unlocked', variable: 'output', fromMonth: 6, toMonth: 36, sign: -1, theory: 'A higher key rate cools demand.', source: 'test' },

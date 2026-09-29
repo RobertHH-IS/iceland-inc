@@ -185,7 +185,7 @@ export const prices: ModuleDef = {
       concepts: ['markup-pricing', 'cost-pass-through'],
       explain: {
         what: 'Prices of goods and services made in Iceland, before VAT.',
-        rule: 'Firms aim for a price that keeps their normal markup on unit cost, raised by {eta} × the output gap when capacity is stretched, and move toward it at speed {lamP} a year.',
+        rule: 'Firms aim for a price that keeps their normal markup on unit cost, raised by {eta} × the output gap when capacity is stretched, and move toward it at speed {lamP} a year. Here the output gap is last month’s output against the fixed baseline capacity, not the central bank’s estimate of potential output, which it reads from the labour market (decision 0012).',
       },
     },
     {

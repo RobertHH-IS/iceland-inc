@@ -543,7 +543,7 @@ const meta: [Id, string, ParamDef['category'], string, Provenance][] = [
   ['sellerDebtW', 'ratio', 'CONTRACT', 'Working age: debt on a home sold within the group, relative to the group’s average debt per home.', solved('baseline gross lending equals amortisation plus the loans sellers pay off.')],
   ['mRY', 'ratio', 'BEHAVIOUR', 'Young: desired mortgage debt per króna of gross income.', solved('desired debt equals actual debt at baseline.')],
   ['mRW', 'ratio', 'BEHAVIOUR', 'Working age: desired mortgage debt per króna of gross income.', solved('desired debt equals actual debt at baseline.')],
-  ['potentialOutput', '% of GDP/yr', 'IDENTITY', 'Real output at baseline: the benchmark for the output gap.', derived('Baseline real output C + G + I + X − IM (100 by construction).')],
+  ['potentialOutput', '% of GDP/yr', 'IDENTITY', 'Real output at baseline: the fixed capacity that firms’ pricing (the markup’s capacity term) and the investment accelerator compare output with. The central bank reads its own output gap from the labour market instead (decision 0012).', derived('Baseline real output C + G + I + X − IM (100 by construction).')],
   ['uBase', 'fraction', 'IDENTITY', 'Unemployment rate at baseline: the rate at which wages grow only with expected inflation.', derived('Unemployed ÷ labour force from the age groups’ data.')],
   ['Ntot0', '% of GDP/yr', 'IDENTITY', 'Baseline employment, measured as the gross wage bill at baseline wages.', derived('Private and public wages: compensation ÷ (1 + employer contribution + payroll tax), for public staff as for firms.')],
   ['rl0', 'fraction/yr', 'IDENTITY', 'Real business-loan rate at baseline.', derived('Neutral rate + loan spread.')],
