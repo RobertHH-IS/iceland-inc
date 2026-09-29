@@ -130,4 +130,25 @@ describe('Iceland model: a high key rate held for years (review E7)', () => {
     const income = (m: number) => ['Y', 'W', 'O'].reduce((s, g) => s + e.valueAt(`propertyIncome${g}`, m), 0);
     expect(income(120) / income(0)).toBeGreaterThan(1.5);
   });
+
+  test('on Manual, any lasting move reverses, not only a high rate: +1 pp cools output for about nine years, then lifts it (review MON-1)', () => {
+    const e = run('keyRateFixed', 4, false, 240);
+    const output = series(e, 'output');
+    expect(Math.min(...output.slice(1, 24))).toBeLessThan(-0.5); // a trough of about −0.62% in the second year
+    const back = output.findIndex((y, m) => m >= 24 && y > 0);
+    expect(back).toBeGreaterThanOrEqual(100); // month 106
+    expect(back).toBeLessThanOrEqual(112);
+    expect(output[240]).toBeGreaterThan(0.4); // about +0.5% after 20 years
+    expect(output[240]).toBeLessThan(0.6);
+    // A cut mirrors it: about −0.35% after 20 years.
+    const cut = series(run('keyRateFixed', 2, false, 240), 'output');
+    expect(cut[240]).toBeLessThan(-0.25);
+    expect(cut[240]).toBeGreaterThan(-0.45);
+    // Known gap (decision 0002 §6, start-from-today A4): the government's bonds reprice with the key
+    // rate at once, so the interest bill jumps by about half a point of GDP in the first month; with
+    // fixed coupons repriced over about five years' maturity it would be about 0.13.
+    const balance = e.valueAt('govBalance', 1) - e.baseline('govBalance');
+    expect(balance).toBeLessThan(-0.45);
+    expect(balance).toBeGreaterThan(-0.55);
+  });
 });

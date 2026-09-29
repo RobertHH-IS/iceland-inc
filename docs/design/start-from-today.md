@@ -572,7 +572,7 @@ Each is confirmed by reading the code and, where stated, by the scratch prototyp
   - demand-side drags from nominal cash interest.
 
   Fix: stage 5.
-- **A4. Government bonds and non-indexed mortgages float with the key rate on the whole stock.** In reality the government's debt is largely fixed-rate. On `today`, `sB` can match the interest bill, but rate moves still reprice everything at once. Holding 8% on Manual snowballs the debt to about 116% of GDP in 20 years.
+- **A4. Government bonds and non-indexed mortgages float with the key rate on the whole stock.** In reality the government's debt is largely fixed-rate. On `today`, `sB` can match the interest bill, but rate moves still reprice everything at once. Holding 8% on Manual snowballs the debt to about 116% of GDP in 20 years. A stock-weighted coupon that reprices over the debt's maturity was tried in review MON-1 and is not yet in the model; decision 0002 §6 says why.
 - **A5. Steady-state pension payouts are 13.9% of GDP**, against 6.26% in the data (the `payout` comment in `pensions.ts` already says so). A start must set `payout` from data, which forces `c0O` to be re-solved.
 - **A6. The lag history is flat.** `reset()` calls `fillRing`, so any start away from the steady state begins with `inflation12`, `creditImpulse` and `creditImpulseTotal` at 0 and indexation computed from a flat CPI. Fix: history-aware initialisation (stage 0).
 - **A7. Fast-closing targets create month-1 jumps.** These are `firmCashSpeed` = 12/yr, `treasuryTopUp` = 12/yr and `lamFX` = 12/yr: any mismatch between today's holdings (or today's króna) and the steady anchors is closed within a month. Hence §2.6 N-a and the latent `kronaSentiment`.
