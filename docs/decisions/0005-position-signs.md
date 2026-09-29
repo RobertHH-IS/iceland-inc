@@ -60,7 +60,7 @@ Each floor is a `combine` with a named `regime` on the existing rule, never a se
 
 ## The harness gate
 
-The property runs, the lever-extremes sweep (every lever alone at its minimum and at its maximum for 240 months, in each stabiliser mode) and the golden scenarios fail on any sign violation the kernel reports, and on any implausible value (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate). The harness reads the violations from `checks().signViolations`, so a declared exemption is honoured there as everywhere else. There is no switch to turn the gate into a warning: a position that may take either sign is declared on the instrument and listed above. A golden path with a breach is neither compared nor written.
+The property runs, the lever-extremes sweep (every lever alone at its minimum and at its maximum for 240 months, in each stabiliser mode that shows it) and the golden scenarios fail on any sign violation the kernel reports, and on any implausible value (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate). The harness reads the violations from `checks().signViolations`, so a declared exemption is honoured there as everywhere else. There is no switch to turn the gate into a warning: a position that may take either sign is declared on the instrument and listed above. A golden path with a breach is neither compared nor written.
 
 ## What comes next
 

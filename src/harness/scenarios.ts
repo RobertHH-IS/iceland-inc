@@ -2,6 +2,11 @@
  * Scenarios the harness builds from a model's levers: the all-levers golden scenarios, the
  * lever-extremes sweep and the shock used to time a step. Kept apart from layers.ts so that
  * tests can check which events they contain without running the harness.
+ *
+ * A lever hidden in a stabiliser mode (`showWhen`, decision 0004) is not moved in that mode: the
+ * panel never lets a user set it there, and switching mode puts it back to its default. So the
+ * Manual runs leave the Automatic-only offsets alone and the Automatic runs leave the Manual-only
+ * levers alone; every lever is still moved in the mode that shows it.
  */
 import type { Id, LeverDef, ScenarioEvent } from '../core/types.ts';
 import type { KModel } from '../core/compile.ts';
@@ -31,34 +36,48 @@ export function stabiliserModes(m: KModel): { label: string; event?: ScenarioEve
 /** The levers a scenario may move on its own: every lever except the stabiliser setting itself. */
 const shockLevers = (m: KModel): LeverDef[] => m.levers.filter((l) => l.id !== m.def.stabiliserMode?.lever);
 
+/** Is a lever shown when every lever is at its default except those in `set`? (`showWhen`) */
+export function shownWith(m: KModel, l: LeverDef, set: readonly ScenarioEvent[] = []): boolean {
+  const sw = l.showWhen;
+  if (!sw) return true;
+  const other = m.levers.find((x) => x.id === sw.lever);
+  if (!other) return true;
+  const v = [...set].reverse().find((e) => e.lever === sw.lever)?.value ?? other.default;
+  return (Array.isArray(sw.equals) ? sw.equals : [sw.equals]).some((x) => Math.abs(x - v) < 1e-9);
+}
+
+/** The levers a scenario moves in a stabiliser mode: those shown in it. */
+const leversIn = (m: KModel, mode?: ScenarioEvent): LeverDef[] => shockLevers(m).filter((l) => shownWith(m, l, mode ? [mode] : []));
+
 /** A lever event: one-offs fire, settings and choices are set. */
 const leverEvent = (l: LeverDef, t: number, value: number): ScenarioEvent => (l.kind === 'oneoff' ? { t, lever: l.id, value, fire: true } : { t, lever: l.id, value });
 
 /**
- * Every lever moved in turn, one every ALL_LEVERS_SPACING months, each held for the rest of the
- * run, which ends ALL_LEVERS_TAIL months after the last event (an event at or after the last
- * month would never reach the recorded history). One-offs fire at their default size; settings
- * move halfway from their default to their max; choices take their first option other than the
- * default. With a stabiliser setting there is one scenario per mode, set at month 0, so that
- * every lever shown in only one mode (`showWhen`) acts in at least one of them.
+ * Every lever shown in the mode moved in turn, one every ALL_LEVERS_SPACING months, each held for
+ * the rest of the run, which ends ALL_LEVERS_TAIL months after the last event (an event at or
+ * after the last month would never reach the recorded history). One-offs fire at their default
+ * size; settings move halfway from their default to their max; choices take their first option
+ * other than the default. With a stabiliser setting there is one scenario per mode, set at month
+ * 0, so that every lever shown in only one mode (`showWhen`) acts in one of them.
  */
 export function allLeversScenarios(m: KModel): HarnessScenario[] {
-  const seq: ScenarioEvent[] = [];
-  for (const l of shockLevers(m)) {
-    const t = ALL_LEVERS_SPACING * seq.length;
-    if (l.kind === 'oneoff') seq.push(leverEvent(l, t, l.default));
-    else if (l.kind === 'choice') seq.push(leverEvent(l, t, l.options?.find((o) => o.value !== l.default)?.value ?? l.max ?? l.default + 1));
-    else {
-      const hi = l.max ?? l.default + 1;
-      seq.push(leverEvent(l, t, Math.round((l.default + (hi - l.default) / 2) * 1000) / 1000));
+  return stabiliserModes(m).map(({ label, event }) => {
+    const seq: ScenarioEvent[] = [];
+    for (const l of leversIn(m, event)) {
+      const t = ALL_LEVERS_SPACING * seq.length;
+      if (l.kind === 'oneoff') seq.push(leverEvent(l, t, l.default));
+      else if (l.kind === 'choice') seq.push(leverEvent(l, t, l.options?.find((o) => o.value !== l.default)?.value ?? l.max ?? l.default + 1));
+      else {
+        const hi = l.max ?? l.default + 1;
+        seq.push(leverEvent(l, t, Math.round((l.default + (hi - l.default) / 2) * 1000) / 1000));
+      }
     }
-  }
-  const months = ALL_LEVERS_SPACING * seq.length + ALL_LEVERS_TAIL;
-  return stabiliserModes(m).map(({ label, event }) => ({
-    name: label ? `all-levers-${label.toLowerCase()}` : 'all-levers',
-    events: event ? [event, ...seq] : seq,
-    months,
-  }));
+    return {
+      name: label ? `all-levers-${label.toLowerCase()}` : 'all-levers',
+      events: event ? [event, ...seq] : seq,
+      months: ALL_LEVERS_SPACING * seq.length + ALL_LEVERS_TAIL,
+    };
+  });
 }
 
 export interface ExtremeRun {
@@ -78,12 +97,13 @@ export function extremeValues(l: LeverDef): number[] {
 
 /**
  * The lever-extremes sweep: every lever alone, at each extreme value, from month 0, in each
- * stabiliser mode. The random property runs rarely land on a lever's limits; this covers them all.
+ * stabiliser mode that shows it. The random property runs rarely land on a lever's limits; this
+ * covers them all.
  */
 export function leverExtremeRuns(m: KModel): ExtremeRun[] {
   const runs: ExtremeRun[] = [];
   for (const { label, event } of stabiliserModes(m))
-    for (const l of shockLevers(m))
+    for (const l of leversIn(m, event))
       for (const value of extremeValues(l)) {
         const ev = leverEvent(l, 0, value);
         runs.push({ lever: l.id, value, mode: label, events: event ? [event, ev] : [ev] });

@@ -167,8 +167,8 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 4. **Baseline:** 240 months with no shock; the maximum drift of every variable and stock must be below 1e-9.
 5. **Calibration:** the model's `CalibrationCheck`s, each a scenario, a measure and a plausible range with a source. The result is a PASS/FAIL table.
 6. **Robustness:**
-   - **property tests:** random lever combinations within range produce no NaNs, no failed checks, no implausible values (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate) and no position with the wrong sign for its role (`checks().signViolations`, which leaves out the positions a model declares with `mayGoNegative`, each listed in decision 0005). Any of these fails the run;
-   - **lever extremes:** every lever alone at its min and at its max for 240 months, in each stabiliser mode, with the same requirements;
+   - **property tests:** random lever combinations within range produce no NaNs (in variables, stocks or chart series), no failed checks, no implausible values (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate) and no position with the wrong sign for its role (`checks().signViolations`, which leaves out the positions a model declares with `mayGoNegative`, each listed in decision 0005). Any of these fails the run;
+   - **lever extremes:** every lever alone at its min and at its max for 240 months, in each stabiliser mode that shows it (a lever `showWhen` hides in a mode is never moved there, as in the panel), with the same requirements;
    - **numerics:** half-step and tolerance sensitivity (a timing measure may move by one quarter, any other by 10%);
    - **determinism:** the same scenario gives identical results;
    - **golden scenarios:** stored outputs, so any change in results is visible in review. A golden run must also meet the plausibility and sign requirements, so no stored path is one a real economy could not take.
