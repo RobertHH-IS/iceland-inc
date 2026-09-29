@@ -364,6 +364,7 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     wage: 1,
     wageGrowth: 0,
     importPrice: 1,
+    borderImportPrice: 1,
     unitCost: 1,
     domesticPrice: 1,
     cpi: 1,

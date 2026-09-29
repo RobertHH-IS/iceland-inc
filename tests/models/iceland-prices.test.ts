@@ -20,7 +20,7 @@ describe('Stage 0: i0 is the real neutral rate; nominal comparisons use i0 + piT
     const e = createEngine(model).fork({ params: { piT: 0.025 } });
     e.setLever('keyRateFixed', 5.5);
     e.step(1);
-    expect(term(e, 'ruleRate', 'neutral')).toBeCloseTo(0.055, 15);
+    expect(term(e, 'ruleTarget', 'neutral')).toBeCloseTo(0.055, 15);
     expect(Math.abs(term(e, 'logExchangeRate', 'carry'))).toBeLessThan(1e-15);
     expect(Math.abs(term(e, 'bondPurchasesW', 'carry'))).toBeLessThan(1e-15);
     expect(Math.abs(term(e, 'mortgageRateI', 'keyRate'))).toBeLessThan(1e-15);
@@ -201,7 +201,7 @@ describe('M7: builders’ imports come out of builders’ value added', () => {
     e.fire('kronaShock', 10); // a stronger króna: imports get cheaper, builders use more of them
     e.step(18);
     const v = (id: string) => e.value(id);
-    const identity = v('salesFC') - (v('importsEquipment') + v('importsInputsFC')) / v('importPrice') - v('constructionInputs') / v('domesticPrice');
+    const identity = v('salesFC') - (v('importsEquipment') + v('importsInputsFC')) / v('borderImportPrice') - v('constructionInputs') / v('domesticPrice');
     expect(v('valueAddedFC')).toBeCloseTo(identity, 12);
     expect(v('realExchangeRate')).toBeLessThan(1);
     expect(v('valueAddedFC') / v('salesFC')).toBeLessThan(share0);

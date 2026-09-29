@@ -102,7 +102,8 @@ describe('Iceland model: balance sheets stay possible', () => {
         }
     }
     expect(found).toEqual([]);
-    expect(borrowed).toEqual(['incomeTax=10 Manual', 'publicInvestment=-3 Manual']);
+    // (public investment −3 on Manual no longer needs reserves once portfolio balance is bounded, lever review TAX-1)
+    expect(borrowed).toEqual(['incomeTax=10 Manual']);
   }, 60_000);
 
   test('the one declared exemption: banks’ reserves, which go below zero when they borrow from the central bank', () => {
@@ -204,7 +205,8 @@ describe('Iceland model: balance sheets stay possible', () => {
       expect(e.stock('deposits', 'W')).toBeGreaterThan(-1e-9);
     }
     expect(borrowed).toBeGreaterThan(0.005);
-    expect(e.stock('kronaLoansW', 'W')).toBeLessThan(1e-9); // repaid
+    // they repay from deposits above what they keep, so slowly while the surplus lasts: more than half by month 240
+    expect(e.stock('kronaLoansW', 'W')).toBeLessThan(0.5 * borrowed);
   });
 
   test('non-residents borrow exactly what a month would overdraw, and repay from deposits above what they keep, never more than they owe (review M6)', () => {
@@ -212,7 +214,7 @@ describe('Iceland model: balance sheets stay possible', () => {
     const rule = icelandModel.modules.flatMap((m) => m.rules ?? []).find((r) => r.id === 'kronaBorrowingW') as RuleDef;
     const params = Object.fromEntries(icelandModel.modules.flatMap((m) => m.params ?? []).map((p) => [p.id, p.value]));
     const stocks: Record<string, number> = { 'deposits/W': 0.1, 'govBonds/W': 0, 'kronaLoansW/W': 0 };
-    const values: Record<string, number> = { nominalGDP: 100, foreignAssetPurchases: 0, currentAccount: 3, bondPurchasesW: 0 };
+    const values: Record<string, number> = { nominalGDP: 100, foreignAssetPurchases: 0, currentAccount: 3, reserveIncomeKept: 0, bondPurchasesW: 0 };
     const c = { v: (id: string) => values[id], p: (id: string) => params[id], stock: (i: string, p: string) => stocks[`${i}/${p}`], dt: 1 / 12, t: 0 } as unknown as Ctx;
     const value = () => {
       const t = Object.fromEntries(rule.terms!.map((x) => [x.id, x.compute(c)]));
@@ -293,7 +295,7 @@ describe('Iceland model: balance sheets stay possible', () => {
     // whichever cap the rule checks first.
     const rule = icelandModel.modules.flatMap((m) => m.rules ?? []).find((r) => r.id === 'bondPurchasesW') as RuleDef;
     const stocks: Record<string, number> = { 'deposits/W': 0.5, 'govBonds/W': 1, 'govBonds/B': 0.2 };
-    const values: Record<string, number> = { nominalGDP: 100, foreignAssetPurchases: 0, currentAccount: 0, bondIssueB: 0, bondPurchasesPF: 0, bondPurchasesHO: 0 };
+    const values: Record<string, number> = { nominalGDP: 100, foreignAssetPurchases: 0, currentAccount: 0, reserveIncomeKept: 0, bondIssueB: 0, bondPurchasesPF: 0, bondPurchasesHO: 0 };
     const params = Object.fromEntries(icelandModel.modules.flatMap((m) => m.params ?? []).map((p) => [p.id, p.value]));
     const c = { v: (id: string) => values[id], p: (id: string) => params[id], stock: (i: string, p: string) => stocks[`${i}/${p}`], dt: 1 / 12, t: 0 } as unknown as Ctx;
     const cash = () => rule.terms!.find((x) => x.id === 'cash')!.compute(c);

@@ -19,7 +19,7 @@ const AGREED = new Set([
   'interest-distribution', 'credit-impulse',
   'markup-pricing', 'cost-pass-through', 'wage-phillips-curve', 'adaptive-expectations',
   'consumption-function', 'multiplier', 'paradox-of-thrift', 'investment-accelerator', 'capacity-utilisation', 'okun-law',
-  'taylor-rule', 'policy-lags', 'automatic-stabilisers',
+  'taylor-rule', 'interest-rate-channel', 'policy-lags', 'automatic-stabilisers',
   'steady-state-baseline',
 ]);
 

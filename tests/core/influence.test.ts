@@ -166,7 +166,7 @@ describe('weights', () => {
 });
 
 describe('what is at play on Manual and Automatic', () => {
-  const SHADOW = /^(ruleRate|keyRateSuggestion|taxRuleAdjustment|taxRuleSuggestion)\b/;
+  const SHADOW = /^(ruleRate|ruleTarget|ruleAnchor|keyRateSuggestion|taxRuleAdjustment|taxRuleSuggestion)\b/;
 
   test('Manual: the stabilisers’ shadow chains are not at play; Automatic: they are, but not their suggestions', () => {
     for (const mode of [MANUAL, AUTOMATIC]) {
@@ -196,7 +196,7 @@ describe('what is at play on Manual and Automatic', () => {
     e.setLever('incomeTax', 3);
     e.step(24);
     for (const [scope, concept, shadow] of [
-      ['indicator:keyRate', 'taylor-rule', /^(ruleRate|keyRateSuggestion)\b/],
+      ['indicator:keyRate', 'taylor-rule', /^(ruleRate|ruleTarget|ruleAnchor|keyRateSuggestion)\b/],
       ['indicator:incomeTaxRate', 'fiscal-rule', /^(taxRuleAdjustment|taxRuleSuggestion)\b/],
     ] as const) {
       const ideas = e.ideasAtPlay(scope);
@@ -206,6 +206,23 @@ describe('what is at play on Manual and Automatic', () => {
     // the variable picked by itself is still explained
     expect(concepts(e, 'var:ruleRate')).toContain('taylor-rule');
     expect(concepts(e, 'var:taxRuleAdjustment')).toContain('fiscal-rule');
+  });
+
+  test('a key rate held by hand is transmission, not the Taylor rule; the rule counts only on Automatic (lever review MON-7)', () => {
+    for (const e of [ice(), ref()]) {
+      e.setLever('stabilisers', MANUAL);
+      e.setLever('keyRateFixed', e.model.levers.find((l) => l.id === 'keyRateFixed')!.default + 2);
+      e.step(18);
+      expect(concepts(e)).not.toContain('taylor-rule');
+      expect(concepts(e, 'var:keyRate')).not.toContain('taylor-rule');
+      expect(concepts(e)).toContain('interest-rate-channel');
+      const a = e.fork();
+      a.setLever('stabilisers', AUTOMATIC);
+      a.setLever('keyRateAddon', 1);
+      a.step(18);
+      expect(concepts(a)).toContain('taylor-rule');
+      expect(concepts(a)).toContain('interest-rate-channel');
+    }
   });
 
   test('selecting the shadow itself still shows what drives it', () => {
@@ -297,7 +314,7 @@ describe('stabiliser shadows: declared and checked', () => {
   };
   test('a valid shadow compiles; the Iceland and reference shadows are sound', () => {
     expect(errorsOf(withShadow(['raw']))).toEqual([]);
-    expect(iceland.cstabilisers.flatMap((s) => s.shadow.map((k) => iceland.vars[k].id))).toEqual(['ruleRate', 'taxRuleAdjustment']);
+    expect(iceland.cstabilisers.flatMap((s) => s.shadow.map((k) => iceland.vars[k].id))).toEqual(['ruleRate', 'ruleTarget', 'ruleAnchor', 'taxRuleAdjustment']);
     expect(reference.cstabilisers.flatMap((s) => s.shadow.map((k) => reference.vars[k].id))).toEqual(['ruleRate', 'debtRuleRate']);
   });
   test('unknown ids, the suggestion itself, and a variable something reads on Manual are errors', () => {

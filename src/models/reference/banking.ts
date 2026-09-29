@@ -51,7 +51,7 @@ export const banking: ModuleDef = {
       inputs: ['keyRate'],
       params: ['depositSpread'],
       terms: [
-        { id: 'keyRate', label: 'Key rate', concept: 'taylor-rule', compute: (c) => c.v('keyRate') },
+        { id: 'keyRate', label: 'Key rate', concept: 'interest-rate-channel', compute: (c) => c.v('keyRate') },
         { id: 'spread', label: 'Bank margin', compute: (c) => -c.p('depositSpread') },
       ],
       explain: { what: 'Interest the bank pays on deposits, per year.', rule: 'Deposit rate = key rate − {depositSpread pp}.' },
@@ -63,7 +63,7 @@ export const banking: ModuleDef = {
       inputs: ['keyRate'],
       params: ['loanSpread'],
       terms: [
-        { id: 'keyRate', label: 'Key rate', concept: 'taylor-rule', compute: (c) => c.v('keyRate') },
+        { id: 'keyRate', label: 'Key rate', concept: 'interest-rate-channel', compute: (c) => c.v('keyRate') },
         { id: 'spread', label: 'Bank margin', compute: (c) => c.p('loanSpread') },
       ],
       explain: { what: 'Interest the bank charges on loans, per year.', rule: 'Loan rate = key rate + {loanSpread pp}.' },

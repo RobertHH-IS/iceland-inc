@@ -74,7 +74,7 @@ export const demand: ModuleDef = {
         {
           id: 'realRate',
           label: 'Reward for saving',
-          concept: 'taylor-rule',
+          concept: 'interest-rate-channel',
           compute: (c) => -c.p('savingIncentive') * 100 * (c.v('depositRate') - c.v('expectedInflation') - (c.p('neutralRate') - c.p('depositSpread'))),
         },
       ],
@@ -99,7 +99,7 @@ export const demand: ModuleDef = {
         {
           id: 'realRate',
           label: 'Cost of borrowing',
-          concept: 'taylor-rule',
+          concept: 'interest-rate-channel',
           compute: (c) => -c.p('rateSensitivity') * 100 * (c.v('loanRate') - c.v('expectedInflation') - (c.p('neutralRate') + c.p('loanSpread'))),
         },
         { id: 'credit', label: 'Easier credit', concept: 'credit-impulse', compute: (c) => c.p('creditAppetite') },

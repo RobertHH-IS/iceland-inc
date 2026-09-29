@@ -165,12 +165,18 @@ P('muC', pct('cpi_weights.imported_goods'), 'fraction', 'BEHAVIOUR', 'Import sha
 P('muG', 0.4, 'fraction', 'BEHAVIOUR', 'Import share of government purchases (medicines, equipment).', placeholder('Within the research report’s assumed import leakage of 0.35–0.45 of spending (dial table, "Import leakage", from the ~43% import ratio). v1 tuned it within 0.3–0.4 against its fiscal-multiplier check; that check now measures public investment, whose imports use muI, so it no longer tests this value.'));
 P('muI', pct('import_content.investment'), 'fraction', 'BEHAVIOUR', 'Import share of investment goods (TiVA import content of investment).', dataProv('import_content.investment'));
 P('muX', pct('import_content.exports'), 'fraction', 'BEHAVIOUR', 'Imported inputs per unit of exports, all exporters together (TiVA); what fisheries, aluminium and tourism do not use sets other exporters’ import share.', dataProv('import_content.exports'));
-P('epsM', 0.6, 'elasticity', 'BEHAVIOUR', 'Import volumes versus the real exchange rate.', assumed());
+P('epsM', 0.75, 'elasticity', 'BEHAVIOUR', 'Import volumes versus the real exchange rate.', {
+  basis: 'calibrated',
+  note: 'Within the 0.5–1 range of import price elasticities estimated for small open economies. Raised from v1’s assumed 0.6 when imports came to be paid at border prices (lever review FX-2, 29 September 2026): with lamRer it sets how fast trade closes a current-account gap, and 0.75 keeps world-prices-krona-year1, wage-unemployment-peak and rate-inflation-trough in range together.',
+});
 P('eFish', 0.2, 'elasticity', 'BEHAVIOUR', 'Marine export volume versus the real exchange rate: a supply response, since fish sells at world prices and a weaker króna makes it more profitable (small: catches are quota-bound).', assumed());
 P('eAlu', 0.05, 'elasticity', 'BEHAVIOUR', 'Aluminium export volume versus the real exchange rate: a supply response, since aluminium sells at a dollar price (tiny: the smelters run at capacity).', assumed());
 P('eTour', 1, 'elasticity', 'BEHAVIOUR', 'Tourism volume versus the real exchange rate.', assumed());
 P('eOther', 0.8, 'elasticity', 'BEHAVIOUR', 'Other export volume versus the real exchange rate.', assumed());
-P('lamRer', 1, 'per year', 'BEHAVIOUR', 'How fast trade volumes react to the real exchange rate.', assumed());
+P('lamRer', 1.5, 'per year', 'BEHAVIOUR', 'How fast trade volumes react to the real exchange rate.', {
+  basis: 'calibrated',
+  note: 'About 40% of a change in the real exchange rate reaches trade volumes within four months and 78% within a year, as the J-curve literature finds volumes turn within 6–12 months (Magee 1973). Raised from v1’s assumed 1 when imports came to be paid at border prices (lever review FX-2, 29 September 2026), so that the current account turns within a year after a depreciation; checked with epsM against world-prices-krona-year1 and wage-unemployment-peak.',
+});
 P('depreciationRate', 0.08, 'per year', 'CONTRACT', 'Share of firms’ machines and buildings that wears out each year.', assumed('New in the port: v1 had no capital stock. About 8% gives business capital near 200% of GDP.'));
 
 /* -------------------------------------------------------- balance sheets */
@@ -348,11 +354,14 @@ P('omH', pct('cpi_weights.housing'), 'fraction', 'IDENTITY', 'CPI weight of hous
 P('omM', pct('cpi_weights.imported_goods'), 'fraction', 'IDENTITY', 'CPI weight of imported goods.', dataProv('cpi_weights.imported_goods'));
 P('omD', pct('cpi_weights.domestic_goods_and_services'), 'fraction', 'IDENTITY', 'CPI weight of domestic goods and services.', dataProv('cpi_weights.domestic_goods_and_services'));
 P('aLab', 0.55, 'fraction', 'BEHAVIOUR', 'Labour’s share of domestic unit cost (the rest is imported inputs).', tuned('the wage-shock price level'));
-P('eta', 0.5, 'fraction', 'BEHAVIOUR', 'How far capacity pressure pushes prices above unit cost (per unit of output gap).', tuned());
+P('eta', 0.07, 'fraction', 'BEHAVIOUR', 'How far capacity pressure pushes prices above unit cost (per unit of output gap).', {
+  basis: 'calibrated',
+  note: 'Calibrated to the CBI QMM rate experiment (rate-inflation-trough). v1 tuned 0.5 while the key rate dropped about 1.5 pp the month the rule took over after the hold, which cut the experiment short; once the rule eases smoothly from the rate held (lever review MON-2, 29 September 2026), 0.5 made inflation fall about 0.47 pp against QMM’s 0.24 pp for an output fall of the same size, so prices reacted to slack about twice as strongly as QMM’s. Markups that barely move with the cycle match the flat price Phillips curves estimated for small open economies; wages and the króna still carry slack into prices.',
+});
 P('lamUC', 1.5, 'per year', 'BEHAVIOUR', 'How fast firms’ view of their unit cost follows actual costs.', tuned('the wage-shock inflation peak timing'));
 P('lamP', 2, 'per year', 'BEHAVIOUR', 'How fast prices follow the markup on unit cost.', tuned('the wage-shock inflation peak timing'));
-P('lamPm', 2, 'per year', 'BEHAVIOUR', 'How fast import prices in krónur follow world prices × the exchange rate (contracts and stocks bought earlier delay it).', tuned());
-P('distM', 0.35, 'fraction', 'BEHAVIOUR', 'Share of what buyers in Iceland pay for imported goods and inputs that is the Icelandic cost of getting them to the buyer (unloading, wholesale, transport and retail), priced like other domestic goods. Only the rest follows world prices in krónur; imports are paid for at that rest.', {
+P('lamPm', 2, 'per year', 'BEHAVIOUR', 'How fast the prices importers charge at home (wholesale import prices) follow what they pay abroad, world prices × the exchange rate: they reprice stocks and contracts bought earlier gradually. What Iceland pays abroad moves at once (border import prices).', tuned());
+P('distM', 0.35, 'fraction', 'BEHAVIOUR', 'Share of what buyers in Iceland pay for imported goods and inputs that is the Icelandic cost of getting them to the buyer (unloading, wholesale, transport and retail), priced like other domestic goods. Only the rest follows world prices in krónur, with the lag of wholesale import prices.', {
   basis: 'calibrated',
   note: 'Campa and Goldberg (2010, "The sensitivity of the CPI to exchange rates: distribution margins, imported inputs, and trade exposure", Review of Economics and Statistics 92(2)) find that distribution margins on household consumption goods are between 30% and 50% of purchasers’ prices across OECD countries; Burstein, Neves and Rebelo (2003, Journal of Monetary Economics 50) put distribution costs above 40% of retail prices in the United States. One margin serves both consumer goods and firms’ imported inputs, which carry smaller margins, so it sits at the low end of that range. 0.35 is chosen there so that world prices +10% raise the CPI 1.5–2.3% within a year, as CBI WP85’s pass-through of 0.15–0.23 gives (checks world-prices-cpi-year1 and krona-pass-through-year1). Before it, buyers paid world prices in krónur one for one and the CPI rose 2.7% in a year and 3.7% in two (review E6, 29 September 2026). https://www.newyorkfed.org/medialibrary/media/research/staff_reports/sr247.pdf',
 });
@@ -372,12 +381,25 @@ P(
     'Taylor’s (1999) balanced-rule weight on the output gap. No calibration check selects it: after audit H4 (the consumption deflator) and M12/M20 (the CBI QMM rate experiment), v1’s 0.6 and 1.0 both keep every rate check in range. It was raised from 0.6 because, under v1’s old rate-shock scenario (a 1 pp offset on the rule for 8 quarters), 0.6 put the output trough outside rate-output-timing’s range; decision 0006 has the history.',
   ),
 );
-P('aPiA', 0.3, 'fraction', 'POLICY', 'Key-rate response to actual 12-month inflation above target.', tuned());
-P('lamPol', 3, 'per year', 'POLICY', 'How fast the key rate moves toward what its rule says (smoothing).', assumed());
+P('aPiA', 0.5, 'fraction', 'POLICY', 'Key-rate response to actual 12-month inflation above target (at constant VAT).', {
+  basis: 'calibrated',
+  note: 'Raised from v1’s 0.3 so that the rule obeys the Taylor principle for lasting actual inflation too (Taylor 1993; Woodford 2003): with expectations half anchored (chi 0.5) a lasting point of inflation raises the key rate aPi × (1 − chi) + aPiA = 1.15 points, not 0.95 (lever review MON-9 and trade-taylor-fixed-potential, 29 September 2026). Checked against wage-key-rate-peak (+1 to +1.5 pp) and wage-unemployment-peak.',
+});
+P('lamPol', 1.4, 'per year', 'POLICY', 'How fast the key rate moves toward what its rule says (smoothing): at 1.4 a year about 11% of the gap closes each month and 30% each quarter.', assumed('Estimated policy rules smooth the rate heavily: about 70–85% of last quarter’s rate carries over (Clarida, Galí and Gertler 2000, Quarterly Journal of Economics 115(1)), and the CBI’s QMM and DYNIMO rules have similar inertia. 1.4 a year leaves e^(−0.35) = 0.70 of the gap each quarter, the low end of that range. v1’s 3 (0.47 a quarter; legacy/v1-engine/SPEC.md) was half as inert (lever review MON-6, 29 September 2026). The checks bound it from below: much slower and the rule does not lean hard enough on a wage shock (wage-unemployment-peak).'));
 
 /* --------------------------------------------- exchange rate and non-residents */
-P('betaI', 0.55, 'fraction', 'BEHAVIOUR', 'Króna response to the interest-rate gap with abroad (log points per unit of rate): carry demand.', tuned());
-P('betaH', 0.3, 'elasticity', 'BEHAVIOUR', 'Króna response to non-residents’ real króna holdings (portfolio balance).', assumed());
+P('betaI', 0.35, 'fraction', 'BEHAVIOUR', 'Króna response to the interest-rate gap with abroad (log points per unit of rate): carry demand.', {
+  basis: 'calibrated',
+  note: 'Together with the carry trade’s wish to hold more krónur when Icelandic rates are high (portfolio balance, psiB), it sets the króna’s rise on impact per point of rate gap: about 0.6% in the first quarter against CBI QMM’s 0.67% (rate-krona). Lowered from v1’s 0.55 when the portfolio term came to count the carry trade’s wanted holdings (lever review FX-4 and MON-5, 29 September 2026); with 0.55 the króna rose about 0.8% and inflation fell too far in the rate experiment.',
+});
+P('betaH', 0.27, 'elasticity', 'BEHAVIOUR', 'Króna response to non-residents’ real króna holdings (portfolio balance), against what they want to hold, in a market of depth fxDepth.', {
+  basis: 'calibrated',
+  note: 'With fxDepth it sets how far the króna moves per 1% of GDP of krónur non-residents take on: 0.27 ÷ (krona0 + fxDepth) ≈ 1.7% at baseline, about 5% after a year of a 30% tourism slump (tourism-slump, against about 4% scaled from 2020), falling for larger swings. v1 assumed 0.3 on non-residents’ holdings alone, about 4% per 1% of GDP and unbounded (lever review TAX-1, 29 September 2026).',
+});
+P('fxDepth', 9, '% of GDP', 'BEHAVIOUR', 'Depth of the króna market beyond non-residents’ own holdings: other holders who take krónur on or give them up as the price moves (residents’ foreign-currency deposits, banks’ currency positions, exporters converting their earnings).', {
+  basis: 'calibrated',
+  note: 'A stand-in for the rest of the króna market until central-bank data on those positions are used: residents’ foreign-currency deposits alone are of this order. It bounds the portfolio premium: counting a short position down to half the depth, however few krónur non-residents hold the term makes the króna at most betaH × log((krona0 + fxDepth) ÷ (fxDepth ÷ 2)) ≈ 0.34 log points (about 40%) stronger, where v1’s premium had no bound (pension funds bringing 20 points of assets home made the króna twice as dear). Chosen with betaH so that tourism-slump and world-prices-krona-year1 stay in range (lever review TAX-1, 29 September 2026).',
+});
 P('lamFX', 12, 'per year', 'BEHAVIOUR', 'How fast the exchange rate moves toward its target.', assumed());
 P('lamPPP', 0.2, 'per year', 'BEHAVIOUR', 'How fast the króna’s long-run anchor absorbs a change in world prices (purchasing-power parity): 0.2 a year is a half-life of about 3.5 years.', assumed('Sarno and Taylor (2002) report a consensus half-life of deviations from PPP of three to five years (the purchasing-power-parity concept page); 0.2 a year sits inside it. Audit H5, 29 September 2026.'));
 P('lamSent', 0.1, 'per year', 'BEHAVIOUR', 'How fast a króna sentiment shock fades (about 10% of it a year).', tuned());

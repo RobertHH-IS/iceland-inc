@@ -164,6 +164,14 @@ const ref = {
     title: 'Government Debt Management (Lánamál ríkisins), Iceland',
     url: 'https://www.lanamal.is/en',
   },
+  mishkin1995: {
+    title: 'Mishkin (1995), "Symposium on the monetary transmission mechanism", Journal of Economic Perspectives 9(4)',
+    url: 'https://doi.org/10.1257/jep.9.4.3',
+  },
+  bernankeGertler1995: {
+    title: 'Bernanke & Gertler (1995), "Inside the black box: the credit channel of monetary policy transmission", Journal of Economic Perspectives 9(4)',
+    url: 'https://doi.org/10.1257/jep.9.4.27',
+  },
   taylor1993: {
     title: 'Taylor (1993), "Discretion versus policy rules in practice", Carnegie-Rochester Conference Series on Public Policy 39',
     url: 'https://web.stanford.edu/~johntayl/Papers/Discretion.PDF',
@@ -358,7 +366,7 @@ export const concepts: ConceptDef[] = [
       'A change in the price of something already owned, such as foreign shares when the króna falls. It changes wealth without any payment.',
     body: p(
       `A revaluation, or *holding gain or loss*, happens when the market value of an asset or liability changes while you hold it. Nobody pays anybody; the price simply moves. National accounts record these changes in a separate revaluation account, apart from income and saving (SNA 2008, chapter 12).`,
-      `Iceland has large revaluations because so many balance sheets hold foreign currency. Pension funds keep over 40% of their assets abroad. If the króna falls 10%, those assets are suddenly worth 10% more in krónur, and pension wealth jumps without a single payment. A firm with a euro loan sees its debt rise in the same way.`,
+      `Iceland has large revaluations because so many balance sheets hold foreign currency. Pension funds keep over 40% of their assets abroad. If the króna falls 10%, those assets are suddenly worth 10% more in krónur, and pension wealth jumps without a single payment. A firm with a euro loan sees its debt rise in the same way; Iceland Inc. has no foreign-currency loans, so only the gains on foreign assets appear.`,
       `Revaluations change net worth but not income: a fund whose foreign shares rise in value has not earned more interest. They can still change behaviour. A household that feels richer because its home is worth more may spend more (see the housing wealth effect).`,
       `In Iceland Inc., revaluations are dashed pipes that pass through the accounting checks like any other posting, so the model shows who gained and who lost. Note that CPI indexation of loan principal is *not* a revaluation in the national accounts: it counts as accrued interest.`,
     ),
@@ -599,9 +607,9 @@ export const concepts: ConceptDef[] = [
       'When the króna falls, imports cost more in krónur. Pass-through measures how much of that reaches consumer prices, and how fast.',
     body: p(
       `About a third of the Icelandic consumer basket is imported goods, and many other prices contain imported inputs. When the króna weakens, those goods cost more in krónur, and part of the increase reaches consumer prices. *Exchange-rate pass-through* measures how much and how fast.`,
-      `Pass-through is rarely complete. Importers and retailers may absorb some of the change in their margins, especially if they expect it to reverse, and many prices include local costs, such as wages, rent and transport, that do not depend on the currency. A study for the Central Bank (Edwards & Cabezas 2021) found that pass-through in Iceland is higher for tradable goods and declined around the time the inflation-targeting framework was reformed after the 2008 crisis.`,
+      `Pass-through is rarely complete. Importers and retailers may absorb some of the change in their margins, especially if they expect it to reverse, and many prices include local costs, such as wages, rent and transport, that do not depend on the currency. A study for the Central Bank (Edwards & Cabezas 2021) found that pass-through in Iceland declined after the inflation-targeting framework was reformed following the 2008 crisis.`,
       `Pass-through matters more in Iceland than in large economies because the króna moves a lot and imports are a big share of spending. A depreciation raises the CPI and, through indexation, the principal of indexed loans, and it can trigger the review clauses in wage agreements.`,
-      `It also works in reverse: a stronger króna, for example after a rate rise attracts foreign money, lowers import prices and helps bring inflation down.`,
+      `It happens in stages. Iceland's imports are invoiced in foreign currency, so the import bill in krónur moves with the króna at once (Gopinath et al. 2020); importers and shops reprice gradually, and their margins take the difference. It works in reverse too: a stronger króna lowers import prices and helps bring inflation down.`,
     ),
     school: 'empirical',
     references: [ref.edwardsCabezas, ref.cbiMb2026, ref.imf2024si],
@@ -835,6 +843,19 @@ export const concepts: ConceptDef[] = [
     related: ['policy-lags', 'anchored-expectations', 'interest-distribution', 'capacity-utilisation', 'adaptive-expectations', 'carry-trade'],
   },
   {
+    id: 'interest-rate-channel',
+    title: 'Interest-rate channel',
+    oneLiner: 'How a change in the key rate reaches spending: through the rates banks and the government pay and charge, saving and borrowing.',
+    body: p(
+      `The central bank sets only one rate, the rate it pays on banks' reserves. The *interest-rate channel* is how that rate travels to the rest of the economy (Mishkin 1995). Banks pass it on to the rates on deposits, loans and mortgages, and the government's borrowing costs follow it too.`,
+      `Households then weigh spending today against spending later: a higher *real* rate, the rate after expected inflation, rewards saving and makes borrowing dearer. Firms compare the return on a new machine or building with the cost of the money to pay for it, the *user cost of capital*. Bernanke and Gertler (1995) add that higher rates also weaken borrowers' balance sheets, which tightens credit further.`,
+      `This is transmission, not a decision. It works the same whether the rate was set by a rule such as the Taylor rule or held by hand. In Iceland many mortgages are CPI-indexed or fixed for years, so the channel reaches borrowers more slowly than in countries with floating-rate loans. In Iceland Inc., the key rate passes into bank, bond and mortgage rates, and the real rate enters households' spending and firms' investment.`,
+    ),
+    school: 'keynesian',
+    references: [ref.mishkin1995, ref.bernankeGertler1995, ref.cbiMb2026],
+    related: ['taylor-rule', 'policy-lags', 'interest-distribution', 'consumption-function', 'investment-accelerator'],
+  },
+  {
     id: 'policy-lags',
     title: 'Policy lags',
     oneLiner:
@@ -944,10 +965,10 @@ export const concepts: ConceptDef[] = [
     oneLiner:
       "Iceland's income from the rest of the world minus its payments to it: trade, plus cross-border interest, dividends and transfers.",
     body: p(
-      `The *current account* records a country's income from and payments to the rest of the world, other than borrowing and lending. It has three parts: the trade balance in goods and services; *primary income* (interest, dividends and wages across borders); and *secondary income* (transfers such as aid and remittances).`,
+      `The *current account* records a country's income from and payments to the rest of the world, other than borrowing and lending. It has three parts: the trade balance; *primary income* (interest, dividends and wages across borders); and *secondary income* (transfers such as remittances).`,
       `A deficit means Iceland pays out more than it earns abroad, so it must borrow from foreigners or run down foreign assets. A surplus means it is lending to the rest of the world. In accounting terms, the current account equals national saving minus domestic investment (IMF BPM6), and it mirrors the sectoral balances: the rest of the world's surplus is Iceland's deficit.`,
-      `Iceland ran a current-account deficit of 3.6% of GDP in 2025. Primary income is volatile because the profits of the foreign-owned aluminium smelters count as income paid abroad.`,
-      `Deficits are not always bad: borrowing to build productive capacity can pay for itself. They are risky when they fund consumption or asset booms, as before 2008. Today Iceland is a net creditor, with a net international investment position of about 44% of GDP in 2025, helped by pension funds' large foreign assets.`,
+      `Iceland ran a current-account deficit of 3.6% of GDP in 2025. Primary income swings with the profits of the foreign-owned smelters, which count as income paid abroad.`,
+      `After a fall in the currency the current account often worsens before it improves (the *J-curve*, Magee 1973): imports cost more at once, while volumes take six to twelve months to respond. Deficits are not always bad: borrowing to build productive capacity can pay for itself. They are risky when they fund booms, as before 2008. Today Iceland is a net creditor, with a net international investment position of about 44% of GDP in 2025, helped by pension funds' large foreign assets.`,
     ),
     school: 'accounting',
     references: [ref.bpm6, ref.imfCurrentAccount, ref.imf2026],
@@ -1068,7 +1089,7 @@ export const concepts: ConceptDef[] = [
     title: 'Borrowers and savers',
     oneLiner: 'The same shock helps some households and hurts others, depending on whether they owe money or own it.',
     body: p(
-      `Averages hide the most important fact about money: some people owe it and others own it. A rise in interest rates takes income from borrowers and gives it to savers. Inflation erodes the real value of non-indexed debts, helping borrowers, and of deposits, hurting savers. A fall in the króna raises the krónur value of foreign assets and of foreign-currency debts.`,
+      `Averages hide the most important fact about money: some people owe it and others own it. A rise in interest rates takes income from borrowers and gives it to savers. Inflation erodes the real value of non-indexed debts, helping borrowers, and of deposits, hurting savers. A fall in the króna raises the krónur value of foreign assets and of foreign-currency debts (Iceland Inc. models only the assets).`,
       `Because borrowers and savers spend differently, these transfers change total demand. Borrowers, often younger and short of cash, tend to spend a larger share of any change in income. Auclert (2019) shows that this *redistribution channel* amplifies monetary policy, and Doepke and Schneider (2006) show that surprise inflation moves wealth from bondholders to debtors.`,
       `Iceland has a twist: with about two-thirds of mortgages CPI-indexed, inflation does not erode most housing debt as it would elsewhere. Instead, indexed borrowers' principal rises with prices, and the gain goes to lenders, mostly banks and pension funds. Non-indexed borrowers and depositors face the usual transfers.`,
       `Iceland Inc. splits households into three age groups partly to make these differences visible. A single household sector would net them out and hide who gains and who loses.`,
@@ -1128,10 +1149,10 @@ export const concepts: ConceptDef[] = [
     title: 'What this model can and cannot tell you',
     oneLiner: 'Iceland Inc. is a teaching simplification that shows mechanisms and orders of magnitude. It is not a forecast.',
     body: p(
-      `Every model leaves things out; that is what makes it useful. Iceland Inc. keeps the accounting exact, so money cannot appear or vanish, but its behaviour (how much people spend, borrow, charge or invest) is a set of assumptions. Some are estimated from Icelandic data, some are borrowed from other models and some are placeholders. The inspector shows which is which for every parameter.`,
-      `What it is good for: seeing mechanisms, such as how a wage rise becomes a profit squeeze, a price rise, a rate rise and an indexation transfer; tracing who pays whom; and getting a feel for directions, orders of magnitude and timing.`,
-      `What it is not: a forecast of the Icelandic economy, an official view, or a substitute for the models of the Central Bank or the Ministry of Finance. It starts from a calm steady state, not from today. It has one bank, simple expectations and a few types of household, and banks do not fail unless someone builds that in.`,
-      `Model time is also approximate: Steve Keen cautioned that time in his Minsky model was not meant to match real time. Olivier Blanchard (2017) argues that economics needs several classes of models for different jobs. This is a teaching model.`,
+      `Every model leaves things out; that makes it useful. Iceland Inc. keeps the accounting exact, so money cannot appear or vanish, but its behaviour (how people spend, borrow, charge or invest) is assumed. Some are estimated from Icelandic data, some borrowed from other models and some are placeholders; the inspector shows which for every parameter.`,
+      `What it is good for: seeing mechanisms, such as how a wage rise becomes a profit squeeze, a price rise, a rate rise and an indexation transfer; tracing who pays whom; and a feel for directions, sizes and timing.`,
+      `What it is not: a forecast of the Icelandic economy, an official view, or a substitute for the models of the Central Bank or the Ministry of Finance. It starts from a calm steady state, not today. It has one bank, simple expectations and a few types of household, and banks do not fail unless someone builds that in. No sector owes foreign currency, so the damage a falling króna did to balance sheets in 2008 is absent: as a net creditor (Lane & Shambaugh 2010), Iceland gains wealth when the króna falls.`,
+      `Model time is also approximate, as Steve Keen cautioned of his Minsky model, and Olivier Blanchard (2017) argues that economics needs different models for different jobs. This is a teaching model.`,
     ),
     school: 'empirical',
     references: [ref.blanchard2017, ref.keen1995],
@@ -1210,7 +1231,7 @@ export const conceptThemes: { theme: string; ids: Id[] }[] = [
       'migration-buffer',
     ],
   },
-  { theme: 'Policy', ids: ['taylor-rule', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'macroprudential-policy', 'bond-buyers'] },
+  { theme: 'Policy', ids: ['taylor-rule', 'interest-rate-channel', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'macroprudential-policy', 'bond-buyers'] },
   {
     theme: 'External',
     ids: ['floating-exchange-rate', 'carry-trade', 'current-account', 'real-exchange-rate', 'purchasing-power-parity', 'export-sectors'],

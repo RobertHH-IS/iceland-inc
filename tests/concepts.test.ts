@@ -22,7 +22,7 @@ const REQUIRED_IDS = [
   'consumption-function', 'paradox-of-thrift', 'multiplier', 'investment-accelerator', 'import-leakage',
   'capacity-utilisation', 'okun-law', 'habit-persistence',
   // Policy
-  'taylor-rule', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'macroprudential-policy', 'bond-buyers',
+  'taylor-rule', 'interest-rate-channel', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'macroprudential-policy', 'bond-buyers',
   // External
   'floating-exchange-rate', 'carry-trade', 'current-account', 'real-exchange-rate', 'purchasing-power-parity',
   'export-sectors',

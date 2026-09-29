@@ -402,7 +402,7 @@ const rules: RuleDef[] = [
     category: 'CONTRACT',
     inputs: ['keyRate'],
     params: ['sB'],
-    terms: terms(['keyRate', 'Key rate', 'taylor-rule', (c) => c.v('keyRate')], ['spread', 'Bond spread', undefined, (c) => c.p('sB')]),
+    terms: terms(['keyRate', 'Key rate', 'interest-rate-channel', (c) => c.v('keyRate')], ['spread', 'Bond spread', undefined, (c) => c.p('sB')]),
     explain: { what: 'Interest on government bonds, which float with the key rate.', rule: 'Bond rate = key rate + {sB pp}.' },
   },
   ...HOLDERS.map(

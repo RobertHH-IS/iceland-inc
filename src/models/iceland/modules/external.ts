@@ -2,15 +2,16 @@
  * Iceland Inc.: the rest of the world (v1 equations E7–E9, E12, E14, E22, E39 and E44).
  *
  * The króna moves toward a level set by relative prices (purchasing-power parity), the
- * interest-rate gap with abroad (carry), how many krónur non-residents already hold (portfolio
- * balance) and sentiment. Parity is a slow anchor: the target follows domestic prices at once, but
+ * interest-rate gap with abroad (carry), how many krónur non-residents hold against what they want
+ * to hold, in a market with other holders too (portfolio balance), and sentiment. Parity is a slow anchor: the target follows domestic prices at once, but
  * world prices only as a slowly moving anchor absorbs them, over years. Each exporter sells one export line (decision 0003): fish
  * and aluminium are priced in foreign currency at their own world prices, tourism and other
  * exports in krónur. Volumes react to relative prices, tourism most and aluminium least: for
  * tourism and other exports to the real exchange rate, because a weaker króna makes them cheaper
  * abroad; for fish and aluminium, which sell at world prices, to their own world price in krónur
  * against domestic costs, because that is what makes them more profitable.
- * Imports are split by what they are for and who pays for them, and each exporter buys domestic
+ * Imports are split by what they are for and who pays for them, paid for at border prices (imports
+ * are invoiced in foreign currency), and each exporter buys domestic
  * inputs from retail and service firms. Foreign assets are revalued when the króna moves, and
  * non-resident carry traders buy or sell government bonds as the rate gap changes.
  */
@@ -118,8 +119,9 @@ const mOf = (j: Exporter) => (j === 'XO' ? 'mXO' : `m${j}`);
 const volOf = (j: Exporter) => `exportVolume${EXPORTS.find((e) => e[1] === j)![0]}`;
 
 /** Non-residents' króna deposits at the end of this month before any bond trade: what Iceland's
- *  current account and pension funds' foreign purchases add to (or take from) them. */
-const wDepositsBeforeTrade = (c: Ctx) => c.stock('deposits', 'W') + c.dt * (c.v('foreignAssetPurchases') - c.v('currentAccount'));
+ *  current account and pension funds' foreign purchases add to (or take from) them. Reserve income
+ *  the central bank keeps abroad counts in the current account but is not paid in krónur. */
+const wDepositsBeforeTrade = (c: Ctx) => c.stock('deposits', 'W') + c.dt * (c.v('foreignAssetPurchases') - c.v('currentAccount') + c.v('reserveIncomeKept'));
 /** The least they keep in deposits: the share wDepositFloorShare of their baseline deposit share
  *  of króna holdings. */
 const wDepositFloor = (c: Ctx) => ((c.p('wDepositFloorShare') * c.p('depW')) / (c.p('depW') + c.p('bondW'))) * (wDepositsBeforeTrade(c) + c.stock('govBonds', 'W'));
@@ -139,6 +141,26 @@ const wFromBanks = (c: Ctx) => Math.max(0, bondsBanksCanSell(c) - Math.max(0, c.
 
 /** Non-residents' deposits after this month's payments and bond trade. */
 const wDepositsAfterTrade = (c: Ctx) => wDepositsBeforeTrade(c) - c.dt * c.v('bondPurchasesW');
+
+/** The interest-rate gap with abroad: the key rate above its normal nominal level (i0 + piT) minus
+ *  the foreign rate above its normal level iF0. */
+const rateGap = (c: Ctx) => c.v('keyRate') - (c.p('i0') + c.p('piT')) - (c.v('foreignRate') - c.p('iF0'));
+/** Portfolio balance: log of (non-residents' net real króna holdings + the rest of the market's
+ *  depth) ÷ (what they want to hold + that depth). Net holdings are their deposits and government
+ *  bonds less the krónur they have borrowed from banks. What they want to hold is their normal
+ *  holdings krona0 plus the bonds the carry trade wants on top when Icelandic rates are high
+ *  (bondW × psiB × the rate gap, as bondPurchasesW), so krónur bought for the rate gap do not
+ *  weaken the króna. The depth fxDepth stands for the other holders who take krónur on or give them
+ *  up as the price moves: it makes the term nearly symmetric for moderate swings and bounds it.
+ *  A short position counts down to half the depth, so the premium is at least
+ *  betaH × log((fxDepth ÷ 2) ÷ (krona0 + fxDepth)) (lever review TAX-1). */
+const netKronur = (c: Ctx) => (c.stock('deposits', 'W') + c.stock('govBonds', 'W') - c.stock('kronaLoansW', 'W')) / Math.max(1e-6, lastMonth(c, 'domesticPrice'));
+const shortestCounted = (c: Ctx) => -0.5 * c.p('fxDepth');
+const portfolioPremium = (c: Ctx) => {
+  const wanted = c.p('krona0') + c.p('bondW') * c.p('psiB') * rateGap(c);
+  const D = c.p('fxDepth');
+  return c.p('betaH') * Math.log((Math.max(shortestCounted(c), netKronur(c)) + D) / Math.max(0.05 * D, wanted + D));
+};
 
 /** Relative price factor for home-market import volumes: (real exchange rate)^−epsM. */
 const rq = (c: { v(id: string): number; p(id: string): number }) => Math.pow(Math.max(1e-6, c.v('realExchangeRate')), -c.p('epsM'));
@@ -187,7 +209,7 @@ export const external: ModuleDef = {
   requires: ['structure', 'prices', 'central-bank', 'firms', 'government', 'households', 'pensions'],
   params: pickParams(ALL_PARAMS, [
     'xFish', 'xAlu', 'xTour', 'xOther', 'eFish', 'eAlu', 'eTour', 'eOther', 'lamRer', 'muX', 'muC', 'muD', 'muI', 'muG', 'epsM',
-    'betaI', 'betaH', 'lamFX', 'lamPPP', 'lamSent', 'psiB', 'lamBW', 'iF0', 'iFnow', 'krona0', 'bW0', 'worldPrice0', 'fishPrice0', 'aluminiumPrice0',
+    'betaI', 'betaH', 'fxDepth', 'lamFX', 'lamPPP', 'lamSent', 'psiB', 'lamBW', 'iF0', 'iFnow', 'krona0', 'bW0', 'worldPrice0', 'fishPrice0', 'aluminiumPrice0',
     'foreignDemandShift', 'tourismShift', 'foreignRateShift', 'worldPriceShift', 'fishPriceShift', 'aluminiumPriceShift', 'fdWeightFish', 'bondW', 'depW', 'eqW', 'wDepositFloorShare',
     'gvaXF', 'gvaXA', 'gvaXT', 'gvaXO', 'mXF', 'mXA', 'mXT', 'mXO', 'dXF', 'dXA', 'dXT', 'dXO',
   ]),
@@ -280,27 +302,24 @@ export const external: ModuleDef = {
       label: 'The króna',
       inputs: ['kronaSentiment', 'keyRate', 'foreignRate', 'worldPriceAnchor'],
       lagInputs: ['domesticPrice'],
-      params: ['betaI', 'betaH', 'i0', 'piT', 'iF0', 'krona0'],
+      params: ['betaI', 'betaH', 'i0', 'piT', 'iF0', 'krona0', 'bondW', 'psiB', 'fxDepth'],
       stocks: [
         ['deposits', 'W'],
         ['govBonds', 'W'],
+        ['kronaLoansW', 'W'],
       ],
       adjust: { speed: 'lamFX', form: 'exponential' },
       terms: terms(
         ['ppp', 'Relative prices (purchasing-power parity)', 'purchasing-power-parity', (c) => Math.log(lastMonth(c, 'domesticPrice')) - c.v('worldPriceAnchor')],
         ['sentiment', 'Sentiment', 'floating-exchange-rate', (c) => c.v('kronaSentiment')],
-        ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => -c.p('betaI') * (c.v('keyRate') - (c.p('i0') + c.p('piT')) - (c.v('foreignRate') - c.p('iF0')))],
-        [
-          'portfolio',
-          'Non-residents’ króna holdings',
-          'floating-exchange-rate',
-          (c) => c.p('betaH') * Math.log(Math.max(0.05, (c.stock('deposits', 'W') + c.stock('govBonds', 'W')) / (Math.max(1e-6, lastMonth(c, 'domesticPrice')) * c.p('krona0')))),
-        ],
+        ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => -c.p('betaI') * rateGap(c)],
+        ['portfolio', 'Non-residents’ króna holdings against what they want to hold', 'floating-exchange-rate', portfolioPremium],
       ),
+      regime: (c) => (netKronur(c) < shortestCounted(c) ? 'Non-residents are short of krónur: portfolio balance at its bound' : null),
       concepts: ['floating-exchange-rate', 'purchasing-power-parity'],
       explain: {
         what: 'The exchange rate in logs: krónur per unit of foreign currency. Up means a weaker króna.',
-        rule: 'Moves toward a target at speed {lamFX} a year, about 63% of the way each month. Target = log of domestic prices − the world prices the króna has adjusted to + sentiment − {betaI} × the rate gap with abroad + {betaH} × log of non-residents’ real króna holdings relative to normal. The first two are purchasing-power parity: in the long run the króna keeps Icelandic goods as dear as before, so it follows domestic prices at once, but absorbs a change in world prices only over years, at {lamPPP} a year. The rate gap term is the carry trade: when Icelandic rates are high compared with rates abroad, investors buy krónur, so the króna is stronger. The holdings term is portfolio balance: the more krónur non-residents already hold, the cheaper the króna must be before they will hold more. The rate gap is the key rate above its normal level (the neutral real rate {i0%} + the inflation target {piT%}) minus the foreign interest rate above its normal level {iF0%}.',
+        rule: 'Moves toward a target at speed {lamFX} a year, about 63% of the way each month. Target = log of domestic prices − the world prices the króna has adjusted to + sentiment − {betaI} × the rate gap with abroad + the portfolio-balance term. The first two are purchasing-power parity: in the long run the króna keeps Icelandic goods as dear as before, so it follows domestic prices at once, but absorbs a change in world prices only over years, at {lamPPP} a year. The rate gap term is the carry trade: when Icelandic rates are high compared with rates abroad, investors buy krónur, so the króna is stronger. The holdings term is portfolio balance: the more krónur non-residents hold compared with what they want to hold, the cheaper the króna must be before they will hold more. Their holdings are their deposits and government bonds less any krónur they have borrowed, in real terms. What they want to hold is their normal holdings plus the extra bonds the carry trade wants when Icelandic rates are high ({psiB} × the rate gap × their normal bonds {bondW}), so krónur bought for the rate gap do not weaken the króna. Other holders take krónur on or give them up too (a market depth of {fxDepth}% of GDP), so the term is {betaH} × log((their holdings + {fxDepth}) ÷ (what they want to hold + {fxDepth})): about 1.7% on the króna per 1% of GDP at first, less for larger swings. A short position counts only down to half the depth, so however few krónur non-residents hold, this term makes the króna at most about 40% stronger. The rate gap is the key rate above its normal level (the neutral real rate {i0%} + the inflation target {piT%}) minus the foreign interest rate above its normal level {iF0%}.',
       },
     },
     {
@@ -357,11 +376,11 @@ export const external: ModuleDef = {
         id: `imports${j}`,
         target: `imports${j}`,
         category: 'BEHAVIOUR',
-        inputs: [volOf(j), 'importPrice'],
+        inputs: [volOf(j), 'borderImportPrice'],
         params: [mOf(j)],
-        compute: (c) => c.v('importPrice') * c.p(mOf(j)) * c.v(volOf(j)),
+        compute: (c) => c.v('borderImportPrice') * c.p(mOf(j)) * c.v(volOf(j)),
         concepts: ['import-leakage'],
-        explain: { what: `Imported inputs of ${FIRM_NAME[j]}: ${X_IMPORTS[j]}.`, rule: `Imports = import prices × {${mOf(j)}} per unit of exports.` },
+        explain: { what: `Imported inputs of ${FIRM_NAME[j]}: ${X_IMPORTS[j]}.`, rule: `Imports = border import prices × {${mOf(j)}} per unit of exports.` },
       },
     ]),
     {
@@ -376,34 +395,34 @@ export const external: ModuleDef = {
       id: 'importsConsumer',
       target: 'importsConsumer',
       category: 'BEHAVIOUR',
-      inputs: ['realConsumption', 'realExchangeRate', 'importPrice'],
+      inputs: ['realConsumption', 'realExchangeRate', 'borderImportPrice'],
       params: ['muC', 'epsM'],
-      compute: (c) => c.v('importPrice') * c.p('muC') * c.v('realConsumption') * rq(c),
+      compute: (c) => c.v('borderImportPrice') * c.p('muC') * c.v('realConsumption') * rq(c),
       concepts: ['import-leakage'],
-      explain: { what: 'Consumer goods shops import.', rule: 'Imports = import prices × {muC} × real consumer spending × (real exchange rate)^−{epsM}.' },
+      explain: { what: 'Consumer goods shops import.', rule: 'Imports = border import prices × {muC} × real consumer spending × (real exchange rate)^−{epsM}.' },
     },
     {
       id: 'importsInputsFR',
       target: 'importsInputsFR',
       category: 'BEHAVIOUR',
-      inputs: ['realConsumption', 'realExchangeRate', 'importPrice', ...EXPORTERS.map(volOf)],
+      inputs: ['realConsumption', 'realExchangeRate', 'borderImportPrice', ...EXPORTERS.map(volOf)],
       params: ['muD', 'maintShare', 'epsM', ...EXPORTERS.map((j) => `d${j}`)],
-      compute: (c) => c.v('importPrice') * c.p('muD') * ((1 - c.p('maintShare')) * c.v('realConsumption') + c.p('dXF') * c.v('exportVolumeFish') + c.p('dXA') * c.v('exportVolumeAluminium') + c.p('dXT') * c.v('exportVolumeTourism') + c.p('dXO') * c.v('exportVolumeOther')) * rq(c),
+      compute: (c) => c.v('borderImportPrice') * c.p('muD') * ((1 - c.p('maintShare')) * c.v('realConsumption') + c.p('dXF') * c.v('exportVolumeFish') + c.p('dXA') * c.v('exportVolumeAluminium') + c.p('dXT') * c.v('exportVolumeTourism') + c.p('dXO') * c.v('exportVolumeOther')) * rq(c),
       concepts: ['import-leakage'],
       explain: {
         what: 'Imported inputs retail and service firms use to make what they sell to households and exporters.',
-        rule: 'Imports = import prices × {muD} × (their real sales to households + their real sales to exporters) × (real exchange rate)^−{epsM}.',
+        rule: 'Imports = border import prices × {muD} × (their real sales to households + their real sales to exporters) × (real exchange rate)^−{epsM}.',
       },
     },
     {
       id: 'importsInputsFC',
       target: 'importsInputsFC',
       category: 'BEHAVIOUR',
-      inputs: ['realConsumption', 'investmentReal', 'realExchangeRate', 'importPrice'],
+      inputs: ['realConsumption', 'investmentReal', 'realExchangeRate', 'borderImportPrice'],
       params: ['muD', 'maintShare', 'epsM'],
-      compute: (c) => c.v('importPrice') * c.p('muD') * (c.v('investmentReal') + c.p('maintShare') * c.v('realConsumption')) * rq(c),
+      compute: (c) => c.v('borderImportPrice') * c.p('muD') * (c.v('investmentReal') + c.p('maintShare') * c.v('realConsumption')) * rq(c),
       concepts: ['import-leakage'],
-      explain: { what: 'Imported inputs builders use.', rule: 'Imports = import prices × {muD} × (real investment + home repairs) × (real exchange rate)^−{epsM}.' },
+      explain: { what: 'Imported inputs builders use.', rule: 'Imports = border import prices × {muD} × (real investment + home repairs) × (real exchange rate)^−{epsM}.' },
     },
     {
       id: 'importsInputs',
@@ -417,21 +436,21 @@ export const external: ModuleDef = {
       id: 'importsEquipment',
       target: 'importsEquipment',
       category: 'BEHAVIOUR',
-      inputs: ['investmentReal', 'realExchangeRate', 'importPrice'],
+      inputs: ['investmentReal', 'realExchangeRate', 'borderImportPrice'],
       params: ['muI', 'epsM'],
-      compute: (c) => c.v('importPrice') * c.p('muI') * c.v('investmentReal') * rq(c),
+      compute: (c) => c.v('borderImportPrice') * c.p('muI') * c.v('investmentReal') * rq(c),
       concepts: ['import-leakage'],
-      explain: { what: 'Imported machinery and equipment for investment.', rule: 'Imports = import prices × {muI} × real investment × (real exchange rate)^−{epsM}.' },
+      explain: { what: 'Imported machinery and equipment for investment.', rule: 'Imports = border import prices × {muI} × real investment × (real exchange rate)^−{epsM}.' },
     },
     {
       id: 'importsPublic',
       target: 'importsPublic',
       category: 'BEHAVIOUR',
-      inputs: ['publicPurchasesReal', 'realExchangeRate', 'importPrice'],
+      inputs: ['publicPurchasesReal', 'realExchangeRate', 'borderImportPrice'],
       params: ['muG', 'epsM'],
-      compute: (c) => c.v('importPrice') * c.p('muG') * c.v('publicPurchasesReal') * rq(c),
+      compute: (c) => c.v('borderImportPrice') * c.p('muG') * c.v('publicPurchasesReal') * rq(c),
       concepts: ['import-leakage'],
-      explain: { what: 'Imported goods (medicines, equipment) behind public services.', rule: 'Imports = import prices × {muG} × real public purchases × (real exchange rate)^−{epsM}.' },
+      explain: { what: 'Imported goods (medicines, equipment) behind public services.', rule: 'Imports = border import prices × {muG} × real public purchases × (real exchange rate)^−{epsM}.' },
     },
     {
       id: 'importsExporters',
@@ -445,12 +464,12 @@ export const external: ModuleDef = {
       id: 'importVolume',
       target: 'importVolume',
       category: 'IDENTITY',
-      inputs: [...IMPORTS.map(([k]) => `imports${k}`), 'importPrice'],
+      inputs: [...IMPORTS.map(([k]) => `imports${k}`), 'borderImportPrice'],
       terms: IMPORTS.map(([k, what]): TermDef => {
         const im = `imports${k}`; // built once: this rule sits in the income–spending block
-        return { id: k.toLowerCase(), label: what, concept: 'import-leakage', compute: (c: Ctx) => c.v(im) / c.v('importPrice') };
+        return { id: k.toLowerCase(), label: what, concept: 'import-leakage', compute: (c: Ctx) => c.v(im) / c.v('borderImportPrice') };
       }),
-      explain: { what: 'All imports at baseline prices.', rule: 'Sum of the five kinds of imports, each divided by import prices.' },
+      explain: { what: 'All imports at baseline prices.', rule: 'Sum of the five kinds of imports, each divided by border import prices, the prices they are paid at.' },
     },
     {
       id: 'revaluationFXReserves',
@@ -479,7 +498,7 @@ export const external: ModuleDef = {
       target: 'bondPurchasesW',
       category: 'BEHAVIOUR',
       label: 'Carry trade',
-      inputs: ['nominalGDP', 'keyRate', 'foreignRate', 'currentAccount', 'foreignAssetPurchases', 'bondIssueB', 'bondPurchasesPF', 'bondPurchasesHO'],
+      inputs: ['nominalGDP', 'keyRate', 'foreignRate', 'currentAccount', 'reserveIncomeKept', 'foreignAssetPurchases', 'bondIssueB', 'bondPurchasesPF', 'bondPurchasesHO'],
       params: ['bW0', 'psiB', 'lamBW', 'i0', 'piT', 'iF0', 'depW', 'bondW', 'wDepositFloorShare', 'liquiditySpeed'],
       stocks: [
         ['govBonds', 'W'],
@@ -516,7 +535,7 @@ export const external: ModuleDef = {
       target: 'kronaBorrowingW',
       category: 'BEHAVIOUR',
       label: 'Non-residents’ króna borrowing',
-      inputs: ['nominalGDP', 'foreignAssetPurchases', 'currentAccount', 'bondPurchasesW'],
+      inputs: ['nominalGDP', 'foreignAssetPurchases', 'currentAccount', 'reserveIncomeKept', 'bondPurchasesW'],
       params: ['depW', 'bondW', 'wDepositFloorShare', 'liquiditySpeed'],
       stocks: [
         ['deposits', 'W'],
@@ -704,7 +723,7 @@ export const external: ModuleDef = {
       step: 1,
       description: 'A one-off shift in what investors think the króna is worth. Negative means a weaker króna.',
       definition:
-        'One-off shift in the króna’s target value by this percentage (−10: a target 10% weaker), fired once. The króna falls by most of it within a quarter (−10: about 8% by month 3). Then the rate gap and non-residents’ holdings pull it back, so about half the fall is gone after a year (about 4% weaker at month 12) and most of it after two. The shift in the target itself fades at about 10% of its size a year. Prices, rates and trade respond.',
+        'One-off shift in the króna’s target value by this percentage (−10: a target 10% weaker), fired once. The króna falls by most of it within a quarter (−10: about 9% by month 3). At first the current account worsens: imports are invoiced in foreign currency, so the import bill in krónur rises at once, while volumes take months to respond (a J-curve). Then portfolio balance pulls the króna back. Pension funds sell some of their foreign assets, now worth more in krónur, to get back to their target share (about 1.5–2% of GDP a year at first), and once trade has turned, the surplus the weaker króna brings drains krónur too. With fewer krónur to hold, non-residents accept a stronger króna. On Automatic the central bank also raises the key rate, and the wider rate gap adds to the pull; on Manual the key rate does not move. About a fifth of the fall is gone after a year (−10: about 7.5% weaker at month 12 on Automatic, 8.5% on Manual) and half after two years on Automatic, three on Manual. The shift in the target itself fades at only about 10% of its size a year, so the króna recovers well before it has faded. No one here owes foreign currency (pension funds and the central bank hold foreign assets), so a weaker króna raises residents’ net worth; the squeeze comes from dearer imports cutting real wages and from CPI indexation of mortgages and government debt. Before 2008, firms’ and households’ foreign-currency loans made a fall in the króna far more damaging (Krugman 1999; Céspedes, Chang and Velasco 2004). Prices, rates and trade respond.',
       concepts: ['floating-exchange-rate', 'exchange-rate-pass-through'],
       fire: (s, size) => s.setLagged('sentimentShock', s.get('sentimentShock') - Math.log(1 + size / 100)),
     },
@@ -722,7 +741,7 @@ export const external: ModuleDef = {
       binds: { param: 'foreignRateShift', mode: 'add', scale: 0.01 },
       description: 'Interest rates abroad; a higher rate pulls carry money and pension savings out of krónur, so the króna weakens.',
       definition:
-        'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. The rate gap with abroad narrows, so carry traders sell króna bonds and pension funds raise their foreign target by 1 point of assets per point: the króna weakens for the first three years (about 0.9% on average over the first two per point on Automatic). It also raises the yield on the central bank’s reserves and on the funds’ foreign bonds (not their shares), and so the profit the central bank hands to the government. That extra income, spent at home, strengthens the króna slowly: after about three and a half years it is stronger than at the start, and the drift does not level off. Per point held, the króna is about 2–2.5% stronger after ten years and 5–6% after twenty on Automatic (3–3.5% and 9–11.5% on Manual), and the price level about 3% lower after twenty years (6–6.5% on Manual), with inflation still below baseline. This is a known gap (decision 0002 §6): the model has no steady state with a lasting surplus of foreign income. Setting it back to 0 ends it.',
+        'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. The rate gap with abroad narrows, so carry traders sell króna bonds and pension funds raise their foreign target by 1 point of assets per point: the króna weakens for about the first ten years (about 1.2% on average over the first two per point on Automatic). It also raises the yield on the central bank’s reserves, which it keeps in the reserves in foreign currency, and on the funds’ foreign bonds (not their shares), which is paid home in krónur. Spent at home, that income slowly strengthens the króna: per point held on Automatic the króna is back near its start after about ten years and about 0.6% stronger after twenty, with prices about 0.3% higher (on Manual about 3.5% stronger and prices about 2% lower after twenty, and more than proportionally so for large rises). That drift is a known gap (decision 0002 §6): the model has no foreign-currency debt that pays the foreign rate, so Iceland’s income from abroad rises by about 0.3% of GDP a year per point, where its roughly matched foreign-currency assets and debts would make it much less. Setting it back to 0 ends it.',
       concepts: ['carry-trade'],
     },
     {
@@ -739,7 +758,7 @@ export const external: ModuleDef = {
       binds: { param: 'worldPriceShift', mode: 'add', scale: 0.01 },
       description: 'Foreign-currency prices of imports and of fish and aluminium.',
       definition:
-        'Level shift in world prices in foreign currency, in percent, applied at once and persistent while set. Fish and aluminium revenue in krónur jumps at once and import prices in krónur follow within a year or two. What buyers pay for imported goods rises by less, since part of it is the Icelandic cost of getting the goods to them: +10 raises consumer prices about 2% within a year and 2.8% within two on Automatic. The króna strengthens only slowly, over several years, as purchasing-power parity absorbs the new world prices, which takes back part of the rise in krónur. Setting it back to 0 ends it.',
+        'Level shift in world prices in foreign currency, in percent, applied at once and persistent while set. Fish and aluminium revenue in krónur jumps at once, and so does the import bill, about three times as large, since imports are invoiced in foreign currency: at first Iceland pays more abroad than it earns and the current account worsens. Importers pass the dearer imports on to prices at home within a year or two. What buyers pay for imported goods rises by less, since part of it is the Icelandic cost of getting the goods to them: +10 raises consumer prices about 2% within a year and 2.7% within two on Automatic. The króna is a little stronger after a year, as the key rate rises and purchasing-power parity slowly absorbs the new world prices, which takes back part of the rise in krónur over several years. Setting it back to 0 ends it.',
       concepts: ['exchange-rate-pass-through'],
     },
     {

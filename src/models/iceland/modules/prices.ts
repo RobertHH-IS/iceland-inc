@@ -2,11 +2,12 @@
  * Iceland Inc.: prices and expectations (v1 equations E9, E10, E12 and E47).
  *
  * Firms price at a markup on a smoothed unit cost, made of labour and imported inputs, and
- * capacity pressure pushes prices a little above it. Import prices in krónur follow world prices
- * × the exchange rate with a lag, and imports are paid for at them. Buyers in Iceland pay more: the
- * domestic cost of getting the goods to them (unloading, wholesale, transport and retail) is part
- * of what shops and firms pay, so only part of a weaker króna reaches the CPI and unit cost
- * (review E6). The CPI weights domestic goods, imported goods and housing as in the
+ * capacity pressure pushes prices a little above it. Imports are invoiced in foreign currency, so
+ * what Iceland pays abroad (border import prices) moves with world prices × the exchange rate at
+ * once; importers pass it on to the prices they charge in Iceland (wholesale import prices) with a
+ * lag, and their margins take the difference meanwhile. Buyers in Iceland pay more: the domestic
+ * cost of getting the goods to them (unloading, wholesale, transport and retail) is part of what
+ * shops and firms pay, so only part of a weaker króna reaches the CPI and unit cost (review E6). The CPI weights domestic goods, imported goods and housing as in the
  * Statistics Iceland basket; VAT scales the first two. Household spending is turned into a volume
  * with a consumption deflator that leaves out the housing part, which here follows house prices
  * and is mostly owner-occupiers' imputed rent, never paid in cash (audit H4). Expected inflation
@@ -28,13 +29,22 @@ export const prices: ModuleDef = {
   params: pickParams(ALL_PARAMS, ['aLab', 'eta', 'lamUC', 'lamP', 'lamPm', 'distM', 'omD', 'omM', 'omH', 'chi', 'lamPia', 'lamVat']),
   vars: [
     {
-      id: 'importPrice',
-      label: 'Import prices',
+      id: 'borderImportPrice',
+      label: 'Border import prices',
       unit: 'index',
       kind: 'price',
       scale: 'nominal',
       initial: 1,
-      description: 'What imported goods and inputs cost in krónur as they arrive: world prices × the exchange rate, followed with a lag (1 at baseline). Imports are paid for at these prices.',
+      description: 'What Iceland pays abroad for its imports, in krónur: world prices × the exchange rate (1 at baseline). Imports are invoiced in foreign currency, so it moves with the króna at once. Imports are paid for at these prices.',
+    },
+    {
+      id: 'importPrice',
+      label: 'Wholesale import prices',
+      unit: 'index',
+      kind: 'price',
+      scale: 'nominal',
+      initial: 1,
+      description: 'What importers charge in Iceland for imported goods and inputs as they arrive (1 at baseline): border import prices, passed on with a lag.',
     },
     {
       id: 'deliveredImportPrice',
@@ -49,6 +59,7 @@ export const prices: ModuleDef = {
     { id: 'domesticPrice', label: 'Domestic prices', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Prices of goods and services made in Iceland, before VAT (1 at baseline).' },
     { id: 'vatInPrices', label: 'VAT built into shop prices', unit: 'fraction', kind: 'rate', scale: 'none', initial: base('vatRate'), description: 'The VAT rate shops have so far passed into their prices: it follows the statutory rate within a few months.' },
     { id: 'cpi', label: 'Consumer price index', unit: 'index', kind: 'price', scale: 'nominal', initial: 1 },
+    { id: 'cpiExTax', label: 'Consumer prices at constant VAT', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'The CPI with VAT held at its baseline rate (1 at baseline), like Statistics Iceland’s index at constant tax rates.' },
     {
       id: 'consumptionDeflator',
       label: 'Prices of what households pay for',
@@ -60,22 +71,36 @@ export const prices: ModuleDef = {
     },
     { id: 'inflation', label: 'Inflation (this month, annualised)', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: 0 },
     { id: 'inflation12', label: 'Inflation (12 months)', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0 },
+    { id: 'inflation12ExTax', label: 'Inflation at constant VAT (12 months)', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'How much consumer prices at constant VAT rose over the past 12 months.' },
     { id: 'adaptiveInflation', label: 'Remembered inflation', unit: 'fraction/yr', kind: 'expectation', scale: 'none', initial: 0, description: 'A slowly updated average of recent inflation.' },
     { id: 'expectedInflation', label: 'Expected inflation', unit: 'fraction/yr', kind: 'expectation', scale: 'none', initial: 0 },
   ],
   rules: [
     {
+      id: 'borderImportPrice',
+      target: 'borderImportPrice',
+      category: 'IDENTITY',
+      label: 'Imports invoiced in foreign currency',
+      inputs: ['exchangeRate', 'worldPrice'],
+      compute: (c) => c.v('exchangeRate') * c.v('worldPrice'),
+      concepts: ['exchange-rate-pass-through'],
+      explain: {
+        what: 'What Iceland pays abroad for its imports, in krónur. Imports are paid for at these prices.',
+        rule: 'Border import prices = world prices × the exchange rate (krónur per unit of foreign currency). Almost all of Iceland’s imports are invoiced in foreign currency, mostly euros and dollars, so a weaker króna makes the import bill dearer in krónur at once.',
+      },
+    },
+    {
       id: 'importPrice',
       target: 'importPrice',
       category: 'BEHAVIOUR',
       label: 'Import-price pass-through',
-      inputs: ['exchangeRate', 'worldPrice'],
+      inputs: ['borderImportPrice'],
       adjust: { speed: 'lamPm', form: 'exponential' },
-      terms: terms(['worldPriceInKronur', 'World prices in krónur', 'exchange-rate-pass-through', (c) => c.v('exchangeRate') * c.v('worldPrice')]),
+      terms: terms(['border', 'What importers pay abroad (border import prices)', 'exchange-rate-pass-through', (c) => c.v('borderImportPrice')]),
       concepts: ['exchange-rate-pass-through'],
       explain: {
-        what: 'What imported goods and inputs cost in krónur as they arrive in Iceland. Imports are paid for at these prices.',
-        rule: 'Moves toward world prices × the exchange rate (krónur per unit of foreign currency) at speed {lamPm} a year: a weaker króna makes imports dearer, but importers pass it on gradually.',
+        what: 'What importers charge in Iceland for imported goods and inputs as they arrive: the wholesale price, before the domestic distribution margin.',
+        rule: 'Moves toward border import prices (world prices × the exchange rate) at speed {lamPm} a year: importers pay the new price abroad at once, but reprice their stocks and contracts at home gradually, and their margins take the difference meanwhile.',
       },
     },
     {
@@ -164,6 +189,22 @@ export const prices: ModuleDef = {
       },
     },
     {
+      id: 'cpiExTax',
+      target: 'cpiExTax',
+      category: 'IDENTITY',
+      inputs: ['domesticPrice', 'deliveredImportPrice', 'housingCost'],
+      params: ['omD', 'omM', 'omH'],
+      terms: terms(
+        ['domestic', 'Domestic goods and services', 'markup-pricing', (c) => c.p('omD') * c.v('domesticPrice')],
+        ['imported', 'Imported goods', 'exchange-rate-pass-through', (c) => c.p('omM') * c.v('deliveredImportPrice')],
+        ['housing', 'Housing', 'credit-and-house-prices', (c) => c.p('omH') * c.v('housingCost')],
+      ),
+      explain: {
+        what: 'Consumer prices with VAT held at its baseline rate (1 at baseline): the CPI without the direct effect of a change in VAT.',
+        rule: 'CPI at constant VAT = {omD%} × domestic prices + {omM%} × imported goods as delivered + {omH%} × housing costs: the CPI with its VAT factor left at 1. A VAT change still reaches it later if it pushes up wages and domestic prices.',
+      },
+    },
+    {
       id: 'consumptionDeflator',
       target: 'consumptionDeflator',
       category: 'IDENTITY',
@@ -196,6 +237,18 @@ export const prices: ModuleDef = {
       lagInputs: ['cpi'],
       compute: (c) => c.v('cpi') / c.lag('cpi', stepsIn(c, 1)) - 1,
       explain: { what: 'How much consumer prices rose over the past 12 months.', rule: 'Inflation (12 months) = CPI ÷ CPI a year ago − 1.' },
+    },
+    {
+      id: 'inflation12ExTax',
+      target: 'inflation12ExTax',
+      category: 'IDENTITY',
+      inputs: ['cpiExTax'],
+      lagInputs: ['cpiExTax'],
+      compute: (c) => c.v('cpiExTax') / c.lag('cpiExTax', stepsIn(c, 1)) - 1,
+      explain: {
+        what: 'How much consumer prices at constant VAT rose over the past 12 months. The central bank’s rule reacts to it, so it looks through the one-off jump in prices when VAT changes.',
+        rule: 'Inflation at constant VAT (12 months) = CPI at constant VAT ÷ the same a year ago − 1.',
+      },
     },
     {
       id: 'adaptiveInflation',

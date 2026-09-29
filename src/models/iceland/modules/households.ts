@@ -97,7 +97,7 @@ function consumptionRule(g: Age): RuleDef {
     terms: terms(
       ['labourIncome', 'Spending out of income after tax and mortgage interest', 'consumption-function', labour],
       ['propertyIncome', 'Spending out of real interest and dividends', 'interest-distribution', property],
-      ['realRate', 'Reward for saving (real key rate above neutral)', 'paradox-of-thrift', (c) => -c.p('betaC') * realGap(c) * (labour(c) + property(c))],
+      ['realRate', 'Reward for saving (real key rate above neutral)', 'interest-rate-channel', (c) => -c.p('betaC') * realGap(c) * (labour(c) + property(c))],
       ['autonomous', 'Spending not tied to this month’s income', undefined, (c) => c.p(c0) * c.v('consumptionDeflator')],
       ['wealth', 'Savings above normal', 'stock-flow-consistency', (c) => c.p(aW) * (liquid(c, g) - c.v('consumptionDeflator') * c.p(lw0))],
       ...(g !== 'O' ? ([['borrowing', 'New mortgage borrowing', 'credit-impulse', (c: Ctx) => c.p('aNL') * c.v(nml)]] as [string, string, string, (c: Ctx) => number][]) : []),
