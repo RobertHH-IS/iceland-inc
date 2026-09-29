@@ -3,13 +3,14 @@
  * on and off from one month to the next: pension funds bought foreign assets with most of their
  * deposits, fell below their cash buffer, sold the next month and bought again, and non-residents
  * did the same with government bonds. Several levers inside their ranges gave sawtooth paths:
- * foreign allocation +20 on Automatic reversed pension funds' foreign purchases 97 times in ten
+ * foreign allocation +20 with the policy rules acting reversed pension funds' foreign purchases 97 times in ten
  * years, a króna shock of −25% reversed non-residents' bond trades 96 times. One smooth limit for
  * buying and selling (cash above the buffer, negative below it) replaced the switch; this test
- * keeps it that way for every lever alone at its min and at its max, in each mode where it acts.
+ * keeps it that way for every lever alone at its min and at its max, locked and unlocked where it acts.
  */
 import { describe, expect, test } from 'bun:test';
 import { compile } from '../../src/core/compile.ts';
+import { lockAll } from '../../src/core/scenario.ts';
 import { createEngine } from '../../src/core/engine.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 import { withConcepts } from '../../src/models/index.ts';
@@ -54,14 +55,13 @@ describe('Iceland model: the liquidity floors respond smoothly', () => {
   });
 
   for (const l of model.levers) {
-    if (l.id === 'stabilisers' || l.kind === 'choice') continue;
+    if (l.kind === 'lock' || l.kind === 'choice') continue;
     for (const automatic of [false, true]) {
-      if (l.showWhen && ![l.showWhen.equals].flat().includes(automatic ? 1 : 0)) continue;
-      test(`${l.id} at ${l.min} and ${l.max} (${automatic ? 'Automatic' : 'Manual'}): no path reverses more than ${MAX_REVERSALS} times in 20 years`, () => {
+      test(`${l.id} at ${l.min} and ${l.max} (${automatic ? 'unlocked' : 'locked'}): no path reverses more than ${MAX_REVERSALS} times in 20 years`, () => {
         const bad: string[] = [];
         for (const v of [l.min!, l.max!]) {
           const e = createEngine(model, { baseline: base.baselineData, dev: false });
-          e.setLever('stabilisers', automatic ? 1 : 0);
+          lockAll(e, !automatic);
           if (l.kind === 'oneoff') e.fire(l.id, v);
           else e.setLever(l.id, v);
           e.step(MONTHS);

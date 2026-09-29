@@ -1,7 +1,8 @@
 /**
  * Iceland Inc.: the 20 calibration checks of engine v1 (legacy/v1-engine/tools/calibration_checks.js),
  * three checks on the firm sectors (decision 0003), two on the world-prices lever (audit H5, review
- * E6), one on the foreign-rate lever (review E3) and five on the stabiliser setting (decision 0004).
+ * E6), one on the foreign-rate lever (review E3) and five on the stabilisers' padlocks (decisions
+ * 0004 and 0010).
  * After the audit of 29 September 2026 (docs/audit/2026-09-29-audit.md: M12/M20, M13, M14/M21, L26)
  * each check's scenario is the experiment its source describes, and its range is the source's where
  * the source gives one. Where the model lies outside a cited estimate, or inside its band only
@@ -10,9 +11,9 @@
  *
  * Every published response these checks compare with comes from an economy whose policy reacts:
  * the central bank follows its rule and the debt rule leans on income tax. So each of these 26
- * scenarios sets stabilisers to Automatic (AUTO), at month 0, or at month 12 in the rate
- * experiment, which first holds the key rate as its source does. The Manual checks run with the
- * default setting.
+ * scenarios runs with both policy levers unlocked, the default, or unlocks them at month 12 in the
+ * rate experiment, which first holds the key rate as its source does. The locked checks close both
+ * padlocks at month 0 (the old Manual setting).
  * They are CHECKS on whole-model responses, never equations. Each range's source is in `source`
  * (v1 SPEC §7.3, the research report docs/research/icelandic-economy-flow-simulation.md, and
  * data/iceland/calibration.json for the sector checks).
@@ -35,59 +36,61 @@ const argmin = (a: number[], from: number, to: number) => argBest(a, (x, y) => x
 const argmax = (a: number[], from: number, to: number) => argBest(a, (x, y) => x > y, from, to);
 
 /* ----------------------------------------------------------------- scenarios */
-/** The key-rate stabiliser, its threshold and the key-rate lever's default (Manual level). */
+/** The key-rate stabiliser, its threshold and the key-rate lever's default (the level it holds locked). */
 const RATE_RULE = centralBank.stabilisers!.find((s) => s.id === 'keyRateRule')!;
 const HELD_RATE = centralBank.levers!.find((l) => l.id === RATE_RULE.lever)!.default;
 
-/** Policy reacts: the central bank's rule and the debt rule act (stabilisers on Automatic). */
-const AUTO: ScenarioEvent = { t: 0, lever: 'stabilisers', value: 1 };
+/** Both policy levers locked (the old Manual setting): nothing moves them unless the user does. */
+const LOCKED: ScenarioEvent[] = [
+  { t: 0, lever: 'keyRateLock', value: 1 },
+  { t: 0, lever: 'incomeTaxLock', value: 1 },
+];
 /**
  * CBI QMM's experiment: the key rate is held 1 pp above baseline for four quarters, then the rule
- * takes over. The hold is a Manual key rate of baseline + 1 pp (relative to the lever's default, so
- * it stays a rise if the start rate changes), which also keeps the slow debt rule off for that year.
+ * takes over. The hold locks the key rate at baseline + 1 pp (relative to the lever's default, so it
+ * stays a rise if the start rate changes), and income tax is locked too, which keeps the slow debt
+ * rule off for that year; both are unlocked at month 12.
  */
 const RATE: ScenarioEvent[] = [
-  { t: 0, lever: 'keyRateFixed', value: HELD_RATE + 1 },
-  { t: 12, lever: 'stabilisers', value: 1 },
+  { t: 0, lever: 'incomeTaxLock', value: 1 },
+  { t: 0, lever: 'keyRate', value: HELD_RATE + 1 },
+  { t: 12, lever: 'keyRateLock', value: 0 },
+  { t: 12, lever: 'incomeTaxLock', value: 0 },
 ];
-const WAGE: ScenarioEvent[] = [AUTO, { t: 0, lever: 'wageSettlement', value: 10, fire: true }];
+const WAGE: ScenarioEvent[] = [{ t: 0, lever: 'wageSettlement', value: 10, fire: true }];
 const G_BANKS: ScenarioEvent[] = [
-  AUTO,
   { t: 0, lever: 'bondBuyers', value: 1 },
   { t: 0, lever: 'otherServices', value: 1 },
 ];
 /** The research report's fiscal experiment: the government buys 1% of GDP more from firms, bank-financed. */
 const G_PURCHASES: ScenarioEvent[] = [
-  AUTO,
   { t: 0, lever: 'bondBuyers', value: 1 },
   { t: 0, lever: 'publicInvestment', value: 1 },
 ];
 const G_FUNDS: ScenarioEvent[] = [
-  AUTO,
   { t: 0, lever: 'bondBuyers', value: 3 },
   { t: 0, lever: 'otherServices', value: 1 },
 ];
-const KRONA: ScenarioEvent[] = [AUTO, { t: 0, lever: 'kronaShock', value: -10, fire: true }];
+const KRONA: ScenarioEvent[] = [{ t: 0, lever: 'kronaShock', value: -10, fire: true }];
 const LEND_12: ScenarioEvent[] = [
-  AUTO,
   { t: 0, lever: 'lendingAppetite', value: 1 },
   { t: 12, lever: 'lendingAppetite', value: 0 },
 ];
-const LEND_HELD: ScenarioEvent[] = [AUTO, { t: 0, lever: 'lendingAppetite', value: 1 }];
-const TOURISM: ScenarioEvent[] = [AUTO, { t: 0, lever: 'tourism', value: -30 }];
-const ALUMINIUM: ScenarioEvent[] = [AUTO, { t: 0, lever: 'aluminiumPrice', value: 20 }];
-const WORLD: ScenarioEvent[] = [AUTO, { t: 0, lever: 'importPrices', value: 10 }];
-const FOREIGN_RATE: ScenarioEvent[] = [AUTO, { t: 0, lever: 'foreignRate', value: 1 }];
-/** Stabilisers on Manual (the default): policy levers stay where they are set. */
-const M_TAX: ScenarioEvent[] = [{ t: 0, lever: 'incomeTax', value: 1 }];
-const M_WAGE: ScenarioEvent[] = [{ t: 0, lever: 'wageSettlement', value: 10, fire: true }];
+const LEND_HELD: ScenarioEvent[] = [{ t: 0, lever: 'lendingAppetite', value: 1 }];
+const TOURISM: ScenarioEvent[] = [{ t: 0, lever: 'tourism', value: -30 }];
+const ALUMINIUM: ScenarioEvent[] = [{ t: 0, lever: 'aluminiumPrice', value: 20 }];
+const WORLD: ScenarioEvent[] = [{ t: 0, lever: 'importPrices', value: 10 }];
+const FOREIGN_RATE: ScenarioEvent[] = [{ t: 0, lever: 'foreignRate', value: 1 }];
+/** Both policy levers locked: they stay where they are set. */
+const L_TAX: ScenarioEvent[] = [...LOCKED, { t: 0, lever: 'incomeTax', value: 1 }];
+const L_WAGE: ScenarioEvent[] = [...LOCKED, { t: 0, lever: 'wageSettlement', value: 10, fire: true }];
 const FIRMS = ['FC', 'FR', 'XF', 'XA', 'XT', 'XO'] as const;
 
 /* ------------------------------------------------------------------ sources */
 const QMM_URL = 'https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf';
 /** The experiment all five rate checks run, and what happens when the rule takes over. */
 const QMM_RATE =
-  'CBI QMM v2.1 (Monetary Bulletin): the key rate raised 1 pp for four quarters, after which the rule takes over, lowers output about 0.41% and inflation about 0.24 pp at a trough in quarter 5 (research report, "Policy rate +1 pp"). The scenario is that experiment: the key rate is held 1 pp above baseline on Manual for 12 months, which also keeps the slow debt rule off, and the Automatic rule then takes over. The rule eases from the rate held, about a tenth of the gap to where it is heading each month (central-bank.ts, ruleRate: interest-rate smoothing from the rate in force), so the key rate comes down gradually: about 0.2 pp in month 13 and back near baseline by month 19. (v1 instead added a 1 pp offset to the Automatic rule for 8 quarters, a key rate only about 0.7 pp higher on average; until the review of 29 September 2026 the rule eased from its own shadow path and the key rate dropped about 1.5 pp in month 13.)';
+  'CBI QMM v2.1 (Monetary Bulletin): the key rate raised 1 pp for four quarters, after which the rule takes over, lowers output about 0.41% and inflation about 0.24 pp at a trough in quarter 5 (research report, "Policy rate +1 pp"). The scenario is that experiment: the key rate is locked 1 pp above baseline for 12 months, with income tax locked too, which keeps the slow debt rule off, and both are then unlocked, so the rule takes over. The rule eases from the rate held, about a tenth of the gap to where it is heading each month (central-bank.ts, ruleRate: interest-rate smoothing from the rate in force), so the key rate comes down gradually: about 0.2 pp in month 13 and back near baseline by month 19. (v1 instead added a 1 pp offset to the rule for 8 quarters, a key rate only about 0.7 pp higher on average; until the review of 29 September 2026 the rule eased from its own shadow path and the key rate dropped about 1.5 pp in month 13.)';
 const SRC = {
   rate: `${QMM_RATE} The ranges are v1’s bands around the QMM figures (v1 SPEC §7.3). ${QMM_URL}`,
   rateTiming: `${QMM_RATE} The range is v1’s band around QMM’s quarter 5 (v1 SPEC §7.3). The model’s output trough is month 13 or 14, the first months after the hold, in quarter 5 as QMM’s: the rule takes over from the rate held, so the tight policy fades over several months rather than ending at once. ${QMM_URL}`,
@@ -96,7 +99,7 @@ const SRC = {
   rateKrona: `CBI QMM v2.1 (Monetary Bulletin): the króna rises 0.67% on impact per 1 pp of interest-rate differential, with its real peak in quarter 4 (research report, "Policy rate +1 pp" and the dial table; the "+0.7–1%" once quoted here belongs to the wage experiment). QMM is quarterly, so its impact is the first quarter; the check measures the model’s first-quarter average. The range is v1’s band of 0.3–1.5 (v1 SPEC §7.3), which no source gives. The model’s first-quarter rise is about 0.69%, about 0.53% in month 1 and 0.80% by month 3, as QMM’s. It comes from the carry term (betaI) and from the carry trade wanting to hold more krónur when Icelandic rates are high (the portfolio term, psiB). Until the review of 29 September 2026 it was 0.41%, then 0.56% (a known gap); raising betaI to close it deepened the output trough below its band until the consumption habit was slowed (lamC, lever review MON-5). ${QMM_URL}`,
   wage: 'Research report, "Wages +10%": CPI about +2% in year 1 rising toward about +4% as pass-through completes (CBI MB 2026/2 Box 2); the ranges are v1’s bands around those figures (v1 SPEC §7.3). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageLevel:
-    'Research report, "Wages +10%": the CPI ends about 4% higher once pass-through is complete, a 6% rise in domestic prices on the two-thirds of the basket that is not imported (import share: CBI MB 2026/2 Box 2). The range is 25% either side of that 4%: v1’s lower bound of 3, and an upper bound of 5 in place of v1’s 8, which no source gives (v1 SPEC §7.3). Wages give back most of a settlement even in CBI’s experiment: with labour 55% of unit cost (aLab) domestic prices rise only about 0.65 of wages at a given exchange rate, so the long-run nominal level is set by the króna. In the model the real-wage gain now erodes mainly through prices in the first year (CPI about +2.8% on Manual while wages give back about 1.9 points of the 10; before 29 September 2026, 2.2 and 2.7), because firms price in a pay rise faster than dearer imports (lamUCw) and bargainers see the wage gap with a lag (lamWG, labour-LAB-2). On a baseline with zero inflation, wages below their +10% level mean slower growth than trend, here small nominal cuts. KNOWN GAP: the model’s price level is about 3.5% higher after six years, below CBI’s about 4, because nominal wages give back about 2 points of the settlement within a year through the error correction (+8.0% at month 12 on Manual, +3.5% after twenty years; KNOWN_GAPS, lever review labour-LAB-2). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
+    'Research report, "Wages +10%": the CPI ends about 4% higher once pass-through is complete, a 6% rise in domestic prices on the two-thirds of the basket that is not imported (import share: CBI MB 2026/2 Box 2). The range is 25% either side of that 4%: v1’s lower bound of 3, and an upper bound of 5 in place of v1’s 8, which no source gives (v1 SPEC §7.3). Wages give back most of a settlement even in CBI’s experiment: with labour 55% of unit cost (aLab) domestic prices rise only about 0.65 of wages at a given exchange rate, so the long-run nominal level is set by the króna. In the model the real-wage gain now erodes mainly through prices in the first year (CPI about +2.8% with both policy levers locked while wages give back about 1.9 points of the 10; before 29 September 2026, 2.2 and 2.7), because firms price in a pay rise faster than dearer imports (lamUCw) and bargainers see the wage gap with a lag (lamWG, labour-LAB-2). On a baseline with zero inflation, wages below their +10% level mean slower growth than trend, here small nominal cuts. KNOWN GAP: the model’s price level is about 3.5% higher after six years, below CBI’s about 4, because nominal wages give back about 2 points of the settlement within a year through the error correction (+8.0% at month 12 with both policy levers locked, +3.5% after twenty years; KNOWN_GAPS, lever review labour-LAB-2). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageRate: 'Research report, "Wages +10%": policy rate +1 to +1.5 pp at the peak, in quarters 2–4 (CBI DYNIMO, +0.3 pp per 1 pp of wages above baseline for two years, scaled; CBI MB 2026/2). v1’s band was 0.8–2 (v1 SPEC §7.3); the range is now the cited one. https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageJobs:
     'Research report, "Wages +10%": unemployment +0.5–1 pp at the peak (CBI DYNIMO: −0.7 pp of hours per +1 pp of wages, CBI MB 2026/2; the size of the cap on a 10% shock is the report’s assumption). The range is the cited one. The model’s peak is about 0.93. It was about 0.47, below the range, and judged against v1’s band of 0.3–1.2 (v1 SPEC §7.3) as a known gap, until imported goods carried a domestic distribution margin (distM, review E6), and about 0.51 until firms measured wages against the value-added price and wage bargainers saw the wage gap with a lag of about a year (lamWG): the real-wage gain of a settlement now lasts longer, so firms economise on staff more (trade-nominal-drift and labour-LAB-2, 29 September 2026). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
@@ -117,13 +120,13 @@ const SRC = {
   worldCpi:
     'CBI WP85: exchange-rate pass-through to the CPI of 0.15 within the quarter and 0.23 in the long run per 1% of sustained depreciation. A lasting 10% rise in world prices raises import prices in krónur as a 10% depreciation would (and, as it does, lifts fish and aluminium revenue), so after a year the CPI should be about 1.5–2.3% higher; the range is that one. The króna strengthens a little meanwhile (world-prices-krona-year1), which the check does not net out. After two years the CPI is about 2.4% higher, a little above WP85’s long-run 2.3% and below 3%, the upper edge of v1’s 8-quarter band for the same size of shock (tests/models, iceland-credit-and-checks). What buyers in Iceland pay for imported goods and inputs includes a domestic distribution margin (distM); before it was added they paid world prices in krónur one for one, and the CPI rose 2.7% in a year and 3.7% in two (review E6, 29 September 2026). https://ideas.repec.org/p/ice/wpaper/wp85.html',
   foreignRate:
-    'Uncovered interest parity: a higher foreign rate narrows the rate gap with abroad, so carry traders and domestic savers move money out of krónur and the króna weakens (CBI QMM v2.1: the króna moves 0.67% on impact per 1 pp of interest-rate differential). The range mirrors the rate-krona band (0.3–1.5% per point, v1 SPEC §7.3), sign reversed, for the average over the first two years. Later the higher income from abroad strengthens it: the central bank sells the part of its reserves above target back into krónur, and the pension funds’ higher foreign income is paid home in krónur. Per point held on Automatic the króna is weaker for about five and a half years and about 2% stronger after twenty, still drifting slowly (a known gap: the model has no foreign-currency debt that pays the foreign rate, so Iceland’s income from abroad rises too much; decision 0007 and decision 0002 §6), so the check covers only quarters 1–8 (review E3; lever review FX-1, 29 September 2026). https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf',
-  manualHeld: 'Design of the stabiliser setting (decision 0004): on Manual no policy lever moves unless the user moves it, so the key rate is the level of its lever, exactly, whatever else happens.',
-  manualTax:
+    'Uncovered interest parity: a higher foreign rate narrows the rate gap with abroad, so carry traders and domestic savers move money out of krónur and the króna weakens (CBI QMM v2.1: the króna moves 0.67% on impact per 1 pp of interest-rate differential). The range mirrors the rate-krona band (0.3–1.5% per point, v1 SPEC §7.3), sign reversed, for the average over the first two years. Later the higher income from abroad strengthens it: the central bank sells the part of its reserves above target back into krónur, and the pension funds’ higher foreign income is paid home in krónur. Per point held, with both policy rules acting, the króna is weaker for about five and a half years and about 2% stronger after twenty, still drifting slowly (a known gap: the model has no foreign-currency debt that pays the foreign rate, so Iceland’s income from abroad rises too much; decision 0007 and decision 0002 §6), so the check covers only quarters 1–8 (review E3; lever review FX-1, 29 September 2026). https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf',
+  lockedHeld: 'Design of the padlocks (decisions 0004 and 0010): a locked policy lever never moves unless the user moves it, so the key rate is the level of its lever, exactly, whatever else happens.',
+  lockedTax:
     'Reasoned: +1 pp on a tax base of about 65% of GDP raises revenue by about 0.65% of GDP. Tax multipliers are at or below spending multipliers (cross-country median spending multiplier about 0.7, IMF WP 2026/043, smaller in open economies), and with the key rate held there is no monetary offset: a year-2 multiplier of 0.25–1.2 gives output −0.15% to −0.8%. https://www.elibrary.imf.org/view/journals/001/2026/043/article-A001-en.xml',
-  manualWage:
-    'As the Automatic check (research report, "Wages +10%": CPI about +2% in year 1 rising toward +4% as pass-through completes, CBI MB 2026/2 Box 2), without the rate rise that damps it, so up to the 4% of full pass-through. The central bank’s rule must be calling for a higher rate at the peak: its suggestion is more than its threshold above the held key rate. Every chart must stay finite for 20 years.',
-  drift: 'Architecture §4.5: the baseline is a steady state in both stabiliser modes; with no shock nothing may move by more than the harness’s drift limit of 1e-9 over 20 years.',
+  lockedWage:
+    'As the unlocked check (research report, "Wages +10%": CPI about +2% in year 1 rising toward +4% as pass-through completes, CBI MB 2026/2 Box 2), without the rate rise that damps it, so up to the 4% of full pass-through. The central bank’s rule must be calling for a higher rate at the peak: its suggestion is more than its threshold above the held key rate. Every chart must stay finite for 20 years.',
+  drift: 'Architecture §4.5: the baseline is a steady state with the policy levers locked or unlocked; with no shock nothing may move by more than the harness’s drift limit of 1e-9 over 20 years.',
   squeeze:
     'First-round arithmetic on Hagstofa THJ08420 (2025): a 10% wage rise cuts profit by 10% × labour cost ÷ profit. Labour cost is 72% of tourism’s value added (labour ÷ profit about 3) and about 45% of retail and services’ once VAT and housing services are counted (about 0.85): a ratio near 3.5 on impact, less as prices catch up (calibration.json: firm_sectors).',
 };
@@ -436,29 +439,29 @@ export const calibration: CalibrationCheck[] = [
     range: [2, 6],
     source: SRC.squeeze,
   },
-  // Stabilisers on Manual, the default (decision 0004): policy levers stay where they are set
+  // Both policy levers locked (decisions 0004 and 0010): they stay where they are set
   {
-    id: 'manual-tax-key-rate-held',
-    label: 'Manual: income tax +1 pp held: largest change in the key rate over 20 years, pp',
-    scenario: M_TAX,
+    id: 'locked-tax-key-rate-held',
+    label: 'Locked: income tax +1 pp held: largest change in the key rate over 20 years, pp',
+    scenario: L_TAX,
     months: 240,
     measure: (run) => Math.max(...run.series('keyRate').map(Math.abs)),
     range: [0, 0],
-    source: SRC.manualHeld,
+    source: SRC.lockedHeld,
   },
   {
-    id: 'manual-tax-output',
-    label: 'Manual: income tax +1 pp held: output, year-2 average, % vs baseline',
-    scenario: M_TAX,
+    id: 'locked-tax-output',
+    label: 'Locked: income tax +1 pp held: output, year-2 average, % vs baseline',
+    scenario: L_TAX,
     months: 72,
     measure: (run) => run.series('output').slice(13, 25).reduce((s, x) => s + x, 0) / 12,
     range: [-0.8, -0.15],
-    source: SRC.manualTax,
+    source: SRC.lockedTax,
   },
   {
-    id: 'manual-wage-inflation-peak',
-    label: 'Manual: wages +10% one-off: 12-month inflation peak, pp vs baseline; the central bank’s rule must be calling for a higher key rate at the peak and every chart must stay finite for 20 years (otherwise not a number)',
-    scenario: M_WAGE,
+    id: 'locked-wage-inflation-peak',
+    label: 'Locked: wages +10% one-off: 12-month inflation peak, pp vs baseline; the central bank’s rule must be calling for a higher key rate at the peak and every chart must stay finite for 20 years (otherwise not a number)',
+    scenario: L_WAGE,
     months: 240,
     measure: (run) => {
       const a = run.series('inflation');
@@ -467,21 +470,21 @@ export const calibration: CalibrationCheck[] = [
       return calling && Number.isFinite(largestChartMove(run)) ? a[j] : NaN;
     },
     range: [1.5, 4],
-    source: SRC.manualWage,
+    source: SRC.lockedWage,
   },
   {
-    id: 'manual-no-shock-drift',
-    label: 'Manual: no shock: largest move of any chart over 20 years',
-    scenario: [],
+    id: 'locked-no-shock-drift',
+    label: 'Locked: no shock: largest move of any chart over 20 years',
+    scenario: LOCKED,
     months: 240,
     measure: largestChartMove,
     range: [0, 1e-9],
     source: SRC.drift,
   },
   {
-    id: 'automatic-no-shock-drift',
-    label: 'Automatic: no shock: largest move of any chart over 20 years',
-    scenario: [AUTO],
+    id: 'unlocked-no-shock-drift',
+    label: 'Unlocked: no shock: largest move of any chart over 20 years',
+    scenario: [],
     months: 240,
     measure: largestChartMove,
     range: [0, 1e-9],
@@ -500,7 +503,7 @@ export const calibration: CalibrationCheck[] = [
 export const KNOWN_GAPS: Record<string, { cited?: [number, number]; why: string }> = {
   'wage-price-level-6y': {
     cited: [4, 4],
-    why: 'The price level ends about 3.5% higher after six years against CBI’s about 4%. Nominal wages give back about 2 points of a 10% settlement within the first year (+8.0% at month 12 on Manual) and end +3.5% after twenty: the error correction works the gap off faster than wage contracts of a year or more would allow. A contract-length lag (wages fixed for the life of an agreement) would keep more of the settlement in the first year; it is not built (lever review labour-LAB-2).',
+    why: 'The price level ends about 3.5% higher after six years against CBI’s about 4%. Nominal wages give back about 2 points of a 10% settlement within the first year (+8.0% at month 12 with both policy levers locked) and end +3.5% after twenty: the error correction works the gap off faster than wage contracts of a year or more would allow. A contract-length lag (wages fixed for the life of an agreement) would keep more of the settlement in the first year; it is not built (lever review labour-LAB-2).',
   },
   'rate-output-trough': {
     cited: [-0.41, -0.41],

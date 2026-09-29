@@ -1,13 +1,13 @@
 /**
  * What the lever-response report (lever-report.ts) follows in each model: the headline
- * variables every run is summarised by, and the policy instruments that must hold still on
- * Manual unless the user moves their own lever.
+ * variables every run is summarised by, the policy instruments that must hold still while they
+ * are held unless the user moves their own lever, and any lock configuration a model's report adds.
  *
  * A headline is an indicator (its display transform decides the unit), or a level computed from
  * variables with a display transform of its own. `gradual` marks a variable that should adjust
  * over months, not jump (output, jobs, spending, stocks): the report flags a month-1 jump for
- * those only. `policy` marks a policy instrument, which the Manual-versus-Automatic sign test
- * leaves out because the stabilisers move it on Automatic by design.
+ * those only. `policy` marks a policy instrument, which the locked-versus-unlocked sign test
+ * leaves out because the stabilisers move it by design while it is unlocked.
  *
  * Units must say what they measure (UNIT_MEANINGS in lever-report.ts defines each one the report
  * may show): a ratio to nominal GDP is 'pp of GDP'; a nominal amount in % of baseline GDP is
@@ -30,11 +30,14 @@ export type HeadlineSpec =
       policy?: boolean;
     };
 
-/** A policy instrument (a variable in model units) and the levers that may move it on Manual. */
+/** A policy instrument (a variable in model units) and the levers that may move it while it is
+ *  held. With `lock` it is held only while that padlock is closed (its rule moves it otherwise);
+ *  without, it has no rule and is always held. */
 export interface PolicyInstrument {
   variable: Id;
   label: string;
   levers: Id[];
+  lock?: Id;
 }
 
 /** A shock a lever needs before it can act (a migration buffer needs job changes to buffer): the
@@ -52,6 +55,9 @@ export interface LeverReportSpec {
   missing?: string[];
   /** Companion shocks, by lever id. */
   companions?: Record<Id, Companion>;
+  /** Lock configurations the report runs besides 'unlocked' and 'locked': a label and the
+   *  padlocks it closes at month 0. */
+  configs?: { label: string; locks: Id[] }[];
 }
 
 const real = (nominal: Id[], price: Id) => (v: (id: Id) => number) => nominal.reduce((a, id) => a + v(id), 0) / v(price);
@@ -76,7 +82,8 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
       { id: 'bankEquity', label: 'Bank equity (to GDP)', vars: ['bankEquity', 'gdp'], level: (v) => (100 * v('bankEquity')) / v('gdp'), display: 'deviation', unit: 'pp of GDP', gradual: true },
       { id: 'realDisposableIncome', label: 'Disposable income (real)', vars: ['disposableIncome', 'price'], level: real(['disposableIncome'], 'price'), display: 'deviation-pct' },
       { id: 'realProfit', label: 'Firms’ cash profit (real)', vars: ['firmProfit', 'price'], level: real(['firmProfit'], 'price'), display: 'deviation-pct' },
-      // The rate taxes are actually charged at: the debt rule's rate plus the lever's shift, which
+      // The rate taxes are actually charged at: the debt rule's rate while unlocked, the normal rate
+      // plus the lever's shift while locked, which
       // the taxRate variable leaves out (the taxes rule adds it), so it is taxes ÷ taxed income.
       {
         id: 'taxRate',
@@ -88,8 +95,8 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
       },
     ],
     policy: [
-      { variable: 'keyRate', label: 'key rate', levers: ['keyRateFixed', 'keyRateAddon'] },
-      { variable: 'taxRate', label: 'debt rule’s income-tax rate', levers: [] },
+      { variable: 'keyRate', label: 'key rate', levers: ['keyRate'], lock: 'keyRateLock' },
+      { variable: 'taxRate', label: 'income-tax rate before your shift', levers: ['taxRate'], lock: 'taxRateLock' },
     ],
     missing: ['the króna', 'exports', 'imports', 'the current account', 'house prices (a closed economy without housing)'],
   },
@@ -126,10 +133,13 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
       { id: 'vatRate', label: 'VAT rate (effective)', vars: ['vatRate'], level: (v) => v('vatRate'), display: 'deviation-pp', policy: true },
     ],
     policy: [
-      { variable: 'keyRate', label: 'key rate', levers: ['keyRateFixed', 'keyRateAddon'] },
-      { variable: 'taxRate', label: 'income-tax rate', levers: ['incomeTax', 'incomeTaxOffset'] },
+      { variable: 'keyRate', label: 'key rate', levers: ['keyRate'], lock: 'keyRateLock' },
+      { variable: 'taxRate', label: 'income-tax rate', levers: ['incomeTax'], lock: 'incomeTaxLock' },
       { variable: 'vatRate', label: 'VAT rate', levers: ['vat'] },
     ],
+    // The key rate held and the debt rule acting: how each lever works when the central bank
+    // does not react but the budget does (decision 0010).
+    configs: [{ label: 'key rate locked', locks: ['keyRateLock'] }],
     companions: {
       migration: { lever: 'foreignDemand', value: -20, why: 'the buffer acts only on changes in jobs from the baseline, and there are none without a shock' },
       bondBuyers: { lever: 'publicInvestment', value: 2, why: 'the choice acts only on new bonds, and the baseline budget balances, so none are sold without a deficit' },

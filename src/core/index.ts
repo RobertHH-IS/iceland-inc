@@ -11,5 +11,6 @@ export { Ledger, postLeg, CASH, ACCRUAL, REVALUATION, WRITEOFF } from './ledger.
 export { settle, type Payments } from './payments.ts';
 export { influenceOf, ideasAtPlay, upstreamRules } from './influence.ts';
 export { buildHierarchy, nodeFor, type Hierarchy, type CompiledGroup } from './hierarchy.ts';
-export { makeScenario, parseScenario, stringifyScenario, runScenario, SCENARIO_FORMAT } from './scenario.ts';
+export { makeScenario, parseScenario, stringifyScenario, runScenario, lockAll, lockAllEvents, SCENARIO_FORMAT } from './scenario.ts';
+export { migrateScenario, scenarioVersion, SCENARIO_VERSION, type MigrationResult } from './migrate.ts';
 export { toDisplay, formatNumber, formatValue, fillTemplate, unitScale, describePosting } from './format.ts';

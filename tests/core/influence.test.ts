@@ -1,12 +1,14 @@
 /**
  * Influences and ideas at play (src/core/influence.ts): explain texts filled and tagged, term
- * input lists in both stabiliser modes, how terms are weighted, what counts as at play on
- * Manual and Automatic, and how a scope picks the variables and legs it starts from.
+ * input lists with the padlocks open and closed, how terms are weighted, what counts as at play
+ * with the policy levers locked and unlocked, and how a scope picks the variables and legs it
+ * starts from.
  */
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { compile, CompileError, type KModel } from '../../src/core/compile.ts';
 import { createEngine, type KernelEngine } from '../../src/core/engine.ts';
 import { templateIds } from '../../src/core/format.ts';
+import { lockAll } from '../../src/core/scenario.ts';
 import { termEffects, type InfluenceSource } from '../../src/core/influence.ts';
 import type { LeverDef, ModelDef, ModuleDef, StabiliserDef } from '../../src/core/types.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
@@ -14,8 +16,9 @@ import { referenceModel } from '../../src/models/reference/index.ts';
 import { selectionScope } from '../../src/ui/model/navigation.ts';
 import { param, rule, tinyModel, variable } from './fixtures.ts';
 
-const MANUAL = 0,
-  AUTOMATIC = 1;
+/** Both policy levers locked (the old Manual setting), or unlocked (the default). */
+const LOCKED = true,
+  UNLOCKED = false;
 let iceland: KModel, reference: KModel, iceBase: KernelEngine, refBase: KernelEngine;
 beforeAll(() => {
   iceland = compile(icelandModel);
@@ -73,17 +76,17 @@ describe('explain texts', () => {
 });
 
 describe('term input lists (compile-time dry run over lever options)', () => {
-  test('a term that reads a variable in only one stabiliser mode lists it in both', () => {
+  test('a term that reads a variable only while its padlock is open lists it either way', () => {
     const reads = (m: KModel, key: string) => m.cterms[m.termKeyIndex.get(key)!].reads;
     expect(reads(iceland, 'keyRate.rule')).toEqual(['ruleRate']);
     expect(reads(iceland, 'taxRate.debtRule')).toEqual(['taxRuleAdjustment']);
-    expect(reads(iceland, 'keyRate.set')).toEqual([]);
-    expect(reads(iceland, 'keyRate.addOn')).toEqual([]);
+    expect(reads(iceland, 'keyRate.held')).toEqual([]);
     expect(reads(iceland, 'taxRate.normal')).toEqual([]);
+    expect(reads(iceland, 'ruleAnchor.held')).toEqual(['keyRate']);
     expect(reads(reference, 'keyRate.rule')).toEqual(['ruleRate']);
-    for (const mode of [MANUAL, AUTOMATIC]) {
+    for (const locked of [LOCKED, UNLOCKED]) {
       const e = ice();
-      e.setLever('stabilisers', mode);
+      lockAll(e, locked);
       e.step(1);
       expect(e.influences('keyRate').terms.find((t) => t.id === 'rule')!.inputs).toEqual(['ruleRate']);
     }
@@ -198,9 +201,9 @@ describe('weights', () => {
   });
 
   test('reference: a tax-lever change is the multiplier, not an automatic stabiliser; the split adds up exactly (review TAX-4)', () => {
-    for (const mode of [MANUAL, AUTOMATIC]) {
+    for (const locked of [LOCKED, UNLOCKED]) {
       const e = ref();
-      e.setLever('stabilisers', mode);
+      lockAll(e, locked);
       e.setLever('taxRate', 2);
       e.step(1);
       expect(weightOf(e, 'multiplier')).toBeGreaterThan(weightOf(e, 'automatic-stabilisers'));
@@ -212,8 +215,7 @@ describe('weights', () => {
   });
 
   test('Iceland: the debt rule’s tax change is the fiscal rule in households’ income too, not your change (review TAX-4)', () => {
-    const e = ice();
-    e.setLever('stabilisers', AUTOMATIC);
+    const e = ice(); // income tax unlocked, the default: the debt rule acts
     e.setLever('otherServices', 2);
     e.step(36);
     const term = (rule: string, id: string) => e.influences(rule).terms.find((t) => t.id === id)!.change;
@@ -229,17 +231,17 @@ describe('weights', () => {
   });
 });
 
-describe('what is at play on Manual and Automatic', () => {
+describe('what is at play with the policy levers locked and unlocked', () => {
   const SHADOW = /^(ruleRate|ruleTarget|ruleAnchor|keyRateSuggestion|taxRuleAdjustment|taxRuleSuggestion)\b/;
 
-  test('Manual: the stabilisers’ shadow chains are not at play; Automatic: they are, but not their suggestions', () => {
-    for (const mode of [MANUAL, AUTOMATIC]) {
+  test('locked: the stabilisers’ shadow chains are not at play; unlocked: they are, but not their suggestions', () => {
+    for (const locked of [LOCKED, UNLOCKED]) {
       const e = ice();
-      e.setLever('stabilisers', mode);
+      lockAll(e, locked);
       e.fire('wageSettlement', 10);
       e.step(12);
       const via = e.ideasAtPlay().flatMap((x) => x.via);
-      if (mode === MANUAL) {
+      if (locked) {
         expect(e.value('keyRate')).toBe(e.baseline('keyRate'));
         expect(via.filter((v) => SHADOW.test(v))).toEqual([]);
         expect(concepts(e)).not.toContain('taylor-rule');
@@ -255,8 +257,9 @@ describe('what is at play on Manual and Automatic', () => {
     }
   });
 
-  test('Manual: an indicator whose drivers include a shadow does not walk through it', () => {
+  test('locked: an indicator whose drivers include a shadow does not walk through it', () => {
     const e = ice();
+    lockAll(e);
     e.setLever('incomeTax', 3);
     e.step(24);
     for (const [scope, concept, shadow] of [
@@ -272,17 +275,18 @@ describe('what is at play on Manual and Automatic', () => {
     expect(concepts(e, 'var:taxRuleAdjustment')).toContain('debt-feedback');
   });
 
-  test('a key rate held by hand is transmission, not the Taylor rule; the rule counts only on Automatic (lever review MON-7)', () => {
+  test('a key rate held by hand is transmission, not the Taylor rule; the rule counts only while it is unlocked (lever review MON-7)', () => {
     for (const e of [ice(), ref()]) {
-      e.setLever('stabilisers', MANUAL);
-      e.setLever('keyRateFixed', e.model.levers.find((l) => l.id === 'keyRateFixed')!.default + 2);
+      // both held, as with the old Manual setting: with income tax unlocked, Iceland's debt rule reads
+      // where the key-rate rule is heading for its escape clause, so the rule's terms would be upstream
+      lockAll(e);
+      e.setLever('keyRate', e.model.levers.find((l) => l.id === 'keyRate')!.default + 2);
       e.step(18);
       expect(concepts(e)).not.toContain('taylor-rule');
       expect(concepts(e, 'var:keyRate')).not.toContain('taylor-rule');
       expect(concepts(e)).toContain('interest-rate-channel');
       const a = e.fork();
-      a.setLever('stabilisers', AUTOMATIC);
-      a.setLever('keyRateAddon', 1);
+      a.setLever('keyRateLock', 0); // handed back to the rule, which carries on from the held rate
       a.step(18);
       expect(concepts(a)).toContain('taylor-rule');
       expect(concepts(a)).toContain('interest-rate-channel');
@@ -305,8 +309,9 @@ describe('what is at play on Manual and Automatic', () => {
     expect(concepts(e, 'var:ruleRate')).toContain('taylor-rule');
   });
 
-  test('Manual with an income-tax rise: no inert stabiliser near the top of ideas at play', () => {
+  test('locked, with an income-tax rise: no inert stabiliser near the top of ideas at play', () => {
     const e = ice();
+    lockAll(e);
     e.setLever('incomeTax', 3);
     e.step(24);
     const top = e.ideasAtPlay().slice(0, 10);
@@ -314,13 +319,15 @@ describe('what is at play on Manual and Automatic', () => {
     expect(top.flatMap((x) => x.via).filter((v) => SHADOW.test(v))).toEqual([]);
   });
 
-  test('switching to Automatic with no shock shows nothing at play, and a held term stays at its baseline', () => {
+  test('locking or unlocking with no shock shows nothing at play, and a held term stays at its baseline', () => {
     for (const e of [ice(), ref()]) {
       const b = e.baselineData;
-      const def = e.model.stabiliserMode!.manual === e.leverValue(e.model.stabiliserMode!.lever) ? 0 : 1;
-      expect([...b.byMode![def].terms]).toEqual([...b.terms]); // the default mode's baseline is the published one
-      const automatic = e.model.stabiliserMode!.automatic;
-      e.setLever(e.model.stabiliserMode!.lever, automatic);
+      expect([...b.byMask![0].terms]).toEqual([...b.terms]); // the default (all unlocked) is the published baseline
+      expect(b.byMask!.length).toBe(4); // two stabilisers: four lock configurations
+      lockAll(e);
+      e.step(3);
+      expect(e.ideasAtPlay()).toEqual([]);
+      lockAll(e, false);
       e.step(3);
       expect(e.ideasAtPlay()).toEqual([]);
       expect(e.influences('keyRate').terms.map((t) => Math.abs(t.change) < 1e-12)).toEqual(e.influences('keyRate').terms.map(() => true));
@@ -330,29 +337,30 @@ describe('what is at play on Manual and Automatic', () => {
     }
   });
 
-  // The values on show were computed under the old mode until the next step, so they are
-  // compared with that mode's baseline, not with the one the lever now points to.
+  // The values on show were computed under the old padlocks until the next step, so they are
+  // compared with that configuration's baseline, not with the one the padlocks now point to.
   const quiet = (e: KernelEngine) => {
     expect(e.ideasAtPlay()).toEqual([]);
     expect(e.influences('keyRate').terms.map((t) => Math.abs(t.change) < 1e-12)).toEqual(e.influences('keyRate').terms.map(() => true));
   };
-  test('in the month the mode switches, before the next step, nothing is at play', () => {
+  test('in the month a padlock closes, before the next step, nothing is at play', () => {
     for (const make of [ice, ref]) {
       for (const months of [0, 6]) {
         const e = make();
-        const mode = e.model.stabiliserMode!;
         e.step(months);
-        e.setLever(mode.lever, mode.automatic);
+        lockAll(e);
         quiet(e);
       }
     }
   });
-  test('seeking back to the month of the switch shows nothing at play', () => {
-    for (const make of [ice, ref]) {
+  // Iceland only: the reference economy's solved key rate is 6e-15 off its 3% neutral level, so a
+  // lock that holds exactly 3% (as the old Manual setting did, LOCK_SNAP in engine.ts) moves it by
+  // about 1e-12 in a year, at the floor of ideas at play.
+  test('seeking back to the month of the lock shows nothing at play', () => {
+    for (const make of [ice]) {
       const e = make();
-      const mode = e.model.stabiliserMode!;
       e.step(6);
-      e.setLever(mode.lever, mode.automatic);
+      lockAll(e);
       e.step(6);
       quiet(e);
       e.seek(6);
@@ -360,7 +368,7 @@ describe('what is at play on Manual and Automatic', () => {
       e.seek(12); // a snapshot month, restored without a step
       quiet(e);
       e.seek(0);
-      e.setLever(mode.lever, mode.automatic);
+      e.setLever('keyRateLock', 1);
       e.seek(12);
       quiet(e);
       e.seek(0);
@@ -388,13 +396,23 @@ describe('stabiliser shadows: declared and checked', () => {
   test('a valid shadow compiles; the Iceland and reference shadows are sound', () => {
     expect(errorsOf(withShadow(['raw']))).toEqual([]);
     expect(iceland.cstabilisers.flatMap((s) => s.shadow.map((k) => iceland.vars[k].id))).toEqual(['ruleRate', 'ruleTarget', 'ruleAnchor', 'neutralRate', 'taxRuleAdjustment', 'taxRuleTarget', 'taxRuleAnchor']);
-    expect(reference.cstabilisers.flatMap((s) => s.shadow.map((k) => reference.vars[k].id))).toEqual(['ruleRate', 'debtRuleRate']);
+    expect(reference.cstabilisers.flatMap((s) => s.shadow.map((k) => reference.vars[k].id))).toEqual(['ruleRate', 'ruleAnchor', 'ruleTarget', 'debtRuleRate', 'taxRuleAnchor', 'taxRuleTarget']);
   });
-  test('unknown ids, the suggestion itself, and a variable something reads on Manual are errors', () => {
+  test('unknown ids, the suggestion itself, and a variable something reads while its stabiliser is locked are errors', () => {
     expect(errorsOf(withShadow(['nope'])).join()).toContain("declares unknown shadow variable 'nope'");
     expect(errorsOf(withShadow(['ruleSays'])).join()).toContain('lists its suggestion');
     const echo = { vars: [variable('echo', 3)], rules: [rule({ id: 'echo', target: 'echo', inputs: ['raw'], compute: (c) => c.v('raw') })] };
-    expect(errorsOf(withShadow(['raw'], echo)).join()).toContain("declares 'raw' a shadow, but rule 'echo' reads it on Manual");
+    expect(errorsOf(withShadow(['raw'], echo)).join()).toContain("declares 'raw' a shadow, but rule 'echo' reads it while the stabiliser is locked");
+  });
+  test('a shadow an unlocked rule still reads is at play: Iceland’s key-rate target feeds the debt rule’s escape clause', () => {
+    const e = ice();
+    e.setLever('keyRate', 3); // lock the key rate only, at its default
+    e.setLever('tourism', -60); // a slump deep enough for the escape clause
+    e.step(24);
+    expect(e.influences('taxRuleTarget').regime).toMatch(/Escape clause/);
+    const via = e.ideasAtPlay('var:taxRuleTarget').flatMap((x) => x.via);
+    expect(via.some((v) => v.startsWith('ruleTarget'))).toBe(true);
+    expect(via.some((v) => v.startsWith('ruleRate'))).toBe(false); // the key rate's own step is still a shadow
   });
 });
 
@@ -451,11 +469,11 @@ describe('scopes', () => {
   });
 });
 
-/** A policy rate set by the user (Manual) or by a rule plus an offset (Automatic); the rule's
- *  raw rate is a shadow that only its suggestion reads on Manual. */
+/** A policy rate set by a rule (unlocked) or held by the user (locked); the rule's raw rate is a
+ *  shadow that only its suggestion reads while it is locked. */
 function policyModel(): ModelDef {
   const setting = (l: Partial<LeverDef> & Pick<LeverDef, 'id'>): LeverDef => ({ label: l.id, group: 'Policy', kind: 'setting', unit: '%', default: 0, description: l.id, definition: 'Level, persistent while set.', ...l });
-  const RULE: StabiliserDef = { id: 'theRule', label: 'The rule', lever: 'rate', offset: 'offset', suggestion: 'ruleSays', threshold: 0.125, description: 'A rule.' };
+  const RULE: StabiliserDef = { id: 'theRule', label: 'The rule', lever: 'rate', suggestion: 'ruleSays', current: (c) => c.v('policyRate'), threshold: 0.125, description: 'A rule.' };
   const mod: ModuleDef = {
     id: 'policy',
     label: 'Policy',
@@ -469,15 +487,13 @@ function policyModel(): ModelDef {
     rules: [
       rule({ id: 'raw', target: 'raw', category: 'POLICY', inputs: ['pressure'], compute: (c) => 3 + c.v('pressure') }),
       rule({ id: 'ruleSays', target: 'ruleSays', category: 'POLICY', inputs: ['raw'], compute: (c) => c.v('raw') }),
-      rule({ id: 'policyRate', target: 'policyRate', category: 'POLICY', inputs: ['raw'], levers: ['mode', 'rate', 'offset'], compute: (c) => (Math.round(c.lever('mode')) >= 1 ? c.v('raw') + c.lever('offset') : c.lever('rate')) }),
+      rule({ id: 'policyRate', target: 'policyRate', category: 'POLICY', inputs: ['raw'], levers: ['rate'], locks: ['theRule'], compute: (c) => (c.locked('theRule') ? c.lever('rate') : c.v('raw')) }),
     ],
     levers: [
-      setting({ id: 'mode', kind: 'choice', unit: 'mode', options: [{ value: 0, label: 'Manual' }, { value: 1, label: 'Automatic' }] }),
       setting({ id: 'rate', default: 3 }),
-      setting({ id: 'offset', unit: 'pp' }),
       setting({ id: 'pressure', unit: 'pp', group: 'World', binds: { variable: 'pressure', mode: 'replace' } }),
     ],
     stabilisers: [RULE],
   };
-  return { ...tinyModel([mod]), stabiliserMode: { lever: 'mode', manual: 0, automatic: 1 } };
+  return tinyModel([mod]);
 }

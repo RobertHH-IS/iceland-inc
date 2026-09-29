@@ -4,6 +4,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 import { compile } from '../../src/core/compile.ts';
+import { lockAll } from '../../src/core/scenario.ts';
 import { createEngine } from '../../src/core/engine.ts';
 import { runScenario } from '../../src/core/scenario.ts';
 import { calibration, KNOWN_GAPS } from '../../src/models/iceland/calibration.ts';
@@ -11,7 +12,13 @@ import { icelandModel } from '../../src/models/iceland/index.ts';
 import { withConcepts } from '../../src/models/index.ts';
 
 const model = compile(withConcepts(icelandModel));
-const fresh = () => createEngine(model);
+/** A fresh engine with both policy levers locked (the old default Manual setting these tests were
+ *  written for); a test that wants the rules acting unlocks them. */
+const fresh = () => {
+  const e = createEngine(model);
+  lockAll(e);
+  return e;
+};
 
 describe('Iceland feed: messages name only what their chart shows (audit L14)', () => {
   const rule = (id: string) => icelandModel.modules.flatMap((m) => m.feed ?? []).find((f) => f.id === id)!;
@@ -305,11 +312,12 @@ describe('Iceland calibration: each check runs the experiment its source describ
     expect(Math.abs(trough(['domesticPrice.capacity'])[0] - pi)).toBeLessThan(0.05);
   });
 
-  test('switching to Automatic after a long hold far from the rule is gradual too: 6% for two years, then the rule', () => {
+  test('switching to unlocked after a long hold far from the rule is gradual too: 6% for two years, then the rule', () => {
     const e = fresh();
-    e.setLever('keyRateFixed', 6);
+    e.setLever('keyRate', 6);
     e.step(24);
-    e.setLever('stabilisers', 1);
+    e.setLever('keyRateLock', 0);
+    e.setLever('incomeTaxLock', 0);
     e.step(1);
     // v1's shadow path took it from 6% to about 0.2% in one month
     expect(e.value('keyRate')).toBeGreaterThan(0.05);
@@ -317,9 +325,9 @@ describe('Iceland calibration: each check runs the experiment its source describ
   });
 
   test('a króna held about 10% weaker passes through to the CPI as CBI WP85 gives within a year, and the pass-through check agrees with it (review E6)', () => {
-    // hold the realised depreciation near 10% by topping up the sentiment shock every month (Automatic, as in the check)
+    // hold the realised depreciation near 10% by topping up the sentiment shock every month (the rules acting, as in the check)
     const e = fresh();
-    e.setLever('stabilisers', 1);
+    lockAll(e, false);
     const krona: number[] = [];
     const cpi: number[] = [];
     for (let m = 0; m < 36; m++) {

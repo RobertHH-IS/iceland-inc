@@ -5,24 +5,26 @@
  */
 import { describe, expect, test } from 'bun:test';
 import { compile } from '../../src/core/compile.ts';
+import { lockAll } from '../../src/core/scenario.ts';
 import { createEngine } from '../../src/core/engine.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 import { ALL_PARAMS, BASE } from '../../src/models/iceland/steady.ts';
 import { concepts } from '../../src/concepts/library.ts';
 import { withConcepts } from '../../src/models/index.ts';
-import { resetsWhenSetting, snapToStep } from '../../src/ui/model/levers.ts';
+import { snapToStep } from '../../src/ui/model/levers.ts';
 
 const model = compile(withConcepts(icelandModel));
 
-// v1's levers, less its two policy-rule switches (keyRateMode, fiscalRule), which the stabiliser
-// setting replaced (decision 0004).
+// v1's levers, less its two policy-rule switches (keyRateMode, fiscalRule), which padlocks replaced
+// (decisions 0004 and 0010), and less its key-rate add-on: a rule can no longer be tilted.
 const V1_LEVERS = [
-  'keyRateAddon', 'keyRateFixed', 'incomeTax', 'vat', 'health', 'education', 'otherServices', 'publicInvestment',
+  'keyRate', 'incomeTax', 'vat', 'health', 'education', 'otherServices', 'publicInvestment',
   'oldAgeTransfers', 'familyBenefits', 'unemploymentBenefits', 'bondBuyers', 'dstiCap', 'ltvCap', 'wageSettlement',
   'lendingAppetite', 'pfForeign', 'migration', 'foreignDemand', 'tourism', 'kronaShock', 'foreignRate', 'importPrices',
 ];
 const SECTOR_LEVERS = ['fishPrices', 'aluminiumPrice'];
-const STABILISER_LEVERS = ['stabilisers', 'incomeTaxOffset'];
+/** The padlocks the compiler adds, one per stabiliser (decision 0010). */
+const STABILISER_LEVERS = ['keyRateLock', 'incomeTaxLock'];
 /** A labour-supply shock into a steady economy (labour-LAB-6). */
 const LABOUR_LEVERS = ['netImmigration'];
 const V1_SERIES = [
@@ -65,27 +67,37 @@ describe('Iceland model: structure', () => {
     }
   });
 
-  test('v1’s levers with the same ids (less its two rule switches), the fish- and aluminium-price levers, the stabiliser setting, the income-tax offset and net immigration; a precise definition each', () => {
+  test('v1’s levers with the same ids (less its two rule switches and the add-on), the fish- and aluminium-price levers, the two padlocks and net immigration; a precise definition each', () => {
     expect(model.levers.map((l) => l.id).sort()).toEqual([...V1_LEVERS, ...SECTOR_LEVERS, ...STABILISER_LEVERS, ...LABOUR_LEVERS].sort());
     for (const l of model.levers) expect(l.definition.length).toBeGreaterThan(40);
   });
 
-  test('two stabilisers, their levers and offsets shown one mode at a time, Manual by default', () => {
-    expect(model.stabilisers.map((s) => [s.id, s.lever, s.offset ?? s.lever, s.suggestion])).toEqual([
-      ['keyRateRule', 'keyRateFixed', 'keyRateAddon', 'keyRateSuggestion'],
-      ['debtRule', 'incomeTax', 'incomeTaxOffset', 'taxRuleSuggestion'],
+  test('two stabilisers, each with a padlock on its lever, unlocked by default', () => {
+    expect(model.stabilisers.map((s) => [s.id, s.lever, s.suggestion])).toEqual([
+      ['keyRateRule', 'keyRate', 'keyRateSuggestion'],
+      ['debtRule', 'incomeTax', 'taxRuleSuggestion'],
     ]);
-    expect(model.stabiliserMode).toEqual({ lever: 'stabilisers', manual: 0, automatic: 1 });
     const lever = (id: string) => model.levers.find((l) => l.id === id)!;
-    expect(lever('stabilisers').default).toBe(0);
-    expect(lever('keyRateFixed').showWhen).toEqual({ lever: 'stabilisers', equals: 0 });
-    expect(lever('keyRateAddon').showWhen).toEqual({ lever: 'stabilisers', equals: 1 });
-    expect(lever('incomeTax').showWhen).toEqual({ lever: 'stabilisers', equals: 0 });
-    expect(lever('incomeTaxOffset').showWhen).toEqual({ lever: 'stabilisers', equals: 1 });
+    for (const [lock, locks] of [
+      ['keyRateLock', { lever: 'keyRate', stabiliser: 'keyRateRule' }],
+      ['incomeTaxLock', { lever: 'incomeTax', stabiliser: 'debtRule' }],
+    ] as const) {
+      expect(lever(lock).kind).toBe('lock');
+      expect(lever(lock).default).toBe(0);
+      expect(lever(lock).locks).toEqual(locks);
+    }
+    // no global setting and no offsets any more
+    for (const id of ['stabilisers', 'keyRateAddon', 'keyRateFixed', 'incomeTaxOffset']) expect(model.levers.some((l) => l.id === id)).toBe(false);
+    const e = createEngine(model, { dev: false });
+    expect(e.stabilisers().map((s) => [s.lock, s.locked])).toEqual([
+      ['keyRateLock', false],
+      ['incomeTaxLock', false],
+    ]);
   });
 
-  test('the debt rule is counted once: after “Apply” on Manual, switching to Automatic (with the lever panel’s resets) moves the tax rate only by the rule’s drift that month (audit M8)', () => {
+  test('the debt rule is counted once: after “Apply” while income tax is locked, unlocking moves the tax rate only by one smoothed step of the rule (audit M8)', () => {
     const e = createEngine(model, { dev: false });
+    lockAll(e); // both policy levers locked
     e.setLever('otherServices', 3); // debt builds up, so the rule calls for a higher tax
     e.step(48);
     const rule = e.stabilisers().find((s) => s.id === 'debtRule')!;
@@ -96,14 +108,12 @@ describe('Iceland model: structure', () => {
     e.step(1);
     const manual = e.value('taxRate');
     const heading = e.value('taxRuleTarget');
-    const values = info.map((l) => e.leverValue(l.id));
-    for (const r of resetsWhenSetting(info, values, 'stabilisers', 1)) e.setLever(r.id, r.value);
-    e.setLever('stabilisers', 1);
-    expect(e.leverValue('incomeTax')).toBe(0);
+    e.setLever('incomeTaxLock', 0);
+    expect(e.leverValue('incomeTax')).toBe(applied); // the lever keeps its value; unlocked, it no longer counts
     e.step(1);
     const tau0 = e.influences('taxRate').params.find((p) => p.id === 'tau0')!.value;
     const k = 1 - Math.exp(-e.influences('taxRuleAdjustment').params.find((p) => p.id === 'lamTau')!.value / 12);
-    // Automatic: the baseline rate plus the rule's adjustment, and nothing from the Manual lever.
+    // Unlocked: the baseline rate plus the rule's adjustment, and nothing from the lever on top.
     expect(e.value('taxRate')).toBeCloseTo(tau0 + e.value('taxRuleAdjustment'), 15);
     // The rule steps from the rate in force (the applied lever), so the rate moves by one smoothed
     // step toward where the rule is heading, not by the whole adjustment a second time.
@@ -112,13 +122,13 @@ describe('Iceland model: structure', () => {
     expect(Math.abs(e.value('taxRate') - manual)).toBeLessThan(applied / 100 / 2);
   });
 
-  test('switching to Automatic after a Manual tax cut moves the tax rate one small step from the rate you held, not to the debt rule’s path (lever review MON-2 item 6)', () => {
+  test('unlocking income tax after a held tax cut moves the tax rate one small step from the rate you held, not to the debt rule’s path (lever review MON-2 item 6)', () => {
     const e = createEngine(model, { dev: false });
+    lockAll(e); // both policy levers locked
     e.setLever('incomeTax', -3);
     e.step(60);
     const held = e.value('taxRate');
-    e.setLever('incomeTax', 0);
-    e.setLever('stabilisers', 1);
+    e.setLever('incomeTaxLock', 0);
     e.step(1);
     const k = 1 - Math.exp(-e.influences('taxRuleAdjustment').params.find((p) => p.id === 'lamTau')!.value / 12);
     const move = e.value('taxRate') - held;
@@ -232,6 +242,7 @@ const PERF_SLACK = process.env.CI ? 10 : 1;
 describe('Iceland model: speed', () => {
   test('a shocked month steps in well under 250 µs', () => {
     const e = createEngine(model, { dev: false });
+    lockAll(e); // both policy levers locked
     e.fire('wageSettlement', 10);
     e.step(50); // warm up the JIT
     const t0 = performance.now();

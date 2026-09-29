@@ -13,6 +13,11 @@
  *
  * Events at month t are applied on arrival at t, after that month's snapshot, so replaying
  * from any snapshot reproduces a straight run bit for bit.
+ *
+ * Padlocks (decision 0010). Each stabiliser's lever has a padlock, a 'lock' lever. Closing it
+ * freezes the lever at the value in force (StabiliserDef.current); setting a lever while its
+ * padlock is open closes it at the new value. Both happen inside applyEvent, so the interface,
+ * scenarios, replays and forks agree.
  */
 import type {
   BalanceSheet,
@@ -34,7 +39,7 @@ import type {
   SignViolation,
   StabiliserState,
 } from './types.ts';
-import { compile, isCompiled, ROLE_ISSUER, type CLever, type KModel } from './compile.ts';
+import { compile, isCompiled, isLocked, ROLE_ISSUER, type CLever, type KModel } from './compile.ts';
 import { Machine, type MachineState } from './machine.ts';
 import type { Ledger } from './ledger.ts';
 import { baselineReport, solveBaseline, type Baseline, type BaselineReport } from './steady.ts';
@@ -42,6 +47,7 @@ import { CHECKS, DEFAULT_SIGN_TOLERANCE, DEFAULT_TOLERANCE, measureChecks, measu
 import { ideasAtPlay, influenceOf, type InfluenceSource } from './influence.ts';
 import { toDisplay } from './format.ts';
 import { nodeFor } from './hierarchy.ts';
+import { migrateScenario, SCENARIO_VERSION } from './migrate.ts';
 
 export interface EngineOptions {
   /** Throw when a rule reads something it did not declare (default true). */
@@ -110,10 +116,10 @@ export interface KernelEngine extends Engine {
 interface StabiliserFeedState {
   /** Calling at the last update. */
   prev: Uint8Array;
-  /** The stabiliser's lever and the mode lever at the last update: a change means the user
-   *  moved them, and a call that the change itself causes is not narrated. */
+  /** The stabiliser's lever and its padlock at the last update: a change means the user moved
+   *  them, and a call that the change itself causes is not narrated. */
   lever: Float64Array;
-  mode: Float64Array;
+  lock: Float64Array;
   /** Month and direction (+1 raise, −1 lower) of the last message, to keep the feed sparse. */
   lastT: Float64Array;
   lastDir: Int8Array;
@@ -128,7 +134,7 @@ interface Snapshot {
 const cloneStabFeed = (s: StabiliserFeedState): StabiliserFeedState => ({
   prev: new Uint8Array(s.prev),
   lever: new Float64Array(s.lever),
-  mode: new Float64Array(s.mode),
+  lock: new Float64Array(s.lock),
   lastT: new Float64Array(s.lastT),
   lastDir: new Int8Array(s.lastDir),
 });
@@ -137,6 +143,11 @@ const cloneStabFeed = (s: StabiliserFeedState): StabiliserFeedState => ({
 const feedRound = (x: number) => Number(x.toFixed(2));
 /** ... and written with no trailing zeros and a true minus sign. */
 const feedNumber = (x: number) => String(x).replace('-', '−');
+
+/** Closing a padlock keeps the lever's own value when the value in force is this close to it (in
+ *  lever units), so locking an untouched lever at the baseline holds its default exactly rather
+ *  than a rounding of it (100 × 0.03 is not 3 in floating point). */
+export const LOCK_SNAP = 1e-9;
 
 class KEngine implements KernelEngine {
   readonly model: KModel;
@@ -161,8 +172,8 @@ class KEngine implements KernelEngine {
   private hTerms: Float64Array[] = [];
   private hDesired: Float64Array[] = [];
   private hRegimes: (string | null)[][] = [];
-  /** Stabiliser mode each recorded month's term values were computed under. */
-  private hAuto: boolean[] = [];
+  /** Padlocks (lock mask) each recorded month's term values were computed under. */
+  private hLocks: number[] = [];
   private hInd: Float64Array[] = [];
   private hPos: Float64Array[] = [];
   private hChecks: Float64Array[] = [];
@@ -199,7 +210,7 @@ class KEngine implements KernelEngine {
     M.exoBase.set(base.exoBase);
     M.baseVars = base.vars;
     M.baseTerms = base.terms;
-    if (base.byMode) M.baseTermsByMode = base.byMode.map((x) => x.terms);
+    if (base.byMask) M.baseTermsByMask = base.byMask.map((x) => x.terms);
     for (const key of opts.disableTerms ?? []) {
       const j = m.termKeyIndex.get(key);
       if (j === undefined) throw new Error(`fork: unknown term '${key}' (use 'ruleId.termId' or 'varId.termId')`);
@@ -241,9 +252,9 @@ class KEngine implements KernelEngine {
       if (ind.display === 'deviation-pct' && Math.abs(this.baseInd[i]) < 1e-12) this.warnings.push(`indicator '${ind.id}' shows % deviation but its baseline is 0; it falls back to the difference × 100`);
     });
     const self = this;
-    // baseline terms and desired values of the stabiliser mode that the current term values
-    // were computed under (not the lever as it is now: a mode switch shows at the next step)
-    const baseNow = () => (base.byMode ? base.byMode[M.evalAutomatic ? 1 : 0] : base);
+    // baseline terms and desired values under the padlocks that the current term values were
+    // computed under (not the padlocks as they are now: a lock or unlock shows at the next step)
+    const baseNow = () => (base.byMask ? base.byMask[M.evalLocks] : base);
     this.src = {
       m,
       get cur() {
@@ -268,8 +279,8 @@ class KEngine implements KernelEngine {
       get pEff() {
         return M.pEff;
       },
-      get automatic() {
-        return M.evalAutomatic;
+      get locks() {
+        return M.evalLocks;
       },
       ctxOf: (r) => M.ctxOf(r),
       indicatorLevel: (i) => self.levelNow(i),
@@ -286,7 +297,7 @@ class KEngine implements KernelEngine {
     };
     this.feedPrev = new Uint8Array(m.feed.length);
     const ns = m.stabilisers.length;
-    this.stabFeed = { prev: new Uint8Array(ns), lever: new Float64Array(ns), mode: new Float64Array(ns), lastT: new Float64Array(ns).fill(-Infinity), lastDir: new Int8Array(ns) };
+    this.stabFeed = { prev: new Uint8Array(ns), lever: new Float64Array(ns), lock: new Float64Array(ns), lastT: new Float64Array(ns).fill(-Infinity), lastDir: new Int8Array(ns) };
     this.reset();
   }
 
@@ -321,7 +332,7 @@ class KEngine implements KernelEngine {
     M.initHistory(M.cur);
     M.termVal.set(b.terms);
     M.desired.set(b.desired);
-    M.evalAutomatic = M.automaticNow();
+    M.evalLocks = M.lockMask();
     b.regimes.forEach((r, j) => (M.regimes[j] = r));
     this.script = [];
     this.snaps = new Map();
@@ -329,7 +340,7 @@ class KEngine implements KernelEngine {
     this.hTerms = [];
     this.hDesired = [];
     this.hRegimes = [];
-    this.hAuto = [];
+    this.hLocks = [];
     this.hInd = [];
     this.hPos = [];
     this.hChecks = [];
@@ -383,7 +394,7 @@ class KEngine implements KernelEngine {
     this.hTerms.push(new Float64Array(M.termVal));
     this.hDesired.push(new Float64Array(M.desired));
     this.hRegimes.push([...M.regimes]);
-    this.hAuto.push(M.evalAutomatic);
+    this.hLocks.push(M.evalLocks);
     const ind = new Float64Array(m.indicators.length);
     for (let i = 0; i < ind.length; i++) ind[i] = m.indicators[i].compute(this.ictx);
     this.hInd.push(ind);
@@ -406,9 +417,9 @@ class KEngine implements KernelEngine {
   }
 
   /**
-   * Manual mode: narrate a stabiliser that starts calling for action ("The central bank's rule
-   * would raise the key rate to 4.25%"). Kept sparse: nothing when the user has just moved the
-   * stabiliser's lever or the mode (the lever panel shows that call at once), and no repeat in
+   * Narrate a locked stabiliser that starts calling for action ("The central bank's rule would
+   * raise the key rate to 4.25%"). Kept sparse: nothing when the user has just moved the
+   * stabiliser's lever or its padlock (the lever panel shows that call at once), and no repeat in
    * the same direction within a year of the last message.
    */
   private updateStabiliserFeed(log: boolean): void {
@@ -416,11 +427,11 @@ class KEngine implements KernelEngine {
     const t = this.M.t;
     const sf = this.stabFeed;
     const year = Math.max(1, Math.round(1 / m.def.dt));
-    const modeVal = m.modeLever >= 0 ? this.M.leverVal[m.modeLever] : 0;
     this.stabilisers().forEach((s, j) => {
       const def = m.stabilisers[j];
       const lv = this.M.leverVal[m.cstabilisers[j].lever];
-      const touched = !Object.is(lv, sf.lever[j]) || !Object.is(modeVal, sf.mode[j]);
+      const lk = this.M.leverVal[m.cstabilisers[j].lock];
+      const touched = !Object.is(lv, sf.lever[j]) || !Object.is(lk, sf.lock[j]);
       const dir = s.gap > 0 ? 1 : -1;
       if (log && def.feed && s.calling && !sf.prev[j] && !touched && !(sf.lastDir[j] === dir && t - sf.lastT[j] < year)) {
         const value = feedRound(s.suggested),
@@ -432,7 +443,7 @@ class KEngine implements KernelEngine {
       }
       sf.prev[j] = s.calling ? 1 : 0;
       sf.lever[j] = lv;
-      sf.mode[j] = modeVal;
+      sf.lock[j] = lk;
     });
   }
 
@@ -481,13 +492,13 @@ class KEngine implements KernelEngine {
     return l;
   }
 
-  /** A lever value the engine accepts: within min and max, and for a choice lever with options
-   *  the nearest option (a tie goes to the higher value, as Math.round and isAutomatic do). */
+  /** A lever value the engine accepts: within min and max, and for a choice lever or a padlock
+   *  the nearest option (a tie goes to the higher value, as Math.round and isLocked do). */
   private clamp(l: CLever, v: number): number {
     if (!Number.isFinite(v)) throw new Error(`lever '${l.def.id}': value must be a finite number`);
     if (l.def.min !== undefined && v < l.def.min) v = l.def.min;
     if (l.def.max !== undefined && v > l.def.max) v = l.def.max;
-    const opts = l.def.kind === 'choice' ? l.def.options : undefined;
+    const opts = l.def.kind === 'choice' || l.def.kind === 'lock' ? l.def.options : undefined;
     if (!opts?.length) return v;
     let best = opts[0].value;
     for (const o of opts) {
@@ -498,17 +509,41 @@ class KEngine implements KernelEngine {
     return best;
   }
 
+  /** The policy value in force for stabiliser j, in its lever's units (StabiliserDef.current),
+   *  read from the latest month. */
+  private inForce(j: number): number {
+    return this.model.stabilisers[j].current(this.ictx);
+  }
+
   private applyEvent(e: ScenarioEvent): void {
     const j = this.leverIx(e.lever);
     const l = this.model.clevers[j];
+    const m = this.model;
     if (e.fire) {
       if (l.def.kind !== 'oneoff') throw new Error(`event fires '${e.lever}', which is a setting`);
       l.def.fire!(this.shock, e.value);
-    } else {
-      if (l.def.kind === 'oneoff') throw new Error(`event sets '${e.lever}', which is a one-off lever (fire it instead)`);
-      this.M.leverVal[j] = e.value;
-      this.M.applyLevers();
+      return;
     }
+    if (l.def.kind === 'oneoff') throw new Error(`event sets '${e.lever}', which is a one-off lever (fire it instead)`);
+    const lv = this.M.leverVal;
+    if (l.def.kind === 'lock') {
+      // closing an open padlock freezes the lever at the value in force; opening hands it back
+      const sj = m.cstabilisers.findIndex((cs) => cs.lock === j);
+      const closing = isLocked(e.value) && !isLocked(lv[j]);
+      if (closing && sj >= 0) {
+        const k = m.cstabilisers[sj].lever;
+        const now = this.inForce(sj);
+        if (!Number.isFinite(now)) throw new Error(`stabiliser '${m.stabilisers[sj].id}': the value in force is not a finite number`);
+        if (!(Math.abs(now - lv[k]) <= LOCK_SNAP)) lv[k] = now;
+      }
+      lv[j] = isLocked(e.value) ? 1 : 0;
+    } else {
+      // setting a lever whose padlock is open takes control of it: the padlock closes
+      const sj = m.stabiliserOfLever[j];
+      if (sj >= 0) lv[m.cstabilisers[sj].lock] = 1;
+      lv[j] = e.value;
+    }
+    this.M.applyLevers();
   }
 
   private applyEventsAt(t: number): void {
@@ -548,6 +583,8 @@ class KEngine implements KernelEngine {
 
   load(s: Scenario): void {
     if (s.modelId && s.modelId !== this.model.def.id) throw new Error(`scenario is for model '${s.modelId}', not '${this.model.def.id}'`);
+    // a scenario written before padlocks is migrated first (decision 0010)
+    if ((s.version ?? SCENARIO_VERSION) < SCENARIO_VERSION) s = migrateScenario(this.model, s).scenario;
     this.reset();
     const evs = [...s.events].map((e) => ({ ...e })).sort((a, b) => a.t - b.t);
     for (const e of evs) {
@@ -579,14 +616,14 @@ class KEngine implements KernelEngine {
     this.hTerms.length = keep;
     this.hDesired.length = keep;
     this.hRegimes.length = keep;
-    this.hAuto.length = keep;
+    this.hLocks.length = keep;
     this.hInd.length = keep;
     this.hPos.length = keep;
     this.hChecks.length = keep;
     this.M.termVal.set(this.hTerms[best]);
     this.M.desired.set(this.hDesired[best]);
     this.hRegimes[best].forEach((r, j) => (this.M.regimes[j] = r));
-    this.M.evalAutomatic = this.hAuto[best];
+    this.M.evalLocks = this.hLocks[best];
     this.checkBuf.set(this.hChecks[best]);
     this.feedLog = this.feedLog.filter((f) => f.t <= best);
     this.failures = this.failures.filter((f) => f.t <= best);
@@ -815,13 +852,13 @@ class KEngine implements KernelEngine {
 
   stabilisers(): StabiliserState[] {
     const m = this.model;
-    const automatic = this.M.automaticNow();
     return m.stabilisers.map((s, j) => {
       const cs = m.cstabilisers[j];
+      const locked = isLocked(this.M.leverVal[cs.lock]);
       const suggested = this.M.cur[cs.suggestion];
-      const current = this.M.leverVal[cs.lever];
+      const current = locked ? this.M.leverVal[cs.lever] : this.inForce(j);
       const gap = suggested - current;
-      return { id: s.id, label: s.label, lever: s.lever, offset: s.offset ?? s.lever, suggested, current, gap, calling: !automatic && Math.abs(gap) > s.threshold, automatic, description: s.description };
+      return { id: s.id, label: s.label, lever: s.lever, lock: m.levers[cs.lock].id, locked, suggested, current, gap, calling: locked && Math.abs(gap) > s.threshold, description: s.description };
     });
   }
 

@@ -5,6 +5,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 import { compile } from '../../src/core/compile.ts';
+import { lockAll } from '../../src/core/scenario.ts';
 import { createEngine, type KernelEngine } from '../../src/core/engine.ts';
 import { runScenario } from '../../src/core/scenario.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
@@ -18,7 +19,8 @@ const term = (e: KernelEngine, id: string, t: string) => e.influences(id).terms.
 describe('Stage 0: i0 is the real neutral rate; nominal comparisons use i0 + piT', () => {
   test('with a 2.5% target and the key rate at 5.5%, every nominal rate gap is zero and the rule’s neutral term is 5.5%', () => {
     const e = createEngine(model).fork({ params: { piT: 0.025 } });
-    e.setLever('keyRateFixed', 5.5);
+    lockAll(e); // both policy levers locked
+    e.setLever('keyRate', 5.5);
     e.step(1);
     expect(term(e, 'ruleTarget', 'neutral')).toBeCloseTo(0.055, 15);
     expect(Math.abs(term(e, 'logExchangeRate', 'carry'))).toBeLessThan(1e-15);
@@ -31,6 +33,7 @@ describe('Stage 0: i0 is the real neutral rate; nominal comparisons use i0 + piT
 
   test('today’s world prices and foreign rate are parameters that are exactly the old constants on the steady start', () => {
     const e = createEngine(model);
+    lockAll(e); // both policy levers locked
     const p = (id: string) => e.influences(id === 'iFnow' ? 'foreignRate' : 'worldPrice').params.find((x) => x.id === id)!;
     expect(p('worldPrice0').value).toBe(1);
     expect(p('iFnow').value).toBe(e.influences('logExchangeRate').params.find((x) => x.id === 'iF0')!.value);
@@ -53,6 +56,7 @@ describe('Stage 0: i0 is the real neutral rate; nominal comparisons use i0 + piT
 describe('L13: the central bank’s reserves earn the foreign rate', () => {
   test('a foreign rate 1 pp higher raises reserve income by 1% of the reserves at once, as it does pension funds’ foreign yield', () => {
     const e = createEngine(model);
+    lockAll(e); // both policy levers locked
     const reserves = e.stock('fxReserves', 'CB');
     const inc0 = e.baseline('fxReserveIncome');
     e.setLever('foreignRate', 1);
@@ -83,7 +87,6 @@ describe('H5: purchasing-power parity is a slow anchor for world prices', () => 
 
   test('world prices +10% held: the króna barely moves in a quarter, so fish revenue and import prices in krónur rise', () => {
     const e = createEngine(model);
-    e.setLever('stabilisers', 1);
     e.setLever('importPrices', 10);
     e.step(3);
     expect(Math.abs(pct(e, 'exchangeRate'))).toBeLessThan(2);
@@ -99,11 +102,13 @@ describe('H5: purchasing-power parity is a slow anchor for world prices', () => 
     const inRange = (x: number) => x >= check.range[0] && x <= check.range[1];
     expect(inRange(check.measure(runScenario(createEngine(model), check.scenario, check.months)))).toBe(true);
     const fast = createEngine(model).fork({ params: { lamPPP: 1e4 } });
+    lockAll(fast); // both policy levers locked
     expect(inRange(check.measure(runScenario(fast, check.scenario, check.months)))).toBe(false);
   });
 
   test('while world prices are unchanged the anchor is exactly zero, so the króna follows domestic prices as before', () => {
     const e = createEngine(model);
+    lockAll(e); // both policy levers locked
     e.fire('kronaShock', -10);
     e.fire('wageSettlement', 10);
     for (let m = 0; m < 36; m++) {
@@ -118,6 +123,7 @@ describe('H4: consumption is deflated by prices households pay for, not by house
   // rents that follow house prices one for one and fast, against rents that never move
   const lending = (lamRent: number) => {
     const e = createEngine(model).fork({ params: { lamRent, betaRentH: 1 } });
+    lockAll(e); // both policy levers locked
     e.setLever('lendingAppetite', 2); // the loan-to-value cap trims part of the push
     e.step(9); // long enough for house prices to reach the CPI clearly (0.1 point after 9 months)
     return e;
@@ -143,6 +149,7 @@ describe('H4: consumption is deflated by prices households pay for, not by house
 
   test('a general rise in prices moves the deflator one for one, like the CPI', () => {
     const e = createEngine(model);
+    lockAll(e); // both policy levers locked
     e.fire('wageSettlement', 10);
     e.step(240);
     // prices have settled higher; the deflator and the CPI have risen by about the same
@@ -155,6 +162,7 @@ describe('MON-4: the housing part of the CPI is a market-rent index (L10)', () =
 
   test('the rule, the speeds and the weight name rental equivalence and the rent index', () => {
     const e = createEngine(model);
+    lockAll(e); // both policy levers locked
     const inf = e.influences('housingCost');
     expect(inf.rule!.what).toContain('rental equivalence');
     expect(inf.terms.map((t) => t.id)).toEqual(['prices', 'housePrice', 'income']);
@@ -168,7 +176,7 @@ describe('MON-4: the housing part of the CPI is a market-rent index (L10)', () =
 
   test('rents keep up with a general rise in prices: with the real terms off, they end where other consumer prices do', () => {
     const e = createEngine(model).fork({ params: { betaRentH: 0, betaRentY: 0 } });
-    e.setLever('stabilisers', 1); // prices settle on Automatic
+    lockAll(e, false); // prices settle with the policy rules acting
     e.fire('wageSettlement', 10);
     e.step(240);
     expect(pct(e, 'consumptionDeflator')).toBeGreaterThan(2);
@@ -177,6 +185,7 @@ describe('MON-4: the housing part of the CPI is a market-rent index (L10)', () =
 
   test('rents follow real house prices less than one for one: a credit boom raises house prices more than rents', () => {
     const e = createEngine(model);
+    lockAll(e); // both policy levers locked
     e.setLever('lendingAppetite', 1);
     e.step(60);
     const rentsReal = 100 * (e.value('housingCost') / e.value('consumptionDeflator') - 1);
@@ -186,10 +195,11 @@ describe('MON-4: the housing part of the CPI is a market-rent index (L10)', () =
     expect(rentsReal).toBeLessThan(0.75 * housesReal);
   });
 
-  test('a key rate held 1 pp higher on Manual lowers inflation mostly outside housing: housing gives under a third of the fall at month 12 and about half at month 24 (it gave 58% at month 24 when the housing part followed house prices)', () => {
+  test('a key rate held 1 pp higher with both policy levers locked lowers inflation mostly outside housing: housing gives under a third of the fall at month 12 and about half at month 24 (it gave 58% at month 24 when the housing part followed house prices)', () => {
     const run = (key: number) => {
       const e = createEngine(model);
-      e.setLever('keyRateFixed', key);
+      lockAll(e); // both policy levers locked
+      e.setLever('keyRate', key);
       const path: { cpi: number; rent: number }[] = [];
       for (let m = 0; m <= 24; m++) {
         path.push({ cpi: e.value('cpi'), rent: e.value('housingCost') });
@@ -227,6 +237,7 @@ describe('M5: unemployment has a smooth frictional floor', () => {
 
   test('the baseline is untouched, and a large public-spending boom no longer drives unemployment or benefits negative', () => {
     const e = createEngine(model);
+    lockAll(e); // both policy levers locked
     for (const g of ['Y', 'W', 'O']) expect(e.influences(`unemployed${g}`).regime ?? null).toBeNull();
     e.setLever('education', 3);
     e.setLever('health', 3);
@@ -247,6 +258,7 @@ describe('M5: unemployment has a smooth frictional floor', () => {
 describe('M7: builders’ imports come out of builders’ value added', () => {
   test('value added = sales − imports − domestic inputs, and a stronger króna lowers it per unit of sales', () => {
     const e = createEngine(model);
+    lockAll(e); // both policy levers locked
     const share0 = e.baseline('valueAddedFC') / e.baseline('salesFC');
     e.fire('kronaShock', 10); // a stronger króna: imports get cheaper, builders use more of them
     e.step(18);
@@ -261,6 +273,7 @@ describe('M7: builders’ imports come out of builders’ value added', () => {
 describe('L11: public and private gross wages are on the same basis', () => {
   test('public compensation = (1 + employer contribution + payroll tax) × gross public wages, as for firms; the public payroll tax is a wash', () => {
     const e = createEngine(model);
+    lockAll(e); // both policy levers locked
     const p = (id: string) => e.influences('publicEmployment').params.find((x) => x.id === id)!.value;
     const lcr = 1 + p('cEr') + p('css');
     expect(lcr * e.baseline('publicEmployment')).toBeCloseTo(e.baseline('publicValueAdded'), 12);
@@ -278,7 +291,6 @@ describe('Iceland model: VAT reaches prices over a few months (review E4)', () =
     // Before, shops passed the whole cut into prices in the month it took effect while nominal
     // spending followed only slowly, so real spending jumped 8.2% and output 3.05% in month 1.
     const e = createEngine(model);
-    e.setLever('stabilisers', 1);
     e.setLever('vat', -10);
     e.step(24);
     const output = e.series('output').map((p) => p.v);

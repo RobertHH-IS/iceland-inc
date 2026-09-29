@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { IndicatorInfo, LeverInfo } from '../../src/ui/model/info.ts';
 import { CHART_SPAN, areaPath, chartRef, chartTabs, chartWindow, eventMarkTitle, eventMarks, linePath, xAt, yAt, yTicks } from '../../src/ui/model/charts.ts';
-import { keepHiddenAtDefault } from '../../src/ui/model/levers.ts';
 
 const series = (n: number, f: (m: number) => number) => Array.from({ length: n }, (_, m) => f(m));
 
@@ -77,34 +76,26 @@ describe('paths and marks', () => {
     expect(marks[0]).toMatchObject({ lever: 'b', value: 2, fire: false });
   });
 
-  test('a mode switch’s mark names the switch first, then the reset recorded before it', () => {
+  test('a padlock’s mark reads like any lever event, the last event of the month first', () => {
     const w = chartWindow(series(30, () => 0), 29);
     const lever = (id: string, label: string, extra: Partial<LeverInfo> = {}) => [id, { id, label, unit: '', kind: 'setting', default: 0, ...extra } as LeverInfo] as const;
-    const info = { leverById: new Map([lever('keyRateFixed', 'Key interest rate', { unit: '%', default: 3 }), lever('stabilisers', 'Stabilisers', { kind: 'choice', options: [{ value: 0, label: 'Manual' }, { value: 1, label: 'Automatic' }] })]) };
+    const info = {
+      leverById: new Map([
+        lever('keyRate', 'Key interest rate', { unit: '%', default: 3 }),
+        lever('keyRateLock', 'Padlock on Key interest rate', { kind: 'lock', options: [{ value: 0, label: 'Unlocked' }, { value: 1, label: 'Locked' }] }),
+      ]),
+    };
     const [m] = eventMarks(
       [
-        { t: 12, lever: 'keyRateFixed', value: 3 },
-        { t: 12, lever: 'stabilisers', value: 1 },
+        { t: 12, lever: 'keyRate', value: 4 },
+        { t: 12, lever: 'keyRateLock', value: 0 },
       ],
       w,
       100,
     );
-    expect(eventMarkTitle(m, info)).toBe('Month 12: Stabilisers → Automatic · Key interest rate → 3%');
+    expect(eventMarkTitle(m, info)).toBe('Month 12: Padlock on Key interest rate → Unlocked · Key interest rate → 4%');
+    expect(m).toMatchObject({ lever: 'keyRateLock', value: 0 });
     expect(eventMarkTitle(eventMarks([{ t: 3, lever: 'shock', value: 10, fire: true }], w, 100)[0], info)).toBe('Month 3: shock applied 10');
-    // A script the client rewrote (a switch recorded after time travel without its reset) still
-    // leads that month's mark with the switch: the reset goes in before it (L19, L22).
-    const byId = info.leverById;
-    const levers = [
-      { ...byId.get('stabilisers')!, index: 0 },
-      { ...byId.get('keyRateFixed')!, index: 1, showWhen: { lever: 'stabilisers', equals: 0 } },
-    ];
-    const rewritten = keepHiddenAtDefault(levers, [
-      { t: 5, lever: 'keyRateFixed', value: 4 },
-      { t: 12, lever: 'stabilisers', value: 1 },
-    ])!;
-    const marks = eventMarks(rewritten, w, 100);
-    expect(marks[1]).toMatchObject({ t: 12, lever: 'stabilisers', value: 1 });
-    expect(eventMarkTitle(marks[1], info)).toBe('Month 12: Stabilisers → Automatic · Key interest rate → 3%');
   });
 
   test('axis ticks: the reference line and the extremes', () => {

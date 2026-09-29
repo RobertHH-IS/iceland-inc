@@ -14,7 +14,7 @@
  */
 import type { Ctx, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, BORROWERS, HH, pickParams, terms, lastMonth } from '../util.ts';
+import { AGE_LABEL, AGES, BORROWERS, HH, pickParams, terms, lastMonth, lockPolicy } from '../util.ts';
 
 const revaluation: RuleDef[] = AGES.map((g) => ({
   id: `homesRevaluation${g}`,
@@ -256,11 +256,11 @@ export const housing: ModuleDef = {
     },
     {
       id: 'arrivals-raise-house-prices',
-      label: 'People arriving raise house prices and people leaving lower them: with a larger migration buffer (80% against 30%), a foreign-demand bust lowers real house prices and a tourism boom raises them, at month 12 and on average over months 12–60, in both modes',
+      label: 'People arriving raise house prices and people leaving lower them: with a larger migration buffer (80% against 30%), a foreign-demand bust lowers real house prices and a tourism boom raises them, at month 12 and on average over months 12–60, with the policy levers locked or unlocked',
       run: (e) => {
-        const path = (mode: number, lever: string, size: number, mig: number) => {
+        const path = (locked: boolean, lever: string, size: number, mig: number) => {
           const f = e.fork();
-          f.setLever('stabilisers', mode);
+          lockPolicy(f, locked);
           f.setLever(lever, size);
           f.setLever('migration', mig);
           const out = [0];
@@ -272,15 +272,15 @@ export const housing: ModuleDef = {
           }
           return { rhp: out, migrants };
         };
-        const res = [0, 1].flatMap((mode) =>
+        const res = [true, false].flatMap((locked) =>
           ([['foreignDemand', -20, -1], ['tourism', 30, 1]] as const).map(([lever, size, sign]) => {
-            const [a, b] = [path(mode, lever, size, 80), path(mode, lever, size, 30)];
+            const [a, b] = [path(locked, lever, size, 80), path(locked, lever, size, 30)];
             const d = a.rhp.map((x, k) => 100 * (x / b.rhp[k] - 1));
             const mean = d.slice(12).reduce((s, x) => s + x, 0) / 49;
-            return { mode, lever, ok: sign * d[12] > 0 && sign * mean > 0 && sign * (a.migrants - b.migrants) > 0, m12: d[12], mean };
+            return { locked, lever, ok: sign * d[12] > 0 && sign * mean > 0 && sign * (a.migrants - b.migrants) > 0, m12: d[12], mean };
           }),
         );
-        return { pass: res.every((r) => r.ok), detail: res.map((r) => `${r.lever} ${r.mode ? 'Automatic' : 'Manual'}: ${r.m12.toFixed(2)}% at month 12, ${r.mean.toFixed(2)}% on average`).join('; ') };
+        return { pass: res.every((r) => r.ok), detail: res.map((r) => `${r.lever} ${r.locked ? 'locked' : 'unlocked'}: ${r.m12.toFixed(2)}% at month 12, ${r.mean.toFixed(2)}% on average`).join('; ') };
       },
     },
     {

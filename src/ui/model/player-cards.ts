@@ -20,7 +20,7 @@ export interface CardMetricSpec {
   /** Short label for the card; defaults to the indicator's or variable's label. */
   label?: string;
   /** A stabiliser (StabiliserDef id) that sets this number when it acts: the card then marks
-   *  it "rule" while stabilisers are Automatic (decision 0004). */
+   *  it "rule" while that stabiliser is unlocked (decisions 0004 and 0010). */
   stabiliser?: Id;
 }
 

@@ -1,13 +1,18 @@
 {
  "format": "iceland-inc/golden@1",
  "modelId": "reference",
- "scenario": "calibration-manual-tax-output",
+ "scenario": "calibration-locked-tax-output",
  "months": 24,
  "events": [
   {
    "t": 0,
-   "lever": "stabilisers",
-   "value": 0
+   "lever": "keyRateLock",
+   "value": 1
+  },
+  {
+   "t": 0,
+   "lever": "taxRateLock",
+   "value": 1
   },
   {
    "t": 0,

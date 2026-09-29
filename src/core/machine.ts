@@ -6,7 +6,7 @@
  * State: parameters, lever settings, the current value of every variable, a ring buffer of
  * past values (for lag()), and the ledger's positions.
  */
-import { isAutomatic, type CRule, type KModel } from './compile.ts';
+import { isLocked, type CRule, type KModel } from './compile.ts';
 import type { Ctx, Id } from './types.ts';
 import { Ledger, postLeg } from './ledger.ts';
 import type { Payments } from './payments.ts';
@@ -58,13 +58,12 @@ export class Machine {
   /** Baseline values: base() in rules, and the value a disabled term is held at. */
   baseVars: Float64Array;
   baseTerms: Float64Array;
-  /** Baseline term values in each stabiliser mode, [Manual, Automatic], when the model has a
-   *  stabiliser setting: `baseTerms` then follows the current mode at every evaluation. */
-  baseTermsByMode: Float64Array[] | null = null;
-  /** Was the stabiliser setting Automatic in the last evaluate()? termVal and desired were
-   *  computed under this mode, so influences compare them with its baseline (true in a model
-   *  without a stabiliser setting). */
-  evalAutomatic = true;
+  /** Baseline term values in each lock configuration (indexed by lock mask, lockMask()), when the
+   *  model has stabilisers: `baseTerms` then follows the padlocks at every evaluation. */
+  baseTermsByMask: Float64Array[] | null = null;
+  /** The padlocks in the last evaluate() (a lock mask: bit j set when stabiliser j was locked).
+   *  termVal and desired were computed under it, so influences compare them with its baseline. */
+  evalLocks = 0;
   readonly termDisabled: Uint8Array;
   readonly ledger: Ledger;
   readonly pay: Payments;
@@ -223,6 +222,14 @@ export class Machine {
         if (dev) M.undeclared(cr, 'lever', id, 'levers');
         return M.leverVal[global(m.leverIndex, id, 'lever')];
       },
+      locked(id: Id) {
+        const k = cr.lockMap.get(id);
+        if (k !== undefined) return isLocked(M.leverVal[k]);
+        if (dev) M.undeclared(cr, 'locked', id, 'locks');
+        const j = m.stabilisers.findIndex((s) => s.id === id);
+        if (j < 0) throw new Error(`rule '${cr.def.id}' reads the padlock of unknown stabiliser '${id}'`);
+        return isLocked(M.leverVal[m.cstabilisers[j].lock]);
+      },
       base(id: Id) {
         return M.baseVars[global(m.varIndex, id, 'variable')];
       },
@@ -267,17 +274,20 @@ export class Machine {
     return prev + k * (d - prev);
   }
 
-  /** Is the stabiliser setting Automatic at the current lever values? */
-  automaticNow(): boolean {
-    const mode = this.m.def.stabiliserMode;
-    return mode && this.m.modeLever >= 0 ? isAutomatic(mode, this.leverVal[this.m.modeLever]) : true;
+  /** The padlocks at the current lever values, as a mask: bit j set when stabiliser j is locked. */
+  lockMask(): number {
+    let mask = 0;
+    this.m.cstabilisers.forEach((cs, j) => {
+      if (isLocked(this.leverVal[cs.lock])) mask |= 1 << j;
+    });
+    return mask;
   }
 
   /** Evaluate the whole schedule for this step. */
   evaluate(): void {
     const { m, cur } = this;
-    this.evalAutomatic = this.automaticNow();
-    if (this.baseTermsByMode) this.baseTerms = this.baseTermsByMode[this.evalAutomatic ? 1 : 0];
+    this.evalLocks = this.lockMask();
+    if (this.baseTermsByMask) this.baseTerms = this.baseTermsByMask[this.evalLocks];
     let iters = 1;
     for (const b of m.blocks) {
       if (!b.simultaneous) {

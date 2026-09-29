@@ -19,10 +19,10 @@ const fresh = () => createEngine(model, { baseline: base.baselineData });
 const allVars = (e: KernelEngine, t: number) => model.vars.map((v) => e.valueAt(v.id, t));
 
 const SCENARIO: ScenarioEvent[] = [
-  { t: 0, lever: 'keyRateAddon', value: 1 },
+  { t: 0, lever: 'keyRate', value: 4 }, // held 1 point above neutral (moving it locks it) …
   { t: 5, lever: 'wageSettlement', value: 8, fire: true },
   { t: 13, lever: 'govSpending', value: 1.5 },
-  { t: 30, lever: 'keyRateAddon', value: 0 },
+  { t: 30, lever: 'keyRateLock', value: 0 }, // … and handed back to the Taylor rule
   { t: 41, lever: 'lendingAppetite', value: -1 },
 ];
 
@@ -114,7 +114,7 @@ describe('forks and counterfactuals', () => {
   });
 
   test('disabling a channel holds its term at baseline; shocked − unshocked is compared within the fork', () => {
-    const hike: ScenarioEvent[] = [{ t: 0, lever: 'keyRateAddon', value: 1 }];
+    const hike: ScenarioEvent[] = [{ t: 0, lever: 'keyRate', value: 4 }];
     const e = fresh();
     e.load({ modelId: 'reference', events: hike, months: 24 });
     const noSaving = e.fork({ disableTerms: ['consumption.realRate', 'investmentPlan.realRate'] });
@@ -165,7 +165,7 @@ describe('influences: exact within each rule', () => {
 
   test('non-additive rules are flagged and name the active regime', () => {
     const e = fresh();
-    const inf = e.influences('ruleRate'); // the Taylor rule (decision 0004 moved it off keyRate)
+    const inf = e.influences('ruleTarget'); // the Taylor rule (decision 0004 moved it off keyRate, decision 0010 split its target from its step)
     expect(inf.nonAdditive).toBe(true);
     expect(inf.regime).toBeNull();
     expect(inf.category).toBe('POLICY');
@@ -207,7 +207,8 @@ describe('adjust semantics', () => {
     const e = fresh();
     e.setLever('govSpending', 2);
     e.step(5);
-    for (const id of ['consumption', 'price', 'ruleRate', 'employment']) {
+    // (ruleRate was here until decision 0010: it now steps from the rate in force, not its own last value)
+    for (const id of ['consumption', 'price', 'employment']) {
       const inf = e.influences(id);
       const r = model.ruleFor(id)!;
       const speedParam = r.adjust!.speed as string;
@@ -231,17 +232,17 @@ describe('levers and shocks', () => {
     expect(() => e.fire('taxRate', 1)).toThrow(/setting/);
   });
 
-  test('a choice lever takes the nearest option; a tie goes to the higher one', () => {
+  test('a choice lever or a padlock takes the nearest option; a tie goes to the higher one', () => {
     const e = fresh();
-    e.setLever('stabilisers', 0.4);
-    expect(e.leverValue('stabilisers')).toBe(0);
-    e.setLever('stabilisers', 0.5); // as Math.round and isAutomatic read it: Automatic
-    expect(e.leverValue('stabilisers')).toBe(1);
-    expect(e.stabilisers()[0].automatic).toBe(true);
-    e.setLever('stabilisers', 7); // clamped to the range first
-    expect(e.leverValue('stabilisers')).toBe(1);
-    e.load({ modelId: 'reference', events: [{ t: 0, lever: 'stabilisers', value: 0.3 }], months: 1 });
-    expect(e.events).toEqual([{ t: 0, lever: 'stabilisers', value: 0 }]);
+    e.setLever('keyRateLock', 0.4);
+    expect(e.leverValue('keyRateLock')).toBe(0);
+    e.setLever('keyRateLock', 0.5); // as isLocked reads it: locked
+    expect(e.leverValue('keyRateLock')).toBe(1);
+    expect(e.stabilisers()[0].locked).toBe(true);
+    e.setLever('keyRateLock', 7); // clamped to the range first
+    expect(e.leverValue('keyRateLock')).toBe(1);
+    e.load({ modelId: 'reference', events: [{ t: 0, lever: 'keyRateLock', value: 0.3 }], months: 1 });
+    expect(e.events).toEqual([{ t: 0, lever: 'keyRateLock', value: 0 }]);
     const withOptions: ModuleDef = {
       id: 'choice',
       label: 'x',
@@ -450,7 +451,7 @@ describe('views', () => {
 
   test('feed messages carry the id of the feed rule behind them', () => {
     const e = fresh();
-    e.setLever('keyRateAddon', 1);
+    e.setLever('keyRate', 4);
     e.step(6);
     const up = e.feed().find((f) => f.message === 'The central bank raises its key rate');
     expect(up).toMatchObject({ rule: 'rateUp', indicator: 'keyRate', concept: 'taylor-rule' });

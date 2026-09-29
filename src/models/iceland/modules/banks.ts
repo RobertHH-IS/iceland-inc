@@ -364,7 +364,7 @@ export const banks: ModuleDef = {
       binds: { param: 'lendingAppetite', mode: 'add' },
       description: 'Extra (or less) mortgage lending banks are willing to push each year.',
       definition:
-        'Level shift in households’ desired new mortgage borrowing, % of baseline GDP a year, split between the young and working age by their share of mortgage debt; persistent while set and still subject to the debt-service and loan-to-value caps. A lasting push has a lasting effect: at −3, output is about 0.7% lower after five years and still about 0.2% lower after twenty on Automatic, where the central bank eases but learns its neutral rate only slowly; on Manual the fall is deeper at first (1.7% after five years) and then turns into a small rise. Setting it back to 0 ends the push; loans already made are repaid over their term.',
+        'Level shift in households’ desired new mortgage borrowing, % of baseline GDP a year, split between the young and working age by their share of mortgage debt; persistent while set and still subject to the debt-service and loan-to-value caps. A lasting push has a lasting effect: at −3, output is about 0.7% lower after five years and still about 0.2% lower after twenty with the policy rules acting, where the central bank eases but learns its neutral rate only slowly; with both policy levers locked the fall is deeper at first (1.7% after five years) and then turns into a small rise. Setting it back to 0 ends the push; loans already made are repaid over their term.',
       concepts: ['endogenous-money', 'credit-impulse'],
     },
   ],
@@ -373,7 +373,7 @@ export const banks: ModuleDef = {
       id: 'deposit-rate-floor',
       label: 'With the key rate held at 0%, banks pay 0% on deposits, not −1%: no deposit interest is negative',
       run: (e) => {
-        e.setLever('keyRateFixed', 0);
+        e.setLever('keyRate', 0); // moving the lever locks it
         e.step(3);
         const rate = e.value('depositRate');
         const lowest = Math.min(...DEPOSITORS.map((pl) => e.value(`depositInterest${pl}`)));

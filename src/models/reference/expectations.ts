@@ -11,39 +11,42 @@
  */
 import type { LeverExpectation } from '../../harness/lever-report.ts';
 
+// Lock configurations (decision 0010): 'unlocked', the default, where the Taylor rule and the debt
+// rule act (the old Automatic), and 'locked', where both are held (the old Manual). Moving a policy
+// lever locks it, so its own runs hold it in both.
+
 export const expectations: LeverExpectation[] = [
   {
-    lever: 'lendingAppetite', setting: 'max', mode: 'Automatic', variable: 'investment', fromMonth: 1, toMonth: 24, sign: 1,
+    lever: 'lendingAppetite', setting: 'max', mode: 'unlocked', variable: 'investment', fromMonth: 1, toMonth: 24, sign: 1,
     theory: 'More credit supply finances more investment while net credit is flowing.',
     source: 'Bank of England (McLeay, Radia & Thomas 2014)',
   },
   {
-    lever: 'lendingAppetite', setting: 'max', mode: 'Automatic', variable: 'creditImpulse', fromMonth: 24, toMonth: 48, sign: -1,
+    lever: 'lendingAppetite', setting: 'max', mode: 'unlocked', variable: 'creditImpulse', fromMonth: 24, toMonth: 48, sign: -1,
     theory: 'Credit impulse: once the extra lending is flowing, repayments on the extra debt slow net credit, so the impulse turns negative and the boost to demand fades.',
     source: 'Biggs, Mayer & Pick (2010)',
   },
+  // Until padlocks this was on the offset to the Taylor rule; it is now on a key rate locked at its
+  // highest, with the debt rule acting. A second expectation on the offset (inflation lower over
+  // twenty years, since a lasting offset worked like a lower inflation target) was dropped: a rate
+  // held where the user sets it is not a rule with a lower target (docs/audit/lever-vetting.md).
   {
-    lever: 'keyRateAddon', setting: 'max', mode: 'Automatic', variable: 'output', fromMonth: 6, toMonth: 60, sign: -1,
+    lever: 'keyRate', setting: 'max', mode: 'unlocked', variable: 'output', fromMonth: 6, toMonth: 60, sign: -1,
     theory: 'A tighter policy rate lowers demand and output.',
     source: 'Christiano, Eichenbaum & Evans (1999)',
   },
   {
-    lever: 'keyRateAddon', setting: 'max', mode: 'Automatic', variable: 'inflation', fromMonth: 12, toMonth: 240, sign: -1,
-    theory: 'A lasting offset works partly like a lower inflation target: inflation settles lower.',
-    source: 'Taylor (1993); Woodford (2003, ch. 4)',
-  },
-  {
-    lever: 'govSpending', setting: 'min', mode: 'Automatic', variable: 'keyRate', fromMonth: 48, toMonth: 180, sign: -1,
+    lever: 'govSpending', setting: 'min', mode: 'unlocked', variable: 'keyRate', fromMonth: 48, toMonth: 180, sign: -1,
     theory: 'Intended: a large lasting cut in spending pushes the key rate to zero, where neither it nor deposit rates can fall further, so monetary policy cannot offset the cut (a liquidity trap). The key rate stays at or just above zero for about 15 years, until the debt rule’s tax cuts have brought demand back; output is still about 4% lower after ten years and 1.4% lower after twenty, and still recovering. With a zero inflation target and a 3% neutral rate the central bank has only 3 points to cut.',
     source: 'Eggertsson & Krugman (2012); DeLong & Summers (2012); Eggertsson, Juelsrud, Summers & Wold (2019)',
   },
   {
-    lever: 'govSpending', setting: 'min', mode: 'Automatic', variable: 'output', fromMonth: 229, toMonth: 240, sign: -1,
+    lever: 'govSpending', setting: 'min', mode: 'unlocked', variable: 'output', fromMonth: 229, toMonth: 240, sign: -1,
     theory: 'Intended: after a liquidity trap output recovers only as fast as fiscal policy brings demand back, here the debt rule cutting taxes as debt falls, so twenty years on it is still below where it would have been.',
     source: 'DeLong & Summers (2012)',
   },
   {
-    lever: 'wageSettlement', setting: 'default', mode: 'Automatic', variable: 'priceLevel', fromMonth: 229, toMonth: 240, sign: 1,
+    lever: 'wageSettlement', setting: 'default', mode: 'unlocked', variable: 'priceLevel', fromMonth: 229, toMonth: 240, sign: 1,
     theory: 'An inflation-targeting central bank lets bygones be bygones: it does not bring the price level back down after a one-off cost shock.',
     source: 'Woodford (2003)',
   },
@@ -53,7 +56,7 @@ export const expectations: LeverExpectation[] = [
     source: 'national accounts identity',
   },
   {
-    lever: 'keyRateFixed', setting: 'min', mode: 'Manual', variable: 'inflation', fromMonth: 24, toMonth: 120, sign: 1,
+    lever: 'keyRate', setting: 'min', mode: 'locked', variable: 'inflation', fromMonth: 24, toMonth: 120, sign: 1,
     theory: 'A key rate held below neutral with no other anchor lets inflation rise (Wicksell’s cumulative process).',
     source: 'Wicksell (1898); Friedman (1968)',
   },
@@ -64,8 +67,8 @@ export const expectations: LeverExpectation[] = [
   { lever: 'govSpending', setting: 'up', variable: 'deficit', fromMonth: 1, toMonth: 6, sign: 1, theory: 'Budget accounting: extra spending widens the deficit before higher tax revenue offsets part of it.', source: 'Godley & Lavoie (2007), Monetary Economics, ch. 3' },
   { lever: 'govSpending', setting: 'up', variable: 'unemployment', fromMonth: 3, toMonth: 24, sign: -1, theory: 'Okun’s law: more output needs more work.', source: 'Okun (1962); Ball, Leigh & Loungani (2017)' },
   { lever: 'govSpending', setting: 'up', variable: 'inflation', fromMonth: 12, toMonth: 36, sign: 1, theory: 'Phillips curve: a tighter labour market raises wage growth, which passes into prices.', source: 'Phillips (1958); Galí (2011)' },
-  { lever: 'govSpending', setting: 'up', mode: 'Automatic', variable: 'keyRate', fromMonth: 6, toMonth: 36, sign: 1, theory: 'Taylor rule: the central bank raises its rate against a positive output gap and rising inflation.', source: 'Taylor (1993)' },
-  { lever: 'govSpending', setting: 'up', mode: 'Automatic', variable: 'investment', fromMonth: 24, toMonth: 120, sign: -1, theory: 'Crowding out: under a Taylor rule, higher real rates reduce private investment once the initial accelerator boost fades.', source: 'Blanchard, Macroeconomics (IS–LM/IS–MP); Woodford (2011) AEJ Macro' },
+  { lever: 'govSpending', setting: 'up', mode: 'unlocked', variable: 'keyRate', fromMonth: 6, toMonth: 36, sign: 1, theory: 'Taylor rule: the central bank raises its rate against a positive output gap and rising inflation.', source: 'Taylor (1993)' },
+  { lever: 'govSpending', setting: 'up', mode: 'unlocked', variable: 'investment', fromMonth: 24, toMonth: 120, sign: -1, theory: 'Crowding out: under a Taylor rule, higher real rates reduce private investment once the initial accelerator boost fades.', source: 'Blanchard, Macroeconomics (IS–LM/IS–MP); Woodford (2011) AEJ Macro' },
 
   // The income-tax rate
   { lever: 'taxRate', setting: 'up', variable: 'output', fromMonth: 1, toMonth: 12, sign: -1, theory: 'Tax multiplier: a higher income-tax rate lowers disposable income and consumption.', source: 'Romer & Romer (2010) AER; Mertens & Ravn (2013) AER' },
@@ -74,25 +77,26 @@ export const expectations: LeverExpectation[] = [
   { lever: 'taxRate', setting: 'up', variable: 'realConsumption', fromMonth: 1, toMonth: 12, sign: -1, theory: 'Consumption function: spending follows disposable income.', source: 'Keynes (1936); Jappelli & Pistaferri (2010)' },
   { lever: 'taxRate', setting: 'up', variable: 'deficit', fromMonth: 1, toMonth: 6, sign: -1, theory: 'Budget accounting: higher tax revenue narrows the deficit.', source: 'Godley & Lavoie (2007), ch. 3' },
   { lever: 'taxRate', setting: 'up', variable: 'unemployment', fromMonth: 3, toMonth: 24, sign: 1, theory: 'Okun’s law: lower output needs less work.', source: 'Okun (1962)' },
-  { lever: 'taxRate', setting: 'up', mode: 'Automatic', variable: 'keyRate', fromMonth: 6, toMonth: 36, sign: -1, theory: 'Taylor rule: the central bank cuts its rate against the negative output gap and lower inflation.', source: 'Taylor (1993)' },
+  { lever: 'taxRate', setting: 'up', mode: 'unlocked', variable: 'keyRate', fromMonth: 6, toMonth: 36, sign: -1, theory: 'Taylor rule: the central bank cuts its rate against the negative output gap and lower inflation.', source: 'Taylor (1993)' },
 
-  // The offset to the rule
-  { lever: 'keyRateAddon', setting: 'up', mode: 'Automatic', variable: 'keyRate', fromMonth: 1, toMonth: 12, sign: 1, theory: 'A positive offset raises the rule’s target, so the key rate rises in the short run.', source: 'Taylor (1993)' },
-  { lever: 'keyRateAddon', setting: 'up', mode: 'Automatic', variable: 'output', fromMonth: 6, toMonth: 36, sign: -1, theory: 'Monetary transmission: higher real rates reduce investment and consumption, with lags.', source: 'Christiano, Eichenbaum & Evans (1999); Ramey (2016)' },
-  { lever: 'keyRateAddon', setting: 'down', mode: 'Automatic', variable: 'output', fromMonth: 6, toMonth: 36, sign: 1, theory: 'Monetary easing: lower real rates raise interest-sensitive demand.', source: 'Christiano, Eichenbaum & Evans (1999)' },
-  { lever: 'keyRateAddon', setting: 'up', mode: 'Automatic', variable: 'inflation', fromMonth: 12, toMonth: 60, sign: -1, theory: 'Tighter policy lowers inflation after a lag, through the output gap and the Phillips curve.', source: 'Havranek & Rusnak (2013) IJCB' },
-  { lever: 'keyRateAddon', setting: 'up', mode: 'Automatic', variable: 'unemployment', fromMonth: 6, toMonth: 36, sign: 1, theory: 'Okun’s law following the monetary contraction.', source: 'Okun (1962); Ramey (2016)' },
-  { lever: 'keyRateAddon', setting: 'up', mode: 'Automatic', variable: 'investment', fromMonth: 6, toMonth: 36, sign: -1, theory: 'User cost of capital: a higher real loan rate lowers investment.', source: 'Jorgenson (1963); Chirinko (1993)' },
-  { lever: 'keyRateAddon', setting: 'max', mode: 'Automatic', variable: 'priceLevel', fromMonth: 24, toMonth: 120, sign: -1, theory: 'Persistent tightening (a lower implied inflation target) lowers the path of the price level.', source: 'Taylor (1993); Woodford (2003)' },
+  // The key rate held, the debt rule acting (until padlocks, an offset to the Taylor rule, which the
+  // rule leaned against; rules can no longer be tilted, decision 0010)
+  { lever: 'keyRate', setting: 'up', mode: 'unlocked', variable: 'keyRate', fromMonth: 1, toMonth: 12, sign: 1, theory: 'Moving the lever locks it: the key rate is held where it is set, above the neutral rate.', source: 'Decision 0010 (padlocks); model rule 11' },
+  { lever: 'keyRate', setting: 'up', mode: 'unlocked', variable: 'output', fromMonth: 6, toMonth: 36, sign: -1, theory: 'Monetary transmission: higher real rates reduce investment and consumption, with lags.', source: 'Christiano, Eichenbaum & Evans (1999); Ramey (2016)' },
+  { lever: 'keyRate', setting: 'down', mode: 'unlocked', variable: 'output', fromMonth: 6, toMonth: 36, sign: 1, theory: 'Monetary easing: lower real rates raise interest-sensitive demand.', source: 'Christiano, Eichenbaum & Evans (1999)' },
+  { lever: 'keyRate', setting: 'up', mode: 'unlocked', variable: 'inflation', fromMonth: 12, toMonth: 60, sign: -1, theory: 'Tighter policy lowers inflation after a lag, through the output gap and the Phillips curve.', source: 'Havranek & Rusnak (2013) IJCB' },
+  { lever: 'keyRate', setting: 'up', mode: 'unlocked', variable: 'unemployment', fromMonth: 6, toMonth: 36, sign: 1, theory: 'Okun’s law following the monetary contraction.', source: 'Okun (1962); Ramey (2016)' },
+  { lever: 'keyRate', setting: 'up', mode: 'unlocked', variable: 'investment', fromMonth: 6, toMonth: 36, sign: -1, theory: 'User cost of capital: a higher real loan rate lowers investment.', source: 'Jorgenson (1963); Chirinko (1993)' },
+  { lever: 'keyRate', setting: 'max', mode: 'unlocked', variable: 'priceLevel', fromMonth: 24, toMonth: 120, sign: -1, theory: 'Persistent tightening lowers the path of the price level over the medium run.', source: 'Taylor (1993); Woodford (2003)' },
 
-  // The key rate held on Manual
-  { lever: 'keyRateFixed', setting: 'up', mode: 'Manual', variable: 'keyRate', fromMonth: 1, toMonth: 240, sign: 1, theory: 'On Manual the key rate is held where the user sets it.', source: 'Decision 0004 (policy held on Manual)' },
-  { lever: 'keyRateFixed', setting: 'up', mode: 'Manual', variable: 'output', fromMonth: 3, toMonth: 24, sign: -1, theory: 'Interest-rate channel: a higher held rate reduces demand.', source: 'Christiano, Eichenbaum & Evans (1999); Bernanke & Gertler (1995)' },
-  { lever: 'keyRateFixed', setting: 'down', mode: 'Manual', variable: 'output', fromMonth: 3, toMonth: 24, sign: 1, theory: 'Interest-rate channel: a lower held rate raises demand.', source: 'Christiano, Eichenbaum & Evans (1999)' },
-  { lever: 'keyRateFixed', setting: 'up', mode: 'Manual', variable: 'inflation', fromMonth: 12, toMonth: 36, sign: -1, theory: 'A contraction lowers inflation through the Phillips curve, with lags.', source: 'Havranek & Rusnak (2013)' },
-  { lever: 'keyRateFixed', setting: 'up', mode: 'Manual', variable: 'unemployment', fromMonth: 3, toMonth: 24, sign: 1, theory: 'Okun’s law.', source: 'Okun (1962)' },
-  { lever: 'keyRateFixed', setting: 'up', mode: 'Manual', variable: 'investment', fromMonth: 3, toMonth: 24, sign: -1, theory: 'User cost of capital.', source: 'Jorgenson (1963); Chirinko (1993)' },
-  { lever: 'keyRateFixed', setting: 'up', mode: 'Manual', variable: 'realConsumption', fromMonth: 3, toMonth: 24, sign: -1, theory: 'Intertemporal substitution plus the fall in income that follows.', source: 'Hall (1988); Ramey (2016)' },
+  // The key rate held, the debt rule held too (locked)
+  { lever: 'keyRate', setting: 'up', mode: 'locked', variable: 'keyRate', fromMonth: 1, toMonth: 240, sign: 1, theory: 'A locked key rate is held where the user sets it.', source: 'Decisions 0004 and 0010 (model rule 11)' },
+  { lever: 'keyRate', setting: 'up', mode: 'locked', variable: 'output', fromMonth: 3, toMonth: 24, sign: -1, theory: 'Interest-rate channel: a higher held rate reduces demand.', source: 'Christiano, Eichenbaum & Evans (1999); Bernanke & Gertler (1995)' },
+  { lever: 'keyRate', setting: 'down', mode: 'locked', variable: 'output', fromMonth: 3, toMonth: 24, sign: 1, theory: 'Interest-rate channel: a lower held rate raises demand.', source: 'Christiano, Eichenbaum & Evans (1999)' },
+  { lever: 'keyRate', setting: 'up', mode: 'locked', variable: 'inflation', fromMonth: 12, toMonth: 36, sign: -1, theory: 'A contraction lowers inflation through the Phillips curve, with lags.', source: 'Havranek & Rusnak (2013)' },
+  { lever: 'keyRate', setting: 'up', mode: 'locked', variable: 'unemployment', fromMonth: 3, toMonth: 24, sign: 1, theory: 'Okun’s law.', source: 'Okun (1962)' },
+  { lever: 'keyRate', setting: 'up', mode: 'locked', variable: 'investment', fromMonth: 3, toMonth: 24, sign: -1, theory: 'User cost of capital.', source: 'Jorgenson (1963); Chirinko (1993)' },
+  { lever: 'keyRate', setting: 'up', mode: 'locked', variable: 'realConsumption', fromMonth: 3, toMonth: 24, sign: -1, theory: 'Intertemporal substitution plus the fall in income that follows.', source: 'Hall (1988); Ramey (2016)' },
 
   // Wage settlement
   { lever: 'wageSettlement', setting: 'max', variable: 'priceLevel', fromMonth: 1, toMonth: 240, sign: 1, theory: 'Markup pricing and cost pass-through: higher unit labour costs raise prices, and a one-off level shift is not reversed.', source: 'Kalecki (1954); Blanchard (1986) QJE' },
@@ -100,9 +104,9 @@ export const expectations: LeverExpectation[] = [
   { lever: 'wageSettlement', setting: 'max', variable: 'inflation', fromMonth: 1, toMonth: 12, sign: 1, theory: 'Pass-through of the cost jump raises measured inflation over the following year.', source: 'Bernanke & Blanchard (2023)' },
   { lever: 'wageSettlement', setting: 'max', variable: 'realWage', fromMonth: 1, toMonth: 12, sign: 1, theory: 'Nominal wages jump before prices adjust, so real wages rise at first.', source: 'Blanchard (1986)' },
   { lever: 'wageSettlement', setting: 'max', variable: 'realProfit', fromMonth: 1, toMonth: 12, sign: -1, theory: 'Profit squeeze: wage costs rise before prices catch up.', source: 'Glyn & Sutcliffe (1972); Goodwin (1967)' },
-  { lever: 'wageSettlement', setting: 'max', mode: 'Automatic', variable: 'keyRate', fromMonth: 3, toMonth: 24, sign: 1, theory: 'Taylor rule: the central bank reacts to higher inflation.', source: 'Taylor (1993)' },
-  { lever: 'wageSettlement', setting: 'max', mode: 'Automatic', variable: 'output', fromMonth: 12, toMonth: 36, sign: -1, theory: 'Cost-push shock plus a policy response gives stagflation: output falls as real rates and real incomes adjust.', source: 'Blanchard, Macroeconomics (AS–AD); Galí (2015), ch. 5' },
-  { lever: 'wageSettlement', setting: 'max', mode: 'Automatic', variable: 'unemployment', fromMonth: 12, toMonth: 36, sign: 1, theory: 'Okun’s law following the policy-induced slowdown.', source: 'Okun (1962)' },
+  { lever: 'wageSettlement', setting: 'max', mode: 'unlocked', variable: 'keyRate', fromMonth: 3, toMonth: 24, sign: 1, theory: 'Taylor rule: the central bank reacts to higher inflation.', source: 'Taylor (1993)' },
+  { lever: 'wageSettlement', setting: 'max', mode: 'unlocked', variable: 'output', fromMonth: 12, toMonth: 36, sign: -1, theory: 'Cost-push shock plus a policy response gives stagflation: output falls as real rates and real incomes adjust.', source: 'Blanchard, Macroeconomics (AS–AD); Galí (2015), ch. 5' },
+  { lever: 'wageSettlement', setting: 'max', mode: 'unlocked', variable: 'unemployment', fromMonth: 12, toMonth: 36, sign: 1, theory: 'Okun’s law following the policy-induced slowdown.', source: 'Okun (1962)' },
 
   // Lending appetite
   { lever: 'lendingAppetite', setting: 'max', variable: 'broadMoney', fromMonth: 1, toMonth: 60, sign: 1, theory: 'Endogenous money: new bank loans create deposits.', source: 'McLeay, Radia & Thomas (2014) BoE Quarterly Bulletin' },
@@ -112,5 +116,5 @@ export const expectations: LeverExpectation[] = [
   { lever: 'lendingAppetite', setting: 'min', variable: 'output', fromMonth: 1, toMonth: 24, sign: -1, theory: 'A negative credit impulse subtracts from demand.', source: 'Biggs, Mayer & Pick (2010); Gilchrist & Zakrajšek (2012)' },
   { lever: 'lendingAppetite', setting: 'max', variable: 'privateDebt', fromMonth: 12, toMonth: 60, sign: 1, theory: 'More lending raises the stock of private debt relative to GDP.', source: 'Jordà, Schularick & Taylor (2013)' },
   { lever: 'lendingAppetite', setting: 'max', variable: 'unemployment', fromMonth: 3, toMonth: 24, sign: -1, theory: 'Okun’s law following the credit-driven boom.', source: 'Okun (1962)' },
-  { lever: 'lendingAppetite', setting: 'max', mode: 'Automatic', variable: 'keyRate', fromMonth: 6, toMonth: 36, sign: 1, theory: 'Taylor rule leans against the boom.', source: 'Taylor (1993)' },
+  { lever: 'lendingAppetite', setting: 'max', mode: 'unlocked', variable: 'keyRate', fromMonth: 6, toMonth: 36, sign: 1, theory: 'Taylor rule leans against the boom.', source: 'Taylor (1993)' },
 ];

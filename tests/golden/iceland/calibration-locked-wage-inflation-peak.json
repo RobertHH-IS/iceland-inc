@@ -1,9 +1,19 @@
 {
  "format": "iceland-inc/golden@1",
  "modelId": "iceland",
- "scenario": "calibration-manual-wage-inflation-peak",
+ "scenario": "calibration-locked-wage-inflation-peak",
  "months": 240,
  "events": [
+  {
+   "t": 0,
+   "lever": "keyRateLock",
+   "value": 1
+  },
+  {
+   "t": 0,
+   "lever": "incomeTaxLock",
+   "value": 1
+  },
   {
    "t": 0,
    "lever": "wageSettlement",

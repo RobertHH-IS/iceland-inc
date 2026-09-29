@@ -1,9 +1,19 @@
 {
  "format": "iceland-inc/golden@1",
  "modelId": "iceland",
- "scenario": "calibration-manual-tax-key-rate-held",
+ "scenario": "calibration-locked-tax-key-rate-held",
  "months": 240,
  "events": [
+  {
+   "t": 0,
+   "lever": "keyRateLock",
+   "value": 1
+  },
+  {
+   "t": 0,
+   "lever": "incomeTaxLock",
+   "value": 1
+  },
   {
    "t": 0,
    "lever": "incomeTax",

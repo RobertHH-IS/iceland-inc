@@ -94,10 +94,10 @@ test('the ledger shows a mixed cell’s net value, with the gross within the col
 });
 
 test('a rule that wants a key rate beyond the lever’s range gets a note, not Apply or a red dot (L18)', () => {
-  const lever = info.leverById.get('keyRateFixed')!;
+  const lever = info.leverById.get('keyRate')!;
   const values = [...frame.levers];
   values[lever.index] = lever.max!;
-  const stabilisers: StabiliserState[] = frame.stabilisers.map((s) => (s.lever === 'keyRateFixed' ? { ...s, suggested: lever.max! + 2, current: lever.max!, gap: 2, calling: true } : { ...s, calling: false }));
+  const stabilisers: StabiliserState[] = frame.stabilisers.map((s) => (s.lever === 'keyRate' ? { ...s, locked: true, suggested: lever.max! + 2, current: lever.max!, gap: 2, calling: true } : { ...s, calling: false }));
   const html = renderToString(<LeverPanel info={info} client={client} values={values} events={frame.events} stabilisers={stabilisers} />);
   expect(html).toContain('(beyond the lever’s range)</div>');
   expect(html).not.toContain('>Apply</button>');
@@ -105,7 +105,7 @@ test('a rule that wants a key rate beyond the lever’s range gets a note, not A
   expect(html).not.toMatch(/class="lever [^"]*calling"/);
   // One step short of the bound, the rule calls and Apply moves the lever to the bound.
   values[lever.index] = lever.max! - 1;
-  const short = renderToString(<LeverPanel info={info} client={client} values={values} events={frame.events} stabilisers={stabilisers.map((s) => (s.lever === 'keyRateFixed' ? { ...s, current: lever.max! - 1 } : s))} />);
+  const short = renderToString(<LeverPanel info={info} client={client} values={values} events={frame.events} stabilisers={stabilisers.map((s) => (s.lever === 'keyRate' ? { ...s, current: lever.max! - 1 } : s))} />);
   expect(short).toContain('>Apply</button>');
   expect(short).toContain('class="call-dot"');
 });

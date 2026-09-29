@@ -50,7 +50,7 @@ const params: ParamDef[] = [
     unit: 'fraction',
     category: 'BEHAVIOUR',
     description: 'Extra investment (% of GDP) per 1% of GDP of output above capacity.',
-    provenance: { basis: 'assumed', note: 'Teaching value. At 0.3 the accelerator, which reads the level of the output gap while capacity stays fixed, was what amplified long booms on Manual most (review REF-manual-no-capacity-ceiling).' },
+    provenance: { basis: 'assumed', note: 'Teaching value. At 0.3 the accelerator, which reads the level of the output gap while capacity stays fixed, was what amplified long booms with both policy levers locked most (review REF-manual-no-capacity-ceiling).' },
   },
   { id: 'rateSensitivity', value: 0.45, unit: '% of GDP per pp', category: 'BEHAVIOUR', description: 'Investment lost (% of GDP) per point of real loan rate above normal.', provenance: { basis: 'assumed', note: 'Teaching value, set with the saving incentive (see there). It was 0.6.' } },
   { id: 'investmentSpeed', value: 2, unit: 'per year', category: 'BEHAVIOUR', description: 'How fast investment plans respond.', provenance: assumed },

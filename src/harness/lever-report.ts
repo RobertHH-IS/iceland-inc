@@ -1,6 +1,6 @@
 /**
  * The lever-response report: every lever of a model moved hard, one at a time, and every effect
- * measured against the no-change run in the same stabiliser mode, month by month. The output is
+ * measured against the no-change run in the same lock configuration, month by month. The output is
  * for vetting: a person or an agent reads it to judge whether each response is plausible and
  * whether the right economics drives it. It never changes the model; it only runs it.
  *
@@ -9,16 +9,18 @@
  *              min, its max, its default size and half of it, and those two with the opposite
  *              sign where the range allows; a choice at every option other than its default
  *   runs       each setting applied before month 1 (event t = 0, so month 1 is the first month
- *              it acts) and held, in every stabiliser mode where the lever is shown (showWhen)
+ *              it acts) and held, in every lock configuration: every policy lever unlocked (the
+ *              default), every one locked (the old Manual), and any the model adds
+ *              (lever-headlines.ts). Moving a policy lever locks it, so its own runs hold it
  *   effects    shocked − no-change, in the variable's display unit (% of the no-change level
  *              for levels, pp for rates and shares, the indicator's unit otherwise), at fixed
  *              horizons, with the peak and the long-run value
  *   flags      each with a threshold in LEVER_THRESHOLDS, explained in the report
  *   companions a lever that can act only on top of another shock (lever-headlines.ts) is also
  *              run with that shock and measured against the run with the shock alone
- *   expectations  what theory predicts (src/models/<id>/expectations.ts), marked ✓ or ✗; an
- *              expectation on the stabiliser setting itself is checked on the switch: the
- *              no-change run of the other mode, measured against the no-change run of its own
+ *   expectations  what theory predicts (src/models/<id>/expectations.ts), marked ✓ or ✗; a
+ *              padlock is not run as a lever, and an expectation on one is checked by closing
+ *              or opening it at month 0 with no shock, against that configuration's no-change run
  *
  * The harness runs the same measurement as a regression gate (layers.ts, robustness layer): with
  * `onlyExpected` it makes only the runs some expectation needs, through its own `run`, so it can
@@ -35,7 +37,7 @@ import { runScenario } from '../core/scenario.ts';
 import type { Id, IndicatorDef, LeverDef, ModelDef, ScenarioEvent } from '../core/types.ts';
 import { leverReportSpecs, type Companion, type LeverReportSpec, type PolicyInstrument } from './lever-headlines.ts';
 import { firstNonFinite, plausibilityBounds, plausibilityBreaches } from './plausibility.ts';
-import { stabiliserModes } from './scenarios.ts';
+import { LOCKED, lockConfigs, UNLOCKED, type LockConfig } from './scenarios.ts';
 
 export const LEVER_REPORT_FORMAT = 'iceland-inc/levers@1';
 export const DEFAULT_MONTHS = 240;
@@ -52,8 +54,8 @@ export const LEVER_THRESHOLDS = {
    *  headline rate or ratio by more than extremePp pp, in some month. */
   extremePct: 50,
   extremePp: 25,
-  /** A policy instrument moved on Manual when it differs from the no-change run by more than
-   *  this, in model units (a fraction for rates). */
+  /** A held policy instrument moved when it differs from the no-change run by more than this, in
+   *  model units (a fraction for rates). */
   policyMove: 1e-9,
   /** An effect smaller than this counts as zero (display units). */
   floor: 0.01,
@@ -88,7 +90,7 @@ export const LEVER_THRESHOLDS = {
   asymMonth: 12,
   asymRatio: 3,
   asymFloor: 0.05,
-  /** Manual and Automatic disagree at month `modeMonth` when their effects have opposite signs,
+  /** Locked and unlocked disagree at month `modeMonth` when their effects have opposite signs,
    *  each at least modeFloor. */
   modeMonth: 12,
   modeFloor: 0.02,
@@ -109,7 +111,7 @@ export type FlagKind =
   | 'unsettled'
   | 'explosive'
   | 'asymmetry'
-  | 'modeSign'
+  | 'lockSign'
   | 'flicker'
   | 'inert'
   | 'regime';
@@ -121,13 +123,13 @@ export const FLAG_KINDS: { kind: FlagKind; title: string; meaning: string }[] = 
   { kind: 'sign', title: 'Sign', meaning: 'A position took the wrong sign for its role (CheckReport.signViolations): an overdrawn asset or a liability turned into a claim.' },
   { kind: 'implausible', title: 'Implausible', meaning: 'A variable broke an economic bound of the harness (plausibility.ts): unemployment outside [0, 50%], a price index at or below zero, a negative key rate.' },
   { kind: 'extreme', title: 'Extreme', meaning: `A headline moved further than any routine policy change should move it: a level by more than ${LEVER_THRESHOLDS.extremePct}% of its no-change value, or a rate or ratio by more than ${LEVER_THRESHOLDS.extremePp} pp, in some month. Usually a runaway nominal path; check it before anything else in the run.` },
-  { kind: 'policyMoved', title: 'Policy moved', meaning: `On Manual, a policy instrument whose own levers were not moved differs from the no-change run by more than ${LEVER_THRESHOLDS.policyMove} (model units).` },
+  { kind: 'policyMoved', title: 'Policy moved', meaning: `A held policy instrument (its padlock closed, or one without a rule) whose own levers were not moved differs from the no-change run by more than ${LEVER_THRESHOLDS.policyMove} (model units).` },
   { kind: 'jump', title: 'Month-1 jump', meaning: `A headline that should adjust gradually has ${100 * LEVER_THRESHOLDS.jumpShare}% or more of its peak effect already in month 1 (peak at least ${LEVER_THRESHOLDS.jumpFloor}).` },
   { kind: 'sawtooth', title: 'Sawtooth', meaning: `In the first ${LEVER_THRESHOLDS.sawWindow} months, ${LEVER_THRESHOLDS.sawRun} or more sign alternations in a row of month-to-month changes, each above max(${LEVER_THRESHOLDS.sawAbs}, ${100 * LEVER_THRESHOLDS.sawRel}% of the peak).` },
   { kind: 'unsettled', title: 'Unsettled', meaning: `Still moving at the end: the effect changed by more than max(${LEVER_THRESHOLDS.settleAbs}, ${100 * LEVER_THRESHOLDS.settleRel}% of the peak) over the final 12 months.` },
   { kind: 'explosive', title: 'Explosive', meaning: `Unsettled, the final effect at least ${LEVER_THRESHOLDS.explodeFactor}× the largest effect in the first half of the run and at least ${LEVER_THRESHOLDS.explodeFloor}, and still accelerating: it moved at least ${LEVER_THRESHOLDS.explodeAccel}× as much in the final 12 months as in the 12 months ${LEVER_THRESHOLDS.explodeLookback / 12} years earlier. A level that grows steadily, such as a price level whose inflation has settled at an offset, is only unsettled.` },
   { kind: 'asymmetry', title: 'Asymmetry', meaning: `At month ${LEVER_THRESHOLDS.asymMonth}, the effects per unit of lever of the moderate up and down steps differ in sign or by more than ${LEVER_THRESHOLDS.asymRatio}× (larger effect at least ${LEVER_THRESHOLDS.asymFloor}). Caps and floors that bind one way are the usual cause.` },
-  { kind: 'modeSign', title: 'Mode sign', meaning: `At month ${LEVER_THRESHOLDS.modeMonth}, Manual and Automatic move a non-policy headline in opposite directions (each at least ${LEVER_THRESHOLDS.modeFloor}).` },
+  { kind: 'lockSign', title: 'Lock sign', meaning: `At month ${LEVER_THRESHOLDS.modeMonth}, the runs with every policy lever locked and every one unlocked move a non-policy headline in opposite directions (each at least ${LEVER_THRESHOLDS.modeFloor}).` },
   { kind: 'flicker', title: 'Flicker', meaning: `A rule's regime label changed ${LEVER_THRESHOLDS.flickerSwitches} or more times within ${LEVER_THRESHOLDS.sawWindow} months: a floor or cap switching on and off.` },
   { kind: 'inert', title: 'Inert', meaning: `No run of the lever moves any headline or indicator by ${LEVER_THRESHOLDS.unmoved} or more in any month. Either the lever needs another shock to act on (then the report also runs it with a declared companion shock), or it is not wired to anything.` },
   { kind: 'regime', title: 'Regimes', meaning: 'At least one rule ran in a different regime (a floor, cap or limit binding or released) from the no-change run in the same month. Informational: it shows what drives the result.' },
@@ -240,13 +242,11 @@ export interface LeverSection {
   description: string;
   definition: string;
   settings: LeverSetting[];
-  /** Modes in which the lever is hidden (LeverDef.showWhen) and therefore not run. */
-  skipped: { mode: string; why: string }[];
   runs: LeverRun[];
   /** The declared companion shock, and the runs on top of it (lever-headlines.ts). */
   companion?: Companion & { label: string };
   companionRuns: LeverRun[];
-  /** Flags that compare runs: asymmetry of the moderate steps, Manual against Automatic, and an
+  /** Flags that compare runs: asymmetry of the moderate steps, locked against unlocked, and an
    *  inert lever. `companion` marks those among the companion runs. */
   crossFlags: CrossFlag[];
 }
@@ -260,8 +260,10 @@ export interface LeverReport {
   months: number;
   horizons: number[];
   thresholds: typeof LEVER_THRESHOLDS;
+  /** The lock configurations every lever runs in, by label ('unlocked', 'locked', …). */
   modes: string[];
-  stabiliserLever?: Id;
+  /** The padlocks, which are not run as levers. */
+  locks: Id[];
   headlines: { id: Id; label: string; unit: string; gradual: boolean; policy: boolean }[];
   indicators: { id: Id; label: string; unit: string }[];
   policy: PolicyInstrument[];
@@ -271,8 +273,8 @@ export interface LeverReport {
   /** Rules with a non-additive combine (a min, a max, a cap) but no regime label: when their
    *  kinks bind, the Regimes and Flicker flags cannot see it. */
   untraced: Id[];
-  /** The no-change run in each mode: its flags and largest move of a headline level from the
-   *  baseline (it should stay flat). */
+  /** The no-change run in each lock configuration: its flags and largest move of a headline level
+   *  from the baseline (it should stay flat). */
   noChange: { mode: string; flags: Flag[]; drift: number }[];
   levers: LeverSection[];
   expectations: ExpectationResult[] | null;
@@ -281,12 +283,14 @@ export interface LeverReport {
 
 /** An expectation another engineer can declare in src/models/<id>/expectations.ts. `setting` is a
  *  lever value or one of the roles ('min', 'max', 'up', 'down', 'default', 'half', '-default',
- *  '-half'); `mode` 'Manual', 'Automatic' or 'any' (the default); `sign` +1, −1 or 0 for the mean
- *  effect over [fromMonth, toMonth] (0: smaller than the report's floor). */
+ *  '-half'); `mode` a lock configuration ('unlocked', 'locked', or one the model adds in
+ *  lever-headlines.ts, such as 'key rate locked') or 'any' (the default); `sign` +1, −1 or 0 for
+ *  the mean effect over [fromMonth, toMonth] (0: smaller than the report's floor). On a padlock
+ *  (a 'lock' lever), `setting` is 1 (close it) or 0 (open it) at month 0, with no shock. */
 export interface LeverExpectation {
   lever: Id;
   setting: number | string;
-  mode?: 'Manual' | 'Automatic' | 'any';
+  mode?: string;
   variable: Id;
   fromMonth: number;
   toMonth: number;
@@ -308,7 +312,7 @@ export interface LeverReportOptions {
   /** Replace a model's declared spec (tests). */
   spec?: LeverReportSpec;
   /** Make only the runs an expectation needs (the harness gate): levers without expectations are
-   *  left out, and so are the settings, modes and companion runs no expectation matches. */
+   *  left out, and so are the settings, configurations and companion runs no expectation matches. */
   onlyExpected?: boolean;
   /** The engine at the baseline that every run starts from (default: a fresh one). */
   engine?: KernelEngine;
@@ -393,16 +397,6 @@ export function moderatePair(l: LeverDef, settings: LeverSetting[]): { down: Lev
     return a.value > b.value ? { up: a, down: b, from: 0 } : { up: b, down: a, from: 0 };
   }
   return null;
-}
-
-/** Whether a lever is hidden while the stabiliser setting has `modeValue` (LeverDef.showWhen);
- *  a condition on another lever is judged at that lever's default. */
-export function hiddenIn(m: KModel, l: LeverDef, modeValue: number | undefined): boolean {
-  const w = l.showWhen;
-  if (!w) return false;
-  const equals = Array.isArray(w.equals) ? w.equals : [w.equals];
-  const other = w.lever === m.def.stabiliserMode?.lever && modeValue !== undefined ? modeValue : (m.levers.find((x) => x.id === w.lever)?.default ?? NaN);
-  return !equals.includes(other);
 }
 
 /* ------------------------------------------------------------------ series */
@@ -553,11 +547,11 @@ export function pathFlags(tr: Pick<Tracked, 'gradual'>, path: ArrayLike<number>,
 
 /* ------------------------------------------------------------------ runs */
 
-/** Everything a run is compared with: the no-change run in the same mode. */
+/** Everything a run is compared with: the no-change run in the same lock configuration. */
 interface Reference {
   mode: string;
-  modeValue?: number;
-  modeEvent?: ScenarioEvent;
+  /** The configuration's own events (padlocks closed at month 0). */
+  events: ScenarioEvent[];
   /** The companion shock both runs share, if any. */
   extra?: ScenarioEvent;
   engine: KernelEngine;
@@ -706,13 +700,12 @@ function setup(def: ModelDef | KModel, months: number, specOverride?: LeverRepor
   };
 }
 
-/** The no-change run of one stabiliser mode, or the run with a companion shock alone. */
-function reference(S: Setup, mode: { label: string; event?: ScenarioEvent }, months: number, extra?: ScenarioEvent): Reference {
-  const e = S.run([...(mode.event ? [mode.event] : []), ...(extra ? [extra] : [])], months);
+/** The no-change run of one lock configuration, or the run with a companion shock alone. */
+function reference(S: Setup, config: LockConfig, months: number, extra?: ScenarioEvent): Reference {
+  const e = S.run([...config.events, ...(extra ? [extra] : [])], months);
   return {
-    mode: mode.label,
-    modeValue: mode.event?.value,
-    modeEvent: mode.event,
+    mode: config.label,
+    events: config.events,
     extra,
     engine: e,
     headlines: S.headlines.map((h) => h.levels(e)),
@@ -732,8 +725,8 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
     ? expectations.map((x) => ({ lever: x.lever, setting: x.setting, mode: x.mode ?? 'any', variable: x.variable, fromMonth: x.fromMonth, toMonth: x.toMonth, sign: x.sign, theory: x.theory, source: x.source, withCompanion: !!x.withCompanion, checks: [], pass: false }))
     : null;
 
-  // the no-change run of each mode
-  const modes = stabiliserModes(m);
+  // the no-change run of each lock configuration
+  const modes = lockConfigs(m, spec.configs);
   const refs = modes.map((x) => reference(S, x, months));
   const noChange = refs.map((r) => {
     let drift = 0;
@@ -744,32 +737,28 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
     return { mode: r.mode, flags: healthFlags(m, r.engine, S.bounds), drift };
   });
 
-  const modeLever = m.def.stabiliserMode?.lever;
-  for (const x of expResults ?? []) if (!m.levers.some((l) => l.id === x.lever)) throw new Error(`expectation names lever '${x.lever}', which model '${m.def.id}' does not have`);
+  const locks = m.levers.filter((l) => l.kind === 'lock').map((l) => l.id);
+  for (const x of expResults ?? []) {
+    if (!m.levers.some((l) => l.id === x.lever)) throw new Error(`expectation names lever '${x.lever}', which model '${m.def.id}' does not have`);
+    if (x.mode !== 'any' && !modes.some((c) => c.label === x.mode)) throw new Error(`expectation for '${x.lever}' names configuration '${x.mode}', which the report of model '${m.def.id}' does not run (${modes.map((c) => `'${c.label}'`).join(', ')})`);
+  }
   // With onlyExpected, the expectations a run could match (by lever, companion, mode and setting).
   const wanted = (l: LeverDef, s: LeverSetting, mode: string, companion: boolean) =>
     !opts.onlyExpected || (expResults ?? []).some((x) => x.lever === l.id && x.withCompanion === companion && (x.mode === 'any' || x.mode === mode) && matchesSetting(x.setting, s));
   const levers = m.levers.filter(
-    (l) => l.id !== modeLever && (!opts.levers || opts.levers.includes(l.id)) && (!opts.onlyExpected || (expResults ?? []).some((x) => x.lever === l.id)),
+    (l) => l.kind !== 'lock' && (!opts.levers || opts.levers.includes(l.id)) && (!opts.onlyExpected || (expResults ?? []).some((x) => x.lever === l.id)),
   );
   let runCount = 0;
   const eventOf = (l: LeverDef, value: number): ScenarioEvent => (l.kind === 'oneoff' ? { t: 0, lever: l.id, value, fire: true } : { t: 0, lever: l.id, value });
   const sections: LeverSection[] = levers.map((l) => {
     const settings = leverSettings(l);
-    const skipped: { mode: string; why: string }[] = [];
     const runs: LeverRun[] = [];
     const companionRuns: LeverRun[] = [];
     const comp = spec.companions?.[l.id];
     const compLever = comp ? m.levers.find((x) => x.id === comp.lever) : undefined;
     if (comp && !compLever) throw new Error(`lever report: the companion of '${l.id}' is '${comp.lever}', which is not a lever of model '${m.def.id}'`);
     for (const ref of refs) {
-      if (hiddenIn(m, l, ref.modeValue)) {
-        const w = l.showWhen!;
-        const shownIn = w.lever === modeLever ? refs.filter((r) => !hiddenIn(m, l, r.modeValue)).map((r) => r.mode) : [];
-        skipped.push({ mode: ref.mode, why: shownIn.length ? `the lever is shown only on ${shownIn.join(' and ')} (showWhen)` : `the lever is shown only when ${w.lever} is ${[w.equals].flat().join(' or ')} (showWhen)` });
-        continue;
-      }
-      const before = ref.modeEvent ? [ref.modeEvent] : [];
+      const before = ref.events;
       for (const s of settings) {
         if (!wanted(l, s, ref.mode, false)) continue;
         const e = S.run([...before, eventOf(l, s.value)], months);
@@ -778,7 +767,7 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
       }
       if (comp && compLever && settings.some((s) => wanted(l, s, ref.mode, true))) {
         const extra = eventOf(compLever, comp.value);
-        const compRef = reference(S, { label: ref.mode, event: ref.modeEvent }, months, extra);
+        const compRef = reference(S, { label: ref.mode, events: ref.events }, months, extra);
         for (const s of settings) {
           if (!wanted(l, s, ref.mode, true)) continue;
           const e = S.run([...before, extra, eventOf(l, s.value)], months);
@@ -801,23 +790,25 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
       description: l.description,
       definition: l.definition,
       settings,
-      skipped,
       runs,
       ...(comp && compLever ? { companion: { ...comp, label: `${compLever.label} ${fmtValue(comp.value)} ${compLever.unit}` } } : {}),
       companionRuns,
       crossFlags: cross,
     };
   });
-  // The stabiliser setting is not run as a lever: an expectation on it is checked on the switch
-  // from one mode to the other with no shock, which is the other mode's no-change run.
-  const modeDef = m.levers.find((l) => l.id === modeLever);
-  if (expResults && modeDef && expResults.some((x) => x.lever === modeLever))
-    for (const target of refs)
-      for (const ref of refs) {
-        if (ref === target || target.modeValue === undefined) continue;
-        const setting: LeverSetting = { value: target.modeValue, roles: ['option'], label: `switch to ${target.mode}` };
-        measureRun(S, target.engine, ref, { lever: modeDef, setting, paths: false, expResults });
-      }
+  // A padlock is not run as a lever: an expectation on one is checked by closing (1) or opening (0)
+  // it at month 0 in the configuration it names, with no shock, against that configuration.
+  for (const x of expResults ?? []) {
+    const lock = m.levers.find((l) => l.id === x.lever && l.kind === 'lock');
+    if (!lock || typeof x.setting !== 'number' || x.withCompanion) continue;
+    for (const ref of refs) {
+      if (x.mode !== 'any' && x.mode !== ref.mode) continue;
+      const setting: LeverSetting = { value: x.setting, roles: [], label: x.setting ? 'locked' : 'unlocked' };
+      const e = S.run([...ref.events, { t: 0, lever: lock.id, value: x.setting }], months);
+      runCount++;
+      measureRun(S, e, ref, { lever: lock, setting, paths: false, expResults: [x] });
+    }
+  }
   if (expResults) for (const x of expResults) x.pass = x.checks.length > 0 && x.checks.every((c) => c.pass);
 
   return {
@@ -828,7 +819,7 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
     horizons,
     thresholds: LEVER_THRESHOLDS,
     modes: modes.map((x) => x.label),
-    stabiliserLever: modeLever,
+    locks,
     headlines: headlines.map((h) => ({ id: h.id, label: h.label, unit: h.unit, gradual: h.gradual, policy: h.policy })),
     indicators: indicators.map((h) => ({ id: h.id, label: h.label, unit: h.unit })),
     policy: spec.policy,
@@ -883,12 +874,18 @@ function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): L
     if (Math.abs(h.peak) > limit) extreme.push(`${tr.label} ${num(h.peak)} ${tr.unit} at month ${h.peakMonth}`);
   });
   if (extreme.length) flags.push({ kind: 'extreme', detail: listed(extreme, 5) });
-  // policy instruments on Manual (or in a model without a stabiliser setting)
-  if (ref.mode === 'Manual' || ref.mode === '') {
+  // policy instruments that are held: their padlock is closed in this configuration (the lever's
+  // own run closes it too, and is left out below), or they have no rule to move them
+  {
     const now = S.policySeries(e);
     const moved: string[] = [];
     S.spec.policy.forEach((p, k) => {
       if (c.lever && p.levers.includes(c.lever.id)) return;
+      if (p.lock) {
+        const locksLever = m.levers.find((l) => l.id === p.lock)?.locks?.lever;
+        const held = ref.events.some((x) => x.lever === p.lock && x.value >= 0.5) || c.lever?.id === p.lock || c.lever?.id === locksLever;
+        if (!held) return;
+      }
       let worst = 0,
         at = 0;
       for (let t = 0; t < now[k].length; t++) {
@@ -945,7 +942,7 @@ function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): L
 }
 
 /** Flags that compare runs of one lever: an inert lever, the moderate up and down steps, and the
- *  two modes. */
+ *  locked and unlocked configurations. */
 function crossFlags(l: LeverDef, settings: LeverSetting[], runs: LeverRun[], headlines: Tracked[], horizons: number[]): CrossFlag[] {
   const T = LEVER_THRESHOLDS;
   const out: CrossFlag[] = [];
@@ -977,31 +974,31 @@ function crossFlags(l: LeverDef, settings: LeverSetting[], runs: LeverRun[], hea
       });
       if (bad.length) out.push({ kind: 'asymmetry', mode, detail: listed(bad, 5) });
     }
-  if (modes.includes('Manual') && modes.includes('Automatic') && horizons.includes(T.modeMonth))
+  if (modes.includes(LOCKED) && modes.includes(UNLOCKED) && horizons.includes(T.modeMonth))
     for (const s of settings) {
-      const a = runs.find((r) => r.mode === 'Manual' && r.value === s.value),
-        b = runs.find((r) => r.mode === 'Automatic' && r.value === s.value);
+      const a = runs.find((r) => r.mode === LOCKED && r.value === s.value),
+        b = runs.find((r) => r.mode === UNLOCKED && r.value === s.value);
       if (!a || !b) continue;
       const bad: string[] = [];
       headlines.forEach((h, i) => {
         if (h.policy) return;
         const x = at(a, i, T.modeMonth),
           y = at(b, i, T.modeMonth);
-        if (Math.abs(x) >= T.modeFloor && Math.abs(y) >= T.modeFloor && Math.sign(x) !== Math.sign(y)) bad.push(`${h.label} ${num(x)} on Manual, ${num(y)} on Automatic`);
+        if (Math.abs(x) >= T.modeFloor && Math.abs(y) >= T.modeFloor && Math.sign(x) !== Math.sign(y)) bad.push(`${h.label} ${num(x)} locked, ${num(y)} unlocked`);
       });
-      if (bad.length) out.push({ kind: 'modeSign', value: s.value, detail: `${s.label}: ${listed(bad, 5)}` });
+      if (bad.length) out.push({ kind: 'lockSign', value: s.value, detail: `${s.label}: ${listed(bad, 5)}` });
     }
   return out;
 }
 
 /**
  * A run with no lever event measured exactly as a lever run is, against the no-change run of the
- * first stabiliser mode: every effect must be zero and no flag may fire. The tests use it.
+ * first lock configuration: every effect must be zero and no flag may fire. The tests use it.
  */
 export function measureNoEvent(def: ModelDef | KModel, months = 60): LeverRun {
   const S = setup(def, months);
-  const [mode] = stabiliserModes(S.m);
-  const ref = reference(S, mode, months);
-  const e = S.run(mode.event ? [mode.event] : [], months);
+  const [config] = lockConfigs(S.m);
+  const ref = reference(S, config, months);
+  const e = S.run(config.events, months);
   return measureRun(S, e, ref, { lever: null, setting: { value: 0, roles: [], label: 'no event' }, paths: true, expResults: null });
 }

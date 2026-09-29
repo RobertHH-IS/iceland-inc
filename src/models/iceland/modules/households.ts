@@ -12,7 +12,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, automatic, FIRM_NAME, gapRate, gapShare, HH, pickParams, STABILISERS, sumTerms, terms, type Age, lastMonth } from '../util.ts';
+import { AGE_LABEL, AGES, DEBT_RULE, FIRM_NAME, gapRate, gapShare, HH, pickParams, sumTerms, terms, type Age, lastMonth } from '../util.ts';
 import { dividendsTo } from './firms.ts';
 import { bondsBanksCanSell, cashToSpend } from './banks.ts';
 
@@ -126,8 +126,8 @@ const hoFromBanks = (c: Ctx) => Math.max(0, bondsBanksCanSell(c) - Math.max(0, c
 /** Bonds they can still sell, after the government's buyback of theirs. */
 const hoBondsToSell = (c: Ctx) => Math.max(0, c.stock('govBonds', 'HO') / c.dt + Math.min(0, c.v('bondIssueHO')));
 
-/** The debt rule's change to the income-tax rate: on Automatic only (government.ts, taxRate). */
-const debtRuleRate = (c: Ctx) => (automatic(c) ? c.v('taxRuleAdjustment') : 0);
+/** The debt rule's change to the income-tax rate: only while income tax is unlocked (government.ts, taxRate). */
+const debtRuleRate = (c: Ctx) => (c.locked(DEBT_RULE) ? 0 : c.v('taxRuleAdjustment'));
 
 const perGroup: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
   const [gross, tax, fam] = [`grossIncome${g}`, `incomeTax${g}`, `familyBenefits${g}`];
@@ -140,15 +140,15 @@ const perGroup: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
       category: 'IDENTITY',
       inputs: [gross, tax, 'taxRuleAdjustment', ...mortgageInterest(g), ...(g !== 'O' ? [fam] : [])],
       params: ['tau0', ...(g !== 'O' ? ['famTaxableShare'] : [])],
-      levers: [STABILISERS],
+      locks: [DEBT_RULE],
       // Tax is split as in the income-tax rule: at the baseline rate it moves with income by itself
-      // (an automatic stabiliser); the rest is your change to the rate and, on Automatic, the debt
-      // rule's (review TAX-4).
+      // (an automatic stabiliser); the rest is your change to the rate while income tax is locked,
+      // or the debt rule's while it is unlocked (review TAX-4).
       terms: terms(
         ['gross', 'Gross taxable income', undefined, (c) => c.v(gross)],
         ['tax', 'Income tax at the baseline rate', 'automatic-stabilisers', (c) => -c.p('tau0') * c.v(gross)],
         ['taxChange', 'Income tax: your change to the rate', 'multiplier', (c) => -(c.v(tax) - (c.p('tau0') + debtRuleRate(c)) * c.v(gross))],
-        ['debtRule', 'Income tax: the debt rule’s change to the rate (Automatic)', 'debt-feedback', (c) => -debtRuleRate(c) * c.v(gross)],
+        ['debtRule', 'Income tax: the debt rule’s change to the rate (unlocked)', 'debt-feedback', (c) => -debtRuleRate(c) * c.v(gross)],
         ...(g !== 'O' ? ([['familyTaxFree', 'Tax-free child and housing benefits', 'consumption-function', (c: Ctx) => (1 - c.p('famTaxableShare')) * c.v(fam)]] as [string, string, string, (c: Ctx) => number][]) : []),
         ...(g !== 'O' ? ([['mortgage', 'Mortgage interest paid in cash', 'interest-distribution', (c: Ctx) => -(c.v(mB) + c.v(mPF))]] as [string, string, string, (c: Ctx) => number][]) : []),
       ),
@@ -329,7 +329,7 @@ export const households: ModuleDef = {
       id: 'rate-hike-moves-income-to-savers',
       label: 'A higher key rate cuts the real disposable income of borrowers and raises that of older savers',
       run: (e) => {
-        e.setLever('keyRateFixed', 4); // 1 pp above the neutral 3%, held (stabilisers on Manual)
+        e.setLever('keyRate', 4); // 1 pp above the neutral 3%, held (moving the lever locks it)
         e.step(6);
         const d = (g: Age) => (e.value(`disposableIncome${g}`) / e.value('cpi') / e.baseline(`disposableIncome${g}`) - 1) * 100;
         const [y, w, o] = [d('Y'), d('W'), d('O')];

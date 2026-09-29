@@ -134,15 +134,16 @@ describe('runHarness on the reference model', () => {
   });
 
   test('M22: a lever setting that pushes a variable out of its plausible bounds fails the sweep', () => {
-    // A key rate held at −1% on Manual breaks the bound 'keyRate ≥ 0'.
+    // A key rate held at −1% (moving it locks it) breaks the bound 'keyRate ≥ 0'.
     const wild: ModelDef = {
       ...reference,
-      modules: reference.modules.map((mod) => (mod.levers?.some((l) => l.id === 'keyRateFixed') ? { ...mod, levers: mod.levers.map((l) => (l.id === 'keyRateFixed' ? { ...l, min: -1 } : l)) } : mod)),
+      modules: reference.modules.map((mod) => (mod.levers?.some((l) => l.id === 'keyRate') ? { ...mod, levers: mod.levers.map((l) => (l.id === 'keyRate' ? { ...l, min: -1 } : l)) } : mod)),
     };
     const l6 = layer(runHarness(wild, opts), 6);
     expect(l6.pass).toBe(false);
-    expect(l6.body.find((x) => x.startsWith('- keyRateFixed = -1, Manual'))).toContain('keyRate (≥ 0) at month 1');
-    expect(layer(runHarness(reference, opts), 6).body.some((x) => x.startsWith('- keyRateFixed'))).toBe(false);
+    expect(l6.body.find((x) => x.startsWith('- keyRate = -1, unlocked'))).toContain('keyRate (≥ 0) at month 1');
+    expect(l6.body.find((x) => x.startsWith('- keyRate = -1, locked'))).toContain('keyRate (≥ 0) at month 1');
+    expect(layer(runHarness(reference, opts), 6).body.some((x) => x.startsWith('- keyRate '))).toBe(false);
   });
 });
 

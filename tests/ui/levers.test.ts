@@ -2,19 +2,21 @@ import { describe, expect, test } from 'bun:test';
 import type { LeverInfo } from '../../src/ui/model/info.ts';
 import {
   changedCount,
+  changedCountWithLocks,
   clampLever,
   firedCounts,
   isChanged,
-  isShown,
-  keepHiddenAtDefault,
+  isLeverChanged,
   leverBar,
   leverSections,
   leverStep,
   leverValueLabel,
+  lockActionLabel,
+  lockTitle,
   niceStep,
-  resetsWhenSetting,
+  padlocksByLever,
   sectionCalling,
-  shownChangedCount,
+  shownValue,
   snapToStep,
   stabiliserMarks,
   stepDecimals,
@@ -121,104 +123,79 @@ describe('labels', () => {
   });
 });
 
-describe('showWhen and stabilisers (decision 0004)', () => {
-  const mode = lever({ id: 'mode', kind: 'choice', default: 0, index: 0, section: 'Stabilisers', options: [{ value: 0, label: 'Manual' }, { value: 1, label: 'Automatic' }] });
-  const fixed = lever({ id: 'fixed', unit: '%', default: 3, min: 0, max: 15, step: 0.25, index: 1, section: 'Central bank', showWhen: { lever: 'mode', equals: 0 } });
-  const offset = lever({ id: 'offset', default: 0, min: -3, max: 5, step: 0.25, index: 2, section: 'Central bank', showWhen: { lever: 'mode', equals: [1] } });
-  const tax = lever({ id: 'tax', default: 0, min: -10, max: 10, step: 0.5, index: 3, section: 'Government' });
-  const all = [mode, fixed, offset, tax];
-  const byId = new Map(all.map((l) => [l.id, l]));
-  const [bank, gov] = leverSections([fixed, offset, tax]);
+describe('padlocks and stabilisers (decisions 0004 and 0010)', () => {
+  const rate = lever({ id: 'rate', label: 'Key interest rate', unit: '%', default: 3, min: 0, max: 15, step: 0.25, index: 0, section: 'Central bank' });
+  const lock = lever({ id: 'rateLock', kind: 'lock', unit: 'lock', default: 0, min: 0, max: 1, step: 1, index: 1, section: 'Central bank', options: [{ value: 0, label: 'Unlocked' }, { value: 1, label: 'Locked' }] });
+  const tax = lever({ id: 'tax', label: 'Income-tax rate', default: 0, min: -10, max: 10, step: 0.5, index: 2, section: 'Government' });
+  const vat = lever({ id: 'vat', label: 'VAT rate', default: 0, min: -10, max: 10, step: 0.5, index: 3, section: 'Government' });
+  const byId = new Map([rate, lock, tax, vat].map((l) => [l.id, l]));
+  const [bank, gov] = leverSections([rate, tax, vat]);
+  const state = (over: Partial<{ locked: boolean; current: number; suggested: number; calling: boolean }> = {}) => ({ id: 'rule', label: 'Central bank’s rule', lever: 'rate', lock: 'rateLock', locked: false, current: 3.4, suggested: 4.2713, calling: false, ...over });
 
-  test('a lever shows only while the lever its showWhen names has one of the values', () => {
-    expect([isShown(fixed, [0, 3, 0, 0], byId), isShown(offset, [0, 3, 0, 0], byId)]).toEqual([true, false]);
-    expect([isShown(fixed, [1, 3, 0, 0], byId), isShown(offset, [1, 3, 0, 0], byId)]).toEqual([false, true]);
-    expect(isShown(tax, [1, 3, 0, 0], byId)).toBe(true);
+  test('only a lever with a rule gets a padlock; its label and title say what it does', () => {
+    const pads = padlocksByLever([state()]);
+    expect([...pads.keys()]).toEqual(['rate']);
+    expect(pads.has('vat')).toBe(false);
+    expect(lockActionLabel(rate, false)).toBe('Lock the key interest rate');
+    expect(lockActionLabel(rate, true)).toBe('Unlock the key interest rate');
+    expect(lockActionLabel(tax, false)).toBe('Lock the income-tax rate');
+    expect(lockTitle(rate, { label: 'Central bank’s rule', locked: false })).toBe('Unlocked: Central bank’s rule sets the key interest rate, and the lever follows it. Lock to hold it where it is; moving the lever locks it too.');
+    expect(lockTitle(rate, { label: 'Central bank’s rule', locked: true })).toContain('Locked: the key interest rate stays where you set it');
+    expect(leverValueLabel(lock, 1)).toBe('Locked');
   });
 
-  test('hidden levers are not counted in section badges', () => {
-    const values = [1, 4.5, 1, 0]; // Automatic, with a stale Manual rate and an offset
-    expect(changedCount(bank, values, new Map())).toBe(2);
-    expect(shownChangedCount(bank, values, new Map(), byId)).toBe(1);
+  test('unlocked, the lever shows the live value its rule sets; locked, its own', () => {
+    expect(shownValue(3, state())).toBe(3.4);
+    expect(shownValue(4.5, state({ locked: true, current: 4.5 }))).toBe(4.5);
+    expect(shownValue(2, undefined)).toBe(2);
+    expect(shownValue(3, state({ current: NaN }))).toBe(3);
+    // a step from the live value: the client then sets it, which locks it at the new value
+    expect(stepLever(rate, shownValue(3, state()), 1)).toBe(3.5);
   });
 
-  test('switching mode puts the levers the new mode hides back to their defaults', () => {
-    expect(resetsWhenSetting(all, [0, 4.5, 0, 1], 'mode', 1)).toEqual([{ id: 'fixed', value: 3 }]);
-    expect(resetsWhenSetting(all, [1, 3, 1.25, 1], 'mode', 0)).toEqual([{ id: 'offset', value: 0 }]);
-    expect(resetsWhenSetting(all, [1, 3, 0, 1], 'mode', 0)).toEqual([]);
-    expect(resetsWhenSetting(all, [0, 4.5, 0, 1], 'tax', 2)).toEqual([]);
-  });
-
-  test('a script keeps every hidden lever at its default, as a straight run would have recorded it', () => {
-    const ev = (t: number, lever: string, value: number) => ({ t, lever, value });
-    // Set the Manual rate at 30, before a switch to Automatic at 40 that was recorded without a
-    // reset: the reset goes right before the switch, as the panel records it.
-    expect(keepHiddenAtDefault(all, [ev(40, 'mode', 1), ev(30, 'fixed', 5)])).toEqual([ev(30, 'fixed', 5), ev(40, 'fixed', 3), ev(40, 'mode', 1)]);
-    // Chained: Automatic at 40, Manual at 50, Automatic at 70, the Manual rate set at 55.
-    const chain = [ev(40, 'mode', 1), ev(50, 'mode', 0), ev(55, 'fixed', 4), ev(70, 'mode', 1)];
-    expect(keepHiddenAtDefault(all, chain)).toEqual([...chain.slice(0, 3), ev(70, 'fixed', 3), ev(70, 'mode', 1)]);
-    // An offset set on Automatic is reset when switching to Manual.
-    expect(keepHiddenAtDefault(all, [ev(0, 'mode', 1), ev(10, 'offset', 1.5), ev(20, 'mode', 0)])).toEqual([ev(0, 'mode', 1), ev(10, 'offset', 1.5), ev(20, 'offset', 0), ev(20, 'mode', 0)]);
-    // A switch and a later setting in the same month: the reset follows the setting.
-    expect(keepHiddenAtDefault(all, [ev(40, 'mode', 1), ev(40, 'fixed', 5)])).toEqual([ev(40, 'mode', 1), ev(40, 'fixed', 5), ev(40, 'fixed', 3)]);
-    // Mode switched earlier, the hidden lever set later (a switch made after going back in time):
-    // the user's setting stays, with a reset right after it, so it takes no effect and switching
-    // back later does not bring it back. No event is ever removed (decision 0001).
-    expect(keepHiddenAtDefault(all, [ev(30, 'mode', 1), ev(50, 'fixed', 5)])).toEqual([ev(30, 'mode', 1), ev(50, 'fixed', 5), ev(50, 'fixed', 3)]);
-    expect(keepHiddenAtDefault(all, [ev(30, 'mode', 1), ev(50, 'fixed', 5), ev(60, 'mode', 0)])).toEqual([ev(30, 'mode', 1), ev(50, 'fixed', 5), ev(50, 'fixed', 3), ev(60, 'mode', 0)]);
-    // A hidden lever set with no mode event at all (a hand-made link): the default mode hides the offset.
-    expect(keepHiddenAtDefault(all, [ev(0, 'offset', 2)])).toEqual([ev(0, 'offset', 2), ev(0, 'offset', 0)]);
-    expect(keepHiddenAtDefault(all, [ev(0, 'offset', 2), ev(0, 'tax', 1)])).toEqual([ev(0, 'offset', 2), ev(0, 'offset', 0), ev(0, 'tax', 1)]);
-    // Every event of the input is kept, and the output needs no further change.
-    for (const input of [[ev(40, 'mode', 1), ev(30, 'fixed', 5)], chain, [ev(30, 'mode', 1), ev(50, 'fixed', 5), ev(60, 'mode', 0)], [ev(0, 'offset', 2), ev(0, 'tax', 1)]]) {
-      const outp = keepHiddenAtDefault(all, input)!;
-      for (const e of input) expect(outp).toContainEqual(e);
-      expect(keepHiddenAtDefault(all, outp)).toBeNull();
-    }
-    // Nothing to change: the reset is there already (the panel's), nothing is hidden off its
-    // default, or the lever is shown by the end of the month it is set in.
-    expect(keepHiddenAtDefault(all, [...chain, ev(70, 'fixed', 3)])).toBeNull();
-    expect(keepHiddenAtDefault(all, [ev(40, 'fixed', 5), ev(40, 'fixed', 3), ev(40, 'mode', 1)])).toBeNull();
-    expect(keepHiddenAtDefault(all, [ev(5, 'tax', 2), ev(9, 'mode', 1)])).toBeNull();
-    expect(keepHiddenAtDefault(all, [ev(0, 'offset', 1), ev(0, 'mode', 1)])).toBeNull();
-    expect(keepHiddenAtDefault(all, [])).toBeNull();
-    // One-offs and unknown levers are kept as they are.
-    expect(keepHiddenAtDefault(all, [ev(1, 'nope', 1), { t: 2, lever: 'fixed', value: 7, fire: true }, ev(3, 'mode', 1)])).toBeNull();
+  test('a lever with a padlock counts as changed while it is locked, not while its rule moves it', () => {
+    const none = new Map<string, number>();
+    expect(isLeverChanged(rate, 3.4, none, state())).toBe(false);
+    expect(isLeverChanged(rate, 3, none, state({ locked: true }))).toBe(true);
+    expect(isLeverChanged(vat, 1, none)).toBe(true);
+    const pads = padlocksByLever([state()]);
+    expect(changedCountWithLocks(bank, [3, 0, 0, 0], none, pads)).toBe(0);
+    expect(changedCountWithLocks(bank, [3, 1, 0, 0], none, padlocksByLever([state({ locked: true })]))).toBe(1);
+    expect(changedCountWithLocks(gov, [3, 0, 1, 0.5], none, pads)).toBe(2);
+    expect(changedCount(gov, [3, 0, 1, 0.5], none)).toBe(2);
   });
 
   test('Apply rounds the suggestion to the lever’s step grid, within its range', () => {
-    expect(snapToStep(fixed, 4.27)).toBe(4.25);
-    expect(snapToStep(fixed, 4.38)).toBe(4.5);
-    expect(snapToStep(fixed, -1)).toBe(0);
+    expect(snapToStep(rate, 4.27)).toBe(4.25);
+    expect(snapToStep(rate, 4.38)).toBe(4.5);
+    expect(snapToStep(rate, -1)).toBe(0);
     expect(snapToStep(tax, 0.83)).toBe(1);
     expect(snapToStep(tax, -0.07)).toBe(0);
   });
 
-  test('Manual: a calling stabiliser marks its lever red with its suggestion; Automatic: a note on the offset', () => {
-    const s = { id: 'rule', label: 'Central bank’s rule', lever: 'fixed', offset: 'offset', suggested: 4.2713, current: 3, calling: true, automatic: false };
-    const manual = stabiliserMarks([s], byId);
-    expect(manual.get('fixed')).toEqual({ kind: 'calling', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Central bank’s rule: 4.27%', suggested: 4.2713, apply: 4.25 });
-    expect(manual.has('offset')).toBe(false);
-    expect(sectionCalling(bank, manual, [0, 3, 0, 0], byId)).toBe(true);
-    expect(sectionCalling(gov, manual, [0, 3, 0, 0], byId)).toBe(false);
-    expect(stabiliserMarks([{ ...s, calling: false }], byId).size).toBe(0);
-    const auto = stabiliserMarks([{ ...s, calling: false, automatic: true }], byId);
-    expect(auto.get('offset')).toEqual({ kind: 'acting', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Set by Central bank’s rule: 4.27%' });
-    const debt = stabiliserMarks([{ id: 'debt', label: 'Debt rule', lever: 'tax', offset: 'tax', suggested: 0.834, current: 0, calling: true, automatic: false }], byId);
+  test('locked: a calling stabiliser marks its lever red with its suggestion; unlocked: nothing, the lever follows the rule', () => {
+    const locked = stabiliserMarks([state({ locked: true, current: 3, calling: true })], byId);
+    expect(locked.get('rate')).toEqual({ kind: 'calling', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Central bank’s rule: 4.27%', suggested: 4.2713, apply: 4.25 });
+    expect(sectionCalling(bank, locked)).toBe(true);
+    expect(sectionCalling(gov, locked)).toBe(false);
+    expect(stabiliserMarks([state({ locked: true, current: 3 })], byId).size).toBe(0);
+    // an unlocked rule never shows a call, even if the engine were to report one
+    expect(stabiliserMarks([state({ calling: true })], byId).size).toBe(0);
+    const debt = stabiliserMarks([{ id: 'debt', label: 'Debt rule', lever: 'tax', suggested: 0.834, current: 0, calling: true, locked: true }], byId);
     expect(debt.get('tax')).toMatchObject({ text: 'Debt rule: +0.83 pp', apply: 1 });
   });
 
   test('a rule that wants more than the lever’s range: at the bound, no Apply and no red dot; short of it, Apply goes to the bound', () => {
-    const s = { id: 'rule', label: 'Central bank’s rule', lever: 'fixed', offset: 'offset', suggested: 17.2, current: 15, calling: true, automatic: false };
+    const s = state({ locked: true, suggested: 17.2, current: 15, calling: true });
     const atMax = stabiliserMarks([s], byId);
-    expect(atMax.get('fixed')).toEqual({ kind: 'beyond', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Central bank’s rule: 17.2% (beyond the lever’s range)', suggested: 17.2 });
-    expect(sectionCalling(bank, atMax, [0, 15, 0, 0], byId)).toBe(false);
+    expect(atMax.get('rate')).toEqual({ kind: 'beyond', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Central bank’s rule: 17.2% (beyond the lever’s range)', suggested: 17.2 });
+    expect(sectionCalling(bank, atMax)).toBe(false);
     const below = stabiliserMarks([{ ...s, current: 12 }], byId);
-    expect(below.get('fixed')).toMatchObject({ kind: 'calling', apply: 15 });
-    expect(sectionCalling(bank, below, [0, 12, 0, 0], byId)).toBe(true);
+    expect(below.get('rate')).toMatchObject({ kind: 'calling', apply: 15 });
+    expect(sectionCalling(bank, below)).toBe(true);
     // The same at the lower bound.
-    expect(stabiliserMarks([{ ...s, suggested: -0.8, current: 0 }], byId).get('fixed')).toMatchObject({ kind: 'beyond' });
+    expect(stabiliserMarks([{ ...s, suggested: -0.8, current: 0 }], byId).get('rate')).toMatchObject({ kind: 'beyond' });
     // Within half a step of where the lever is, Apply would not move it either.
-    expect(stabiliserMarks([{ ...s, suggested: 4.3, current: 4.25 }], byId).get('fixed')).toMatchObject({ kind: 'beyond', text: 'Central bank’s rule: 4.3% (the nearest step is where the lever is)' });
+    expect(stabiliserMarks([{ ...s, suggested: 4.3, current: 4.25 }], byId).get('rate')).toMatchObject({ kind: 'beyond', text: 'Central bank’s rule: 4.3% (the nearest step is where the lever is)' });
   });
 });

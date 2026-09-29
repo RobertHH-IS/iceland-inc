@@ -27,6 +27,8 @@ import type { KModel } from '../../core/compile.ts';
 
 export type LeverInfo = Omit<LeverDef, 'fire'> & { index: number };
 export type IndicatorInfo = Omit<IndicatorDef, 'compute'> & { index: number };
+/** A stabiliser as plain data: its `current` function stays in the engine. */
+export type StabiliserInfo = Omit<StabiliserDef, 'current'>;
 export type FlowInfo = FlowDef & { index: number };
 
 /** One payer → payee leg, in the order engine.legs() returns them. */
@@ -90,9 +92,9 @@ export interface ModelInfo {
   indicators: IndicatorInfo[];
   concepts: ConceptDef[];
   feed: FeedRule[];
-  /** Declared stabilisers (automatic policy reactions) and the setting that switches them. */
-  stabilisers: StabiliserDef[];
-  stabiliserMode?: { lever: Id; manual: number; automatic: number };
+  /** Declared stabilisers (automatic policy reactions), each with a padlock on its lever (a lever
+   *  of kind 'lock' in `levers`, decision 0010). */
+  stabilisers: StabiliserInfo[];
   warnings: string[];
   /* lookups */
   varById: Map<Id, VarDef>;
@@ -208,8 +210,7 @@ export function describeModel(m: KModel, baseline: (varId: Id) => number, warnin
     indicators,
     concepts: m.concepts.map((c) => ({ ...c })),
     feed: m.feed.map((f) => ({ ...f })),
-    stabilisers: m.stabilisers.map((s) => ({ ...s, ...(s.concepts ? { concepts: [...s.concepts] } : {}), ...(s.feed ? { feed: { ...s.feed } } : {}) })),
-    ...(m.stabiliserMode ? { stabiliserMode: { ...m.stabiliserMode } } : {}),
+    stabilisers: m.stabilisers.map(({ current: _current, ...s }) => ({ ...s, ...(s.concepts ? { concepts: [...s.concepts] } : {}), ...(s.feed ? { feed: { ...s.feed } } : {}), ...(s.shadow ? { shadow: [...s.shadow] } : {}) })),
     warnings: [...warnings],
     varById: byId(m.vars),
     paramById: byId(m.params),

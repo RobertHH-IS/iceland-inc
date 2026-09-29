@@ -1,6 +1,6 @@
 /**
  * The lever-response report (src/harness/lever-report.ts): which settings it runs, that it
- * measures every effect against the no-change run in the same mode, that it is deterministic,
+ * measures every effect against the no-change run in the same lock configuration, that it is deterministic,
  * that a run with no event shows no effect at all, and that its flags fire on the paths they
  * describe.
  */
@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { compile, type KModel } from '../../src/core/compile.ts';
 import { createEngine } from '../../src/core/engine.ts';
-import { runScenario } from '../../src/core/scenario.ts';
+import { lockAllEvents, runScenario } from '../../src/core/scenario.ts';
 import type { LeverDef } from '../../src/core/types.ts';
 import { models } from '../../src/models/index.ts';
 import { leverReportSpecs } from '../../src/harness/lever-headlines.ts';
@@ -20,7 +20,6 @@ import {
   LEVER_THRESHOLDS,
   UNIT_MEANINGS,
   effectOf,
-  hiddenIn,
   leverReport,
   leverSettings,
   measureNoEvent,
@@ -51,8 +50,8 @@ describe('settings', () => {
     expect(values(lever('lendingAppetite'))).toEqual([-2, -0.5, 0.5, 2]);
     const roles = leverSettings(lever('lendingAppetite')).map((s) => s.roles);
     expect(roles).toEqual([['min'], ['down'], ['up'], ['max']]);
-    // keyRateFixed: default 3, range 0 to 10, step 0.25: down 3 − 0.75, up 3 + 1.75
-    expect(values(lever('keyRateFixed'))).toEqual([0, 2.25, 4.75, 10]);
+    // keyRate: default 3, range 0 to 10, step 0.25: down 3 − 0.75, up 3 + 1.75
+    expect(values(lever('keyRate'))).toEqual([0, 2.25, 4.75, 10]);
   });
 
   test('the moderate steps mirror each other on a symmetric range, halves rounding away from the default', () => {
@@ -90,36 +89,34 @@ describe('settings', () => {
     expect(values(buyers)).toEqual(buyers.options!.map((o) => o.value).filter((v) => v !== buyers.default));
   });
 
-  test('a lever hidden in a mode (showWhen) is not run there, and the report says so', () => {
-    const mode = ref.def.stabiliserMode!;
-    expect(hiddenIn(ref, lever('keyRateFixed'), mode.automatic)).toBe(true);
-    expect(hiddenIn(ref, lever('keyRateFixed'), mode.manual)).toBe(false);
-    expect(hiddenIn(ref, lever('keyRateAddon'), mode.manual)).toBe(true);
-    const s = report().levers.find((x) => x.id === 'keyRateFixed')!;
-    expect(s.skipped.map((x) => x.mode)).toEqual(['Automatic']);
-    expect(new Set(s.runs.map((r) => r.mode))).toEqual(new Set(['Manual']));
-    expect(renderLeverMarkdown(report())).toContain('Not run on Automatic: the lever is shown only on Manual (showWhen).');
+  test('a policy lever runs in every lock configuration; the padlocks are not run as levers, and the report says so', () => {
+    const r = report();
+    expect(r.modes).toEqual(['unlocked', 'locked']);
+    expect(r.locks).toEqual(['keyRateLock', 'taxRateLock']);
+    const s = r.levers.find((x) => x.id === 'keyRate')!;
+    expect(new Set(s.runs.map((x) => x.mode))).toEqual(new Set(['unlocked', 'locked']));
+    expect(r.levers.some((x) => r.locks.includes(x.id))).toBe(false);
+    expect(renderLeverMarkdown(r)).toContain('The padlocks (`keyRateLock`, `taxRateLock`) are not run as levers');
   });
 });
 
 describe('the reference report', () => {
-  test('every lever but the stabiliser setting has a section, with a run per setting and shown mode', () => {
+  test('every lever but the padlocks has a section, with a run per setting and lock configuration', () => {
     const r = report();
-    expect(r.levers.map((s) => s.id)).toEqual(ref.levers.filter((l) => l.id !== ref.def.stabiliserMode!.lever).map((l) => l.id));
-    for (const s of r.levers) expect(s.runs.length).toBe(s.settings.length * (r.modes.length - s.skipped.length));
+    expect(r.levers.map((s) => s.id)).toEqual(ref.levers.filter((l) => l.kind !== 'lock').map((l) => l.id));
+    for (const s of r.levers) expect(s.runs.length).toBe(s.settings.length * r.modes.length);
     expect(r.runs).toBe(r.levers.reduce((a, s) => a + s.runs.length, 0));
     expect(r.horizons).toEqual(HORIZONS);
     expect(r.headlines.map((h) => h.id)).toEqual(leverReportSpecs.reference.headlines.map((h) => ('indicator' in h ? h.indicator : h.id)));
     for (const s of r.levers) for (const run of s.runs) expect(run.indicators.map((x) => x.id)).toEqual(ref.indicators.map((i) => i.id));
   });
 
-  test('an effect is the difference from the no-change run in the same mode, month by month', () => {
+  test('an effect is the difference from the no-change run in the same lock configuration, month by month', () => {
     const r = report();
-    const mode = ref.def.stabiliserMode!;
-    const run = r.levers.find((s) => s.id === 'govSpending')!.runs.find((x) => x.mode === 'Automatic' && x.roles.includes('max'))!;
-    const modeEv = { t: 0, lever: mode.lever, value: mode.automatic };
-    const shocked = runScenario(ref, [modeEv, { t: 0, lever: 'govSpending', value: run.value }], 240);
-    const none = runScenario(ref, [modeEv], 240);
+    const run = r.levers.find((s) => s.id === 'govSpending')!.runs.find((x) => x.mode === 'locked' && x.roles.includes('max'))!;
+    const locked = lockAllEvents(ref);
+    const shocked = runScenario(ref, [...locked, { t: 0, lever: 'govSpending', value: run.value }], 240);
+    const none = runScenario(ref, locked, 240);
     const out = run.indicators.find((x) => x.id === 'output')!;
     HORIZONS.forEach((h, k) => {
       const want = ((shocked.value('output', h) / none.value('output', h)) - 1) * 100;
@@ -246,26 +243,32 @@ describe('flags', () => {
     expect(effectOf('deviation', 57, 55)).toBe(2);
   });
 
-  test('on Manual, a policy instrument moved by a lever not its own is flagged', () => {
-    // Pretend the key rate belonged to no lever: moving the Manual key rate must then be flagged.
-    const spec = { ...leverReportSpecs.reference, policy: [{ variable: 'keyRate', label: 'key rate', levers: [] }] };
-    const r = leverReport(ref, { months: 24, levers: ['keyRateFixed'], spec, expectations: null });
+  test('a held policy instrument moved by a lever not its own is flagged; an unlocked one is its rule’s to move', () => {
+    // Pretend the key rate belonged to no lever: moving the key rate must then be flagged, in both
+    // configurations, since moving it locks it.
+    const spec = { ...leverReportSpecs.reference, policy: [{ variable: 'keyRate', label: 'key rate', levers: [], lock: 'keyRateLock' }] };
+    const r = leverReport(ref, { months: 24, levers: ['keyRate'], spec, expectations: null });
     const runs = r.levers[0].runs;
     expect(runs.length).toBeGreaterThan(0);
     for (const run of runs) expect(run.flags.map((f) => f.kind)).toContain('policyMoved');
     // with the real spec, it is the lever's own instrument and nothing is flagged
-    const ok = leverReport(ref, { months: 24, levers: ['keyRateFixed'], expectations: null });
+    const ok = leverReport(ref, { months: 24, levers: ['keyRate'], expectations: null });
     for (const run of ok.levers[0].runs) expect(run.flags.map((f) => f.kind)).not.toContain('policyMoved');
+    // government spending moves the key rate only where the Taylor rule is unlocked
+    const g = leverReport(ref, { months: 24, levers: ['govSpending'], expectations: null }).levers[0].runs;
+    for (const run of g) expect(run.flags.some((f) => f.kind === 'policyMoved')).toBe(false);
+    const held = leverReport(ref, { months: 24, levers: ['govSpending'], spec: { ...leverReportSpecs.reference, policy: [{ variable: 'keyRate', label: 'key rate', levers: [] }] }, expectations: null }).levers[0].runs;
+    expect(held.filter((run) => run.flags.some((f) => f.kind === 'policyMoved')).map((run) => run.mode)).toEqual(held.filter((run) => run.mode === 'unlocked').map(() => 'unlocked'));
   });
 
   test('declared expectations are marked ✓ or ✗', () => {
     const r = leverReport(ref, {
       months: 60,
-      levers: ['keyRateAddon'],
+      levers: ['keyRate'],
       expectations: [
-        { lever: 'keyRateAddon', setting: 'max', mode: 'Automatic', variable: 'output', fromMonth: 6, toMonth: 36, sign: -1, theory: 'A higher key rate cools demand.', source: 'test' },
-        { lever: 'keyRateAddon', setting: 'max', variable: 'output', fromMonth: 6, toMonth: 36, sign: 1, theory: 'Deliberately wrong.', source: 'test' },
-        { lever: 'keyRateAddon', setting: 99, variable: 'output', fromMonth: 6, toMonth: 36, sign: 1, theory: 'No such run.', source: 'test' },
+        { lever: 'keyRate', setting: 'max', mode: 'unlocked', variable: 'output', fromMonth: 6, toMonth: 36, sign: -1, theory: 'A higher key rate cools demand.', source: 'test' },
+        { lever: 'keyRate', setting: 'max', variable: 'output', fromMonth: 6, toMonth: 36, sign: 1, theory: 'Deliberately wrong.', source: 'test' },
+        { lever: 'keyRate', setting: 99, variable: 'output', fromMonth: 6, toMonth: 36, sign: 1, theory: 'No such run.', source: 'test' },
       ],
     });
     expect(r.expectations!.map((x) => x.pass)).toEqual([true, false, false]);
@@ -278,7 +281,7 @@ describe('flags', () => {
 
   test('with onlyExpected, only the runs an expectation needs are made, through the given runner, with the same results', () => {
     const expectations = [
-      { lever: 'keyRateAddon', setting: 'max', mode: 'Automatic', variable: 'output', fromMonth: 6, toMonth: 36, sign: -1, theory: 'A higher key rate cools demand.', source: 'test' },
+      { lever: 'keyRate', setting: 'max', mode: 'unlocked', variable: 'output', fromMonth: 6, toMonth: 36, sign: -1, theory: 'A higher key rate cools demand.', source: 'test' },
       { lever: 'govSpending', setting: 'up', variable: 'deficit', fromMonth: 1, toMonth: 6, sign: 1, theory: 'Spending widens the deficit.', source: 'test' },
     ] as const;
     const made: string[] = [];
@@ -293,30 +296,35 @@ describe('flags', () => {
         return runScenario(base, events, months).engine;
       },
     });
-    const full = leverReport(ref, { months: 60, levers: ['keyRateAddon', 'govSpending'], expectations: [...expectations] });
-    // two no-change runs, keyRateAddon at its max on Automatic, govSpending up in both modes
-    expect(made).toEqual(['stabilisers=0', 'stabilisers=1', 'stabilisers=1 keyRateAddon=3', 'stabilisers=0 govSpending=1', 'stabilisers=1 govSpending=1']);
+    const full = leverReport(ref, { months: 60, levers: ['keyRate', 'govSpending'], expectations: [...expectations] });
+    // two no-change runs, keyRate at its max unlocked, govSpending up in both configurations
+    expect(made).toEqual(['', 'keyRateLock=1 taxRateLock=1', 'keyRate=10', 'govSpending=1', 'keyRateLock=1 taxRateLock=1 govSpending=1']);
     expect(r.runs).toBe(3);
-    expect(r.levers.map((s) => s.id)).toEqual(['keyRateAddon', 'govSpending']);
+    expect(r.levers.map((s) => s.id)).toEqual(['keyRate', 'govSpending']);
     expect(r.expectations).toEqual(full.expectations);
     expect(r.expectations!.every((x) => x.pass)).toBe(true);
   });
 
-  test('an expectation on the stabiliser setting is checked on the switch between the no-change runs', () => {
+  test('an expectation on a padlock is checked by closing or opening it at month 0, with no shock', () => {
     const r = leverReport(ref, {
       months: 60,
       onlyExpected: true,
       expectations: [
-        { lever: 'stabilisers', setting: 0, mode: 'Automatic', variable: 'output', fromMonth: 1, toMonth: 60, sign: 0, theory: 'At the steady state, switching mode changes nothing.', source: 'test' },
-        { lever: 'stabilisers', setting: 1, mode: 'Manual', variable: 'keyRate', fromMonth: 1, toMonth: 60, sign: 1, theory: 'Deliberately wrong.', source: 'test' },
+        { lever: 'keyRateLock', setting: 1, mode: 'unlocked', variable: 'output', fromMonth: 1, toMonth: 60, sign: 0, theory: 'At the steady state, locking changes nothing.', source: 'test' },
+        { lever: 'taxRateLock', setting: 0, mode: 'locked', variable: 'keyRate', fromMonth: 1, toMonth: 60, sign: 1, theory: 'Deliberately wrong.', source: 'test' },
       ],
     });
-    expect(r.runs).toBe(0);
+    expect(r.runs).toBe(2);
+    expect(r.levers).toEqual([]);
     expect(r.expectations!.map((x) => x.checks.length)).toEqual([1, 1]);
     expect(r.expectations!.map((x) => x.pass)).toEqual([true, false]);
     const md = renderLeverMarkdown(r);
-    expect(md).toContain('is checked on the switch from one mode to the other');
+    expect(md).toContain('The padlocks are checked by closing (1) or opening (0) one at month 0');
     expect(md).toContain('Expectations that do not hold:');
+  });
+
+  test('an expectation naming a lock configuration the report does not run stops it', () => {
+    expect(() => leverReport(ref, { months: 12, onlyExpected: true, expectations: [{ lever: 'govSpending', setting: 'max', mode: 'Manual', variable: 'output', fromMonth: 1, toMonth: 12, sign: 1, theory: 't', source: 's' }] })).toThrow(/configuration 'Manual'/);
   });
 
   test('an expectation naming a lever the model does not have stops the report', () => {
@@ -360,11 +368,10 @@ describe('units', () => {
     const r = report();
     for (const id of ['deficit', 'bankEquity']) expect(r.headlines.find((h) => h.id === id)!.unit).toBe('pp of GDP');
     const k = r.headlines.findIndex((h) => h.id === 'deficit');
-    const run = r.levers.find((s) => s.id === 'taxRate')!.runs.find((x) => x.mode === 'Manual' && x.roles.includes('min'))!;
-    const mode = ref.def.stabiliserMode!;
-    const modeEv = { t: 0, lever: mode.lever, value: mode.manual };
-    const shocked = runScenario(ref, [modeEv, { t: 0, lever: 'taxRate', value: run.value }], 240);
-    const none = runScenario(ref, [modeEv], 240);
+    const run = r.levers.find((s) => s.id === 'taxRate')!.runs.find((x) => x.mode === 'locked' && x.roles.includes('min'))!;
+    const locked = lockAllEvents(ref);
+    const shocked = runScenario(ref, [...locked, { t: 0, lever: 'taxRate', value: run.value }], 240);
+    const none = runScenario(ref, locked, 240);
     const ratio = (x: typeof none, t: number) => (100 * x.value('deficit', t)) / x.value('gdp', t);
     expect(run.headlines[k].at[HORIZONS.indexOf(240)]).toBeCloseTo(ratio(shocked, 240) - ratio(none, 240), 9);
     // the credit impulse is a nominal flow, and the report says so
@@ -389,7 +396,7 @@ describe('what the report cannot see, and levers that need help', () => {
     const r = leverReport(ice, {
       months: 36,
       levers: ['migration'],
-      expectations: [{ lever: 'migration', setting: 'min', mode: 'Manual', variable: 'unemployment', fromMonth: 3, toMonth: 24, sign: 1, theory: 'Without the buffer, residents take the job losses.', source: 'test', withCompanion: true }],
+      expectations: [{ lever: 'migration', setting: 'min', mode: 'locked', variable: 'unemployment', fromMonth: 3, toMonth: 24, sign: 1, theory: 'Without the buffer, residents take the job losses.', source: 'test', withCompanion: true }],
     });
     const s = r.levers[0];
     expect(s.crossFlags.filter((f) => f.kind === 'inert' && !f.companion)).toHaveLength(1);
@@ -397,15 +404,14 @@ describe('what the report cannot see, and levers that need help', () => {
     expect(s.companionRuns).toHaveLength(s.runs.length);
     expect(s.crossFlags.some((f) => f.kind === 'inert' && f.companion)).toBe(false);
     const k = r.headlines.findIndex((h) => h.id === 'unemployment');
-    const min = s.companionRuns.find((x) => x.mode === 'Manual' && x.roles.includes('min'))!;
+    const min = s.companionRuns.find((x) => x.mode === 'locked' && x.roles.includes('min'))!;
     expect(min.companion).toBe(true);
     expect(min.headlines[k].peak).toBeGreaterThan(0.1);
     // measured against the companion alone, so the effect is the buffer's, not the demand shock's
-    const mode = ice.def.stabiliserMode!;
-    const modeEv = { t: 0, lever: mode.lever, value: mode.manual };
+    const locked = lockAllEvents(ice);
     const extra = { t: 0, lever: 'foreignDemand', value: -20 };
-    const both = runScenario(ice, [modeEv, extra, { t: 0, lever: 'migration', value: 0 }], 36);
-    const alone = runScenario(ice, [modeEv, extra], 36);
+    const both = runScenario(ice, [...locked, extra, { t: 0, lever: 'migration', value: 0 }], 36);
+    const alone = runScenario(ice, [...locked, extra], 36);
     expect(min.headlines[k].at[HORIZONS.indexOf(12)]).toBeCloseTo(100 * (both.value('unemployment', 12) - alone.value('unemployment', 12)), 9);
     expect(r.expectations![0]).toMatchObject({ pass: true, withCompanion: true });
     expect(r.expectations![0].checks).toHaveLength(1);
@@ -416,9 +422,9 @@ describe('what the report cannot see, and levers that need help', () => {
     const r = report();
     const tax = r.levers.find((s) => s.id === 'taxRate')!;
     const kinds = (roles: string, mode: string) => tax.runs.find((x) => x.mode === mode && x.roles.includes(roles))!.flags.map((f) => f.kind);
-    // a 3-point tax cut on Manual more than doubles the price level in 20 years
-    expect(kinds('min', 'Manual')).toContain('extreme');
-    expect(kinds('up', 'Automatic')).not.toContain('extreme');
+    // a 2-point tax cut held with the Taylor rule acting runs away within 20 years (decision 0010)
+    expect(kinds('min', 'unlocked')).toContain('extreme');
+    expect(kinds('up', 'locked')).not.toContain('extreme');
   });
 });
 

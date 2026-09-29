@@ -36,12 +36,11 @@ The interface has no Icelandic precedent for its own words (lever, pipe, inspect
 | setting (a lever kind) | stilling | | PROP |
 | one-off (shock) | einskiptisaðgerð | Button "Apply now" → "Beita núna". Alternatives: "einskiptisbreyting", "skellur" (shock, ÍÐ-HAG) | PROP, ÍÐ-HAG |
 | choice (a lever kind) | val | | PROP |
-| stabilisers (the platform's global setting) | sveiflujafnarar | Collision warning: in Icelandic public finance, *sjálfvirkir sveiflujafnarar* are the automatic stabilisers of fiscal policy (FJR), which in this model work in both modes. "Sveiflujafnarar: Sjálfvirkt" would read as exactly that. Either keep "Sveiflujafnarar" and use the option names below, or rename the setting "Stefnuviðbrögð" (policy reactions), which is safer | FJR, PROP |
-| Manual (stabiliser mode) | Handstýrt | "Handvirkt" also works, but pairs with "Sjálfvirkt"; see the collision above | PROP |
-| Automatic (stabiliser mode) | Sjálfstýrt | Deliberately not "Sjálfvirkt" (see stabilisers) | PROP |
+| padlock (on a lever with a rule; replaced the global stabiliser setting, decision 0010) | lás | Button labels "Lock the key interest rate" → "Læsa stýrivöxtunum", "Unlock the key interest rate" → "Aflæsa stýrivöxtunum". Avoid "sveiflujafnari" for the rules: in Icelandic public finance *sjálfvirkir sveiflujafnarar* are the automatic stabilisers of fiscal policy (FJR), which in this model always work | FJR, PROP |
+| locked / unlocked (a policy lever) | læst / ólæst | "auto" tag on an unlocked lever → "sjálfvirkt" is safe here, beside a rule's name, but not as the name of the rules (see padlock) | PROP |
 | stabiliser (one declared rule) | stefnuregla | "Central bank's inflation rule" → "verðbólguregla Seðlabankans"; "Debt rule on income tax" → "skuldaregla um tekjuskatt" | PROP |
 | calling for action (a stabiliser) | kallar á aðgerð | Lever note: "Regla Seðlabankans: 8,25%", button "Beita" | PROP |
-| Set by … (Automatic) | Ákvarðað af … | "Ákvarðað af verðbólgureglu Seðlabankans: 4,25%" | PROP |
+| Set by … (an unlocked lever's tag) | Ákvarðað af … | "Ákvarðað af verðbólgureglu Seðlabankans" | PROP |
 | baseline | grunnferill | The model's baseline is a computed steady state, not a forecast, so not SÍ's *grunnspá* (baseline forecast, 73 uses in SÍ-PM 2024/4). "vs baseline" → "frá grunnferli" | PROP, SÍ-PM |
 | steady state | jafnstaða | Alternatives: "jafnvægi", "stöðugt ástand" | ÍÐ-HAG |
 | scenario | sviðsmynd | SÍ calls alternative scenarios *fráviksdæmi*. "Share scenario" → "Deila sviðsmynd" | ÍÐ-LíSA, SÍ-PM |

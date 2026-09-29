@@ -1,9 +1,20 @@
 {
  "format": "iceland-inc/golden@1",
  "modelId": "iceland",
- "scenario": "calibration-manual-no-shock-drift",
+ "scenario": "calibration-locked-no-shock-drift",
  "months": 240,
- "events": [],
+ "events": [
+  {
+   "t": 0,
+   "lever": "keyRateLock",
+   "value": 1
+  },
+  {
+   "t": 0,
+   "lever": "incomeTaxLock",
+   "value": 1
+  }
+ ],
  "indicators": {
   "output": [
    0,

@@ -40,8 +40,8 @@ All types live in `src/core/types.ts`. In brief:
 | **Rule** | The one equation that sets a variable: terms (additive), a combine (e.g. `min`), optional gradual adjustment, a regime label | Desired mortgage lending = Σ terms; actual = min(desired, debt-service cap, loan-to-value cap) |
 | **Flow** | A transaction type with a *posting* and *legs* (payer → payee, each with its own amount variable) | Wages: exporters → young households, exporters → working-age households, … |
 | **Posting** | How a leg changes balance sheets: `transfer`, `purchase`, `issue`, `redeem`, `trade`, `accrue`, `revalue`, `writeoff` | A bank `issue` of a mortgage creates a deposit; a pension-fund `issue` moves an existing one |
-| **Lever** | A setting or one-off shock with a precise definition; `showWhen` shows it only while another lever has given values | Key interest rate (%, persistent, shown on Manual); wage settlement (one-off level shift) |
-| **Stabiliser** | An automatic POLICY reaction, declared: the lever it acts on, a variable with what it would set that lever to now, and a threshold for "calling for action". It acts only when the model's stabiliser setting is Automatic | The central bank's inflation rule on the key rate; the debt rule on income tax |
+| **Lever** | A setting or one-off shock with a precise definition. A lever with a rule behind it has a padlock, a `lock` lever the compiler adds | Key interest rate (%, persistent; its rule moves it while unlocked); wage settlement (one-off level shift) |
+| **Stabiliser** | An automatic POLICY reaction, declared: the lever it acts on, a variable with what it would set that lever to now, the value in force, and a threshold for "calling for action". It acts while its lever's padlock is open (unlocked, the default), and suggests while it is locked | The central bank's inflation rule on the key rate; the debt rule on income tax |
 | **Indicator** | A chart series computed from variables and stocks, with a display transform | Broad money, % vs baseline |
 | **Concept** | An economic idea with a plain-English explanation and references | "Loans create deposits" (Bank of England 2014) |
 | **Module** | A bundle of all of the above, plus its own tests | `pensions/funded`, `government/cofog-channels` |
@@ -52,14 +52,16 @@ Players are the unit of accounting; groups are a way of looking at them. A modul
 
 The map shows a group as one node until it is expanded. `nodeOf(player, expanded)` is the player's outermost closed group, or the player itself when every group around it is open, and `engine.pipes({ expanded })` sums legs to those nodes (legs inside a node become a loop on it). A group's balance sheet is the sum of its players', instrument by instrument, without netting claims between them. Because groups own nothing, opening and closing them can never change a number. Decision record [0003](decisions/0003-player-hierarchy.md) has the details.
 
-### Policy is held; stabilisers are a setting
+### Policy levers with a rule have padlocks
 
-A POLICY lever never changes unless the user changes it, and no rule moves a policy setting behind the user's back. Some policy rules do react to the economy by design, such as a central bank's inflation rule or a debt-tied tax rule. Each is declared as a `StabiliserDef` next to the rules that implement it, and one global setting (`ModelDef.stabiliserMode`, a choice lever) decides whether they act:
+A POLICY lever never moves unless the user moves it, or it has a rule behind it and its padlock is open. Some policy rules react to the economy by design, such as a central bank's inflation rule or a debt-tied tax rule. Each is declared as a `StabiliserDef` next to the rules that implement it, and the compiler gives its lever a padlock: a lever of kind `lock`, `<lever>Lock`, 0 open and 1 closed.
 
-- **Manual** (the Iceland model's default): policy reactions are off. The key rate is the level on its lever and the income-tax rate is its baseline plus the user's shift, and they stay there. Each rule still works out what it *would* do every month (its `suggestion`, a shadow value), and `engine.stabilisers()` reports it: when the lever is further from the suggestion than the stabiliser's threshold, the stabiliser is *calling*, the lever panel turns that lever red with the rule's number and an "Apply" button, and the feed says so. The user becomes the stabiliser.
-- **Automatic**: the rules act on the variables (the key rate is the rule's rate; the debt rule's adjustment is added to the tax rate), and the user's lever becomes an offset on top of the rule. The lever values themselves still change only when the user changes them; the interface marks the levers a rule acts through ("Set by the central bank's inflation rule: 4.25%").
+- **Unlocked** (the default): the rule sets the policy variable every month (the key rate is the rule's rate; the income-tax rate is its baseline plus the debt rule's adjustment), and the lever shows the live value, marked "auto".
+- **Locked**: the policy variable holds the lever's value until the user moves it. The rule still works out what it *would* do every month (its `suggestion`, a shadow value), and `engine.stabilisers()` reports it: when the lever is further from the suggestion than the stabiliser's threshold, the stabiliser is *calling*, the lever panel turns that lever red with the rule's number and an "Apply" button, and the feed says so. The user becomes the stabiliser.
 
-This is different from *institutional responses*, the automatic stabilisers of economics: tax revenue that falls and unemployment benefits that rise when incomes and jobs fall. Those are the rules of the game at the rates the user has set, and they work in both modes. The baseline is the same in both modes, and `showWhen` hides the lever that does nothing in the current mode (the Manual key rate on Automatic, the offset on Manual). Decision record [0004](decisions/0004-stabilisers.md) has the details, and why the reference economy starts on Automatic.
+Three engine rules make this one contract for the interface, scenarios and the harness: closing a padlock freezes the lever at the value in force (`StabiliserDef.current`); setting a lever whose padlock is open closes it at the new value, because the user has taken control; opening it hands the lever back to its rule, which steps from the value in force, so nothing jumps. Padlocks are lever events, so they replay, rewind, fork and travel in share links. Rules read them with `c.locked(stabiliserId)`, declared in `RuleDef.locks`.
+
+This is different from *institutional responses*, the automatic stabilisers of economics: tax revenue that falls and unemployment benefits that rise when incomes and jobs fall. Those are the rules of the game at the rates the user has set, and they work locked or not. Levers without a rule (VAT, spending, transfers, benefits, the bond buyers, the DSTI and LTV caps) have no padlock and never move by themselves. The baseline is the same locked or unlocked. Decision records [0004](decisions/0004-stabilisers.md) and [0010](decisions/0010-policy-padlocks.md) have the details; 0010 replaced 0004's global Manual / Automatic setting, which now reads "every padlock locked" and "every padlock unlocked".
 
 ### Why legs carry their own amounts
 
@@ -141,7 +143,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 
 ### 4.6 Scenarios, time travel and counterfactuals
 
-- A **scenario** is `{events: [{t, lever, value, fire?}], months}`. It can be shared as a URL or file, replayed exactly, and rendered frame-exactly to video.
+- A **scenario** is `{events: [{t, lever, value, fire?}], months, version?}`. It can be shared as a URL or file, replayed exactly, and rendered frame-exactly to video. A scenario written in an older format is migrated as it loads (`src/core/migrate.ts`): version 1 used the global stabiliser setting (decision 0010).
 - **`seek(month)`** restores the nearest snapshot and replays forward, which is fast because a month costs microseconds.
 - **`fork({disableTerms, params})`** makes an independent engine. A counterfactual is always (shocked − unshocked) in the same fork.
 
@@ -154,7 +156,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | **A player** | Its live balance sheet (value, baseline, change), its biggest pipes, and its binding constraints |
 | **A group** | On the map, a closed group opens to show its members. In the inspector: its description, members, the summed balance sheet of its players, and its biggest pipes as the map shows them |
 | **An indicator** | How it is computed, its drivers, and their influences |
-| **"Ideas at play"** | `ideasAtPlay(scope)` weights each concept by how much the terms tagged with it move their rule, across the scope (a pipe, a player, a flow, an indicator or the whole economy), and lists them with the terms they come from. For an additive rule that is the term's change; for a rule with `combine` it is the term's one-at-a-time effect on the rule's value, so a cap that does not bind weighs nothing. Stabiliser suggestions never count, and on Manual neither do the stabilisers' shadow variables, which then drive nothing. Because they are live, the ideas at play shift as the shock travels: markup pricing first, then adaptive expectations, then the Taylor rule, then endogenous money |
+| **"Ideas at play"** | `ideasAtPlay(scope)` weights each concept by how much the terms tagged with it move their rule, across the scope (a pipe, a player, a flow, an indicator or the whole economy), and lists them with the terms they come from. For an additive rule that is the term's change; for a rule with `combine` it is the term's one-at-a-time effect on the rule's value, so a cap that does not bind weighs nothing. Stabiliser suggestions never count, and neither do a locked stabiliser's shadow variables, which then drive nothing (unless a rule that still acts reads them). Because they are live, the ideas at play shift as the shock travels: markup pricing first, then adaptive expectations, then the Taylor rule, then endogenous money |
 | **The feed** | Declarative threshold rules on indicators. These are narration only, never logic |
 
 ## 6. The harness
@@ -168,11 +170,11 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 5. **Calibration:** the model's `CalibrationCheck`s, each a scenario, a measure and a plausible range with a source. The result is a PASS/FAIL table.
 6. **Robustness:**
    - **property tests:** random lever combinations within range produce no NaNs (in variables, stocks or chart series), no failed checks, no implausible values (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate) and no position with the wrong sign for its role (`checks().signViolations`, which leaves out the positions a model declares with `mayGoNegative`, each listed in decision 0005). Any of these fails the run;
-   - **lever extremes:** every lever alone at its min and at its max for 240 months, in each stabiliser mode that shows it (a lever `showWhen` hides in a mode is never moved there, as in the panel), with the same requirements;
+   - **lever extremes:** every lever alone at its min and at its max for 240 months, with every policy lever unlocked and with every one locked (the padlocks set up these configurations and are not moved as levers), with the same requirements;
    - **numerics:** half-step and tolerance sensitivity (a timing measure may move by one quarter, any other by 10%);
    - **determinism:** the same scenario gives identical results;
    - **golden scenarios:** stored outputs, so any change in results is visible in review. A golden run must also meet the plausibility and sign requirements, so no stored path is one a real economy could not take;
-   - **lever expectations:** the signs theory predicts for each lever (`src/models/<id>/expectations.ts`), measured as the lever report measures them (`docs/authoring.md` §12). Every expectation must hold, every lever but the stabiliser setting must have at least one, and no run may be broken. Only the runs an expectation needs are made, and those the lever extremes already made are reused.
+   - **lever expectations:** the signs theory predicts for each lever (`src/models/<id>/expectations.ts`), measured as the lever report measures them (`docs/authoring.md` §12). Every expectation must hold, every lever but the padlocks must have at least one, and no run may be broken. Only the runs an expectation needs are made, and those the lever extremes already made are reused.
 
 `bun test` runs the kernel's own unit tests and every module's tests. GitHub Actions runs both on each push.
 
@@ -181,7 +183,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 - **`EngineClient`** wraps the engine. It runs on the main thread today, and a Web Worker with the same interface can come later. Views receive compact snapshots and ask for details (influences, balance sheets) on demand.
 - **Views, all generated from the compiled model:**
   - the flow map, with groups that open in place, one level at a time;
-  - the stabiliser setting and lever sections, with each rule's suggestion (Manual) or its value (Automatic);
+  - lever sections, with a padlock beside each lever with a rule: unlocked, the lever follows its rule; locked, it holds and shows the rule's suggestion when the rule calls;
   - the inspector for pipes, players, indicators, concepts and terms;
   - chart tabs by indicator group;
   - the ledger (a live Godley table);
@@ -205,7 +207,7 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | **A flow** | Add a `FlowDef` with its posting and legs, and one rule per leg amount (usually a family). The kernel posts it, checks it and draws it |
 | **A behaviour** | Add a rule with terms and concepts. To refine an existing one, add a rule with `replaces` in a new module and keep the old module for comparison |
 | **A lever** | Add a `LeverDef` with a precise `definition` and bind it to a parameter or exogenous variable, or give it a `fire` for one-off shocks that touch only non-stock state |
-| **A policy reaction** | Declare it as a `StabiliserDef` in its module, compute its suggestion in both modes, and make the rules apply it only when the stabiliser setting is Automatic |
+| **A policy reaction** | Declare it as a `StabiliserDef` in its module (its lever gets a padlock), compute its suggestion locked or not, make the rules apply it only while the padlock is open (`c.locked`), and step it from the value in force |
 | **A chart** | Add an `IndicatorDef` with drivers and concepts |
 | **An idea** | Add a `ConceptDef` and tag the rules and terms that express it |
 | **A calibration target** | Add a `CalibrationCheck` with a source for its range |
@@ -225,12 +227,13 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | 7 | Monthly step, flows at annual rates in % of baseline GDP | Readable numbers; the step can be changed; the harness checks sensitivity |
 | 8 | Engine v1 kept in `legacy/` | A reference to port from and to compare results against |
 | 9 | Groups are views over players, not players ([0003](decisions/0003-player-hierarchy.md)) | Opening and closing groups can never change the accounting; pipes and balance sheets at any level are sums of the same legs and positions |
-| 10 | Policy is held; stabilisers are a setting, Manual by default ([0004](decisions/0004-stabilisers.md)) | Levers never move by themselves; every automatic policy reaction is declared, acts only on Automatic, and is a visible suggestion on Manual |
+| 10 | Policy is held unless a declared rule moves it; stabilisers are declared ([0004](decisions/0004-stabilisers.md)) | Every automatic policy reaction is declared, and is a visible suggestion whenever it does not act |
 | 11 | Position signs are a diagnostic beside the accounting checks, and a harness failure ([0005](decisions/0005-position-signs.md)) | A wrong-signed position balances exactly, so it is a question of plausibility, not bookkeeping; exemptions are declared on the instrument and listed |
 | 12 | Household spending is deflated by the CPI without housing ([0006](decisions/0006-consumption-deflator.md)) | Housing in the CPI follows house prices and is mostly imputed rent nobody pays; dividing cash spending by it made house-price moves look like changes in output |
 | 13 | The key-rate rule smooths from the rate in force; imports are paid at border prices; portfolio balance is bounded ([0007](decisions/0007-monetary-fx.md)) | Switching to Automatic no longer jumps the key rate onto a path the rule was never in charge of; a weaker króna raises the import bill at once (a J-curve); non-residents running out of krónur can no longer multiply the króna |
 | 14 | The reference economy's inflation expectations are partly anchored to the target, its Taylor rule looks partly through price jumps, and its lending appetite works through the flow of net credit ([0008](decisions/0008-reference-anchored-expectations.md)) | Fully adaptive expectations with full indexation gave huge second-round effects and deflationary traps at the zero lower bound; partial indexation hid the anchoring in the wage rule. Spending that follows net credit fades as repayments catch up, as the credit impulse says |
 | 15 | The key-rate rule learns its neutral rate; the debt rule steps from the rate in force and raises no taxes while the key rate is stuck at zero; reserve management is an operating rule ([0009](decisions/0009-policy-rules-learn.md)) | A rule with a fixed neutral rate left every lasting shock with a lasting gap on Automatic; a debt rule that tightened at the zero bound turned a tourism collapse into a twenty-year slump; rules that react in both modes without a lever are institutions, not policy settings |
+| 16 | A padlock on each lever with a rule, unlocked by default, instead of one Manual / Automatic setting ([0010](decisions/0010-policy-padlocks.md)) | The owner's design: each rule is handed over or held on its own lever; moving a lever takes control of it; locks are lever events, so they replay and travel in links; old scenarios migrate |
 
 ## 10. Roadmap
 

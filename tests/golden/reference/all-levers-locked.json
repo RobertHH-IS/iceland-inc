@@ -1,13 +1,18 @@
 {
  "format": "iceland-inc/golden@1",
  "modelId": "reference",
- "scenario": "all-levers-manual",
+ "scenario": "all-levers-locked",
  "months": 51,
  "events": [
   {
    "t": 0,
-   "lever": "stabilisers",
-   "value": 0
+   "lever": "keyRateLock",
+   "value": 1
+  },
+  {
+   "t": 0,
+   "lever": "taxRateLock",
+   "value": 1
   },
   {
    "t": 0,
@@ -22,7 +27,7 @@
   },
   {
    "t": 6,
-   "lever": "keyRateFixed",
+   "lever": "keyRate",
    "value": 6.5
   },
   {

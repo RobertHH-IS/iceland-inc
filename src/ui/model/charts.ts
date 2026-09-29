@@ -93,7 +93,7 @@ export function areaPath(w: ChartWindow, width: number, height: number): string 
 export interface EventMark {
   t: number;
   x: number;
-  /** The month's last event: the lever the user changed (the panel records resets first). */
+  /** The month's last event: the lever the user changed last that month. */
   lever: Id;
   value: number;
   fire: boolean;
@@ -116,7 +116,7 @@ export function eventMarks(events: readonly ScenarioEvent[], w: ChartWindow, wid
   return [...byMonth.values()];
 }
 
-/** A mark's tooltip: "Month 12: Stabilisers → Automatic · Key interest rate → 3%", the last event first. */
+/** A mark's tooltip: "Month 12: Key interest rate → 4% · Padlock on Key interest rate → Unlocked", the last event first. */
 export function eventMarkTitle(m: EventMark, info: Pick<ModelInfo, 'leverById'>): string {
   const one = (e: EventMark['events'][number]) => {
     const l = info.leverById.get(e.lever);

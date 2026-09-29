@@ -50,11 +50,11 @@ for (const def of models) {
           expect(r.pass).toBe(true);
         });
 
-    test('declares what theory predicts for every lever but the stabiliser setting, each with its theory and source (docs/authoring.md §12)', () => {
+    test('declares what theory predicts for every lever but the padlocks, each with its theory and source (docs/authoring.md §12)', () => {
       const ex = readExpectations(def.id);
       expect(ex).not.toBeNull();
-      const levers = def.modules.flatMap((m) => m.levers ?? []);
-      const without = levers.filter((l) => l.id !== def.stabiliserMode?.lever && !ex!.some((x) => x.lever === l.id)).map((l) => l.id);
+      const levers = compile(def).levers; // with the padlocks the compiler adds
+      const without = levers.filter((l) => l.kind !== 'lock' && !ex!.some((x) => x.lever === l.id)).map((l) => l.id);
       expect(without).toEqual([]);
       for (const x of ex!) {
         expect(levers.some((l) => l.id === x.lever)).toBe(true);

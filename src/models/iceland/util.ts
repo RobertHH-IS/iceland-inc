@@ -34,13 +34,18 @@ export const stepsIn = (c: Ctx, years: number): number => Math.max(1, Math.round
  *  use c.lag(id) directly. */
 export const lastMonth = (c: Ctx, id: Id): number => c.lag(id, stepsIn(c, 1 / 12));
 
-/** The global stabiliser setting (modules/stabilisers.ts): 0 Manual, 1 Automatic. A rule that reads
- *  it declares `levers: [STABILISERS]`. */
-export const STABILISERS = 'stabilisers';
-export const MANUAL = 0;
-export const AUTOMATIC = 1;
-/** True when the policy rules act (Automatic); false when policy levers are held (Manual). */
-export const automatic = (c: Ctx): boolean => Math.round(c.lever(STABILISERS)) >= AUTOMATIC;
+/** The two stabilisers (decision 0010): the central bank's inflation rule on the key rate
+ *  (central-bank.ts) and the debt rule on income tax (government.ts). Each lever has a padlock;
+ *  a rule that reads one declares `locks: [KEY_RATE_RULE]` and asks `c.locked(KEY_RATE_RULE)`. */
+export const KEY_RATE_RULE = 'keyRateRule';
+export const DEBT_RULE = 'debtRule';
+/** The padlocks of the two policy levers (the compiler adds them as `<lever>Lock`). */
+export const POLICY_LOCKS = ['keyRateLock', 'incomeTaxLock'] as const;
+/** Lock both policy levers where they are (the old Manual setting), or unlock both (the default,
+ *  the old Automatic): for tests and scenarios that compare the two. */
+export function lockPolicy(e: { setLever(id: Id, value: number): void }, locked = true): void {
+  for (const id of POLICY_LOCKS) e.setLever(id, locked ? 1 : 0);
+}
 
 /** Age groups of households and the two borrowing groups. */
 export const AGES = ['Y', 'W', 'O'] as const;

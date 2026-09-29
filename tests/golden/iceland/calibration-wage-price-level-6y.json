@@ -6,11 +6,6 @@
  "events": [
   {
    "t": 0,
-   "lever": "stabilisers",
-   "value": 1
-  },
-  {
-   "t": 0,
    "lever": "wageSettlement",
    "value": 10,
    "fire": true

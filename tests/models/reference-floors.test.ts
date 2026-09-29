@@ -7,15 +7,17 @@
  */
 import { describe, expect, test } from 'bun:test';
 import { createEngine, type KernelEngine } from '../../src/core/engine.ts';
+import { lockAll } from '../../src/core/scenario.ts';
 import type { Ctx } from '../../src/core/types.ts';
 import { referenceModel } from '../../src/models/reference/index.ts';
 
 const base = createEngine(referenceModel);
 
-/** A Manual run from the baseline with one lever set at month 0, stepped month by month. */
+/** A run from the baseline with both policy levers locked and one lever set at month 0, stepped
+ *  month by month. */
 function manual(lever: string, value: number, months: number, each: (e: KernelEngine) => void): void {
   const e = createEngine(base.model, { baseline: base.baselineData });
-  e.setLever('stabilisers', 0);
+  lockAll(e);
   e.setLever(lever, value);
   for (let m = 0; m < months; m++) {
     e.step(1);
@@ -36,7 +38,7 @@ describe('reference economy: floors', () => {
   });
 
   test('with the floor binding, excess demand keeps raising wages and inflation (review E2)', () => {
-    // Government spending +3 held on Manual: unemployment sits at its floor from about year 2, yet
+    // Government spending +3 held with both policy levers locked: unemployment sits at its floor from about year 2, yet
     // the wage pressure keeps growing past what a 2% rate could give (0.5 × (5% − 2%) = 1.5% a
     // year), and 12-month inflation keeps rising, as it did before the floor.
     const inflation: number[] = [];
@@ -61,7 +63,7 @@ describe('reference economy: floors', () => {
   });
 
   test('a surplus buys back only the bonds the bank holds: the buyback floor and its regime', () => {
-    // A key rate held at zero used to reach this branch on Manual, but only because deposits then
+    // A key rate held at zero used to reach this branch with both policy levers locked, but only because deposits then
     // paid −1%; with the deposit rate floored at zero no lever does (review
     // REF-negative-deposit-rate). So the rule is checked directly: the bank holds 1% of GDP in
     // bonds and sells the central bank 6% of GDP a year of them this month.
@@ -94,10 +96,10 @@ describe('reference economy: floors', () => {
     expect(rule.regime!(c, 360, { reserveGap: 400 })).toBe('Limited by the bank’s bonds');
   });
 
-  test('no floor binds at the baseline, in either mode', () => {
-    for (const mode of [0, 1]) {
+  test('no floor binds at the baseline, locked or unlocked', () => {
+    for (const locked of [true, false]) {
       const e = createEngine(base.model, { baseline: base.baselineData });
-      e.setLever('stabilisers', mode);
+      lockAll(e, locked);
       e.step(24);
       for (const id of ['unemployment', 'bondIssue', 'openMarket']) expect(`${id}: ${e.influences(id).regime ?? 'none'}`).toBe(`${id}: none`);
       expect(Math.abs(e.value('unemployment') - e.baseline('unemployment'))).toBeLessThan(1e-9);

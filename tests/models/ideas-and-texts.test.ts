@@ -7,11 +7,9 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { compile, type KModel } from '../../src/core/compile.ts';
 import { createEngine, type KernelEngine } from '../../src/core/engine.ts';
-import { runScenario } from '../../src/core/scenario.ts';
+import { lockAllEvents, runScenario } from '../../src/core/scenario.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 
-const MANUAL = 0,
-  AUTOMATIC = 1;
 let iceland: KModel, base: KernelEngine;
 beforeAll(() => {
   iceland = compile(icelandModel);
@@ -71,10 +69,12 @@ describe('income from abroad is primary income', () => {
 });
 
 describe('the income-tax rule is a debt-tied tax rule', () => {
-  test('on Automatic an income-tax offset credits the debt-tied tax rule through the rule, not the spending cap', () => {
+  // Until padlocks (decision 0010) the debt rule was moved here by an income-tax offset on top of
+  // it; moving the income-tax lever now locks it, so the rule is moved by the debt a spending rise
+  // builds up, with income tax unlocked.
+  test('with income tax unlocked, the debt a spending rise builds up credits the debt-tied tax rule through the rule, not the spending cap', () => {
     const e = ice();
-    e.setLever('stabilisers', AUTOMATIC);
-    e.setLever('incomeTaxOffset', 2.5);
+    e.setLever('otherServices', 2);
     e.step(36);
     const found = ideas(e, 'indicator:incomeTaxRate');
     const debt = found.find((x) => x.concept === 'debt-feedback');
@@ -86,7 +86,8 @@ describe('the income-tax rule is a debt-tied tax rule', () => {
 describe('central-bank financing', () => {
   test('saves the government only the spread over the key rate: extra central-bank profit is a small part of the extra bond interest it earns', () => {
     const ev = (buyer: number) => [
-      { t: 0, lever: 'stabilisers', value: MANUAL },
+      ...lockAllEvents(iceland), // both policy levers held
+
       { t: 0, lever: 'publicInvestment', value: 2 },
       { t: 0, lever: 'bondBuyers', value: buyer },
     ];

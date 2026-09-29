@@ -5,9 +5,9 @@
  * rules the term changes sum exactly to the change in the desired value; rules with a
  * `combine` are flagged nonAdditive and show values and the active regime instead.
  * This is a WITHIN-rule decomposition. System-wide questions ("how much is due to the credit
- * channel?") need counterfactual forks, never a waterfall. Baselines are those of the stabiliser
- * mode the values on show were computed under (M.evalAutomatic), so a mode switch shows from the
- * next step, and switching mode with no shock shows no change.
+ * channel?") need counterfactual forks, never a waterfall. Baselines are those of the padlocks
+ * the values on show were computed under (M.evalLocks), so locking or unlocking shows from the
+ * next step, and doing so with no shock shows no change.
  *
  * ideasAtPlay: weights each concept by how much the terms tagged with it move their rule
  * (and, for rule- and flow-level tags, the change in the rule's desired value or in the flow's
@@ -17,8 +17,8 @@
  * others at baseline, minus the combine at baseline. So a factor of a product counts at the
  * product's level, and a cap that does not bind weighs nothing. Changes are measured in
  * comparable units: pp of GDP for money, pp for rates and ratios, % of baseline for prices and
- * indices. Stabiliser suggestions are left out (they restate their rule in lever units), and on
- * Manual so are the stabilisers' shadow variables, which then drive nothing. A scope walks
+ * indices. Stabiliser suggestions are left out (they restate their rule in lever units), and so
+ * are a locked stabiliser's shadow variables, which then drive nothing. A scope walks
  * through them only when it is that variable itself ('var:ruleRate'), not when an indicator,
  * flow or player merely lists one among its drivers.
  */
@@ -31,16 +31,16 @@ export interface InfluenceSource {
   cur: Float64Array;
   baseVars: Float64Array;
   termVal: Float64Array;
-  /** Baseline term and desired values in the stabiliser mode that termVal and desired were
-   *  computed under (the last evaluation, not the lever as it is now). */
+  /** Baseline term and desired values under the padlocks that termVal and desired were
+   *  computed under (the last evaluation, not the levers as they are now). */
   baseTerms: Float64Array;
   desired: Float64Array;
   baseDesired: Float64Array;
   regimes: (string | null)[];
   pEff: Float64Array;
-  /** The stabiliser setting was Automatic when termVal and desired were computed (true for a
-   *  model without one). */
-  automatic: boolean;
+  /** The padlocks when termVal and desired were computed, as a lock mask (bit j set: stabiliser j
+   *  locked; 0 for a model without stabilisers). */
+  locks: number;
   /** A rule's context on the current state (for its `combine`). */
   ctxOf(rule: number): Ctx;
   indicatorLevel(i: number): number;
@@ -252,14 +252,10 @@ function scopeSeeds(m: KModel, scope?: Id): Seeds | null {
   throw new Error(`ideasAtPlay: unknown scope '${scope}' (use a player, group, flow, variable, indicator or 'from->to[:kind]', optionally prefixed 'var:', 'flow:', 'indicator:', 'player:' or 'group:')`);
 }
 
-/** Variables that drive nothing now: every stabiliser's suggestion, and on Manual its shadows. */
-export function inertVars(m: KModel, automatic: boolean): Set<number> {
-  const out = new Set<number>();
-  for (const cs of m.cstabilisers) {
-    if (cs.suggestion >= 0) out.add(cs.suggestion);
-    if (!automatic) for (const k of cs.shadow) out.add(k);
-  }
-  return out;
+/** Variables that drive nothing under a lock mask: every stabiliser's suggestion, and the shadows
+ *  of the locked stabilisers that no rule still acting reads (KModel.inertByMask). */
+export function inertVars(m: KModel, locks: number): Set<number> {
+  return m.inertByMask[locks] ?? new Set();
 }
 
 /** Rules feeding the seed variables, transitively (same-step and lagged inputs). The walk does
@@ -286,7 +282,7 @@ export function upstreamRules(m: KModel, seeds: number[], skip?: Set<number>): S
 export function ideasAtPlay(S: InfluenceSource, scope?: Id): { concept: Id; weight: number; via: Id[] }[] {
   const { m } = S;
   const seeds = scopeSeeds(m, scope);
-  const inert = inertVars(m, S.automatic);
+  const inert = inertVars(m, S.locks);
   const { termVal, baseTerms, desired, baseDesired } = S; // the baselines of the current mode, read once
   // Inert seeds are walked only when the user picked that variable (var:ruleRate), or when
   // nothing else is left to start from; an indicator's or a flow's inert drivers are not.

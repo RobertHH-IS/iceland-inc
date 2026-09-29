@@ -454,9 +454,9 @@ describe('share links with open groups', () => {
   test('round-trip the open groups next to the scenario', () => {
     const s = { modelId: 'hierarchy', months: 12, events: [{ t: 0, lever: 'exportBoom', value: 1 }], expanded: ['firms', 'exporters'] };
     const hash = encodeScenarioHash(s);
-    expect(hash).toBe('m=hierarchy&t=12&e=0:exportBoom:1&x=firms,exporters');
+    expect(hash).toBe('m=hierarchy&v=2&t=12&e=0:exportBoom:1&x=firms,exporters');
     const d = decodeScenarioHash('#' + hash);
-    expect(d.ok && d.state).toEqual({ modelId: 'hierarchy', months: 12, events: s.events, expanded: ['firms', 'exporters'] });
+    expect(d.ok && d.state).toEqual({ modelId: 'hierarchy', months: 12, events: s.events, version: 2, expanded: ['firms', 'exporters'] });
   });
 
   test('group ids with odd characters survive; a link without x leaves the map as it opens', () => {
@@ -464,7 +464,7 @@ describe('share links with open groups', () => {
     expect(d.ok && d.state.expanded).toEqual(['Rest of world', 'a,b&c']);
     const old = decodeScenarioHash('#m=iceland&t=3');
     expect(old.ok && old.state.expanded).toBeUndefined();
-    expect(encodeScenarioHash({ modelId: 'x', months: 0, events: [], expanded: [] })).toBe('m=x&t=0');
+    expect(encodeScenarioHash({ modelId: 'x', months: 0, events: [], expanded: [] })).toBe('m=x&v=2&t=0');
     expect(decodeScenarioHash('#x=%E0%A4%A').ok).toBe(false);
   });
 });

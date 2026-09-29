@@ -37,7 +37,7 @@ interface FlowMapProps {
   pipes: Pipe[];
   legs: Float64Array;
   regimes: Readonly<Record<Id, string | null>>;
-  /** Stabilisers acting now (Automatic), space-separated ids: their numbers get a "rule" marker. */
+  /** Stabilisers acting now (unlocked), space-separated ids: their numbers get a "rule" marker. */
   rulesActing?: string;
   seq: number;
   selection: Selection | null;
@@ -542,7 +542,7 @@ interface NodeCardProps {
   m2: string;
   v2: string;
   t2: Tone;
-  /** The number is set by a stabiliser that is acting (Automatic): mark it "rule". */
+  /** The number is set by a stabiliser that is acting (unlocked): mark it "rule". */
   r1: boolean;
   r2: boolean;
   regime: string | null;

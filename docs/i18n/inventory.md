@@ -85,9 +85,9 @@ Findings that matter for the translation:
 | rule.explain.rule | 374 | 7,474 | 255 | 5,655 | `taxRate`, `loanRate` |
 | term.label | 490 | 1,574 | 252 | 853 | `ruleRate.neutral`, `mortgageLendingY.dstiCap` |
 | flow.label / explain.what | 54 / 54 | 183 / 980 | 54 / 52 | 183 / 933 | `reserveInterest`, `mortgageIssueI`, `retirement` |
-| lever.label | 26 | 71 | 26 | 71 | `keyRateFixed`, `dstiCap`, `bondBuyers` |
-| lever.description / definition | 26 / 26 | 414 / 1,203 | 26 / 26 | 414 / 1,203 | `stabilisers`, `wageSettlement` |
-| lever.option.label | 7 | 15 | 7 | 15 | `stabilisers=0` (Manual), `bondBuyers=0` |
+| lever.label | 26 | 71 | 26 | 71 | `keyRate`, `dstiCap`, `bondBuyers` |
+| lever.description / definition | 26 / 26 | 414 / 1,203 | 26 / 26 | 414 / 1,203 | `keyRate`, `wageSettlement` |
+| lever.option.label | 7 | 15 | 7 | 15 | `keyRateLock=1` (Locked), `bondBuyers=0` |
 | lever.group / section | 26 / 26 | — | 3 / 8 | 3 / 13 | Policy, Economy, World / Central bank, Financial stability, World economy… |
 | stabiliser.label / description | 2 / 2 | 9 / 151 | 2 / 2 | 9 / 151 | `keyRateRule`, `debtRule` |
 | stabiliser.feed.raise / lower | 2 / 2 | 21 / 21 | 2 / 2 | 21 / 21 | "The central bank’s rule would raise the key rate to {value}%" |
