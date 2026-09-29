@@ -1,18 +1,28 @@
 /**
  * Reference economy: jobs, wages and prices.
  *
- * Firms hire in line with output (Okun's law), up to the size of the labour force; wages grow
- * with expected inflation and with how tight the labour market is (a wage Phillips curve), and
- * prices are a markup over the normal labour cost of each unit of output (markup pricing).
- * Expectations adapt to recent inflation.
+ * Firms hire in line with output (Okun's law); wages grow with expected inflation and with how
+ * much work firms want compared with normal (a wage Phillips curve), and prices are a markup over
+ * the normal labour cost of each unit of output (markup pricing). Expectations adapt to recent
+ * inflation. In a boom the unemployment rate approaches the people between jobs but never goes
+ * below them: the extra work comes from people joining the labour force and from longer hours,
+ * and the wage pressure keeps growing with the work firms want, so excess demand still raises
+ * wages and prices.
  */
 import type { Ctx, ModuleDef, ParamDef } from '../../core/types.ts';
 
 const assumed = { basis: 'assumed' as const, note: 'Teaching value, chosen to give readable dynamics.' };
 
-/** The most jobs there can be, as a jobs index: everyone in the labour force but those between
- *  jobs. The baseline (index 1) employs 1 − natural unemployment of the labour force. */
-const maxJobs = (c: Ctx) => (1 - c.p('minUnemployment')) / (1 - c.p('naturalUnemployment'));
+/** Unemployment if every extra job were filled from the unemployed: 1 − the baseline employment
+ *  rate × the jobs index. It goes below zero in a big enough boom. */
+const unemploymentFromJobs = (c: Ctx) => 1 - (1 - c.p('naturalUnemployment')) * c.v('employment');
+
+/** The unemployment rate with its floor: equal to `x` down to `start`, then approaching `floor`
+ *  exponentially, never reaching it (continuous, with a continuous slope at `start`). */
+export function flooredRate(x: number, floor: number, start: number): number {
+  if (x >= start || start <= floor) return Math.max(x, floor);
+  return floor + (start - floor) * Math.exp((x - start) / (start - floor));
+}
 
 const params: ParamDef[] = [
   { id: 'potentialOutput', value: 100, unit: '% of GDP/yr', category: 'BEHAVIOUR', description: 'What the economy can produce at normal capacity. The baseline runs at capacity, so baseline GDP = 100.', provenance: { basis: 'assumed', note: 'The unit of the model: baseline annual GDP = 100.' } },
@@ -22,8 +32,16 @@ const params: ParamDef[] = [
     value: 0.02,
     unit: 'fraction',
     category: 'BEHAVIOUR',
-    description: 'Unemployment in the tightest labour market: people between jobs, whom firms cannot hire however much they need workers.',
+    description: 'Unemployment in the tightest labour market: people between jobs, whom firms cannot hire however much they need workers. The rate approaches it in a boom but never reaches it.',
     provenance: { basis: 'assumed', note: 'Teaching value for frictional unemployment; the lowest rates seen in Nordic and US data are about 1–3%.' },
+  },
+  {
+    id: 'unemploymentFloorStart',
+    value: 0.03,
+    unit: 'fraction',
+    category: 'BEHAVIOUR',
+    description: 'Unemployment rate below which extra jobs are filled less and less from the unemployed and more and more by people joining the labour force and by longer hours.',
+    provenance: { basis: 'assumed', note: 'Teaching value between the floor and the natural rate, so the baseline and moderate shocks are unchanged (review of the hiring cap, E2).' },
   },
   { id: 'okunCoefficient', value: 0.5, unit: 'fraction', category: 'BEHAVIOUR', description: 'Percent more jobs for each percent of output above capacity.', provenance: assumed },
   { id: 'hiringSpeed', value: 4, unit: 'per year', category: 'BEHAVIOUR', description: 'How fast firms close the gap between the jobs they have and the jobs they need.', provenance: assumed },
@@ -59,32 +77,36 @@ export const labourPrices: ModuleDef = {
       category: 'BEHAVIOUR',
       label: 'Hiring',
       inputs: ['output'],
-      params: ['okunCoefficient', 'potentialOutput', 'naturalUnemployment', 'minUnemployment'],
+      params: ['okunCoefficient', 'potentialOutput'],
       adjust: { speed: 'hiringSpeed' },
       terms: [
         { id: 'normal', label: 'Normal number of jobs', compute: () => 1 },
         { id: 'outputGap', label: 'Output above capacity', concept: 'okun-law', compute: (c) => c.p('okunCoefficient') * (c.v('output') / c.p('potentialOutput') - 1) },
       ],
-      // Not additive at the top: firms cannot hire people who are not there.
-      combine: (t, c) => Math.min(maxJobs(c), t.normal + t.outputGap),
-      regime: (c, _v, t) => (t.normal + t.outputGap > maxJobs(c) ? 'No one left to hire' : null),
       concepts: ['okun-law', 'capacity-utilisation'],
       explain: {
-        what: 'How many people have jobs, as an index where 1 is the baseline.',
-        rule: 'Firms move toward the jobs they need at speed {hiringSpeed} a year. They need {okunCoefficient}% more jobs for each 1% of output above capacity (Okun’s law). They can never aim for more jobs than there are workers: at most everyone but the {minUnemployment%} who are between jobs, however hard the economy runs.',
+        what: 'How much work firms employ, as an index where 1 is the baseline: jobs, counted in normal full-time hours.',
+        rule: 'Firms move toward the work they need at speed {hiringSpeed} a year. They need {okunCoefficient}% more for each 1% of output above capacity (Okun’s law). In a strong boom the extra work comes more and more from people joining the labour force and from longer hours rather than from the unemployed (see the unemployment rate).',
       },
     },
     {
       id: 'unemployment',
       target: 'unemployment',
-      category: 'IDENTITY',
+      category: 'BEHAVIOUR',
+      label: 'Unemployment',
       inputs: ['employment'],
-      params: ['naturalUnemployment'],
-      compute: (c) => 1 - (1 - c.p('naturalUnemployment')) * c.v('employment'),
+      params: ['naturalUnemployment', 'minUnemployment', 'unemploymentFloorStart'],
+      terms: [
+        { id: 'normal', label: 'Normal unemployment', compute: (c) => c.p('naturalUnemployment') },
+        { id: 'jobs', label: 'Jobs above normal', concept: 'okun-law', compute: (c) => unemploymentFromJobs(c) - c.p('naturalUnemployment') },
+      ],
+      // Not additive at the bottom: the people between jobs cannot be hired.
+      combine: (t, c) => flooredRate(t.normal + t.jobs, c.p('minUnemployment'), c.p('unemploymentFloorStart')),
+      regime: (c, _v, t) => (t.normal + t.jobs < c.p('unemploymentFloorStart') ? 'Few unemployed left: extra work comes from people joining the labour force and longer hours' : null),
       concepts: ['okun-law'],
       explain: {
         what: 'Share of the labour force without a job.',
-        rule: 'Unemployment = 1 − baseline employment rate × jobs index. The baseline rate is {naturalUnemployment%}.',
+        rule: 'Unemployment = 1 − baseline employment rate × jobs index. The baseline rate is {naturalUnemployment%}. Below {unemploymentFloorStart%}, fewer and fewer of the extra jobs go to the unemployed: people join the labour force and work longer hours instead, so the rate approaches {minUnemployment%} (people between jobs) but never reaches it.',
       },
     },
     {
@@ -104,11 +126,13 @@ export const labourPrices: ModuleDef = {
       target: 'wageGrowth',
       category: 'BEHAVIOUR',
       label: 'Wage Phillips curve',
-      lagInputs: ['expectedInflation', 'unemployment'],
+      lagInputs: ['expectedInflation', 'employment'],
       params: ['wageIndexation', 'phillipsSlope', 'naturalUnemployment', 'wageFloor'],
       terms: [
         { id: 'expectedInflation', label: 'Expected inflation', concept: 'adaptive-expectations', compute: (c) => c.p('wageIndexation') * c.lag('expectedInflation') },
-        { id: 'tightLabourMarket', label: 'Tight labour market', concept: 'wage-phillips-curve', compute: (c) => c.p('phillipsSlope') * (c.p('naturalUnemployment') - c.lag('unemployment')) },
+        // Read from the work firms employ, not the floored unemployment rate: when the unemployed
+        // run out, the extra hours and newcomers still have to be paid for.
+        { id: 'tightLabourMarket', label: 'Tight labour market', concept: 'wage-phillips-curve', compute: (c) => c.p('phillipsSlope') * (1 - c.p('naturalUnemployment')) * (c.lag('employment') - 1) },
       ],
       // Not additive: the sum of the terms, but never below the floor.
       combine: (t, c) => Math.max(c.p('wageFloor'), t.expectedInflation + t.tightLabourMarket),
@@ -116,7 +140,7 @@ export const labourPrices: ModuleDef = {
       concepts: ['wage-phillips-curve'],
       explain: {
         what: 'How fast wage rates rise, per year.',
-        rule: 'Wage growth = {wageIndexation} × expected inflation + {phillipsSlope} × (natural unemployment {naturalUnemployment%} − last month’s unemployment), but wages fall by no more than {wageFloor%} a year. Scarce workers push pay up faster.',
+        rule: 'Wage growth = {wageIndexation} × expected inflation + {phillipsSlope} × the work firms employed last month above normal, as a share of the labour force (the fall in unemployment it would bring, if every extra job went to someone unemployed), but wages fall by no more than {wageFloor%} a year. Scarce workers push pay up faster, and once the unemployed run out, the extra hours and the people drawn into work push it up further still.',
       },
     },
     {
