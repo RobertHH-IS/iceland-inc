@@ -41,7 +41,7 @@ function groupRules(g: B): RuleDef[] {
       lagInputs: [`grossIncome${g}`],
       params: [`mR${g}`, 'betaM', 'rmR0', 'betaMH'],
       terms: terms(
-        ['income', 'Debt in proportion to income', 'debt-service-constraint', (c) => c.p(`mR${g}`) * lastMonth(c, `grossIncome${g}`)],
+        ['income', 'Debt in proportion to income', 'credit-and-house-prices', (c) => c.p(`mR${g}`) * lastMonth(c, `grossIncome${g}`)],
         ['rate', 'Real mortgage rate', 'interest-distribution', (c) => 1 - c.p('betaM') * (c.v('realMortgageRate') - c.p('rmR0'))],
         ['housePrice', 'Real house prices', 'credit-and-house-prices', (c) => Math.pow(Math.max(1e-6, c.v('realHousePrice')), c.p('betaMH'))],
       ),
@@ -76,7 +76,7 @@ function groupRules(g: B): RuleDef[] {
       ],
       terms: terms(
         ['replace', 'Replacing what is repaid', 'amortisation', (c) => c.v(`mortgageRepayment${g}`)],
-        ['towardTarget', 'Moving toward desired debt', 'credit-impulse', (c) => c.p('lamM') * (c.v(`mortgageTarget${g}`) - debt(c, 'mortgagesN', g) - debt(c, 'mortgagesI', g))],
+        ['towardTarget', 'Moving toward desired debt', 'endogenous-money', (c) => c.p('lamM') * (c.v(`mortgageTarget${g}`) - debt(c, 'mortgagesN', g) - debt(c, 'mortgagesI', g))],
         ['appetite', 'Banks’ lending appetite (lever)', 'endogenous-money', (c) => c.p('lendingAppetite') * c.p(`lendSh${g}`)],
       ),
       explain: {
@@ -125,7 +125,7 @@ function groupRules(g: B): RuleDef[] {
       label: 'New mortgages: demand or the tightest cap',
       inputs: [`mortgageDemand${g}`, `dstiCap${g}`, `ltvCap${g}`],
       terms: terms(
-        ['demand', 'What households want', 'consumption-function', (c) => c.v(`mortgageDemand${g}`)],
+        ['demand', 'What households want', 'endogenous-money', (c) => c.v(`mortgageDemand${g}`)],
         ['dstiCap', 'Debt-service cap', 'debt-service-constraint', (c) => c.v(`dstiCap${g}`)],
         ['ltvCap', 'Loan-to-value cap', 'loan-to-value', (c) => c.v(`ltvCap${g}`)],
       ),
