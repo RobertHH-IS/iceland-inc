@@ -10,6 +10,7 @@ const words = (text: string): number => text.trim().split(/\s+/).filter(Boolean)
 const REQUIRED_IDS = [
   // Accounting
   'double-entry', 'stock-flow-consistency', 'net-worth', 'sectoral-balances', 'accrual-vs-cash', 'revaluation',
+  'haig-simons-income',
   // Money
   'endogenous-money', 'money-destruction', 'reserves-and-payments', 'deficits-and-money', 'broad-money',
   // Credit
@@ -22,10 +23,10 @@ const REQUIRED_IDS = [
   'consumption-function', 'paradox-of-thrift', 'multiplier', 'investment-accelerator', 'import-leakage',
   'capacity-utilisation', 'okun-law', 'habit-persistence',
   // Policy
-  'taylor-rule', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'macroprudential-policy', 'bond-buyers',
+  'taylor-rule', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'debt-feedback', 'macroprudential-policy', 'bond-buyers',
   // External
   'floating-exchange-rate', 'carry-trade', 'current-account', 'real-exchange-rate', 'purchasing-power-parity',
-  'export-sectors',
+  'export-sectors', 'terms-of-trade', 'dutch-disease', 'resource-rent',
   // Housing
   'credit-and-house-prices', 'housing-wealth-effect',
   // Pensions

@@ -197,7 +197,7 @@ describe('what is at play on Manual and Automatic', () => {
     e.step(24);
     for (const [scope, concept, shadow] of [
       ['indicator:keyRate', 'taylor-rule', /^(ruleRate|keyRateSuggestion)\b/],
-      ['indicator:incomeTaxRate', 'fiscal-rule', /^(taxRuleAdjustment|taxRuleSuggestion)\b/],
+      ['indicator:incomeTaxRate', 'debt-feedback', /^(taxRuleAdjustment|taxRuleSuggestion)\b/],
     ] as const) {
       const ideas = e.ideasAtPlay(scope);
       expect(ideas.map((x) => x.concept)).not.toContain(concept);
@@ -205,7 +205,7 @@ describe('what is at play on Manual and Automatic', () => {
     }
     // the variable picked by itself is still explained
     expect(concepts(e, 'var:ruleRate')).toContain('taylor-rule');
-    expect(concepts(e, 'var:taxRuleAdjustment')).toContain('fiscal-rule');
+    expect(concepts(e, 'var:taxRuleAdjustment')).toContain('debt-feedback');
   });
 
   test('selecting the shadow itself still shows what drives it', () => {

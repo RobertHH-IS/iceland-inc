@@ -307,7 +307,7 @@ const rules: RuleDef[] = [
       ['treasuryAccount', 'G'],
     ],
     compute: (c) => (c.stock('govBonds', 'G') + c.stock('indexedBonds', 'G') - (c.stock('treasuryAccount', 'G') - c.p('tga'))) / lastMonth(c, 'gdpTrailing12'),
-    concepts: ['fiscal-rule'],
+    concepts: ['debt-feedback'],
     explain: {
       what: 'Government debt as a share of a year’s GDP (as a ratio: 0.567 is 56.7%), net of any cash the treasury holds above its usual balance.',
       rule: 'Debt ratio = (nominal + indexed bonds − treasury account above its target {tga}% of GDP, at the start of the month) ÷ GDP over the 12 months to last month, as official statistics measure it. The treasury account is normally at its target; it rises above it only once every bond that can be bought back has been.',
@@ -322,9 +322,9 @@ const rules: RuleDef[] = [
     params: ['phiTau', 'debtR0'],
     levers: [STABILISERS],
     adjust: { speed: 'lamTau', form: 'exponential' },
-    terms: terms(['debt', 'Debt above its baseline ratio', 'fiscal-rule', (c) => c.p('phiTau') * (c.v('debtRatio') - c.p('debtR0'))]),
+    terms: terms(['debt', 'Debt above its baseline ratio', 'debt-feedback', (c) => c.p('phiTau') * (c.v('debtRatio') - c.p('debtR0'))]),
     regime: (c) => (automatic(c) ? null : 'Suggestion only (Manual)'),
-    concepts: ['fiscal-rule'],
+    concepts: ['debt-feedback'],
     explain: {
       what: 'How far the debt rule would move the income-tax rate: added to the rate (with your offset) when stabilisers are Automatic, only suggested on the income-tax lever when they are Manual.',
       rule: 'Moves toward {phiTau} × (debt ratio − {debtR0}) at speed {lamTau} a year, in both modes. Ten points more debt eventually means about 2.5 points more tax.',
@@ -337,7 +337,7 @@ const rules: RuleDef[] = [
     label: 'The debt rule’s suggestion, in lever units',
     inputs: ['taxRuleAdjustment'],
     compute: (c) => 100 * c.v('taxRuleAdjustment'),
-    concepts: ['fiscal-rule'],
+    concepts: ['debt-feedback'],
     explain: {
       what: 'The income-tax shift the debt rule would set now, in percentage points from the baseline rate: the same units as the income-tax lever. In Manual mode the lever turns red when it is more than a quarter point away, and “Apply” sets the lever to it, rounded to half a point.',
       rule: 'Suggestion = the debt rule’s adjustment × 100. It is the whole shift the rule would want given today’s debt, so a lever already set there satisfies it.',
@@ -357,7 +357,7 @@ const rules: RuleDef[] = [
       ['normal', 'Baseline rate', undefined, (c) => c.p('tau0')],
       ['lever', 'The shift you set (Manual)', undefined, (c) => (automatic(c) ? 0 : c.p('incomeTaxShift'))],
       ['offset', 'Your offset to the rule (Automatic)', undefined, (c) => (automatic(c) ? c.lever('incomeTaxOffset') / 100 : 0)],
-      ['debtRule', 'Debt rule (Automatic)', 'fiscal-rule', (c) => (automatic(c) ? c.v('taxRuleAdjustment') : 0)],
+      ['debtRule', 'Debt rule (Automatic)', 'debt-feedback', (c) => (automatic(c) ? c.v('taxRuleAdjustment') : 0)],
     ),
     explain: {
       what: 'The average tax rate on wages, benefits and pensions. At {tau0%} it also stands in for property taxes, other taxes on households and non-tax revenue.',
@@ -509,7 +509,7 @@ const rules: RuleDef[] = [
         : {}),
       concepts: ['bond-buyers', h === 'B' || h === 'CB' ? 'endogenous-money' : 'deficits-and-money'],
       explain: {
-        what: `New government bonds bought by ${who} (negative: bonds the government buys back from them). ${h === 'B' || h === 'CB' ? 'They pay with newly created money.' : 'They pay with deposits that already exist.'}`,
+        what: `New government bonds bought by ${who} (negative: bonds the government buys back from them). ${h === 'B' ? 'They pay with newly created money.' : h === 'CB' ? 'They pay with newly created money. The interest comes back to the government as central-bank profit, less the key rate the central bank pays on the new reserves.' : 'They pay with deposits that already exist.'}`,
         rule: `Their share of new bonds under the bond-buyer lever: mix ({bondMixBankShare%} banks, the rest pension funds), or all to banks, the central bank, pension funds or older households.${
           nonBank
             ? ` They buy only what they can pay for from their deposits this month (${h === 'PF' ? 'at most about 63% of what they hold above the cash buffer they keep, and nothing while below it' : '{hoBondCashShare%} of the about 63% of them they can draw'}; the liquidity speed is {liquiditySpeed} a year); banks take the rest.`
@@ -715,7 +715,7 @@ export const government: ModuleDef = {
       description: 'Sets the income-tax rate this many points above (or below) where the debt rule puts it.',
       definition:
         'Level shift in the income-tax rate, in percentage points on top of the baseline rate and the debt rule’s adjustment, applied in the month it is set and persistent while set (stabilisers on Automatic). The debt rule keeps leaning against government debt underneath it. Setting it back to 0 leaves the rate to the rule. It has no effect while stabilisers are Manual.',
-      concepts: ['automatic-stabilisers', 'fiscal-rule'],
+      concepts: ['multiplier', 'debt-feedback'],
     },
     leverFor('vat', 'VAT rate', 'vatShift', 'pp', -10, 10, 0.5, 'Changes the effective VAT rate on consumer spending; shops pass it into prices over a few months.', 'Level shift in the effective VAT rate, in percentage points, applied at once and persistent while set. VAT is paid at the new rate at once; shops pass it into their prices over a few months (about 40% in the first month, nearly all within six), keeping the difference in their margins meanwhile. Consumer prices follow, and indexed debts are revalued with them. Setting it back to 0 removes the shift (prices drop back the same way).', ['cost-pass-through'], 0.01),
     leverFor('health', 'Health spending', 'gHealth', '% of GDP', -3, 3, 0.1, 'Real change in public health spending: staff pay and purchases.', 'Level shift in real health spending, % of baseline GDP a year, split between staff and purchases as at baseline; persistent while set. Nominal spending also rises with wages and prices. Setting it back to 0 returns spending to baseline; the debt built up meanwhile remains.', ['multiplier']),
@@ -745,7 +745,7 @@ export const government: ModuleDef = {
       ],
       description: 'Banks and the central bank pay with newly created money; pension funds and households pay with existing deposits.',
       definition:
-        'Choice, persistent while set: every new bond sold from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Pension funds and older households buy only what their deposits can pay for that month; banks take the rest. When the budget is in surplus the government buys bonds back from every holder in proportion to what they hold, whatever the choice. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares.',
+        'Choice, persistent while set: every new bond sold from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Pension funds and older households buy only what their deposits can pay for that month; banks take the rest. When the budget is in surplus the government buys bonds back from every holder in proportion to what they hold, whatever the choice. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares. The central bank earns the bond rate on the bonds it buys and hands its profit to the government, but it pays the key rate on the reserves it creates to buy them, so on those bonds the government saves only the bond rate’s spread over the key rate (0.5 points), not the whole interest bill: on Manual, after 20 years of 2% of GDP more public investment, the budget balance is about 0.1% of GDP better and debt about 0.7 points of GDP lower than with the mix.',
       concepts: ['bond-buyers', 'deficits-and-money', 'endogenous-money'],
     },
   ],
@@ -761,7 +761,7 @@ export const government: ModuleDef = {
       threshold: 0.25,
       description:
         'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually. On Automatic it sets the income-tax rate, and your offset lever adds to or subtracts from it; on Manual it suggests a value for the income-tax lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step.',
-      concepts: ['fiscal-rule'],
+      concepts: ['debt-feedback'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'incomeTaxRate' },
     },
   ],

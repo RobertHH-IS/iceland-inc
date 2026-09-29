@@ -35,7 +35,7 @@ export const stabilisers: ModuleDef = {
         'Who reacts when the economy moves: you or the policy rules. Manual: every policy lever stays exactly where you set it; the central bank’s inflation rule and the debt rule only suggest, and a lever turns red when its rule would act. Automatic: the central bank’s rule sets the key rate and the debt rule leans on the income-tax rate; an offset lever for each then adds to or subtracts from what the rule does. In both, tax revenue and unemployment benefits still rise and fall with incomes and jobs, at the rates set.',
       definition:
         'Switch, persistent while set, taking effect in the month it is set. Manual (0, the default): the key rate is the level of the “Key interest rate” lever, and the income-tax rate is its baseline plus the income-tax lever; both rules keep computing what they would do, shown as suggestions. Automatic (1): the key rate is the rule’s rate plus your key-rate offset, and the income-tax rate is its baseline plus the debt rule’s adjustment plus your income-tax offset. Each mode reads only its own levers, and switching puts the levers the new mode hides back to their defaults, so a value set on one side is never counted on the other. Switching back to Manual stops both reactions at once: the key rate returns to the level set on its lever and the debt rule’s adjustment drops out of the tax rate. The baseline is the same in both modes.',
-      concepts: ['taylor-rule', 'fiscal-rule'],
+      concepts: ['taylor-rule', 'debt-feedback'],
     },
   ],
 };

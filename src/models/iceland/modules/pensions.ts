@@ -253,7 +253,7 @@ const rules: RuleDef[] = [
     stocks: [['foreignAssets', 'PF']],
     terms: terms(
       ['normal', 'Normal yield', 'funded-pensions', (c) => c.p('iF0') * c.stock('foreignAssets', 'PF')],
-      ['foreignRate', 'Change in rates abroad (their bonds and deposits)', 'carry-trade', (c) => c.p('pfForeignRatePass') * (c.v('foreignRate') - c.p('iF0')) * c.stock('foreignAssets', 'PF')],
+      ['foreignRate', 'Change in rates abroad (their bonds and deposits)', 'current-account', (c) => c.p('pfForeignRatePass') * (c.v('foreignRate') - c.p('iF0')) * c.stock('foreignAssets', 'PF')],
     ),
     explain: {
       what: 'Interest and dividends on pension funds’ foreign assets, paid in krónur.',
