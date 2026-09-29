@@ -55,7 +55,7 @@ function groupRules(g: B): RuleDef[] {
       terms: terms(['income', 'Last month’s gross income at baseline prices', 'consumption-function', (c) => lastMonth(c, `grossIncome${g}`) / lastMonth(c, 'cpi')]),
       concepts: ['gradual-adjustment'],
       explain: {
-        what: `The income the ${who} expect to keep, at baseline prices: what they judge how much they can borrow by.`,
+        what: `The income the ${who} expect to keep, at baseline prices: what they judge their borrowing by.`,
         rule: 'Moves toward last month’s gross income ÷ the CPI at speed {lamYP} a year, a mean lag of about two years. A pay rise, a lost job or a bonus changes it only as it lasts, so a jump in pay does not become a jump in borrowing the next month.',
       },
     },
@@ -128,7 +128,7 @@ function groupRules(g: B): RuleDef[] {
       compute: (c) => (c.p(`nu${g}`) * (lastMonth(c, `grossIncome${g}`) - lastMonth(c, `incomeTax${g}`)) * (c.p(dsti) + c.p('dstiShift'))) / c.v('stressTestPayment'),
       concepts: ['debt-service-constraint', 'macroprudential-policy'],
       explain: {
-        what: `The most new lending the debt-service rule allows the ${who} this year.`,
+        what: `The new lending the debt-service rule would allow the ${who} this year if every new borrower borrowed right up to it.`,
         rule: `Cap = the income of new borrowers ({nu${g}} of the group’s income after income tax, last month) × the payment cap {${dsti}%} (plus the lever) ÷ the stressed yearly payment per króna of loan. New borrowers may spend at most that share of their disposable income, as Rules 1300/2025 define it, on payments tested at stressed rates, so a tax rise tightens the cap.`,
       },
     },
@@ -158,7 +158,11 @@ function groupRules(g: B): RuleDef[] {
         ['dstiCap', 'Debt-service cap', 'debt-service-constraint', (c) => c.v(`dstiCap${g}`)],
         ['ltvCap', 'Loan-to-value cap', 'loan-to-value', (c) => c.v(`ltvCap${g}`)],
       ),
-      combine: (t, c) => (t.demand > 0 ? t.demand * capsAllow(c, t, g).dsti * capsAllow(c, t, g).ltv : 0),
+      combine: (t, c) => {
+        if (!(t.demand > 0)) return 0;
+        const a = capsAllow(c, t, g);
+        return t.demand * a.dsti * a.ltv;
+      },
       regime: (c, v, t) => {
         if (v <= 0) return t.demand <= 0 ? 'No new lending: households want to pay debt down faster than they repay it' : 'No new lending';
         const a = capsAllow(c, t, g);
