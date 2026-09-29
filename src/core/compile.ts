@@ -69,10 +69,19 @@ export interface CTerm {
   key: string; // 'ruleId.termId'
   rule: number;
   def: TermDef;
+  /** How a month of several sub-steps shows the term (TermDef.month): TERM_LAST, TERM_SUM or
+   *  TERM_FIRST. */
+  month: number;
   /** Variables the term read during the compile-time dry run (for navigation): the union over
    *  every option of the choice levers its rule declares, including both stabiliser modes. */
   reads: Id[];
 }
+
+/** CTerm.month: the month shows the last sub-step's value, the sum over its sub-steps, or the
+ *  first sub-step's value. */
+export const TERM_LAST = 0;
+export const TERM_SUM = 1;
+export const TERM_FIRST = 2;
 
 export interface CRule {
   idx: number;
@@ -290,6 +299,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   if (!def || typeof def !== 'object') throw new CompileError(['model definition is missing'], []);
   if (!def.id) err('model has no id');
   if (!(def.dt > 0 && def.dt <= 1)) err(`model dt must be in (0, 1] years, got ${def.dt}`);
+  if (def.substeps !== undefined && !(Number.isInteger(def.substeps) && def.substeps >= 1)) err(`model substeps must be a whole number of at least 1, got ${def.substeps}`);
 
   /* 1. modules ------------------------------------------------------------ */
   const modules = def.modules ?? [];
@@ -587,9 +597,10 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
       if (seen.has(t.id)) err(`${where} has two terms with id '${t.id}'`);
       seen.add(t.id);
       if (typeof t.compute !== 'function') err(`${where} term '${t.id}' has no compute function`);
+      if (t.month !== undefined && t.month !== 'sum' && t.month !== 'first') err(`${where} term '${t.id}' has month '${t.month}' (use 'sum' or 'first', or leave it out)`);
       const key = `${r.id}.${t.id}`;
       termKeyIndex.set(key, cterms.length);
-      cterms.push({ key, rule: j, def: t, reads: [] });
+      cterms.push({ key, rule: j, def: t, month: t.month === 'sum' ? TERM_SUM : t.month === 'first' ? TERM_FIRST : TERM_LAST, reads: [] });
     }
     crules.push({
       idx: j,
@@ -957,7 +968,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
         return probeVar(k);
       },
       t: 0,
-      dt: def.dt,
+      dt: def.dt / (def.substeps ?? 1),
     };
     // lever settings to try: the defaults first, then every combination of the declared choice
     // levers' options (one lever at a time when there are too many combinations)

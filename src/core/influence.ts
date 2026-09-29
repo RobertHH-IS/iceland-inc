@@ -30,13 +30,21 @@ export interface InfluenceSource {
   m: KModel;
   cur: Float64Array;
   baseVars: Float64Array;
+  /** Term values as the month on show shows them (TermDef.month: a 'sum' term is summed over
+   *  the month's sub-steps, a 'first' term is its first sub-step's value). */
   termVal: Float64Array;
   /** Baseline term and desired values in the stabiliser mode that termVal and desired were
-   *  computed under (the last evaluation, not the lever as it is now). */
+   *  computed under (the last evaluation, not the lever as it is now); a 'sum' term's baseline is
+   *  its baseline value × the sub-steps a month, as the month shows it. */
   baseTerms: Float64Array;
   desired: Float64Array;
   baseDesired: Float64Array;
-  regimes: (string | null)[];
+  /** Each rule's regime for the month (the last label named in any sub-step), and the rules
+   *  whose regime switched between sub-steps. */
+  regimes: readonly (string | null)[];
+  regimeSwitches: readonly number[];
+  /** The month's legs, by leg index: its total ÷ dt (the average of its sub-steps). */
+  legs: Float64Array;
   pEff: Float64Array;
   /** The stabiliser setting was Automatic when termVal and desired were computed (true for a
    *  model without one). */
@@ -62,10 +70,11 @@ export function influenceOf(S: InfluenceSource, rawId: Id): Influence {
   const f = !kind || kind === 'flow' ? m.flowIndex.get(id) : undefined;
   if (f !== undefined) {
     const flow = m.flows[f];
-    const legs = m.clegs.filter((l) => l.flow === f);
-    const terms = legs.map((l) => {
+    const legs = m.clegs.flatMap((l, j) => (l.flow === f ? [j] : []));
+    const terms = legs.map((j) => {
+      const l = m.clegs[j];
       const amt = m.vars[l.amount];
-      const value = S.cur[l.amount];
+      const value = S.legs[j];
       const baseline = S.baseVars[l.amount];
       return { id: amt.id, label: `${m.players[l.from].label} → ${m.players[l.to].label}`, value, baseline, change: value - baseline, inputs: [amt.id] };
     });
@@ -173,6 +182,7 @@ function varInfluence(S: InfluenceSource, k: number): Influence {
     category: rule.category,
     rule: { id: rule.id, what: fillTemplate(rule.explain.what, lookup), rule: fillTemplate(rule.explain.rule, lookup), source: 'rule' },
     regime: rule.regime ? S.regimes[r] : null,
+    ...(rule.regime && S.regimeSwitches.includes(r) ? { regimeSwitched: true } : {}),
     terms,
     nonAdditive: !!rule.combine,
     params: paramsNamedIn(S, [...cr.params, ...(cr.adjustParam >= 0 ? [cr.adjustParam] : [])], [rule.explain.what, rule.explain.rule]),
@@ -317,9 +327,10 @@ export function ideasAtPlay(S: InfluenceSource, scope?: Id): { concept: Id; weig
   // flow-level tags: the change in the flow's legs within the scope
   const flowChange = new Map<number, number>();
   const legs = seeds ? seeds.legs : m.clegs.map((_, j) => j);
+  const legNow = S.legs;
   for (const j of legs) {
     const l = m.clegs[j];
-    flowChange.set(l.flow, (flowChange.get(l.flow) ?? 0) + S.cur[l.amount] - S.baseVars[l.amount]);
+    flowChange.set(l.flow, (flowChange.get(l.flow) ?? 0) + legNow[j] - S.baseVars[l.amount]);
   }
   for (const [f, d] of flowChange) for (const c of m.flows[f].concepts ?? []) add(c, Math.abs(d), m.flows[f].id);
   return [...acc.entries()]

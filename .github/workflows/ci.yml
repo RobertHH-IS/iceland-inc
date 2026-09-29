@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '17 3 * * *' # nightly
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,8 +17,9 @@ jobs:
       - run: bun run typecheck
       - run: bun test
       - name: Harness
+        # the full run: the half-step test also measures each check's order of convergence (decision 0011)
         run: |
-          if [ -f src/harness/cli.ts ]; then bun run harness; else echo "harness not yet present"; fi
+          if [ -f src/harness/cli.ts ]; then bun run harness --full; else echo "harness not yet present"; fi
       - name: Lever report
         # fails on a broken run or an expectation that does not hold (docs/authoring.md §12)
         run: bun run levers

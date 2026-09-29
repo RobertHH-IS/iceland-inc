@@ -96,12 +96,12 @@ const SRC = {
   rateKrona: `CBI QMM v2.1 (Monetary Bulletin): the króna rises 0.67% on impact per 1 pp of interest-rate differential, with its real peak in quarter 4 (research report, "Policy rate +1 pp" and the dial table; the "+0.7–1%" once quoted here belongs to the wage experiment). QMM is quarterly, so its impact is the first quarter; the check measures the model’s first-quarter average. The range is v1’s band of 0.3–1.5 (v1 SPEC §7.3), which no source gives. The model’s first-quarter rise is about 0.69%, about 0.53% in month 1 and 0.80% by month 3, as QMM’s. It comes from the carry term (betaI) and from the carry trade wanting to hold more krónur when Icelandic rates are high (the portfolio term, psiB). Until the review of 29 September 2026 it was 0.41%, then 0.56% (a known gap); raising betaI to close it deepened the output trough below its band until the consumption habit was slowed (lamC, lever review MON-5). ${QMM_URL}`,
   wage: 'Research report, "Wages +10%": CPI about +2% in year 1 rising toward about +4% as pass-through completes (CBI MB 2026/2 Box 2); the ranges are v1’s bands around those figures (v1 SPEC §7.3). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageLevel:
-    'Research report, "Wages +10%": the CPI ends about 4% higher once pass-through is complete, a 6% rise in domestic prices on the two-thirds of the basket that is not imported (import share: CBI MB 2026/2 Box 2). The range is 25% either side of that 4%: v1’s lower bound of 3, and an upper bound of 5 in place of v1’s 8, which no source gives (v1 SPEC §7.3). Wages give back most of a settlement even in CBI’s experiment: with labour 55% of unit cost (aLab) domestic prices rise only about 0.65 of wages at a given exchange rate, so the long-run nominal level is set by the króna. In the model the real-wage gain now erodes mainly through prices in the first year (CPI about +2.8% on Manual while wages give back about 1.9 points of the 10; before 29 September 2026, 2.2 and 2.7), because firms price in a pay rise faster than dearer imports (lamUCw) and bargainers see the wage gap with a lag (lamWG, labour-LAB-2). On a baseline with zero inflation, wages below their +10% level mean slower growth than trend, here small nominal cuts. KNOWN GAP: the model’s price level is about 3.5% higher after six years, below CBI’s about 4, because nominal wages give back about 2 points of the settlement within a year through the error correction (+8.0% at month 12 on Manual, +3.5% after twenty years; KNOWN_GAPS, lever review labour-LAB-2). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
+    'Research report, "Wages +10%": the CPI ends about 4% higher once pass-through is complete, a 6% rise in domestic prices on the two-thirds of the basket that is not imported (import share: CBI MB 2026/2 Box 2). The range is 25% either side of that 4%: v1’s lower bound of 3, and an upper bound of 5 in place of v1’s 8, which no source gives (v1 SPEC §7.3). Wages give back most of a settlement even in CBI’s experiment: with labour 55% of unit cost (aLab) domestic prices rise only about 0.65 of wages at a given exchange rate, so the long-run nominal level is set by the króna. In the model the real-wage gain now erodes mainly through prices in the first year (CPI about +2.6% on Manual while wages give back about 2.0 points of the 10; before 29 September 2026, 2.2 and 2.7), because firms price in a pay rise faster than dearer imports (lamUCw) and bargainers see the wage gap with a lag (lamWG, labour-LAB-2). On a baseline with zero inflation, wages below their +10% level mean slower growth than trend, here small nominal cuts. KNOWN GAP: the model’s price level is about 3.4% higher after six years, below CBI’s about 4, because nominal wages give back about 2 points of the settlement within a year through the error correction (+8.0% at month 12 on Manual, +3.4% after twenty years; KNOWN_GAPS, lever review labour-LAB-2). The answer as the time step goes to zero is lower still, about 3.3%: at one step a month it was 3.49, and the step’s own error hid part of the gap (decision 0011). It is recorded, not tuned; the joint refit of the wage checks takes it up. https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageRate: 'Research report, "Wages +10%": policy rate +1 to +1.5 pp at the peak, in quarters 2–4 (CBI DYNIMO, +0.3 pp per 1 pp of wages above baseline for two years, scaled; CBI MB 2026/2). v1’s band was 0.8–2 (v1 SPEC §7.3); the range is now the cited one. https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageJobs:
-    'Research report, "Wages +10%": unemployment +0.5–1 pp at the peak (CBI DYNIMO: −0.7 pp of hours per +1 pp of wages, CBI MB 2026/2; the size of the cap on a 10% shock is the report’s assumption). The range is the cited one. The model’s peak is about 0.93. It was about 0.47, below the range, and judged against v1’s band of 0.3–1.2 (v1 SPEC §7.3) as a known gap, until imported goods carried a domestic distribution margin (distM, review E6), and about 0.51 until firms measured wages against the value-added price and wage bargainers saw the wage gap with a lag of about a year (lamWG): the real-wage gain of a settlement now lasts longer, so firms economise on staff more (trade-nominal-drift and labour-LAB-2, 29 September 2026). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
+    'Research report, "Wages +10%": unemployment +0.5–1 pp at the peak (CBI DYNIMO: −0.7 pp of hours per +1 pp of wages, CBI MB 2026/2; the size of the cap on a 10% shock is the report’s assumption). The range is the cited one. The model’s peak is about 0.98 (0.96 at one step a month; about 1.0 as the step goes to zero, at the top of the range, decision 0011). It was about 0.47, below the range, and judged against v1’s band of 0.3–1.2 (v1 SPEC §7.3) as a known gap, until imported goods carried a domestic distribution margin (distM, review E6), and about 0.51 until firms measured wages against the value-added price and wage bargainers saw the wage gap with a lag of about a year (lamWG): the real-wage gain of a settlement now lasts longer, so firms economise on staff more (trade-nominal-drift and labour-LAB-2, 29 September 2026). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageBack:
-    'Research report, "Wages +10%", settles in years 3–6: real variables return to baseline because the wage share is anchored in the long run (CBI QMM v4.0 long-run homogeneity; v1 SPEC §7.3). The peak is the largest deviation in years 1–2, the response to the settlement before that settling period. (Until review MON-1 it was the largest in years 1–6. Once government bonds kept their coupons as the key rate fell, consumption rose again in years 3–4 on the higher interest, above its year-1 peak; measured against that later peak the ratio was smaller, so easier to pass, and depended on the time step: 0.137, and 0.157 at half the step.) https://cb.is/library/news-and-publications/publications/working-papers/WP82_net.pdf',
+    'Research report, "Wages +10%", settles in years 3–6: real variables return to baseline because the wage share is anchored in the long run (CBI QMM v4.0 long-run homogeneity; v1 SPEC §7.3). The peak is the largest deviation in years 1–2, the response to the settlement before that settling period. (Until review MON-1 it was the largest in years 1–6. Once government bonds kept their coupons as the key rate fell, consumption rose again in years 3–4 on the higher interest, above its year-1 peak; measured against that later peak the ratio was smaller, so easier to pass, and depended on the time step: 0.137, and 0.157 at half the step.) The ratio is signed, with the range ±0.25, since decision 0011: an overshoot past baseline is as unsettled as the same share still to go, and a signed ratio lets the half-step test and its continuous-time limit follow a ratio that crosses zero. https://cb.is/library/news-and-publications/publications/working-papers/WP82_net.pdf',
   fiscal:
     'Research report, "Government spending +1% of GDP": the government buys 1% of GDP more from firms; output +0.3–0.6% in year 1 when deficit-financed, an inference from the ~0.7 cross-country median multiplier and Iceland’s openness (IMF WP 2026/043). Public investment is the lever that is only a purchase from firms, so the check uses it, with the cited range. (v1 used the other-services lever, about a third of which is public pay with no import leakage; that mixed multiplier is about 0.72, and v1 SPEC §7.3 widened the range to 0.8 for it.) https://www.elibrary.imf.org/view/journals/001/2026/043/article-A001-en.xml',
   money: 'Accounting mechanism: deficits add deposits when banks buy the bonds and move existing deposits when pension funds do (Bank of England 2014, "Money creation in the modern economy"; research report §1); v1 SPEC §7.3 requires a gap of at least 0.5 pp.',
@@ -152,19 +152,13 @@ export function bindCalibrationModel(def: ModelDef): void {
 /**
  * The g.money check compares two scenarios. A CalibrationCheck has one, so the measure runs the
  * pension-fund-financed counterpart itself. When the run carries its engine (runScenario results,
- * and the harness's half-step runs), it runs on that engine's compiled model, baseline and options,
- * at that engine's step: with k steps a month, events at k × their month, k × `months` steps, and
- * every k-th value kept, so a half-step run is compared with a half-step run. Without an engine
- * (the interface), it runs on a fresh engine of the registered model at the standard step.
+ * and the harness's half-step runs, which run more sub-steps a month), it runs on that engine's
+ * compiled model, baseline and options, so a half-step run is compared with a half-step run.
+ * Without an engine (the interface), it runs on a fresh engine of the registered model.
  */
 function fundsFinancedRun(run: RunResult, months: number): RunResult {
   const engine = (run as RunResult & { engine?: KernelEngine }).engine;
-  if (engine) {
-    const k = Math.round(1 / (12 * engine.model.def.dt));
-    if (k === 1) return runScenario(engine, G_FUNDS, months);
-    const r = runScenario(engine, G_FUNDS.map((e) => ({ ...e, t: e.t * k })), months * k);
-    return { months, series: (id) => r.series(id).filter((_, t) => t % k === 0), value: (id, m) => r.value(id, m * k) };
-  }
+  if (engine) return runScenario(engine, G_FUNDS, months);
   if (!modelForComparisons) throw new Error('calibration: the Iceland model is not registered for comparison runs');
   fallbackFundsRun ??= runScenario(createEngine(modelForComparisons), G_FUNDS, 72);
   return fallbackFundsRun;
@@ -174,15 +168,19 @@ function fundsFinancedRun(run: RunResult, months: number): RunResult {
 
 const wageBack = (id: string, label: string): CalibrationCheck => ({
   id: `wage-back-${id}`,
-  label: `Wages +10%: ${label} at year 6 ÷ peak deviation in years 1–2`,
+  label: `Wages +10%: ${label} at year 6 ÷ peak deviation in years 1–2 (below zero: past baseline, on the other side)`,
   scenario: WAGE,
   months: 72,
+  // Signed (decision 0011): a ratio that crosses zero keeps its sign, so the step comparison and
+  // the continuous-time limit see an overshoot for what it is, where abs() would fold it back.
+  // The range is symmetric: an overshoot of a quarter of the peak is as far from settled as a
+  // quarter still to go.
   measure: (run) => {
     const a = run.series(id);
     const j = argmax(a.map(Math.abs), 1, 24);
-    return Math.abs(a[72] / a[j]);
+    return a[72] / a[j];
   },
-  range: [0, 0.25],
+  range: [-0.25, 0.25],
   source: SRC.wageBack,
 });
 
@@ -273,6 +271,7 @@ export const calibration: CalibrationCheck[] = [
     },
     range: [1, 1.5],
     source: SRC.wageRate,
+    limitIndicative: 'the peak barely moves with the step (1.262 pp at 2, 4 and 8 steps a month), so the differences the order is measured from are rounding-sized and the order the full run finds (−2.3) means nothing; its limit is the value itself',
   },
   {
     id: 'wage-unemployment-peak',
@@ -486,6 +485,7 @@ export const calibration: CalibrationCheck[] = [
     measure: largestChartMove,
     range: [0, 1e-9],
     source: SRC.drift,
+    limitIndicative: 'the measure is rounding error, about 1e-11 at every step, so its order (3.1 in the full run) is noise; the value itself is gated',
   },
 ];
 
@@ -500,7 +500,7 @@ export const calibration: CalibrationCheck[] = [
 export const KNOWN_GAPS: Record<string, { cited?: [number, number]; why: string }> = {
   'wage-price-level-6y': {
     cited: [4, 4],
-    why: 'The price level ends about 3.5% higher after six years against CBI’s about 4%. Nominal wages give back about 2 points of a 10% settlement within the first year (+8.0% at month 12 on Manual) and end +3.5% after twenty: the error correction works the gap off faster than wage contracts of a year or more would allow. A contract-length lag (wages fixed for the life of an agreement) would keep more of the settlement in the first year; it is not built (lever review labour-LAB-2).',
+    why: 'The price level ends about 3.4% higher after six years against CBI’s about 4% (3.3% as the time step goes to zero; 3.49 at one step a month, decision 0011). Nominal wages give back about 2 points of a 10% settlement within the first year (+8.0% at month 12 on Manual) and end +3.4% after twenty: the error correction works the gap off faster than wage contracts of a year or more would allow. A contract-length lag (wages fixed for the life of an agreement) would keep more of the settlement in the first year; it is not built (lever review labour-LAB-2).',
   },
   'rate-output-trough': {
     cited: [-0.41, -0.41],

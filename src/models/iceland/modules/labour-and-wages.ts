@@ -18,7 +18,7 @@
  */
 import type { Ctx, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth, VA0, type Age, type Firm } from '../util.ts';
+import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, overMonth, pickParams, terms, lastMonth, VA0, type Age, type Firm } from '../util.ts';
 
 /** Tourism employs more young people than other firms (youthTiltXT); retail and services employ
  *  correspondingly fewer, so every age group's total pay is unchanged. The extra pay moved from
@@ -237,15 +237,18 @@ export const labourAndWages: ModuleDef = {
       category: 'IDENTITY',
       inputs: ['wageGrowth'],
       lagInputs: ['wage', 'settlementJump'],
-      terms: terms(
-        ['previous', 'Last month’s wage rate', undefined, (c) => c.lag('wage')],
-        ['growth', 'Growth this month', 'wage-phillips-curve', (c) => c.lag('wage') * (Math.exp(c.v('wageGrowth') * c.dt) - 1)],
-        ['settlement', 'Wage settlement', 'wage-bargaining', (c) => c.lag('wage') * Math.exp(c.v('wageGrowth') * c.dt) * (Math.exp(c.lag('settlementJump')) - 1)],
+      terms: overMonth(
+        terms(
+          ['previous', 'Last month’s wage rate', undefined, (c) => c.lag('wage')],
+          ['growth', 'Growth this month', 'wage-phillips-curve', (c) => c.lag('wage') * (Math.exp(c.v('wageGrowth') * c.dt) - 1)],
+          ['settlement', 'Wage settlement', 'wage-bargaining', (c) => c.lag('wage') * Math.exp(c.v('wageGrowth') * c.dt) * (Math.exp(c.lag('settlementJump')) - 1)],
+        ),
+        { previous: 'first', growth: 'sum', settlement: 'sum' },
       ),
       concepts: ['wage-bargaining'],
       explain: {
         what: 'The gross wage rate, as an index (1 at baseline).',
-        rule: 'This month’s wage rate = last month’s × e^(wage growth × one month) × e^(any settlement signed this month). A settlement lifts pay in one go, on top of the month’s normal growth.',
+        rule: 'This month’s wage rate = last month’s × e^(wage growth × one month) × e^(any settlement signed this month). A settlement lifts pay in one go, on top of the month’s normal growth. The model takes each month in two steps, so the month’s growth is added in two halves.',
       },
     },
     {
@@ -384,7 +387,7 @@ export const labourAndWages: ModuleDef = {
       step: 0.5,
       description: 'A one-off jump in nominal wage rates, as after a collective agreement.',
       definition:
-        'One-off level shift: the wage rate, private and public, jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages follow the Phillips curve. Firms price the pay rise in within a few months, so at first the real-wage gain erodes mainly through prices (+10% on Manual: consumer prices about 2.7% higher after a year, wages about 2 points below their new level). Wage bargainers then work the rest off over the following rounds (the error correction, with a lag of about a year), until wages are back in line with what firms earn per unit of value added. With labour about half of unit cost, domestic prices rise by only about two-thirds of the wage rise at a given exchange rate, so in the end wages give back most of the settlement: on Automatic the price level is about 3.5% higher after six years and about 3.1% after twenty, with wages a little above it.',
+        'One-off level shift: the wage rate, private and public, jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages follow the Phillips curve. Firms price the pay rise in within a few months, so at first the real-wage gain erodes mainly through prices (+10% on Manual: consumer prices about 2.6% higher after a year, wages about 2 points below their new level). Wage bargainers then work the rest off over the following rounds (the error correction, with a lag of about a year), until wages are back in line with what firms earn per unit of value added. With labour about half of unit cost, domestic prices rise by only about two-thirds of the wage rise at a given exchange rate, so in the end wages give back most of the settlement: on Automatic the price level is about 3.4% higher after six years and about 3.1% after twenty, with wages a little above it. That is below the Central Bank of Iceland’s figure of about 4%: the model gives wages back too fast in the first year, a known gap (decision 0011).',
       concepts: ['wage-bargaining', 'cost-pass-through', 'profit-squeeze'],
       fire: (s, size) => s.setLagged('settlementJump', s.get('settlementJump') + Math.log(1 + size / 100)),
     },

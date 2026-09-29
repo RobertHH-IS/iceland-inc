@@ -18,11 +18,19 @@
 import type { Ctx, ModuleDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
 import { newcomerShare, restrainingUnemployment } from './labour-and-wages.ts';
-import { gapShare, pickParams, terms, lastMonth, automatic, AUTOMATIC, MANUAL, STABILISERS } from '../util.ts';
+import { stepByStep, stepsAMonth } from '../testing.ts';
+import { gapShare, overMonth, pickParams, terms, lastMonth, automatic, AUTOMATIC, MANUAL, MONTH, STABILISERS } from '../util.ts';
 
-/** How far the rule is heading below zero, as a share of escapeBand (0 to 1): at 1 the rule is
- *  stuck at the zero lower bound. The debt rule's escape clause (government.ts) uses the same. */
-export const zeroBoundWeight = (c: Ctx): number => Math.min(1, Math.max(0, -c.lag('ruleTarget') / c.p('escapeBand')));
+/** How far the rule was heading below zero last month, as a share of escapeBand (0 to 1): at 1 the
+ *  rule is stuck at the zero lower bound. The debt rule's escape clause (government.ts) uses the
+ *  same. Last month's news, as for every policy reading (decision 0011). */
+export const zeroBoundWeight = (c: Ctx): number => Math.min(1, Math.max(0, -lastMonth(c, 'ruleTarget') / c.p('escapeBand')));
+
+/** The share of the gap to its target a smoothed policy rule closes: each kernel step while it is
+ *  in charge (Automatic), and a whole month's at once for the value shown on Manual, so the rate
+ *  shown on Manual is where the rule would stand after its first month in charge, whatever the
+ *  step (decision 0011). A rule that calls it declares `levers: [STABILISERS]`. */
+export const ruleStep = (c: Ctx, lam: number): number => gapShare(lam, automatic(c) ? c.dt : MONTH);
 
 export const centralBank: ModuleDef = {
   id: 'central-bank',
@@ -33,8 +41,8 @@ export const centralBank: ModuleDef = {
   vars: [
     { id: 'neutralRate', label: 'Neutral real rate, as the central bank estimates it', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: ALL_PARAMS.i0.value, description: 'The real key rate the central bank thinks neither heats nor cools the economy. It starts at its normal level and is revised slowly while inflation stays off target.' },
     { id: 'ruleTarget', label: 'Key rate the rule is heading for', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'Where the central bank’s inflation rule would put the key rate if it moved there at once, before your offset. Computed in both stabiliser modes.' },
-    { id: 'ruleAnchor', label: 'Key rate the rule steps from', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'The rate the rule starts next month’s step from: its own rate while it is in charge (Automatic), the key rate you hold (Manual).' },
-    { id: 'ruleRate', label: 'Key rate the rule calls for', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'The key rate the central bank’s inflation rule sets this month, before your offset: one smoothed step from the rate in force toward where it is heading. Computed in both stabiliser modes.' },
+    { id: 'ruleAnchor', label: 'Key rate the rule steps from', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'The rate the rule starts its next step from: its own rate while it is in charge (Automatic), the key rate you hold (Manual).' },
+    { id: 'ruleRate', label: 'Key rate the rule calls for', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('ruleRate'), description: 'The key rate the central bank’s inflation rule sets this month, before your offset: a month’s smoothed step from the rate in force toward where it is heading. Computed in both stabiliser modes.' },
     { id: 'keyRateSuggestion', label: 'Key rate the rule suggests', unit: '%/yr', kind: 'rate', scale: 'none', description: 'Where the rule is heading, in percent, never below zero: what the “Apply” button sets the key-rate lever to in Manual mode.' },
     { id: 'keyRate', label: 'Key interest rate', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('keyRate') },
     { id: 'reserveInterest', label: 'Interest on reserves', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
@@ -51,22 +59,25 @@ export const centralBank: ModuleDef = {
       label: 'Neutral rate, learned slowly',
       lagInputs: ['neutralRate', 'inflation12ExTax', 'unemployment', 'benefitSearch'],
       params: ['i0', 'kappaR', 'kappaU', 'rStarBand', 'piT', 'uBase', 'uBenefit', 'rrShift'],
-      terms: terms(
-        ['previous', 'Last month’s estimate', 'gradual-adjustment', (c) => c.lag('neutralRate')],
-        ['inflation', 'Inflation still above (or below) target', 'neutral-rate', (c) => c.p('kappaR') * c.dt * (lastMonth(c, 'inflation12ExTax') - c.p('piT'))],
-        [
-          'labourMarket',
-          'Unemployment still below (or above) normal',
-          'neutral-rate',
-          (c) => c.p('kappaU') * c.dt * (c.p('uBase') + c.p('uBenefit') * c.p('rrShift') - restrainingUnemployment(c)),
-        ],
+      terms: overMonth(
+        terms(
+          ['previous', 'Last month’s estimate', 'gradual-adjustment', (c) => c.lag('neutralRate')],
+          ['inflation', 'Inflation still above (or below) target: this month’s revision', 'neutral-rate', (c) => c.p('kappaR') * c.dt * (lastMonth(c, 'inflation12ExTax') - c.p('piT'))],
+          [
+            'labourMarket',
+            'Unemployment still below (or above) normal: this month’s revision',
+            'neutral-rate',
+            (c) => c.p('kappaU') * c.dt * (c.p('uBase') + c.p('uBenefit') * c.p('rrShift') - restrainingUnemployment(c)),
+          ],
+        ),
+        { previous: 'first', inflation: 'sum', labourMarket: 'sum' },
       ),
       combine: (t, c) => Math.min(c.p('i0') + c.p('rStarBand'), Math.max(c.p('i0') - c.p('rStarBand'), t.previous + t.inflation + t.labourMarket)),
       regime: (c, _v, t) => (Math.abs(t.previous + t.inflation + t.labourMarket - c.p('i0')) > c.p('rStarBand') ? 'Estimate at its limit' : null),
       concepts: ['neutral-rate', 'taylor-rule'],
       explain: {
         what: 'The real interest rate the central bank thinks neither heats nor cools the economy (the neutral rate), as it estimates it. It starts at the normal {i0%} and is revised slowly while inflation or unemployment stays away from normal, so a lasting shock does not leave inflation off target for good.',
-        rule: 'Estimate = last month’s + {kappaR} × one month × (inflation over the past year at constant VAT − the target) + {kappaU} × one month × (normal unemployment − last month’s unemployment), kept within {rStarBand%} points of {i0%}. A point of inflation above target that lasts a year raises it {kappaR} points; so does a year with unemployment a point below normal. Normal unemployment is the rate at which wages grow only with expected inflation: {uBase%}, plus the part more generous benefits add; people searching longer because of the benefits are not counted. It is worked out every month in both modes, so switching to Automatic starts from it.',
+        rule: 'Estimate = last month’s + {kappaR} × one month × (inflation over the past year at constant VAT − the target) + {kappaU} × one month × (normal unemployment − unemployment a month earlier), revised a little at each step of the month, kept within {rStarBand%} points of {i0%}. A point of inflation above target that lasts a year raises it {kappaR} points; so does a year with unemployment a point below normal. Normal unemployment is the rate at which wages grow only with expected inflation: {uBase%}, plus the part more generous benefits add; people searching longer because of the benefits are not counted. It is worked out every month in both modes, so switching to Automatic starts from it.',
       },
     },
     {
@@ -101,7 +112,7 @@ export const centralBank: ModuleDef = {
       ),
       concepts: ['gradual-adjustment'],
       explain: {
-        what: 'The rate the rule starts next month’s step from: the rate it was actually in charge of.',
+        what: 'The rate the rule starts its next step from: the rate it was actually in charge of.',
         rule: 'Automatic: the rule’s own rate this month (before your offset, and before the floor at zero, so a rule that wants to go below zero remembers it). Manual: the key rate you hold. So when you switch to Automatic the rule starts from your rate, not from a path it was never in charge of.',
       },
     },
@@ -113,14 +124,16 @@ export const centralBank: ModuleDef = {
       inputs: ['ruleTarget'],
       lagInputs: ['ruleAnchor'],
       params: ['lamPol'],
-      terms: terms(
-        ['inForce', 'Where the rule stands: the rate in force last month', 'gradual-adjustment', (c) => (1 - gapShare(c.p('lamPol'), c.dt)) * c.lag('ruleAnchor')],
-        ['target', 'A step toward where the rule is heading', 'taylor-rule', (c) => gapShare(c.p('lamPol'), c.dt) * c.v('ruleTarget')],
-      ),
+      levers: [STABILISERS],
+      terms: [
+        { id: 'inForce', label: 'Where the rule stands: the rate in force last month', concept: 'gradual-adjustment', month: 'first', compute: (c) => c.lag('ruleAnchor') },
+        { id: 'step', label: 'This month’s steps toward where the rule is heading (Automatic)', concept: 'taylor-rule', month: 'sum', compute: (c) => (automatic(c) ? ruleStep(c, c.p('lamPol')) * (c.v('ruleTarget') - c.lag('ruleAnchor')) : 0) },
+        { id: 'nextStep', label: 'Its first month’s step, if you switched (Manual)', concept: 'taylor-rule', compute: (c) => (automatic(c) ? 0 : ruleStep(c, c.p('lamPol')) * (c.v('ruleTarget') - c.lag('ruleAnchor'))) },
+      ],
       concepts: ['taylor-rule', 'gradual-adjustment'],
       explain: {
-        what: 'The key interest rate the central bank’s inflation rule sets this month. With stabilisers on Automatic it is the key rate (plus your offset); on Manual it is what the rule would do next if you switched. The rule moves gradually rather than jumping, as central banks do.',
-        rule: 'Rate = the rate in force last month + a share of the gap between it and where the rule is heading: about a tenth of the gap each month ({lamPol} a year) and 30% a quarter, so about 70% of last quarter’s rate carries over, as estimated policy rules find. The rate in force is the rule’s own rate while it is in charge (Automatic) and the rate you hold (Manual), so switching to Automatic moves the key rate one step from your rate, not straight to a path the rule was never in charge of. It is worked out every month in both modes.',
+        what: 'The key interest rate the central bank’s inflation rule sets this month. With stabilisers on Automatic it is the key rate (plus your offset); on Manual it is where the rule would stand after its first month in charge if you switched. The rule moves gradually rather than jumping, as central banks do.',
+        rule: 'Rate = the rate in force last month + a share of the gap between it and where the rule is heading: about a tenth of the gap each month ({lamPol} a year) and 30% a quarter, so about 70% of last quarter’s rate carries over, as estimated policy rules find. The model takes each month in two steps, and the rule closes its share of the gap at each, which comes to the same tenth over the month. The rate in force is the rule’s own rate while it is in charge (Automatic) and the rate you hold (Manual), so switching to Automatic moves the key rate one month’s step from your rate, not straight to a path the rule was never in charge of. It is worked out every month in both modes.',
       },
     },
     {
@@ -367,20 +380,31 @@ export const centralBank: ModuleDef = {
     },
     {
       id: 'switch-starts-from-the-held-rate',
-      label: 'Switching to Automatic after a Manual hold moves the key rate one smoothed step from the held rate, not to a path the rule was never in charge of',
+      label: 'Switching to Automatic after a Manual hold moves the key rate one month’s smoothed step from the held rate, not to a path the rule was never in charge of: each of the month’s kernel steps closes its share of the gap from the rate before it',
       run: (e) => {
-        const k = 1 - Math.exp(-e.influences('ruleRate').params.find((q) => q.id === 'lamPol')!.value / 12);
-        e.setLever('keyRateFixed', 6);
-        e.step(24);
-        const held = e.value('keyRate');
-        const target = e.value('ruleTarget');
-        e.setLever(STABILISERS, AUTOMATIC);
-        e.step(1);
-        const move = e.value('keyRate') - held;
-        const step = k * (e.value('ruleTarget') - held);
+        const lamPol = e.influences('ruleRate').params.find((q) => q.id === 'lamPol')!.value;
+        const N = stepsAMonth(e);
+        const k = 1 - Math.exp(-lamPol / 12); // a month's share
+        const ks = 1 - Math.exp(-lamPol / 12 / N); // a kernel step's share
+        const { engine: f, steps } = stepByStep(e, (r) => ({ key: r.value('keyRate'), target: r.value('ruleTarget') }));
+        f.setLever('keyRateFixed', 6);
+        f.step(24);
+        const held = f.value('keyRate');
+        const target = f.value('ruleTarget');
+        f.setLever(STABILISERS, AUTOMATIC);
+        steps.length = 0;
+        f.step(1);
+        // each step: from the rate before it, ks of the gap to where the rule is heading then
+        let prev = held,
+          worst = 0;
+        for (const s of steps) {
+          worst = Math.max(worst, Math.abs(s.key - (prev + ks * (s.target - prev))));
+          prev = s.key;
+        }
+        const move = f.value('keyRate') - held;
         return {
-          pass: Math.abs(held - 0.06) < 1e-15 && Math.abs(move - step) < 1e-12 && Math.abs(move) < 0.25 * Math.abs(target - held),
-          detail: `held 6% for two years (the rule heading for ${(100 * target).toFixed(2)}%); first month on Automatic ${(100 * e.value('keyRate')).toFixed(2)}%, a move of ${(100 * move).toFixed(2)} pp = ${k.toFixed(3)} × the gap`,
+          pass: Math.abs(held - 0.06) < 1e-15 && steps.length === N && worst < 1e-12 && Math.abs(move) < 0.25 * Math.abs(target - held),
+          detail: `held 6% for two years (the rule heading for ${(100 * target).toFixed(2)}%); first month on Automatic ${(100 * f.value('keyRate')).toFixed(2)}%, a move of ${(100 * move).toFixed(2)} pp = ${(move / (target - held)).toFixed(3)} × the gap in ${N} steps (a month’s share is ${k.toFixed(3)}); largest step off its rule ${worst.toExponential(1)}`,
         };
       },
     },

@@ -12,7 +12,7 @@ import { runScenario } from '../../src/core/scenario.ts';
 import type { CalibrationCheck, InstrumentDef, ModelDef, ModuleDef, RunResult } from '../../src/core/types.ts';
 import { param, rule, tinyModel, variable } from '../core/fixtures.ts';
 import { models } from '../../src/models/index.ts';
-import { HALF_STEP_BAND, HALF_STEP_TOL, halfStepShare, runHarness, type HarnessOptions } from '../../src/harness/layers.ts';
+import { HALF_STEP_TOL, HALF_STEP_WIDTH, halfStepShare, limitInRange, observedOrder, orderTrusted, runHarness, stepLimit, type HarnessOptions } from '../../src/harness/layers.ts';
 
 const reference = models.find((d) => d.id === 'reference')!;
 const iceland = models.find((d) => d.id === 'iceland')!;
@@ -37,17 +37,46 @@ describe('halfStepShare', () => {
     expect(halfStepShare(timing, 5, 5)).toBe(0);
   });
 
-  test('a continuous measure may move by HALF_STEP_TOL of its value', () => {
-    const level = check({ range: [0, 0.1] });
-    expect(halfStepShare(level, 1, 1 + 0.5 * HALF_STEP_TOL)).toBeCloseTo(0.5, 12);
-    expect(halfStepShare(level, 1, 1 + 1.5 * HALF_STEP_TOL)).toBeCloseTo(1.5, 12);
-    // the one-quarter move that used to pass the old 20% limit on a timing value of 5 fails here
+  test('a measure with a bounded range may move by HALF_STEP_WIDTH of the width, whatever its value', () => {
+    const c = check({ range: [0, 0.25] });
+    expect(halfStepShare(c, 0.2, 0.2 + 0.5 * HALF_STEP_WIDTH * 0.25)).toBeCloseTo(0.5, 12);
+    expect(halfStepShare(c, 0.01, 0.01 + 0.5 * HALF_STEP_WIDTH * 0.25)).toBeCloseTo(0.5, 12);
     expect(halfStepShare(check({ range: [4, 7] }), 5, 6)).toBeGreaterThan(1);
   });
 
-  test('near zero, the allowance is a share of the range width', () => {
-    const c = check({ range: [-1, 1] });
-    expect(halfStepShare(c, 0, HALF_STEP_TOL * HALF_STEP_BAND * 2)).toBeCloseTo(1, 12);
+  test('a measure with a half-open range may move by HALF_STEP_TOL of its value', () => {
+    const c = check({ range: [0.5, Infinity] });
+    expect(halfStepShare(c, 1, 1 + 0.5 * HALF_STEP_TOL)).toBeCloseTo(0.5, 12);
+    expect(halfStepShare(c, 1, 1 + 1.5 * HALF_STEP_TOL)).toBeCloseTo(1.5, 12);
+  });
+
+  test('the continuous-time limit is 2 v(dt/2) − v(dt) and must lie in the range, with 1% of its width as slack', () => {
+    expect(stepLimit(0.19, 0.2)).toBeCloseTo(0.21, 12);
+    expect(limitInRange(check({ range: [0, 0.25] }), 0.26)).toBe(false);
+    expect(limitInRange(check({ range: [0, 0.25] }), 0.2524)).toBe(true);
+    expect(limitInRange(check({ range: [-0.25, 0.25] }), -0.256)).toBe(false);
+    expect(limitInRange(check({ range: [0, 0.25] }), 0.24)).toBe(true);
+    expect(limitInRange(check({ kind: 'timing', range: [4, 7] }), 9)).toBe(true); // a timing measure has no limit
+  });
+
+  test('at an observed order p the limit is v(h/2) + (v(h/2) − v(h)) ÷ (2^p − 1), and the full run trusts p only in 0.5–2', () => {
+    // a first-order error: v(h) = L + c·h, so the differences halve and the order is 1
+    const L = 3.3,
+      cst = 0.16;
+    const v = (h: number) => L + cst * h;
+    expect(observedOrder(v(1), v(0.5), v(0.25))).toBeCloseTo(1, 12);
+    expect(stepLimit(v(1), v(0.5), 1)).toBeCloseTo(L, 12);
+    // a second-order error: the differences quarter, and the order-1 estimate would overshoot
+    const w = (h: number) => L + cst * h * h;
+    const p = observedOrder(w(1), w(0.5), w(0.25));
+    expect(p).toBeCloseTo(2, 12);
+    expect(stepLimit(w(1), w(0.5), p)).toBeCloseTo(L, 12);
+    expect(Math.abs(stepLimit(w(1), w(0.5)) - L)).toBeGreaterThan(0.01);
+    expect(orderTrusted(1)).toBe(true);
+    expect(orderTrusted(0.4)).toBe(false);
+    expect(orderTrusted(2.6)).toBe(false);
+    // a measure that does not move with the step has no order
+    expect(observedOrder(1, 1, 1)).toBeNaN();
   });
 
   test('a measure that is not a number fails', () => {
@@ -58,16 +87,17 @@ describe('halfStepShare', () => {
 
 test('L28: the money-gap measure compares a half-step bank run with a half-step fund run', () => {
   const c = iceland.calibration!.find((x) => x.id === 'fiscal-money-banks-vs-funds')!;
-  const half = createEngine({ ...iceland, dt: iceland.dt / 2 });
-  const sub = (events: typeof c.scenario): RunResult & { engine: ReturnType<typeof createEngine> } => {
-    const r = runScenario(half, events.map((e) => ({ ...e, t: e.t * 2 })), c.months * 2);
-    return { months: c.months, series: (id) => r.series(id).filter((_, t) => t % 2 === 0), value: (id, m) => r.value(id, m * 2), engine: r.engine };
-  };
-  const banks = sub(c.scenario);
+  // the half-step engine runs twice the kernel steps a month (decision 0011), in the same months
+  const half = createEngine({ ...iceland, substeps: 2 * (iceland.substeps ?? 1) });
+  expect(half.model.def.substeps).toBe(4);
+  const banks = runScenario(half, c.scenario, c.months);
   // the funds-financed counterpart: the same scenario with pension funds (option 3) buying the bonds
-  const funds = sub(c.scenario.map((e) => (e.lever === 'bondBuyers' ? { ...e, value: 3 } : e)));
+  const funds = runScenario(half, c.scenario.map((e) => (e.lever === 'bondBuyers' ? { ...e, value: 3 } : e)), c.months);
   const gap = (m: number) => banks.series('broadMoney')[m] - funds.series('broadMoney')[m];
   expect(c.measure(banks)).toBe(Math.min(gap(12), gap(24)));
+  // and not the gap against a fund run at the standard step
+  const standard = runScenario(iceland, c.scenario.map((e) => (e.lever === 'bondBuyers' ? { ...e, value: 3 } : e)), c.months);
+  expect(Math.abs(c.measure(banks) - Math.min(...[12, 24].map((m) => banks.series('broadMoney')[m] - standard.series('broadMoney')[m])))).toBeGreaterThan(1e-9);
 });
 
 describe('runHarness on the reference model', () => {

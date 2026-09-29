@@ -9,6 +9,7 @@ import { createEngine } from '../../src/core/engine.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 import { withConcepts } from '../../src/models/index.ts';
 import type { Ctx, RuleDef } from '../../src/core/types.ts';
+import { stepByStep } from '../../src/models/iceland/testing.ts';
 
 const model = compile(withConcepts(icelandModel));
 const base = createEngine(model);
@@ -133,17 +134,21 @@ describe('Iceland model: balance sheets stay possible', () => {
     // incomeTax +10 on Manual: the treasury account rises above its target after about 13 years
     // (above), and the debt rule must see that cash, or it would keep calling for tax cuts on a
     // debt that is no longer there.
-    const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    // every kernel step's bonds, cash and trailing GDP (decision 0011: two steps a month)
+    const { engine: e, steps } = stepByStep(createEngine(model, { baseline: base.baselineData, dev: false }), (x) => ({
+      bonds: x.stock('govBonds', 'G') + x.stock('indexedBonds', 'G'),
+      cash: x.stock('treasuryAccount', 'G'),
+      gdp: x.value('gdpTrailing12'),
+    }));
     e.setLever('incomeTax', 10);
-    e.step(239);
+    e.step(240);
     const tga = e.influences('debtRatio').params.find((p) => p.id === 'tga')!.value;
-    const bonds = e.stock('govBonds', 'G') + e.stock('indexedBonds', 'G');
-    const cash = e.stock('treasuryAccount', 'G');
-    const gdp = e.value('gdpTrailing12');
+    const N = model.def.substeps ?? 1;
+    const last = steps.length - 1;
+    const { bonds, cash } = steps[last - 1];
     expect(cash - tga).toBeGreaterThan(10);
-    e.step(1);
-    // stocks at the start of the month, and GDP over the 12 months to last month
-    expect(e.value('debtRatio')).toBeCloseTo((bonds - (cash - tga)) / gdp, 12);
+    // stocks at the start of the step (after the one before), and GDP over the 12 months to a month before
+    expect(e.value('debtRatio')).toBeCloseTo((bonds - (cash - tga)) / steps[last - N].gdp, 12);
     expect(e.value('debtRatio')).toBeLessThan(0); // a net asset: more cash than debt
     // at the baseline the treasury account is at its target, so nothing is netted
     expect(base.baseline('debtRatio')).toBeCloseTo((base.stock('govBonds', 'G') + base.stock('indexedBonds', 'G')) / base.baseline('gdpTrailing12'), 12);

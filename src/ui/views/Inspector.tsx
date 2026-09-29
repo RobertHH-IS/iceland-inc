@@ -138,8 +138,9 @@ export function InfluenceView({ info, client, id, onSelect, compact = false }: {
         <CategoryChip category={inf.category} />
         {r?.label && <span className="inf-rulename">{r.label}</span>}
         {inf.regime && (
-          <span className="chip regime" title="The branch of the rule that is active now">
+          <span className="chip regime" title={inf.regimeSwitched ? 'The branch of the rule that was active for part of this month: it switched between the month’s steps' : 'The branch of the rule that is active now'}>
             {inf.regime}
+            {inf.regimeSwitched && ' (part of the month)'}
           </span>
         )}
         <span className="inf-now mono">{fmtValue(inf.value, unit)}</span>

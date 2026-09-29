@@ -15,10 +15,11 @@
  */
 import type { Ctx, Id, LeverDef, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, gapShare, pickParams, terms, lastMonth, automatic, AUTOMATIC, MANUAL, STABILISERS } from '../util.ts';
+import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, gapRate, pickParams, terms, lastMonth, automatic, AUTOMATIC, MANUAL, STABILISERS } from '../util.ts';
 import { cashToSpend } from './banks.ts';
-import { zeroBoundWeight } from './central-bank.ts';
+import { ruleStep, zeroBoundWeight } from './central-bank.ts';
 import { PF_CASH, pfCashForNewBonds } from './pensions.ts';
+import { stepByStep } from '../testing.ts';
 
 type Channel = { id: string; label: string; level: Id; share: Id; lever: string; channel: string; what: string };
 const CHANNELS: Channel[] = [
@@ -155,9 +156,10 @@ const buybackShare = (c: Ctx, h: Buyer) => {
   const all = bondsHeld(c);
   return all > 0 ? c.stock('govBonds', h) / all : 0;
 };
-/** Share of nominal bonds whose coupon is reset this month: last month's new bonds (as a share of
- *  the stock at the start of the month, which includes them) plus a month's maturities, 1 ÷ average
- *  maturity, of the rest. Buybacks take bonds at every coupon alike, so they leave the average. */
+/** Share of nominal bonds whose coupon is reset this step: the previous step's new bonds (as a share
+ *  of the stock at the start of the step, which includes them) plus a step's maturities, dt ÷
+ *  average maturity, of the rest. Buybacks take bonds at every coupon alike, so they leave the
+ *  average. */
 const repricedShare = (c: Ctx) => {
   const stock = c.stock('govBonds', 'G');
   if (!(stock > 0)) return 1;
@@ -203,8 +205,8 @@ const vars: VarDef[] = [
   { id: 'vatFC', label: 'VAT passed on by builders (home repairs)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'debtRatio', label: 'Government debt ratio', unit: 'ratio', kind: 'ratio', scale: 'none', initial: base('debtRatio'), description: 'Government bonds (nominal and indexed), less any treasury cash above its target balance, ÷ GDP over the 12 months to last month.' },
   { id: 'taxRuleTarget', label: 'Tax shift the debt rule is heading for', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'Where the debt rule would put the income-tax rate (as a shift from its baseline) if it moved there at once. Computed in both stabiliser modes.' },
-  { id: 'taxRuleAnchor', label: 'Tax shift the debt rule steps from', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'The shift the debt rule starts next month’s step from: its own adjustment while it is in charge (Automatic), the income-tax lever’s shift (Manual).' },
-  { id: 'taxRuleAdjustment', label: 'Debt-rule tax adjustment', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'How far the debt rule moves the income-tax rate this month: one smoothed step from the shift in force toward where it is heading. Computed in both stabiliser modes; added to the rate only on Automatic.' },
+  { id: 'taxRuleAnchor', label: 'Tax shift the debt rule steps from', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'The shift the debt rule starts its next step from: its own adjustment while it is in charge (Automatic), the income-tax lever’s shift (Manual).' },
+  { id: 'taxRuleAdjustment', label: 'Debt-rule tax adjustment', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'How far the debt rule moves the income-tax rate this month: a month’s smoothed step from the shift in force toward where it is heading. Computed in both stabiliser modes; added to the rate only on Automatic.' },
   { id: 'taxRuleSuggestion', label: 'Income-tax shift the debt rule suggests', unit: 'pp', kind: 'rate', scale: 'none', description: 'Where the debt rule is heading, in percentage points: comparable with the income-tax lever.' },
   { id: 'taxRate', label: 'Income-tax rate', unit: 'fraction', kind: 'rate', scale: 'none', initial: base('taxRate') },
   ...AGES.map((g): VarDef => ({ id: `incomeTax${g}`, label: `Income tax, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`incomeTax${g}`) })),
@@ -382,7 +384,7 @@ const rules: RuleDef[] = [
     ),
     concepts: ['gradual-adjustment'],
     explain: {
-      what: 'The tax shift the debt rule starts next month’s step from: the shift it was actually in charge of.',
+      what: 'The tax shift the debt rule starts its next step from: the shift it was actually in charge of.',
       rule: 'Automatic: the rule’s own adjustment this month (your offset is not part of it). Manual: the shift you set on the income-tax lever. So when you switch to Automatic the rule starts from the rate you held, not from a path it was never in charge of.',
     },
   },
@@ -395,15 +397,16 @@ const rules: RuleDef[] = [
     lagInputs: ['taxRuleAnchor'],
     params: ['lamTau'],
     levers: [STABILISERS],
-    terms: terms(
-      ['inForce', 'Where the rule stands: the shift in force last month', 'gradual-adjustment', (c) => (1 - gapShare(c.p('lamTau'), c.dt)) * c.lag('taxRuleAnchor')],
-      ['target', 'A step toward where the rule is heading', 'debt-feedback', (c) => gapShare(c.p('lamTau'), c.dt) * c.v('taxRuleTarget')],
-    ),
+    terms: [
+      { id: 'inForce', label: 'Where the rule stands: the shift in force last month', concept: 'gradual-adjustment', month: 'first', compute: (c) => c.lag('taxRuleAnchor') },
+      { id: 'step', label: 'This month’s steps toward where the rule is heading (Automatic)', concept: 'debt-feedback', month: 'sum', compute: (c) => (automatic(c) ? ruleStep(c, c.p('lamTau')) * (c.v('taxRuleTarget') - c.lag('taxRuleAnchor')) : 0) },
+      { id: 'nextStep', label: 'Its first month’s step, if you switched (Manual)', concept: 'debt-feedback', compute: (c) => (automatic(c) ? 0 : ruleStep(c, c.p('lamTau')) * (c.v('taxRuleTarget') - c.lag('taxRuleAnchor'))) },
+    ],
     regime: (c) => (automatic(c) ? null : 'Suggestion only (Manual)'),
     concepts: ['debt-feedback', 'gradual-adjustment'],
     explain: {
-      what: 'How far the debt rule moves the income-tax rate: added to the rate (with your offset) when stabilisers are Automatic; on Manual it is what the rule would do next if you switched.',
-      rule: 'Adjustment = the shift in force last month + a share of the gap between it and where the rule is heading, at speed {lamTau} a year (about 4% of the gap a month). The shift in force is the rule’s own while it is in charge (Automatic) and the income-tax lever’s shift (Manual), so switching to Automatic moves the tax rate one small step from your rate, not straight to a path the rule was never in charge of. It is worked out every month in both modes.',
+      what: 'How far the debt rule moves the income-tax rate: added to the rate (with your offset) when stabilisers are Automatic; on Manual it is where the rule would stand after its first month in charge if you switched.',
+      rule: 'Adjustment = the shift in force last month + a share of the gap between it and where the rule is heading, at speed {lamTau} a year (about 4% of the gap a month, closed a little at each of the month’s two steps). The shift in force is the rule’s own while it is in charge (Automatic) and the income-tax lever’s shift (Manual), so switching to Automatic moves the tax rate one month’s small step from your rate, not straight to a path the rule was never in charge of. It is worked out every month in both modes.',
     },
   },
   {
@@ -492,14 +495,14 @@ const rules: RuleDef[] = [
     lagInputs: ['bondRate', 'bondIssue'],
     params: ['sB', 'bondMaturity'],
     stocks: [['govBonds', 'G']],
-    terms: terms(
-      ['held', 'Bonds still at their old coupon', 'interest-distribution', (c) => (1 - repricedShare(c)) * c.lag('bondRate')],
-      ['repriced', 'Bonds refinanced at the key rate + spread', 'interest-rate-channel', (c) => repricedShare(c) * (c.v('keyRate') + c.p('sB'))],
-    ),
+    terms: [
+      { id: 'held', label: 'Last month’s average coupon', concept: 'interest-distribution', month: 'first', compute: (c) => c.lag('bondRate') },
+      { id: 'repriced', label: 'This month’s change: bonds refinanced at the key rate + spread', concept: 'interest-rate-channel', month: 'sum', compute: (c) => repricedShare(c) * (c.v('keyRate') + c.p('sB') - c.lag('bondRate')) },
+    ],
     concepts: ['interest-distribution'],
     explain: {
       what: 'The average coupon the government pays on its nominal bonds, the same whoever holds them. Most bonds pay the fixed coupon they were sold with, so the average moves toward the key rate + {sB pp} only as bonds mature and are refinanced, and as new bonds are sold.',
-      rule: 'Rate = last month’s average × the share not repriced + (key rate + {sB pp}) × the share repriced this month. The share repriced is the bonds sold last month (as a share of all nominal bonds) plus a month’s worth, 1 ÷ {bondMaturity} years, of the rest, which mature and are refinanced. Selling many new bonds therefore moves the average faster.',
+      rule: 'Rate = last month’s average + the share repriced this month × (key rate + {sB pp} − the average). The share repriced is the bonds newly sold (as a share of all nominal bonds), which pay the new coupon from the start, plus a month’s worth, 1 ÷ {bondMaturity} years, of the rest, which mature and are refinanced. Selling many new bonds therefore moves the average faster.',
     },
   },
   ...HOLDERS.map(
@@ -576,7 +579,7 @@ const rules: RuleDef[] = [
     stocks: [['treasuryAccount', 'G'], ...BOND_STOCKS],
     terms: terms(
       ['deficit', 'Deficit to finance', 'deficits-and-money', (c) => c.v('deficit')],
-      ['topUp', 'Refill the treasury account', 'reserves-and-payments', (c) => c.p('treasuryTopUp') * (c.p('tga') - c.stock('treasuryAccount', 'G'))],
+      ['topUp', 'Refill the treasury account', 'reserves-and-payments', (c) => gapRate(c.p('treasuryTopUp'), c.dt) * (c.p('tga') - c.stock('treasuryAccount', 'G'))],
     ),
     // The government cannot buy back more bonds than there are: a surplus beyond that stays in
     // its treasury account (and is spent down first when a deficit returns).
@@ -585,7 +588,7 @@ const rules: RuleDef[] = [
     concepts: ['deficits-and-money'],
     explain: {
       what: 'New government bonds sold this month (a yearly rate; negative means buying bonds back).',
-      rule: 'Bonds sold = the cash deficit + {treasuryTopUp} × a year of any shortfall of the treasury account below {tga}% of GDP, so the account stays at its target. The government never buys back more than the bonds banks, the central bank, pension funds and older households hold; once they are all repaid, a surplus builds up in the treasury account.',
+      rule: 'Bonds sold = the cash deficit + what closes any shortfall of the treasury account below {tga}% of GDP at speed {treasuryTopUp} a year (about 63% of it within a month), so the account stays near its target. The government never buys back more than the bonds banks, the central bank, pension funds and older households hold; once they are all repaid, a surplus builds up in the treasury account.',
     },
   },
   ...BUYERS.map(([h, who]): RuleDef => {
@@ -918,13 +921,21 @@ export const government: ModuleDef = {
       id: 'buyback-by-holdings',
       label: 'In a surplus the government buys bonds back from every holder in proportion to its holdings, never more than there are; the rest of the surplus stays in the treasury account',
       run: (e) => {
-        const ke = e as unknown as { stock(i: string, p: string): number };
+        // every kernel step of the first month (decision 0011: two a month): its buyback, and the
+        // holdings after it, which the next step's buyback shares follow
+        const { engine: f, steps } = stepByStep(e, (r) => ({ issue: BUYERS.map(([h]) => r.value(`bondIssue${h}`)), total: r.value('bondIssue'), held: BUYERS.map(([h]) => r.stock('govBonds', h)) }));
+        e = f; // the rest of the test runs on it
+        const ke = f as unknown as { stock(i: string, p: string): number };
         e.setLever('bondBuyers', 2); // the central bank buys new bonds, but buybacks come from everyone
         e.setLever('incomeTax', 10);
-        const held = BUYERS.map(([h]) => ke.stock('govBonds', h)); // at the start of the month
+        let held = BUYERS.map(([h]) => ke.stock('govBonds', h)); // at the start of the first step
         e.step(1);
-        const all = held.reduce((a, b) => a + b, 0);
-        const shares = BUYERS.map(([h], k) => Math.abs(e.value(`bondIssue${h}`) / e.value('bondIssue') - held[k] / all));
+        const shares: number[] = [];
+        for (const x of steps) {
+          const all = held.reduce((a, b) => a + b, 0);
+          BUYERS.forEach((_, k) => shares.push(Math.abs(x.issue[k] / x.total - held[k] / all)));
+          held = x.held;
+        }
         let lowest = Infinity,
           capped = 0;
         for (let t = 1; t < 240; t++) {

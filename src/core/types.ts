@@ -128,9 +128,10 @@ export interface VarDef {
 export interface Ctx {
   /** Same-step value of a variable. Must be declared in `inputs`. */
   v(id: Id): number;
-  /** Value k steps ago (default 1). Must be declared in `lagInputs`. k runs from 1 to the
-   *  engine's lag window (two years of steps by default); use Math.round(n / c.dt) for
-   *  "n years ago" so the rule survives a change of step. Before t = 0 it is the baseline. */
+  /** Value k kernel steps ago (default 1: the previous step, a sub-step when the model takes
+   *  several a month). Must be declared in `lagInputs`. k runs from 1 to the engine's lag window
+   *  (two years of steps by default); use Math.round(n / c.dt) for "n years ago" so the rule
+   *  survives a change of step. Before t = 0 it is the baseline. */
   lag(id: Id, k?: number): number;
   /** Parameter value, after any lever that binds to it. Must be declared in `params`. */
   p(id: Id): number;
@@ -144,7 +145,7 @@ export interface Ctx {
    *  measures a gap against base() cannot pin the steady state; use a parameter for that. */
   base(id: Id): number;
   readonly t: number; // years since start
-  readonly dt: number; // years per step
+  readonly dt: number; // years per kernel step: the model's dt ÷ its substeps
 }
 
 /** One named, additive piece of a rule. Terms make influences exact within the rule. */
@@ -153,6 +154,14 @@ export interface TermDef {
   label: string; // plain words: "Higher key rate"
   concept?: Id; // the economic idea this term expresses
   compute: (c: Ctx) => number;
+  /** How a month shows the term when the model runs several kernel steps a month
+   *  (ModelDef.substeps). By default the month shows the value at its last sub-step, which is
+   *  right for a level or a rate per year. A term that is a change per kernel step (a month's
+   *  growth, one step toward a target) is `'sum'`: the month shows its sum over the sub-steps, and
+   *  its baseline × the sub-steps, so the inspector reads "this month" whatever the step. A term
+   *  that carries a level into the step (last month's wage rate) is `'first'`: the month shows the
+   *  value at its first sub-step, so `'first'` + `'sum'` terms add up to the month-end value. */
+  month?: 'sum' | 'first';
 }
 
 /**
@@ -450,6 +459,11 @@ export interface CalibrationCheck {
    *  harness's half-step test allows it to move by one quarter, not by a share of its value.
    *  Default 'level': a continuous measure. */
   kind?: 'level' | 'timing';
+  /** Why the measure's continuous-time limit is only indicative: the full harness
+   *  (`bun run harness --full`) measured an order of convergence outside [0.5, 2] (a peak or
+   *  trough whose month moves with the step, say). The half-step test then reports the limit and
+   *  does not gate on it; the full run fails when a measure's order leaves the band undeclared. */
+  limitIndicative?: string;
 }
 
 export interface SteadyStateSpec {
@@ -480,6 +494,15 @@ export interface ModelDef {
     treasuryAccount: Id; // instrument: government account at the central bank
   };
   dt: number; // 1/12
+  /** Kernel steps per recorded step, N (a whole number, default 1; decision 0011). The engine
+   *  applies lever events, records history, takes snapshots and narrates once per dt (a month),
+   *  and in between advances the rules and the ledger N times by dt / N, each sub-step a complete,
+   *  balanced step with its own accounting checks. Rules see dt / N in c.dt and c.lag(id) is the
+   *  last sub-step, so a lag of a month is c.lag(id, N) (the Iceland model's `lastMonth`). What
+   *  the month shows (the display contract): variables and stocks at the month's end; legs,
+   *  pipes and the ledger as the month's total ÷ dt (its average annual rate); a term as
+   *  TermDef.month says; a rule's regime if it held in any sub-step, flagged when it switched. */
+  substeps?: number;
   steadyState: SteadyStateSpec;
   calibration?: CalibrationCheck[];
   /** The global stabiliser setting: the lever whose value says Manual or Automatic. Required
@@ -490,7 +513,7 @@ export interface ModelDef {
 /* ------------------------------------------------------------------ runtime */
 
 export interface ScenarioEvent {
-  t: number; // step index at which it applies (= month index at the standard dt of 1/12), before that step runs
+  t: number; // the recorded step (month, at dt 1/12) at which it applies, before its first kernel sub-step runs
   lever: Id;
   value: number; // new setting, or size for a one-off
   fire?: boolean; // true for one-offs
@@ -508,12 +531,16 @@ export interface RunResult {
   value(varId: Id, month: number): number;
 }
 
-/** A leg's flow this step, for pipes and the ledger view. */
+/** A leg's flow this month, for pipes and the ledger view: the month's total ÷ dt, its average
+ *  annual rate over the month's sub-steps (the amount variable itself at one sub-step a month). */
 export interface LegSnapshot {
   flow: Id;
   from: Id;
   to: Id;
   kind: FlowKind;
+  /** The variable that sets the leg's amount at each kernel step (engine.legs() and the
+   *  baseline report fill it). */
+  amount?: Id;
   value: number;
   baseline: number;
 }
@@ -554,6 +581,9 @@ export interface Influence {
    *  by the `levers` listed. */
   rule?: { id: Id; what: string; rule: string; source: 'rule' | 'flow' | 'indicator' | 'exogenous'; levers?: Id[] };
   regime?: string | null;
+  /** True when the regime changed between the month's sub-steps (ModelDef.substeps): the label
+   *  shown held in at least one of them, not in all. */
+  regimeSwitched?: boolean;
   /** For rules with gradual adjustment: the desired value the variable is moving toward. */
   desired?: number;
   desiredBaseline?: number;

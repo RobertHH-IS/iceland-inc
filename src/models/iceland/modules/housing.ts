@@ -122,7 +122,7 @@ export const housing: ModuleDef = {
       inputs: ['realHousePrice'],
       lagInputs: ['cpi'],
       compute: (c) => c.v('realHousePrice') * c.lag('cpi'),
-      explain: { what: 'House prices in krónur (1 at baseline).', rule: 'House price = real house price × last month’s CPI.' },
+      explain: { what: 'House prices in krónur (1 at baseline).', rule: 'House price = real house price × the CPI half a month earlier (the model takes each month in two steps, and the CPI of the step before is used because the CPI itself includes housing).' },
     },
     {
       id: 'housingCost',
