@@ -1,15 +1,9 @@
 {
  "format": "iceland-inc/golden@1",
  "modelId": "iceland",
- "scenario": "calibration-automatic-no-shock-drift",
+ "scenario": "calibration-unlocked-no-shock-drift",
  "months": 240,
- "events": [
-  {
-   "t": 0,
-   "lever": "stabilisers",
-   "value": 1
-  }
- ],
+ "events": [],
  "indicators": {
   "output": [
    0,

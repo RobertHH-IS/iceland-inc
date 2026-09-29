@@ -1,17 +1,22 @@
 {
  "format": "iceland-inc/golden@1",
  "modelId": "iceland",
- "scenario": "all-levers-manual",
+ "scenario": "all-levers-locked",
  "months": 111,
  "events": [
   {
    "t": 0,
-   "lever": "stabilisers",
-   "value": 0
+   "lever": "keyRateLock",
+   "value": 1
   },
   {
    "t": 0,
-   "lever": "keyRateFixed",
+   "lever": "incomeTaxLock",
+   "value": 1
+  },
+  {
+   "t": 0,
+   "lever": "keyRate",
    "value": 9
   },
   {

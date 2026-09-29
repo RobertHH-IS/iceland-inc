@@ -3,7 +3,7 @@
  * sectors. Each rule fires when a chart's displayed deviation crosses its threshold. The feed only
  * narrates; it never changes the model. A message says only what its chart shows: the chart of
  * tourism's profits cannot tell a slump in sales from a rise in wages, so its message names
- * neither (audit L14). With stabilisers on Manual, the kernel also narrates a
+ * neither (audit L14). While a policy lever is locked, the kernel also narrates a
  * stabiliser that starts calling for action, from the `feed` messages declared with it
  * (central-bank.ts, government.ts).
  */

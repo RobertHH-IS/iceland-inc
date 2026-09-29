@@ -16,7 +16,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, annuity, BORROWERS, FIRMS, HH, pickParams, stepsIn, terms, lastMonth } from '../util.ts';
+import { AGE_LABEL, annuity, BORROWERS, FIRMS, HH, pickParams, stepsIn, terms, lastMonth, lockPolicy } from '../util.ts';
 import { cappedShare } from './borrowers.ts';
 
 type B = (typeof BORROWERS)[number];
@@ -470,7 +470,7 @@ export const mortgages: ModuleDef = {
       step: 1,
       binds: { param: 'dstiShift', mode: 'add', scale: 0.01 },
       description: 'Shifts the payment-to-income caps on new mortgages (40% for first-time buyers, 35% for others).',
-      definition: 'Level shift in both debt-service caps, in percentage points of income, applied to new lending at once and persistent while set. Borrowers whose payments would take more than the cap borrow up to it, so a tightening trims the loans of those who borrow most and a loosening lets them borrow a little more. Existing loans are unaffected. The fall in borrowing and spending lasts: on Automatic, where the central bank eases to offset it, a cut of 15 points still leaves output about 0.15% lower and unemployment 0.06 point higher after 20 years, because the rule measures slack against a fixed capacity and learns its neutral rate only slowly; on Manual about 0.1% lower. Setting it back to 0 restores the Rules 1300/2025 caps.',
+      definition: 'Level shift in both debt-service caps, in percentage points of income, applied to new lending at once and persistent while set. Borrowers whose payments would take more than the cap borrow up to it, so a tightening trims the loans of those who borrow most and a loosening lets them borrow a little more. Existing loans are unaffected. The fall in borrowing and spending lasts: with the policy rules acting, where the central bank eases to offset it, a cut of 15 points still leaves output about 0.15% lower and unemployment 0.06 point higher after 20 years, because the rule measures slack against a fixed capacity and learns its neutral rate only slowly; with both policy levers locked about 0.1% lower. Setting it back to 0 restores the Rules 1300/2025 caps.',
       concepts: ['debt-service-constraint', 'macroprudential-policy'],
     },
     {
@@ -487,7 +487,7 @@ export const mortgages: ModuleDef = {
       binds: { param: 'ltvLimit', mode: 'replace', scale: 0.01 },
       description: `Today 80% (first-time buyers ${Math.round(100 * ALL_PARAMS.ltvYExtra.value)} points more). New mortgages may pay for at most this share of the price of the home bought; lower tightens.`,
       definition:
-        'Level of the loan-to-value cap in percent, persistent while set, applied at once to every new loan as it is made (the loans of people buying from older households and from each other); first-time buyers (the young) get 10 points more. Buyers who want to borrow more than the cap allows borrow up to it; the rest are unaffected, so a small change trims the buyers who borrow most and a large cut trims many. Loans already made are never tested. The fall in borrowing and spending lasts: at a 50% cap output is about 0.35% lower after five years and 0.3% lower after twenty on Automatic, where the central bank eases to offset it but measures slack against a fixed capacity and learns its neutral rate only slowly, and 0.2% lower on Manual. 80 is the rule in force (Rules 1131/2025); setting it back to 80 restores it.',
+        'Level of the loan-to-value cap in percent, persistent while set, applied at once to every new loan as it is made (the loans of people buying from older households and from each other); first-time buyers (the young) get 10 points more. Buyers who want to borrow more than the cap allows borrow up to it; the rest are unaffected, so a small change trims the buyers who borrow most and a large cut trims many. Loans already made are never tested. The fall in borrowing and spending lasts: at a 50% cap output is about 0.35% lower after five years and 0.3% lower after twenty with the policy rules acting, where the central bank eases to offset it but measures slack against a fixed capacity and learns its neutral rate only slowly, and 0.2% lower with both policy levers locked. 80 is the rule in force (Rules 1131/2025); setting it back to 80 restores it.',
       concepts: ['loan-to-value', 'macroprudential-policy'],
     },
   ],
@@ -566,11 +566,11 @@ export const mortgages: ModuleDef = {
     },
     {
       id: 'wage-rise-borrowing-builds-up',
-      label: 'After a 10% wage settlement households borrow more only as the higher pay lasts: net lending in month 2 is under 0.3% of GDP a year above no change, and peaks after 9 to 18 months, in both modes',
+      label: 'After a 10% wage settlement households borrow more only as the higher pay lasts: net lending in month 2 is under 0.3% of GDP a year above no change, and peaks after 9 to 18 months, with the policy levers locked or unlocked',
       run: (e) => {
-        const path = (mode: number, shock: boolean) => {
+        const path = (locked: boolean, shock: boolean) => {
           const f = e.fork();
-          f.setLever('stabilisers', mode);
+          lockPolicy(f, locked);
           if (shock) f.fire('wageSettlement', 10);
           const out = [0];
           for (let m = 1; m <= 36; m++) {
@@ -579,14 +579,14 @@ export const mortgages: ModuleDef = {
           }
           return out;
         };
-        const res = [0, 1].map((mode) => {
-          const [a, b] = [path(mode, true), path(mode, false)];
+        const res = [true, false].map((locked) => {
+          const [a, b] = [path(locked, true), path(locked, false)];
           const d = a.map((x, i) => x - b[i]);
           const peak = d.indexOf(Math.max(...d.slice(1)));
-          return { mode, m2: d[2], peak, top: d[peak] };
+          return { locked, m2: d[2], peak, top: d[peak] };
         });
         const ok = res.every((r) => r.m2 < 0.3 && r.peak >= 9 && r.peak <= 18 && r.top > 2 * r.m2);
-        return { pass: ok, detail: res.map((r) => `${r.mode ? 'Automatic' : 'Manual'}: month 2 +${r.m2.toFixed(3)}, peak +${r.top.toFixed(3)} in month ${r.peak}`).join('; ') };
+        return { pass: ok, detail: res.map((r) => `${r.locked ? 'Locked' : 'Unlocked'}: month 2 +${r.m2.toFixed(3)}, peak +${r.top.toFixed(3)} in month ${r.peak}`).join('; ') };
       },
     },
     {

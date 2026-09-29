@@ -10,7 +10,6 @@
  */
 import type { IndicatorCtx, ModelDef } from '../../core/types.ts';
 import { FIRM_NAME } from './util.ts';
-import { stabilisers } from './modules/stabilisers.ts';
 import { structure } from './modules/structure.ts';
 import { labourAndWages } from './modules/labour-and-wages.ts';
 import { prices } from './modules/prices.ts';
@@ -42,7 +41,7 @@ export const icelandModel: ModelDef = {
     'A stylised Icelandic economy: households by age; builders, retail and services, fisheries, aluminium, tourism and other exporters; banks, the central bank, the government, pension funds and the rest of the world, with money created and destroyed by who pays whom. Calibrated to 2025 data; a steady-state teaching model, not a forecast.',
   // Module order sets the order of rules inside the simultaneous income–spending block, which
   // Gauss–Seidel sweeps in declaration order: households first, then output and jobs, then taxes.
-  modules: [stabilisers, structure, centralBank, banks, prices, housing, mortgages, households, external, firms, labourAndWages, government, pensions, indicators, feed],
+  modules: [structure, centralBank, banks, prices, housing, mortgages, households, external, firms, labourAndWages, government, pensions, indicators, feed],
   paymentSystem: {
     bank: 'B',
     centralBank: 'CB',
@@ -82,8 +81,16 @@ export const icelandModel: ModelDef = {
     },
   },
   calibration,
-  // Policy reactions act only on Automatic (decision 0004); Manual, the default, holds every policy lever.
-  stabiliserMode: { lever: 'stabilisers', manual: 0, automatic: 1 },
+  // Scenarios written before padlocks (format 1): the global setting, Manual by default here, held
+  // the key rate and income tax at levers of their own; the offsets tilted the rules (decision 0010).
+  legacyStabiliserMode: {
+    lever: 'stabilisers',
+    manual: 0,
+    automatic: 1,
+    default: 0,
+    held: { keyRateFixed: 'keyRate', incomeTax: 'incomeTax' },
+    offsets: ['keyRateAddon', 'incomeTaxOffset'],
+  },
 };
 
 bindCalibrationModel(icelandModel);

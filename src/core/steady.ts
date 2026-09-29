@@ -15,7 +15,7 @@
  * The result is published by `baselineReport` (all variables, stocks and legs).
  */
 import type { Id, IndicatorCtx, LegSnapshot } from './types.ts';
-import { isAutomatic, ROLE_HOLDER, ROLE_ISSUER, type KModel } from './compile.ts';
+import { ROLE_HOLDER, ROLE_ISSUER, type KModel } from './compile.ts';
 import { Machine } from './machine.ts';
 import { lmStep, maxAbs, solveLinear, sumSq } from './numerics.ts';
 
@@ -38,9 +38,10 @@ export interface Baseline {
   vars: Float64Array;
   terms: Float64Array;
   desired: Float64Array;
-  /** For a model with a stabiliser setting: term and desired values at the baseline state in
-   *  each mode, [Manual, Automatic]. Terms gated by the mode differ; the state does not. */
-  byMode?: { terms: Float64Array; desired: Float64Array }[];
+  /** For a model with stabilisers: term and desired values at the baseline state under each lock
+   *  configuration, indexed by lock mask (bit j set: stabiliser j locked). Terms gated by a
+   *  padlock differ; the state does not. */
+  byMask?: { terms: Float64Array; desired: Float64Array }[];
   regimes: (string | null)[];
   solved: Record<Id, number>;
   method: 'newton' | 'closed-form + newton' | 'none';
@@ -292,20 +293,24 @@ export function solveBaseline(m: KModel, opts: BaselineOptions = {}): Baseline {
   const terms = new Float64Array(M.termVal);
   const desired = new Float64Array(M.desired);
   const regimes = [...M.regimes];
-  let byMode: Baseline['byMode'];
-  const mode = m.def.stabiliserMode;
-  if (mode && m.modeLever >= 0) {
-    // the same state, evaluated with the stabiliser setting at the other mode
-    const keep = M.leverVal[m.modeLever];
-    const defaultAutomatic = isAutomatic(mode, keep);
-    M.leverVal[m.modeLever] = defaultAutomatic ? mode.manual : mode.automatic;
-    M.applyLevers();
-    M.evaluate();
-    const other = { terms: new Float64Array(M.termVal), desired: new Float64Array(M.desired) };
-    M.leverVal[m.modeLever] = keep;
-    M.applyLevers();
+  let byMask: Baseline['byMask'];
+  const NS = m.cstabilisers.length;
+  if (NS) {
+    // the same state, evaluated under every other lock configuration (the default is all unlocked)
+    const keep = m.cstabilisers.map((cs) => M.leverVal[cs.lock]);
+    byMask = [];
+    for (let mask = 0; mask < 1 << NS; mask++) {
+      if (mask === 0) {
+        byMask.push({ terms, desired });
+        continue;
+      }
+      m.cstabilisers.forEach((cs, j) => (M.leverVal[cs.lock] = mask & (1 << j) ? 1 : 0));
+      M.cur.set(vars);
+      M.evaluate();
+      byMask.push({ terms: new Float64Array(M.termVal), desired: new Float64Array(M.desired) });
+    }
+    m.cstabilisers.forEach((cs, j) => (M.leverVal[cs.lock] = keep[j]));
     M.cur.set(vars);
-    byMode = defaultAutomatic ? [other, { terms, desired }] : [{ terms, desired }, other];
   }
   const solved: Record<Id, number> = {};
   free.forEach((k, i) => (solved[m.params[k].id] = z[i]));
@@ -317,7 +322,7 @@ export function solveBaseline(m: KModel, opts: BaselineOptions = {}): Baseline {
     vars,
     terms,
     desired,
-    byMode,
+    byMask,
     regimes,
     solved,
     method: n === 0 ? 'none' : method,

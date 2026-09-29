@@ -1,8 +1,9 @@
 /**
- * Levers for the lever panel: accordion sections, stepping, the bar and "changed" state.
+ * Levers for the lever panel: accordion sections, stepping, the bar, "changed" state, the
+ * padlocks on levers with a rule (decision 0010) and the marks of locked stabilisers.
  * Pure functions over LeverInfo (a LeverDef without its `fire` function).
  */
-import type { Id, ScenarioEvent } from '../../core/types.ts';
+import type { Id, ScenarioEvent, StabiliserState } from '../../core/types.ts';
 import type { LeverInfo } from './info.ts';
 
 export interface LeverSection {
@@ -127,7 +128,7 @@ export function changedCount(section: LeverSection, values: readonly number[], f
 
 /** A lever value with its unit, compactly: "+0.25 pp", "10%", "Floating". */
 export function leverValueLabel(l: Pick<LeverInfo, 'unit' | 'kind' | 'options' | 'default'>, v: number): string {
-  if (l.kind === 'choice') {
+  if (l.kind === 'choice' || l.kind === 'lock') {
     const o = l.options?.find((x) => Math.abs(x.value - v) < 1e-12);
     if (o) return o.label;
   }
@@ -139,109 +140,49 @@ export function leverValueLabel(l: Pick<LeverInfo, 'unit' | 'kind' | 'options' |
   return u.startsWith('%') ? `${signed}${u}` : `${signed} ${u}`;
 }
 
-/* ------------------------------------------------ showWhen and stabilisers */
+/* ----------------------------------------------------------- padlocks */
 
-type ShowWhenLever = Pick<LeverInfo, 'id' | 'default' | 'index' | 'showWhen'>;
+/** What the panel needs of a stabiliser now (Engine.stabilisers(), decision 0010). */
+export type PadlockState = Pick<StabiliserState, 'id' | 'label' | 'lever' | 'lock' | 'locked' | 'current'>;
 
-/** Values `showWhen` accepts, as a list. */
-const showValues = (sw: NonNullable<LeverInfo['showWhen']>): number[] => (Array.isArray(sw.equals) ? sw.equals : [sw.equals]);
-
-/**
- * Is a lever shown? Only while the lever its `showWhen` names has one of the listed values (by
- * lever index in `values`; a lever missing from `byId` counts as absent, so the lever shows).
- */
-export function isShown(l: Pick<LeverInfo, 'showWhen'>, values: readonly number[], byId: ReadonlyMap<Id, ShowWhenLever>): boolean {
-  const sw = l.showWhen;
-  if (!sw) return true;
-  const other = byId.get(sw.lever);
-  if (!other) return true;
-  const v = values[other.index] ?? other.default;
-  return showValues(sw).some((x) => Math.abs(x - v) < 1e-9);
+/** The stabiliser behind each lever that has a rule, by lever id: those levers get a padlock. */
+export function padlocksByLever<T extends PadlockState>(states: readonly T[]): Map<Id, T> {
+  return new Map(states.map((s) => [s.lever, s]));
 }
 
-/** How many shown levers of a section are changed: a hidden lever never counts. */
-export function shownChangedCount(section: LeverSection, values: readonly number[], fired: Map<Id, number>, byId: ReadonlyMap<Id, ShowWhenLever>): number {
+/** The value a lever shows: its own setting, or, while its padlock is open, the live value its
+ *  rule sets (the knob moves with the rule). */
+export function shownValue(value: number, pad?: PadlockState): number {
+  return pad && !pad.locked && Number.isFinite(pad.current) ? pad.current : value;
+}
+
+/** Is a lever changed? A lever with a padlock is while it is locked (the user holds it; unlocked,
+ *  its rule moves it, which is no change of the user's); others as isChanged. */
+export function isLeverChanged(l: Pick<LeverInfo, 'kind' | 'default' | 'id'>, value: number, fired: Map<Id, number>, pad?: PadlockState): boolean {
+  return pad ? pad.locked : isChanged(l, value, fired);
+}
+
+/** How many levers of a section are changed, padlocks counted as isLeverChanged does. */
+export function changedCountWithLocks(section: LeverSection, values: readonly number[], fired: Map<Id, number>, pads: ReadonlyMap<Id, PadlockState>): number {
   let n = 0;
-  for (const l of section.levers) if (isShown(l, values, byId) && isChanged(l, values[l.index] ?? l.default, fired)) n++;
+  for (const l of section.levers) if (isLeverChanged(l, values[l.index] ?? l.default, fired, pads.get(l.id))) n++;
   return n;
 }
 
-/**
- * Setting a lever that others' `showWhen` depends on (the stabiliser setting) hides some of them.
- * Each lever that the new value hides and that is off its default goes back to its default, so a
- * hidden lever never carries a setting the user cannot see: switching to Automatic resets the
- * Manual key rate, switching to Manual resets the offset to the rule.
- */
-export function resetsWhenSetting(levers: readonly ShowWhenLever[], values: readonly number[], lever: Id, value: number): { id: Id; value: number }[] {
-  const out: { id: Id; value: number }[] = [];
-  for (const l of levers) {
-    const sw = l.showWhen;
-    if (!sw || sw.lever !== lever) continue;
-    const shownAfter = showValues(sw).some((x) => Math.abs(x - value) < 1e-9);
-    const v = values[l.index] ?? l.default;
-    if (!shownAfter && Math.abs(v - l.default) > 1e-12) out.push({ id: l.id, value: l.default });
-  }
-  return out;
+/** A lever's name inside a sentence: "the key interest rate". */
+const inSentence = (label: string) => `the ${label.charAt(0).toLowerCase()}${label.slice(1)}`;
+
+/** The padlock button's accessible name: what pressing it does. */
+export function lockActionLabel(l: Pick<LeverInfo, 'label'>, locked: boolean): string {
+  return `${locked ? 'Unlock' : 'Lock'} ${inSentence(l.label)}`;
 }
 
-/**
- * The script with every hidden lever kept at its default, or null when it already is (decision
- * 0004: a hidden lever never carries a setting the user cannot see). Playing straight on, the
- * panel keeps this: switching mode first resets the levers the new mode hides, and a hidden lever
- * cannot be set. After time travel, or in a hand-made link, a script can break it: a lever set
- * before a later switch that hides it, or a lever set while a mode hides it (a switch made
- * earlier, or the default mode). The fix only adds events, never removes one (decision 0001: a
- * change keeps the later events). Walking the months in order and tracking lever values, each
- * lever hidden and off its default at the end of a month gets a reset to its default in that
- * month:
- *   - right before the month's last event on the lever that hides it (the mode switch), as the
- *     panel records it, so the switch still leads the chart's mark for that month;
- *   - or, when the lever was set after that switch or while already hidden, right after its
- *     last setting of the month, so the setting stays in the script but takes no effect.
- * The lever values that follow are those of a straight run to the same months. Lever values
- * depend only on the events, so the walk needs no simulation. One-offs and events for unknown
- * levers are kept as they are.
- */
-export function keepHiddenAtDefault(levers: readonly ShowWhenLever[], events: readonly ScenarioEvent[]): ScenarioEvent[] | null {
-  const byId = new Map(levers.map((l) => [l.id, l]));
-  const setting = (e: ScenarioEvent) => (e.fire ? undefined : byId.get(e.lever));
-  const values: number[] = [];
-  for (const l of levers) values[l.index] = l.default;
-  const sorted = [...events].sort((a, b) => a.t - b.t);
-  const out: ScenarioEvent[] = [];
-  let changed = false;
-  for (let i = 0; i < sorted.length; ) {
-    const t = sorted[i].t;
-    let j = i;
-    while (j < sorted.length && sorted[j].t === t) j++;
-    const month = sorted.slice(i, j);
-    i = j;
-    for (const e of month) {
-      const l = setting(e);
-      if (l) values[l.index] = e.value;
-    }
-    // Resets to put before (or after) the month's event at each position.
-    const before = new Map<number, ScenarioEvent[]>();
-    const after = new Map<number, ScenarioEvent[]>();
-    const add = (at: Map<number, ScenarioEvent[]>, k: number, e: ScenarioEvent) => at.set(k, [...(at.get(k) ?? []), e]);
-    for (const l of levers) {
-      if (!l.showWhen || isShown(l, values, byId) || Math.abs(values[l.index] - l.default) <= 1e-12) continue;
-      const reset = { t, lever: l.id, value: l.default };
-      let lastSet = -1;
-      let lastSwitch = -1;
-      month.forEach((e, k) => {
-        const m = setting(e);
-        if (m === l) lastSet = k;
-        else if (m && m.id === l.showWhen?.lever) lastSwitch = k;
-      });
-      if (lastSwitch > lastSet) add(before, lastSwitch, reset);
-      else add(after, lastSet >= 0 ? lastSet : month.length - 1, reset);
-      values[l.index] = l.default;
-      changed = true;
-    }
-    month.forEach((e, k) => out.push(...(before.get(k) ?? []), e, ...(after.get(k) ?? [])));
-  }
-  return changed ? out : null;
+/** The padlock button's title: what the padlock means now, in plain words, and what a press does. */
+export function lockTitle(l: Pick<LeverInfo, 'label'>, pad: Pick<PadlockState, 'label' | 'locked'>): string {
+  const name = inSentence(l.label);
+  return pad.locked
+    ? `Locked: ${name} stays where you set it, and ${pad.label} only suggests. Unlock to hand it back to the rule, which carries on from where it is.`
+    : `Unlocked: ${pad.label} sets ${name}, and the lever follows it. Lock to hold it where it is; moving the lever locks it too.`;
 }
 
 /** The value the "Apply" button sets: the nearest point of the lever's step grid (anchored at
@@ -254,45 +195,40 @@ export function snapToStep(l: Pick<LeverInfo, 'step' | 'min' | 'max' | 'default'
 }
 
 export type StabiliserMark =
-  /** Manual: the stabiliser would move this lever. `text` is "<label>: <suggestion>". */
+  /** Locked: the stabiliser would move this lever. `text` is "<label>: <suggestion>". */
   | { kind: 'calling'; stabiliser: Id; label: string; text: string; suggested: number; apply: number }
-  /** Manual: the stabiliser calls, but "Apply" could not move the lever: the suggestion is beyond
+  /** Locked: the stabiliser calls, but "Apply" could not move the lever: the suggestion is beyond
    *  the lever's range (or within half a step of where it is). A note, not a call: no Apply. */
-  | { kind: 'beyond'; stabiliser: Id; label: string; text: string; suggested: number }
-  /** Automatic: the stabiliser acts on the policy this lever offsets. `text` is "Set by <label>: <value>". */
-  | { kind: 'acting'; stabiliser: Id; label: string; text: string };
+  | { kind: 'beyond'; stabiliser: Id; label: string; text: string; suggested: number };
 
 /**
- * What the lever panel shows for each stabiliser, by the lever it belongs to:
- *   Manual, calling: a red mark on the stabiliser's lever, with its suggestion and "Apply";
- *   Manual, calling but Apply would not move the lever: the suggestion as a note, without Apply;
- *   Automatic: a note on the lever that offsets the rule (the lever itself unless declared).
- * Values are in the stabiliser lever's units, to two decimals. The engine's `calling` is left
- * as it is (the feed still says the rule calls); only the panel's call depends on Apply.
+ * What the lever panel shows for each locked stabiliser, on its lever:
+ *   calling: a red mark with its suggestion and "Apply";
+ *   calling but Apply would not move the lever: the suggestion as a note, without Apply.
+ * An unlocked stabiliser shows nothing here: its rule moves the lever, which shows the live value.
+ * Values are in the lever's units, to two decimals. The engine's `calling` is left as it is (the
+ * feed still says the rule calls); only the panel's call depends on Apply.
  */
 export function stabiliserMarks(
-  states: readonly { id: Id; label: string; lever: Id; offset: Id; suggested: number; current: number; calling: boolean; automatic: boolean }[],
+  states: readonly { id: Id; label: string; lever: Id; suggested: number; current: number; calling: boolean; locked: boolean }[],
   byId: ReadonlyMap<Id, LeverInfo>,
 ): Map<Id, StabiliserMark> {
   const out = new Map<Id, StabiliserMark>();
   for (const s of states) {
     const l = byId.get(s.lever);
-    if (!l || !Number.isFinite(s.suggested)) continue;
+    if (!l || !s.locked || !s.calling || !Number.isFinite(s.suggested)) continue;
     const shown = leverValueLabel(l, Number(s.suggested.toFixed(2)));
-    if (s.automatic) out.set(s.offset, { kind: 'acting', stabiliser: s.id, label: s.label, text: `Set by ${s.label}: ${shown}` });
-    else if (s.calling) {
-      const apply = snapToStep(l, s.suggested);
-      if (Math.abs(apply - s.current) >= 1e-12) out.set(s.lever, { kind: 'calling', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown}`, suggested: s.suggested, apply });
-      else {
-        const outside = (l.min !== undefined && s.suggested < l.min) || (l.max !== undefined && s.suggested > l.max);
-        out.set(s.lever, { kind: 'beyond', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown} (${outside ? 'beyond the lever’s range' : 'the nearest step is where the lever is'})`, suggested: s.suggested });
-      }
+    const apply = snapToStep(l, s.suggested);
+    if (Math.abs(apply - s.current) >= 1e-12) out.set(s.lever, { kind: 'calling', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown}`, suggested: s.suggested, apply });
+    else {
+      const outside = (l.min !== undefined && s.suggested < l.min) || (l.max !== undefined && s.suggested > l.max);
+      out.set(s.lever, { kind: 'beyond', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown} (${outside ? 'beyond the lever’s range' : 'the nearest step is where the lever is'})`, suggested: s.suggested });
     }
   }
   return out;
 }
 
-/** Does any shown lever of a section have a stabiliser calling that Apply would answer (the red dot on its header)? */
-export function sectionCalling(section: LeverSection, marks: ReadonlyMap<Id, StabiliserMark>, values: readonly number[], byId: ReadonlyMap<Id, ShowWhenLever>): boolean {
-  return section.levers.some((l) => marks.get(l.id)?.kind === 'calling' && isShown(l, values, byId));
+/** Does any lever of a section have a stabiliser calling that Apply would answer (the red dot on its header)? */
+export function sectionCalling(section: LeverSection, marks: ReadonlyMap<Id, StabiliserMark>): boolean {
+  return section.levers.some((l) => marks.get(l.id)?.kind === 'calling');
 }

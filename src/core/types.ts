@@ -139,6 +139,10 @@ export interface Ctx {
   stock(instrument: Id, player: Id): number;
   /** Current value of a lever setting. Declare in `levers`. */
   lever(id: Id): number;
+  /** Is a stabiliser's padlock closed? Closed (locked): the policy lever holds where it is and the
+   *  rule only suggests. Open (unlocked, the default): the rule sets the policy variable. Declare
+   *  the stabiliser's id in `locks`. */
+  locked(stabiliser: Id): boolean;
   /** Baseline (steady-state) value of a variable. Allowed without declaration.
    *  While the baseline is being solved it returns the current guess, so a rule that
    *  measures a gap against base() cannot pin the steady state; use a parameter for that. */
@@ -171,6 +175,8 @@ export interface RuleDef {
   params?: Id[];
   stocks?: [instrument: Id, player: Id][];
   levers?: Id[];
+  /** Stabilisers whose padlock the rule reads with `locked()` (StabiliserDef ids). */
+  locks?: Id[];
   terms?: TermDef[];
   /** Non-additive combination of term values, e.g. Math.min for binding caps. */
   combine?: (terms: Record<Id, number>, c: Ctx) => number;
@@ -266,7 +272,9 @@ export interface LeverDef {
   label: string;
   group: 'Policy' | 'Economy' | 'World' | string;
   section?: string; // UI accordion section, e.g. 'Central bank'
-  kind: 'setting' | 'choice' | 'oneoff';
+  /** 'lock' levers are made by the compiler, one per stabiliser (its padlock); models declare
+   *  settings, choices and one-offs. */
+  kind: 'setting' | 'choice' | 'oneoff' | 'lock';
   unit: string;
   default: number; // baseline setting (settings) or default size (one-offs)
   min?: number;
@@ -284,40 +292,43 @@ export interface LeverDef {
   /** Precise definition: level vs growth, duration, what happens when it ends. */
   definition: string;
   concepts?: Id[];
-  /** Show the lever only while another lever (a setting or choice) has one of these values,
-   *  e.g. only in one stabiliser mode. Presentation only: the engine still applies its value. */
-  showWhen?: { lever: Id; equals: number | number[] };
+  /** Padlocks only (kind 'lock'): the policy lever this padlock locks, and its stabiliser. */
+  locks?: { lever: Id; stabiliser: Id };
 }
 
 /**
  * A stabiliser: an automatic POLICY reaction, such as a central bank's inflation rule or a
- * debt-tied tax rule, declared so that it never acts unseen. The model's global stabiliser
- * setting (ModelDef.stabiliserMode) decides whether it acts:
- *   Automatic: the model's rules apply it (the user's lever becomes an offset to the rule);
- *   Manual:    policy levers stay where the user sets them, and the stabiliser only suggests.
- * The model must compute `suggestion` in BOTH modes (in Manual it is a shadow value).
+ * debt-tied tax rule, declared so that it never acts unseen. Each stabiliser's lever has a padlock
+ * (a 'lock' lever the compiler adds, `<lever>Lock`, decision 0010):
+ *   Unlocked (open, the default): the rule sets the policy variable, and the lever shows its value;
+ *   Locked (closed): the policy variable holds the lever's value, and the rule only suggests.
+ * Closing the padlock freezes the lever at the value in force (`current`); setting the lever while
+ * it is unlocked closes the padlock at the new value. The model must compute `suggestion` whether
+ * the padlock is open or closed (while it is closed it is a shadow value).
  */
 export interface StabiliserDef {
   id: Id;
   label: string; // "Central bank’s inflation rule"
-  /** The POLICY lever it acts on or stands in for: the lever the user sets in Manual mode. */
+  /** The POLICY lever it moves while unlocked: the lever the user holds by locking it. */
   lever: Id;
   /** Variable: what the rule would set `lever` to now, in the lever's units. */
   suggestion: Id;
+  /** The policy value in force, in the lever's units, read at the end of a month: what closing
+   *  the padlock freezes the lever at, and what the lever shows while it is unlocked. At the
+   *  baseline it must equal the lever's default. */
+  current: (c: IndicatorCtx) => number;
   /** In lever units: |suggestion − lever value| above this counts as calling for action. */
   threshold: number;
   description: string;
   concepts?: Id[];
-  /** Automatic mode: the lever that offsets the rule, when it is not `lever` itself (a key-rate
-   *  add-on that replaces a hidden key-rate level). Default: `lever`. */
-  offset?: Id;
-  /** Feed messages when the stabiliser starts calling in Manual mode: `raise` when the suggestion
-   *  is above the lever, `lower` when below. `{value}` is the suggestion and `{change}` the size of
-   *  the gap, in lever units. `indicator` is the chart the message opens. */
+  /** Feed messages when a locked stabiliser starts calling: `raise` when the suggestion is above
+   *  the lever, `lower` when below. `{value}` is the suggestion and `{change}` the size of the gap,
+   *  in lever units. `indicator` is the chart the message opens. */
   feed?: { raise: string; lower: string; indicator: Id };
-  /** Variables that only feed the suggestion while the stabiliser is Manual, such as the rate a
-   *  Taylor rule calls for: on Manual they drive nothing, so ideas at play leaves them out. The
-   *  compiler checks that no other rule reads them on Manual. */
+  /** Variables that only feed the suggestion while the stabiliser is locked, such as the rate a
+   *  Taylor rule calls for: then they drive nothing, so ideas at play leaves them out (unless an
+   *  unlocked stabiliser's rule still reads them). The compiler checks that no other rule reads
+   *  them when every stabiliser is locked. */
   shadow?: Id[];
 }
 
@@ -326,16 +337,38 @@ export interface StabiliserState {
   id: Id;
   label: string;
   lever: Id;
-  /** The lever that offsets the rule in Automatic mode (`lever` unless declared). */
-  offset: Id;
+  /** Its padlock: the 'lock' lever to set to 1 (lock) or 0 (unlock). */
+  lock: Id;
+  /** The padlock is closed: the lever holds, and the rule only suggests. */
+  locked: boolean;
   suggested: number;
+  /** The policy value in force, in lever units: the lever's value while locked, the rule's
+   *  value (StabiliserDef.current) while unlocked. */
   current: number;
   gap: number;
-  /** Manual mode and |gap| > threshold: the rule would move the lever if it were in charge. */
+  /** Locked and |gap| > threshold: the rule would move the lever if it were in charge. */
   calling: boolean;
-  /** The model's stabiliser setting is Automatic: the rule is acting. */
-  automatic: boolean;
   description: string;
+}
+
+/**
+ * How to read a scenario written before padlocks (scenario format 1, decision 0010). Then one
+ * global lever switched every stabiliser between Manual (held) and Automatic (the rules act), the
+ * held levels had levers of their own, and on Automatic offset levers tilted the rules.
+ */
+export interface LegacyStabiliserMode {
+  /** The old global setting, its two values and its default. */
+  lever: Id;
+  manual: number;
+  automatic: number;
+  default: number;
+  /** Levers the old Manual mode held, by old id → new id: kept on Manual, dropped on Automatic
+   *  (where they did nothing). */
+  held: Record<Id, Id>;
+  /** Levers that tilted a rule on Automatic: dropped, with a notice when one was set away from 0
+   *  while it acted. A lever may be both held and an offset (a tax lever that was a level on
+   *  Manual and a shift on top of the rule on Automatic). */
+  offsets: Id[];
 }
 
 export interface ShockApi {
@@ -432,7 +465,8 @@ export interface ModuleDef {
   indicators?: IndicatorDef[];
   concepts?: ConceptDef[];
   feed?: FeedRule[];
-  /** Automatic policy reactions this module's rules implement (see StabiliserDef). */
+  /** Automatic policy reactions this module's rules implement (see StabiliserDef); each one's
+   *  lever gets a padlock. */
   stabilisers?: StabiliserDef[];
   tests?: ModuleTest[];
 }
@@ -482,9 +516,9 @@ export interface ModelDef {
   dt: number; // 1/12
   steadyState: SteadyStateSpec;
   calibration?: CalibrationCheck[];
-  /** The global stabiliser setting: the lever whose value says Manual or Automatic. Required
-   *  when any module declares stabilisers. A value nearer `automatic` than `manual` is Automatic. */
-  stabiliserMode?: { lever: Id; manual: number; automatic: number };
+  /** How to migrate scenarios written for the model's old global stabiliser setting (scenario
+   *  format 1). Without it, old scenarios load unchanged. */
+  legacyStabiliserMode?: LegacyStabiliserMode;
 }
 
 /* ------------------------------------------------------------------ runtime */
@@ -500,6 +534,10 @@ export interface Scenario {
   modelId: Id;
   events: ScenarioEvent[];
   months: number;
+  /** Scenario format version (migrate.ts): 2 since padlocks (decision 0010), 1 before, when one
+   *  global setting switched the stabilisers. Absent means the current version, except in a file
+   *  or link without a format tag (parseScenario, the share link's `v`), which is version 1. */
+  version?: number;
 }
 
 export interface RunResult {
@@ -607,7 +645,7 @@ export interface FeedEntry {
   concept?: Id;
   /** A threshold message: the FeedRule's id. */
   rule?: Id;
-  /** A stabiliser message: the stabiliser's id (Manual mode, it started calling for action). */
+  /** A stabiliser message: the stabiliser's id (it is locked and started calling for action). */
   stabiliser?: Id;
   /** Stabiliser messages: +1 when the rule would raise the lever (its `raise` text), −1 lower. */
   dir?: 1 | -1;
@@ -622,6 +660,9 @@ export interface Engine {
   readonly t: number; // months since start
   reset(): void;
   step(n?: number): void;
+  /** Set a lever from this month on. Padlocks (decision 0010): setting a lever whose padlock is
+   *  open closes it, so the lever holds the new value; closing a padlock (setting it to 1) freezes
+   *  its lever at the value in force; opening it (0) hands the lever back to its rule. */
   setLever(id: Id, value: number): void;
   fire(id: Id, size?: number): void;
   leverValue(id: Id): number;
@@ -655,12 +696,12 @@ export interface Engine {
    *  with 'var:', 'flow:', 'indicator:', 'player:' or 'group:' when kinds share an id. */
   ideasAtPlay(scope?: Id): { concept: Id; weight: number; via: Id[] }[];
   checks(): CheckReport;
-  /** Narration: feed rules crossing their thresholds (marked with the rule's id), and (Manual
-   *  mode) stabilisers that start calling for action (marked with the stabiliser's id, the
-   *  direction and the numbers in the message). */
+  /** Narration: feed rules crossing their thresholds (marked with the rule's id), and locked
+   *  stabilisers that start calling for action (marked with the stabiliser's id, the direction
+   *  and the numbers in the message). */
   feed(): FeedEntry[];
-  /** Every declared stabiliser now, in declaration order: what it suggests, and whether it acts
-   *  (Automatic) or calls for action (Manual, gap above its threshold). */
+  /** Every declared stabiliser now, in declaration order: whether it is locked, what it suggests,
+   *  the value in force, and whether it calls for action (locked, gap above its threshold). */
   stabilisers(): StabiliserState[];
   /** Independent copy for counterfactuals: compare shock vs no-shock within the SAME variant.
    *  The fork replays this engine's events from the baseline under its own options.
@@ -696,13 +737,13 @@ export interface CompiledModel {
   params: ParamDef[];
   rules: RuleDef[];
   flows: FlowDef[];
+  /** The declared levers, then one padlock (kind 'lock') per stabiliser, in stabiliser order. */
   levers: LeverDef[];
   indicators: IndicatorDef[];
   concepts: ConceptDef[];
   feed: FeedRule[];
   /** Declared stabilisers of every module, in module order. */
   stabilisers: StabiliserDef[];
-  stabiliserMode?: { lever: Id; manual: number; automatic: number };
   /** Evaluation schedule: ordered blocks; a block with >1 rule is solved simultaneously. */
   schedule: { rules: Id[]; simultaneous: boolean }[];
   ruleFor(varId: Id): RuleDef | undefined;

@@ -297,7 +297,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   const exempt = m.instruments.flatMap((ins) => (ins.mayGoNegative ? [`\`${ins.id}\`${ins.mayGoNegative.players ? ` (${ins.mayGoNegative.players.join(', ')})` : ''}`] : []));
   const plausibleNote = `Plausibility: ${bounds.length} bounds on variables (${[...new Set(bounds.map((b) => b.rule))].map((r) => `${bounds.filter((b) => b.rule === r).map((b) => `\`${b.id}\``).join(', ')} ${r}`).join('; ')}), and the kernel's position-sign diagnostic: a holder's asset and an issuer's liability at least −${e2(signTol)} (exempt, decision 0005: ${exempt.join(', ') || 'none'}). Any breach fails the run`;
   // The lever expectations (6g) reuse the lever-extremes runs they need: a lever at its min or max
-  // from month 0, held, in one mode, is the same run in both.
+  // from month 0, held, in one lock configuration, is the same run in both.
   const declared = opts.expectations !== undefined ? opts.expectations : readExpectations(def.id);
   const expectations = declared ?? [];
   const gateMonths = Math.max(opts.extremeMonths, ...expectations.map((x) => x.toMonth));
@@ -363,7 +363,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     const pass = ok === runs.length;
     pass6 &&= pass;
     sum6.push(`extremes ${ok}/${runs.length} (${nBreach} breach(es))`);
-    const modes = def.stabiliserMode ? ', in each stabiliser mode that shows the lever' : '';
+    const modes = m.levers.some((l) => l.kind === 'lock') ? ', with every policy lever unlocked and with every one locked (the padlocks are not moved as levers)' : '';
     body6.push(
       '### Lever extremes',
       '',
@@ -536,7 +536,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Golden scenarios',
       '',
-      `Stored indicator paths in \`tests/golden/${m.def.id}/\`, compared point by point with tolerance ${GOLDEN_ABS} + ${GOLDEN_REL} × |stored value|; a stored or new value that is not a finite number fails, and so does a run with an implausible value or a wrong-signed position (the checks of the lever extremes). The table shows the point furthest outside, or nearest to, its tolerance. The all-levers scenarios move every lever in turn, one every 3 months, and run 36 months past the last${def.stabiliserMode ? ', once in each stabiliser mode, moving only the levers that mode shows' : ''}. ${opts.updateGolden ? 'Updated in this run.' : ''}`,
+      `Stored indicator paths in \`tests/golden/${m.def.id}/\`, compared point by point with tolerance ${GOLDEN_ABS} + ${GOLDEN_REL} × |stored value|; a stored or new value that is not a finite number fails, and so does a run with an implausible value or a wrong-signed position (the checks of the lever extremes). The table shows the point furthest outside, or nearest to, its tolerance. The all-levers scenarios move every lever in turn, one every 3 months, and run 36 months past the last${m.levers.some((l) => l.kind === 'lock') ? ', once with every policy lever unlocked and once with every one locked at month 0 (moving a policy lever locks it in both)' : ''}. ${opts.updateGolden ? 'Updated in this run.' : ''}`,
       '',
       '| Scenario | Difference at the worst point | Where | Verdict |',
       '|---|---|---|---|',
@@ -568,10 +568,10 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     kept.clear();
     const results = rep?.expectations ?? [];
     const held = results.filter((x) => x.pass).length;
-    // Once a model declares expectations, every lever the user can move needs some (the
-    // stabiliser setting is checked through the switch between modes, when it has any). Every model
-    // in src/models must declare them (tests/models/models.test.ts); a test fixture need not.
-    const uncovered = !declared ? [] : levers.filter((l) => l.id !== def.stabiliserMode?.lever && !expectations.some((x) => x.lever === l.id)).map((l) => l.id);
+    // Once a model declares expectations, every lever the user can move needs some (a padlock is a
+    // lock configuration, not a lever, and needs none). Every model in src/models must declare them
+    // (tests/models/models.test.ts); a test fixture need not.
+    const uncovered = !declared ? [] : levers.filter((l) => l.kind !== 'lock' && !expectations.some((x) => x.lever === l.id)).map((l) => l.id);
     const runs = rep ? rep.levers.flatMap((s) => [...s.runs, ...s.companionRuns]) : [];
     const broken = [
       ...(rep?.noChange ?? []).filter((n) => n.flags.some((g) => BROKEN_FLAGS.includes(g.kind))).map((n) => `the no-change run${n.mode ? ` on ${n.mode}` : ''}`),
@@ -593,7 +593,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Lever expectations',
       '',
-      `The signs theory predicts for each lever, declared in \`src/models/${m.def.id}/expectations.ts\` and measured as \`bun run levers\` measures them: the mean effect over the months named, against the no-change run in the same mode, must have the expected sign and be at least ${rep?.thresholds.floor ?? 0.01}, or stay below it for “does not move”. Only the runs an expectation needs are made (${gateMonths} months each): ${rep?.runs ?? 0} lever runs, ${reused} of them reused from the lever extremes. Every lever other than the stabiliser setting must have at least one expectation, and no run may be broken (a value that is not finite, an accounting residual, a wrong-signed position or an implausible value). ${held}/${results.length} hold: ${verdict(pass)}.`,
+      `The signs theory predicts for each lever, declared in \`src/models/${m.def.id}/expectations.ts\` and measured as \`bun run levers\` measures them: the mean effect over the months named, against the no-change run in the same lock configuration, must have the expected sign and be at least ${rep?.thresholds.floor ?? 0.01}, or stay below it for “does not move”. Only the runs an expectation needs are made (${gateMonths} months each): ${rep?.runs ?? 0} lever runs, ${reused} of them reused from the lever extremes. Every lever other than the padlocks must have at least one expectation, and no run may be broken (a value that is not finite, an accounting residual, a wrong-signed position or an implausible value). ${held}/${results.length} hold: ${verdict(pass)}.`,
       '',
       ...(declared ? [] : [`The model declares no expectations (\`src/models/${m.def.id}/expectations.ts\` does not exist), so there is nothing to check.`, '']),
       ...(crash ? [`The report could not run: ${crash}.`, ''] : []),

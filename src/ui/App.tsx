@@ -6,7 +6,7 @@
  * Everything is generated from the compiled model through the EngineClient; nothing here knows
  * which model it is showing.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Id, ModelDef } from '../core/types.ts';
 import { models as registryModels } from '../models/index.ts';
 import { createEngineClient, type EngineClient } from './engine-client.ts';
@@ -72,6 +72,8 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
   const [pool] = useState(() => new ClientPool(models));
   const choices = useMemo(() => models.map((m) => ({ id: m.id, label: m.label })), [models]);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Notices from migrating a link written before padlocks (decision 0010), shown once it has loaded. */
+  const bootNotices = useRef<string[]>([]);
   const [linkView, setLinkView] = useState<LinkView>(() => {
     const boot = decodeScenarioHash(initialHash);
     const forThis = boot.ok && (!boot.state.modelId || !initialModelId || boot.state.modelId === initialModelId);
@@ -84,7 +86,7 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
     // Replay a shared scenario once, on the model it names.
     if (boot.ok && hasScenario(boot.state) && (!boot.state.modelId || boot.state.modelId === id)) {
       const c = pool.get(id).client;
-      c?.load({ modelId: id, events: boot.state.events, months: boot.state.months });
+      bootNotices.current = c?.load({ modelId: id, events: boot.state.events, months: boot.state.months, version: boot.state.version }) ?? [];
     }
     return id;
   });
@@ -105,7 +107,10 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
       pool.pauseAll();
       setModelId(id);
       const c = pool.get(id).client;
-      if (c && scenario && hasScenario(scenario)) c.load({ modelId: id, events: scenario.events, months: scenario.months });
+      if (c && scenario && hasScenario(scenario)) {
+        const notices = c.load({ modelId: id, events: scenario.events, months: scenario.months, version: scenario.version });
+        if (notices.length) setNotice(notices.join(' '));
+      }
       setLinkView((v) => ({ expanded: scenario?.expanded, n: v.n + 1 }));
       if (typeof window !== 'undefined' && !scenario) window.history.replaceState(null, '', `#m=${encodeURIComponent(id)}`);
     },
@@ -120,7 +125,10 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
       const target = linkTarget(pool.ids, modelId, d.state.modelId);
       if (target.kind === 'unavailable') return setNotice(`This link is for model '${target.modelId}', which is not available here.`);
       if (target.kind === 'switch') return switchModel(target.id, d.state);
-      if (hasScenario(d.state)) pool.get(modelId).client?.load({ modelId, events: d.state.events, months: d.state.months });
+      if (hasScenario(d.state)) {
+        const notices = pool.get(modelId).client?.load({ modelId, events: d.state.events, months: d.state.months, version: d.state.version }) ?? [];
+        if (notices.length) setNotice(notices.join(' '));
+      }
       if (d.state.expanded) setLinkView((v) => ({ expanded: d.state.expanded, n: v.n + 1 }));
     };
     window.addEventListener('hashchange', onHash);
@@ -131,6 +139,7 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
     const d = decodeScenarioHash(initialHash);
     if (!d.ok) setNotice(`Could not read the scenario link: ${d.error}`);
     else if (d.state.modelId && !pool.ids.includes(d.state.modelId)) setNotice(`This link is for model '${d.state.modelId}', which is not available here.`);
+    else if (bootNotices.current.length) setNotice(bootNotices.current.join(' '));
   }, [initialHash, pool]);
 
   if (!entry.client)
@@ -188,8 +197,8 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
   const vkey = viewKey(eff);
   // Pipes at the level that is open on the map, recomputed each tick.
   const viewPipes = useMemo(() => client.pipes({ expanded: [...eff] }), [client, frame.seq, vkey]);
-  // Stabilisers acting now (Automatic): the numbers they set get a "rule" marker on the map.
-  const rulesActing = useMemo(() => frame.stabilisers.filter((st) => st.automatic).map((st) => st.id).join(' '), [frame.stabilisers]);
+  // Stabilisers acting now (unlocked): the numbers they set get a "rule" marker on the map.
+  const rulesActing = useMemo(() => frame.stabilisers.filter((st) => !st.locked).map((st) => st.id).join(' '), [frame.stabilisers]);
   const expandable = useMemo(() => expandableGroups(info), [info]);
 
   // Going to a player or group hidden inside a closed group (from the inspector, the ledger or

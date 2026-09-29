@@ -3,10 +3,10 @@
  * lever-extremes sweep and the shock used to time a step. Kept apart from layers.ts so that
  * tests can check which events they contain without running the harness.
  *
- * A lever hidden in a stabiliser mode (`showWhen`, decision 0004) is not moved in that mode: the
- * panel never lets a user set it there, and switching mode puts it back to its default. So the
- * Manual runs leave the Automatic-only offsets alone and the Automatic runs leave the Manual-only
- * levers alone; every lever is still moved in the mode that shows it.
+ * The harness runs them in two lock configurations (decision 0010): 'unlocked', the default, where
+ * every stabiliser's rule sets its policy lever, and 'locked', where every padlock is closed at
+ * month 0 (the old Manual setting). Padlocks are configurations, not shocks, so no scenario moves
+ * one as a lever. Moving a policy lever locks it, in either configuration.
  */
 import type { Id, LeverDef, ScenarioEvent } from '../core/types.ts';
 import type { KModel } from '../core/compile.ts';
@@ -23,31 +23,35 @@ export const ALL_LEVERS_TAIL = 36;
 /** Months between one lever's event and the next in the all-levers scenarios. */
 export const ALL_LEVERS_SPACING = 3;
 
-/** The stabiliser modes as scenario events at month 0, or one unnamed mode when the model has no setting. */
-export function stabiliserModes(m: KModel): { label: string; event?: ScenarioEvent }[] {
-  const s = m.def.stabiliserMode;
-  if (!s) return [{ label: '' }];
-  return [
-    { label: 'Manual', event: { t: 0, lever: s.lever, value: s.manual } },
-    { label: 'Automatic', event: { t: 0, lever: s.lever, value: s.automatic } },
-  ];
+/** A lock configuration: a label and the padlock events at month 0 that set it up. */
+export interface LockConfig {
+  label: string;
+  events: ScenarioEvent[];
 }
 
-/** The levers a scenario may move on its own: every lever except the stabiliser setting itself. */
-const shockLevers = (m: KModel): LeverDef[] => m.levers.filter((l) => l.id !== m.def.stabiliserMode?.lever);
+/** Every policy lever unlocked: the rules act (the default, the old Automatic). */
+export const UNLOCKED = 'unlocked';
+/** Every policy lever locked: nothing moves them unless the user does (the old Manual). */
+export const LOCKED = 'locked';
 
-/** Is a lever shown when every lever is at its default except those in `set`? (`showWhen`) */
-export function shownWith(m: KModel, l: LeverDef, set: readonly ScenarioEvent[] = []): boolean {
-  const sw = l.showWhen;
-  if (!sw) return true;
-  const other = m.levers.find((x) => x.id === sw.lever);
-  if (!other) return true;
-  const v = [...set].reverse().find((e) => e.lever === sw.lever)?.value ?? other.default;
-  return (Array.isArray(sw.equals) ? sw.equals : [sw.equals]).some((x) => Math.abs(x - v) < 1e-9);
+/** The padlock levers of a model (kind 'lock', one per stabiliser). */
+export const padlocks = (m: KModel): LeverDef[] => m.levers.filter((l) => l.kind === 'lock');
+
+/**
+ * The lock configurations, 'unlocked' then 'locked', and any `extra` ones (the lever report's
+ * 'key rate locked'), each closing the padlocks it names at month 0. A model without stabilisers
+ * has one unnamed configuration.
+ */
+export function lockConfigs(m: KModel, extra: readonly { label: string; locks: Id[] }[] = []): LockConfig[] {
+  const locks = padlocks(m).map((l) => l.id);
+  if (!locks.length) return [{ label: '', events: [] }];
+  const close = (ids: readonly Id[]) => ids.map((lever): ScenarioEvent => ({ t: 0, lever, value: 1 }));
+  for (const x of extra) for (const id of x.locks) if (!locks.includes(id)) throw new Error(`lock configuration '${x.label}' closes '${id}', which is not a padlock of model '${m.def.id}'`);
+  return [{ label: UNLOCKED, events: [] }, { label: LOCKED, events: close(locks) }, ...extra.map((x) => ({ label: x.label, events: close(x.locks) }))];
 }
 
-/** The levers a scenario moves in a stabiliser mode: those shown in it. */
-const leversIn = (m: KModel, mode?: ScenarioEvent): LeverDef[] => shockLevers(m).filter((l) => shownWith(m, l, mode ? [mode] : []));
+/** The levers a scenario may move on its own: every lever except the padlocks. */
+const shockLevers = (m: KModel): LeverDef[] => m.levers.filter((l) => l.kind !== 'lock');
 
 /** A lever event: one-offs fire, settings and choices are set. */
 const leverEvent = (l: LeverDef, t: number, value: number): ScenarioEvent => (l.kind === 'oneoff' ? { t, lever: l.id, value, fire: true } : { t, lever: l.id, value });
@@ -57,13 +61,13 @@ const leverEvent = (l: LeverDef, t: number, value: number): ScenarioEvent => (l.
  * the rest of the run, which ends ALL_LEVERS_TAIL months after the last event (an event at or
  * after the last month would never reach the recorded history). One-offs fire at their default
  * size; settings move halfway from their default to their max; choices take their first option
- * other than the default. With a stabiliser setting there is one scenario per mode, set at month
- * 0, so that every lever shown in only one mode (`showWhen`) acts in one of them.
+ * other than the default. With stabilisers there is one scenario per lock configuration, set at
+ * month 0.
  */
 export function allLeversScenarios(m: KModel): HarnessScenario[] {
-  return stabiliserModes(m).map(({ label, event }) => {
+  return lockConfigs(m).map(({ label, events }) => {
     const seq: ScenarioEvent[] = [];
-    for (const l of leversIn(m, event)) {
+    for (const l of shockLevers(m)) {
       const t = ALL_LEVERS_SPACING * seq.length;
       if (l.kind === 'oneoff') seq.push(leverEvent(l, t, l.default));
       else if (l.kind === 'choice') seq.push(leverEvent(l, t, l.options?.find((o) => o.value !== l.default)?.value ?? l.max ?? l.default + 1));
@@ -73,8 +77,8 @@ export function allLeversScenarios(m: KModel): HarnessScenario[] {
       }
     }
     return {
-      name: label ? `all-levers-${label.toLowerCase()}` : 'all-levers',
-      events: event ? [event, ...seq] : seq,
+      name: label ? `all-levers-${label.toLowerCase().replace(/ /g, '-')}` : 'all-levers',
+      events: [...events, ...seq],
       months: ALL_LEVERS_SPACING * seq.length + ALL_LEVERS_TAIL,
     };
   });
@@ -83,7 +87,7 @@ export function allLeversScenarios(m: KModel): HarnessScenario[] {
 export interface ExtremeRun {
   lever: Id;
   value: number;
-  /** Stabiliser mode label, or '' when the model has no stabiliser setting. */
+  /** Lock configuration label, or '' when the model has no stabilisers. */
   mode: string;
   events: ScenarioEvent[];
 }
@@ -97,24 +101,24 @@ export function extremeValues(l: LeverDef): number[] {
 
 /**
  * The lever-extremes sweep: every lever alone, at each extreme value, from month 0, in each
- * stabiliser mode that shows it. The random property runs rarely land on a lever's limits; this
- * covers them all.
+ * lock configuration. The random property runs rarely land on a lever's limits; this covers them
+ * all.
  */
 export function leverExtremeRuns(m: KModel): ExtremeRun[] {
   const runs: ExtremeRun[] = [];
-  for (const { label, event } of stabiliserModes(m))
-    for (const l of leversIn(m, event))
+  for (const { label, events } of lockConfigs(m))
+    for (const l of shockLevers(m))
       for (const value of extremeValues(l)) {
         const ev = leverEvent(l, 0, value);
-        runs.push({ lever: l.id, value, mode: label, events: event ? [event, ev] : [ev] });
+        runs.push({ lever: l.id, value, mode: label, events: [...events, ev] });
       }
   return runs;
 }
 
 /**
  * The shock the step timing runs under: the first one-off lever, fired at its default size (or
- * its max when the default is 0); without one, the first setting (not a choice, and never the
- * stabiliser setting, which is a mode switch rather than a shock) whose max differs from its default.
+ * its max when the default is 0); without one, the first setting (not a choice or a padlock,
+ * which is a configuration rather than a shock) whose max differs from its default.
  */
 export function timingShock(m: KModel): { describe: string; apply(e: KernelEngine): void } | null {
   const shock = m.levers.find((l) => l.kind === 'oneoff');

@@ -18,7 +18,7 @@
  */
 import type { Ctx, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth, VA0, type Age, type Firm } from '../util.ts';
+import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth, VA0, type Age, type Firm, lockPolicy } from '../util.ts';
 
 /** Tourism employs more young people than other firms (youthTiltXT); retail and services employ
  *  correspondingly fewer, so every age group's total pay is unchanged. The extra pay moved from
@@ -384,7 +384,7 @@ export const labourAndWages: ModuleDef = {
       step: 0.5,
       description: 'A one-off jump in nominal wage rates, as after a collective agreement.',
       definition:
-        'One-off level shift: the wage rate, private and public, jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages follow the Phillips curve. Firms price the pay rise in within a few months, so at first the real-wage gain erodes mainly through prices (+10% on Manual: consumer prices about 2.7% higher after a year, wages about 2 points below their new level). Wage bargainers then work the rest off over the following rounds (the error correction, with a lag of about a year), until wages are back in line with what firms earn per unit of value added. With labour about half of unit cost, domestic prices rise by only about two-thirds of the wage rise at a given exchange rate, so in the end wages give back most of the settlement: on Automatic the price level is about 3.5% higher after six years and about 3.1% after twenty, with wages a little above it.',
+        'One-off level shift: the wage rate, private and public, jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages follow the Phillips curve. Firms price the pay rise in within a few months, so at first the real-wage gain erodes mainly through prices (+10% with both policy levers locked: consumer prices about 2.7% higher after a year, wages about 2 points below their new level). Wage bargainers then work the rest off over the following rounds (the error correction, with a lag of about a year), until wages are back in line with what firms earn per unit of value added. With labour about half of unit cost, domestic prices rise by only about two-thirds of the wage rise at a given exchange rate, so in the end wages give back most of the settlement: with the policy rules acting the price level is about 3.5% higher after six years and about 3.1% after twenty, with wages a little above it.',
       concepts: ['wage-bargaining', 'cost-pass-through', 'profit-squeeze'],
       fire: (s, size) => s.setLagged('settlementJump', s.get('settlementJump') + Math.log(1 + size / 100)),
     },
@@ -401,7 +401,7 @@ export const labourAndWages: ModuleDef = {
       step: 0.5,
       description: 'A wave of workers arriving from abroad (or leaving), looking for work.',
       definition:
-        'One-off shift in the labour force, in thousands of people of working age, in the month the lever is fired (5 thousand is about 2% of the labour force). They stay. They arrive looking for work, so unemployment rises at once, mostly among the young and working age; wage growth slows through the Phillips curve, their benefits add to spending and they need homes. They take the first new jobs as demand grows with them, and while jobs are short a part of the shortfall moves on again (the migration buffer). At 5 thousand, unemployment is about 1.4 points higher at first. On Automatic, where the central bank counts them in the economy’s capacity and eases, unemployment is 0.3 point higher after 20 years, with jobs 1.5%, output 2.8% and real house prices 4.8% higher; on Manual unemployment stays about 0.8 point higher, and jobs end 0.9%, output 1.2% and house prices 1.2% higher. A negative value is emigration, with the reverse effects. To size the share of job changes met by migration, use the migration buffer.',
+        'One-off shift in the labour force, in thousands of people of working age, in the month the lever is fired (5 thousand is about 2% of the labour force). They stay. They arrive looking for work, so unemployment rises at once, mostly among the young and working age; wage growth slows through the Phillips curve, their benefits add to spending and they need homes. They take the first new jobs as demand grows with them, and while jobs are short a part of the shortfall moves on again (the migration buffer). At 5 thousand, unemployment is about 1.4 points higher at first. With the policy rules acting, where the central bank counts them in the economy’s capacity and eases, unemployment is 0.3 point higher after 20 years, with jobs 1.5%, output 2.8% and real house prices 4.8% higher; with both policy levers locked unemployment stays about 0.8 point higher, and jobs end 0.9%, output 1.2% and house prices 1.2% higher. A negative value is emigration, with the reverse effects. To size the share of job changes met by migration, use the migration buffer.',
       concepts: ['migration-buffer', 'wage-phillips-curve'],
       fire: (s, size) => s.setLagged('labourInflow', s.get('labourInflow') + size),
     },
@@ -436,13 +436,13 @@ export const labourAndWages: ModuleDef = {
     },
     {
       id: 'unemployment-stays-positive-in-a-boom',
-      label: 'Public spending +3% of GDP on both health and education, on Manual and on Automatic: every group keeps some unemployed people, so benefits stay positive',
+      label: 'Public spending +3% of GDP on both health and education, with the policy levers locked and unlocked: every group keeps some unemployed people, so benefits stay positive',
       run: (e) => {
         let worst = Infinity,
           worstBenefit = Infinity;
-        for (const mode of [0, 1]) {
+        for (const locked of [true, false]) {
           const f = e.fork();
-          f.setLever('stabilisers', mode);
+          lockPolicy(f, locked);
           f.setLever('health', 3);
           f.setLever('education', 3);
           for (let m = 0; m < 120; m++) {

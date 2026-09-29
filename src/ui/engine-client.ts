@@ -14,17 +14,15 @@
  * the furthest month simulated so far (the horizon); going back replays from the engine's
  * snapshots, so the numbers are identical to a straight run.
  *
- * A lever hidden by the stabiliser setting stays at its default (decision 0004). The panel adds
- * those resets when the user switches mode. After going back in time, a change can break the rule
- * later in the script (a lever set before a later switch that hides it, or a switch made before a
- * later setting of a lever it hides), and so can a loaded scenario; the client then adds the
- * missing resets to the script (keepHiddenAtDefault). It never removes an event, so a change keeps
- * the later ones (decision 0001), and the lever values are those of a straight run.
+ * Padlocks (decision 0010) are levers like any other: locking, unlocking and a lever moved while
+ * unlocked (which locks it) are lever events, so they replay, rewind and travel in share links.
+ * A scenario written before padlocks (format 1) is migrated as it loads, and load() returns the
+ * notices of anything the migration could not carry over.
  */
 import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
 import type { BalanceSheet, FeedEntry, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent, SignViolation, StabiliserState } from '../core/types.ts';
+import { migrateScenario, SCENARIO_VERSION } from '../core/migrate.ts';
 import { describeModel, type ModelInfo } from './model/info.ts';
-import { keepHiddenAtDefault } from './model/levers.ts';
 
 export type Speed = 1 | 3 | 6;
 export const SPEEDS: readonly Speed[] = [1, 3, 6];
@@ -78,7 +76,8 @@ export interface Frame {
   feed: readonly FeedItem[];
   /** Active regime of each rule that has one (null when nothing special), by rule id. */
   regimes: Readonly<Record<Id, string | null>>;
-  /** Every stabiliser now: what it suggests, and whether it acts (Automatic) or calls (Manual). */
+  /** Every stabiliser now: whether it is locked, what it suggests, the value in force, and whether
+   *  it calls for action (locked, and further from its rule than its threshold). */
   stabilisers: readonly StabiliserState[];
   /** The last action that failed, if any. */
   error: string | null;
@@ -101,7 +100,9 @@ export interface EngineClient {
   fire(id: Id, size?: number): void;
   /* scenarios */
   scenario(): Scenario;
-  load(s: Scenario): void;
+  /** Replay a scenario from the baseline. One written before padlocks (version 1) is migrated
+   *  first; the notices say what the migration could not carry over (none otherwise). */
+  load(s: Scenario): string[];
   /* details, on demand */
   influences(id: Id): Influence;
   ideasAtPlay(scope?: Id): IdeaWeight[];
@@ -133,7 +134,7 @@ const sameViolations = (a: readonly SignViolation[], b: readonly SignViolation[]
   a.length === b.length && a.every((x, i) => x.instrument === b[i].instrument && x.player === b[i].player && x.t === b[i].t && Object.is(x.value, b[i].value));
 
 const sameStabilisers = (a: readonly StabiliserState[], b: readonly StabiliserState[]) =>
-  a.length === b.length && a.every((x, i) => x.id === b[i].id && Object.is(x.suggested, b[i].suggested) && Object.is(x.current, b[i].current) && x.calling === b[i].calling && x.automatic === b[i].automatic);
+  a.length === b.length && a.every((x, i) => x.id === b[i].id && Object.is(x.suggested, b[i].suggested) && Object.is(x.current, b[i].current) && x.calling === b[i].calling && x.locked === b[i].locked);
 
 class MainThreadClient implements EngineClient {
   readonly info: ModelInfo;
@@ -361,17 +362,8 @@ class MainThreadClient implements EngineClient {
   setLever(id: Id, value: number): void {
     this.act(() => {
       this.engine.setLever(id, value);
-      this.keepHiddenAtDefault();
       if (!this.playing) this.start();
     });
-  }
-
-  /** Keep every hidden lever at its default through the script by adding resets, replaying it to this month if it changes. */
-  private keepHiddenAtDefault(): void {
-    const events = keepHiddenAtDefault(this.info.levers, this.engine.events);
-    if (!events) return;
-    this.engine.load({ modelId: this.info.id, events, months: this.engine.t });
-    this.rebuildHistory();
   }
 
   fire(id: Id, size?: number): void {
@@ -387,11 +379,14 @@ class MainThreadClient implements EngineClient {
     return { modelId: this.info.id, events: this.engine.events, months: this.engine.t };
   }
 
-  load(s: Scenario): void {
+  load(s: Scenario): string[] {
     this.halt();
+    let notices: string[] = [];
     this.act(() => {
       try {
-        this.engine.load({ ...s, events: keepHiddenAtDefault(this.info.levers, s.events) ?? s.events, months: Math.min(s.months, this.maxMonths) });
+        const now = (s.version ?? SCENARIO_VERSION) < SCENARIO_VERSION ? migrateScenario(this.engine.model, s) : { scenario: s, notices: [] };
+        notices = now.notices;
+        this.engine.load({ ...now.scenario, months: Math.min(s.months, this.maxMonths) });
       } catch (err) {
         this.engine.reset();
         this.horizon = 0;
@@ -403,6 +398,7 @@ class MainThreadClient implements EngineClient {
       this.ended = this.engine.t >= this.maxMonths;
       this.rebuildHistory();
     });
+    return notices;
   }
 
   /* -------------------------------------------------------------- details */

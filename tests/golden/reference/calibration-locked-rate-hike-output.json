@@ -1,22 +1,27 @@
 {
  "format": "iceland-inc/golden@1",
  "modelId": "reference",
- "scenario": "calibration-manual-rate-hike-output",
+ "scenario": "calibration-locked-rate-hike-output",
  "months": 60,
  "events": [
   {
    "t": 0,
-   "lever": "stabilisers",
-   "value": 0
+   "lever": "keyRateLock",
+   "value": 1
   },
   {
    "t": 0,
-   "lever": "keyRateFixed",
+   "lever": "taxRateLock",
+   "value": 1
+  },
+  {
+   "t": 0,
+   "lever": "keyRate",
    "value": 4
   },
   {
    "t": 24,
-   "lever": "keyRateFixed",
+   "lever": "keyRate",
    "value": 3
   }
  ],

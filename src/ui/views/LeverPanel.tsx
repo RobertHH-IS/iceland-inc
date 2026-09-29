@@ -2,16 +2,16 @@
  * LeverPanel: accordion sections from LeverDef.section (fallback: group). Settings get −/+
  * steppers and a bar with the baseline marker; choices become buttons; one-offs get a size
  * stepper and "Apply now". Each lever has an info toggle with its description and precise
- * definition. Changed levers are highlighted, with a count per section. A lever with `showWhen`
- * is hidden (and not counted) unless the lever it names has one of the listed values.
+ * definition. Changed levers are highlighted, with a count per section.
  *
- * Stabilisers (decision 0004): the model's stabiliser setting sits at the top as Manual /
- * Automatic. On Manual, a lever whose stabiliser is calling for action turns red, says what the
- * rule would set it to and offers "Apply"; its section header gets a red dot. When Apply could
- * not move the lever (the rule wants a value beyond its range), the suggestion is a plain note,
- * without Apply or a red dot. On Automatic, the
- * lever that offsets a rule says what the rule sets. Switching mode puts the levers the new mode
- * hides back to their defaults.
+ * Padlocks (decision 0010): a lever with a rule behind it (a stabiliser) has a small padlock
+ * beside it. Unlocked, the default, the rule moves the lever: its knob and value follow the live
+ * value, marked "auto", and a step from there locks it at the new value. Locked, the lever holds
+ * where it is; when its rule calls for action the lever turns red, says what the rule would set it
+ * to and offers "Apply", and its section header gets a red dot. When Apply could not move the
+ * lever (the rule wants a value beyond its range), the suggestion is a plain note, without Apply
+ * or a red dot. Pressing the padlock locks the lever where it is, or hands it back to its rule.
+ * Levers without a rule have no padlock and never move by themselves.
  *
  * Changing a lever starts the clock if it is paused: the change then filters through the
  * economy month by month.
@@ -21,15 +21,17 @@ import type { Id, ScenarioEvent, StabiliserState } from '../../core/types.ts';
 import type { EngineClient } from '../engine-client.ts';
 import type { LeverInfo, ModelInfo } from '../model/info.ts';
 import {
+  changedCountWithLocks,
   firedCounts,
-  isChanged,
-  isShown,
+  isLeverChanged,
   leverBar,
   leverSections,
   leverValueLabel,
-  resetsWhenSetting,
+  lockActionLabel,
+  lockTitle,
+  padlocksByLever,
   sectionCalling,
-  shownChangedCount,
+  shownValue,
   stabiliserMarks,
   stepLever,
   type StabiliserMark,
@@ -47,20 +49,14 @@ interface LeverPanelProps {
 
 const NO_STABILISERS: readonly StabiliserState[] = [];
 
-/** Set a lever, first putting back to default the levers that its new value hides. */
-function setWithResets(info: ModelInfo, client: EngineClient, values: readonly number[], id: Id, value: number): void {
-  for (const r of resetsWhenSetting(info.levers, values, id, value)) client.setLever(r.id, r.value);
-  client.setLever(id, value);
-}
-
 export const LeverPanel = memo(function LeverPanel({ info, client, values, events, stabilisers = NO_STABILISERS }: LeverPanelProps) {
-  const modeLever = info.stabiliserMode ? info.leverById.get(info.stabiliserMode.lever) : undefined;
-  const sections = useMemo(() => leverSections(info.levers.filter((l) => l.id !== modeLever?.id)), [info, modeLever]);
+  // the padlocks are drawn beside their levers, not as levers of their own
+  const sections = useMemo(() => leverSections(info.levers.filter((l) => l.kind !== 'lock')), [info]);
   const fired = useMemo(() => firedCounts(events), [events]);
   const marks = useMemo(() => stabiliserMarks(stabilisers, info.leverById), [stabilisers, info]);
+  const pads = useMemo(() => padlocksByLever(stabilisers), [stabilisers]);
   const [open, setOpen] = useState<Set<string>>(() => new Set(info.levers.length <= 8 ? sections.map((s) => s.id) : sections.slice(0, 2).map((s) => s.id)));
-  const modeChanged = modeLever ? isChanged(modeLever, values[modeLever.index] ?? modeLever.default, fired) : false;
-  const total = sections.reduce((n, s) => n + shownChangedCount(s, values, fired, info.leverById), 0) + (modeChanged ? 1 : 0);
+  const total = sections.reduce((n, s) => n + changedCountWithLocks(s, values, fired, pads), 0);
   const toggle = (id: string) =>
     setOpen((o) => {
       const n = new Set(o);
@@ -75,13 +71,10 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
         {total > 0 && <span className="muted small">{total} changed</span>}
       </div>
       <div className="panel-body scroll">
-        {modeLever && <StabiliserControl info={info} lever={modeLever} value={values[modeLever.index] ?? modeLever.default} values={values} client={client} />}
         {sections.length === 0 && <p className="muted">This model has no levers.</p>}
         {sections.map((s) => {
-          const shown = s.levers.filter((l) => isShown(l, values, info.leverById));
-          if (!shown.length) return null;
-          const n = shownChangedCount(s, values, fired, info.leverById);
-          const calling = sectionCalling(s, marks, values, info.leverById);
+          const n = changedCountWithLocks(s, values, fired, pads);
+          const calling = sectionCalling(s, marks);
           const isOpen = open.has(s.id);
           const bodyId = `levers-${s.id.replace(/\W+/g, '-')}`;
           return (
@@ -102,8 +95,8 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
               </h3>
               {isOpen && (
                 <div className="acc-body" id={bodyId}>
-                  {shown.map((l) => (
-                    <LeverRow key={l.id} lever={l} value={values[l.index] ?? l.default} fired={fired.get(l.id) ?? 0} client={client} mark={marks.get(l.id)} />
+                  {s.levers.map((l) => (
+                    <LeverRow key={l.id} lever={l} value={values[l.index] ?? l.default} fired={fired.get(l.id) ?? 0} client={client} mark={marks.get(l.id)} pad={pads.get(l.id)} />
                   ))}
                 </div>
               )}
@@ -115,55 +108,43 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
   );
 });
 
-/** The stabiliser setting: Manual / Automatic, with its description behind the info toggle. */
-function StabiliserControl({ info, lever: l, value, values, client }: { info: ModelInfo; lever: LeverInfo; value: number; values: readonly number[]; client: EngineClient }) {
-  const [showInfo, setShowInfo] = useState(false);
-  const infoId = `lever-info-${l.id}`;
+/** The padlock beside a lever with a rule: closed (locked) or open (unlocked, the rule moves it). */
+function Padlock({ lever: l, pad, client }: { lever: LeverInfo; pad: StabiliserState; client: EngineClient }) {
   return (
-    <div className="stab-mode">
-      <div className="lever-head">
-        <span className="lever-label" id={`lever-label-${l.id}`}>
-          {l.label}
-        </span>
-        <button type="button" className={`icon-btn tiny ${showInfo ? 'on' : ''}`} aria-expanded={showInfo} aria-controls={infoId} aria-label={`About ${l.label}`} onClick={() => setShowInfo((x) => !x)}>
-          <Icon name="info" size={14} />
-        </button>
-      </div>
-      <div className="choices stab-choices" role="group" aria-labelledby={`lever-label-${l.id}`}>
-        {(l.options ?? []).map((o) => {
-          const on = Math.abs(o.value - value) < 1e-12;
-          return (
-            <button key={o.value} type="button" className={`seg ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => !on && setWithResets(info, client, values, l.id, o.value)}>
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
-      {showInfo && (
-        <div className="lever-info" id={infoId}>
-          <p>{l.description}</p>
-          <p>
-            <strong>Definition.</strong> {l.definition}
-          </p>
-        </div>
-      )}
-    </div>
+    <button
+      type="button"
+      className={`icon-btn tiny padlock${pad.locked ? ' on' : ''}`}
+      aria-pressed={pad.locked}
+      aria-label={lockActionLabel(l, pad.locked)}
+      title={lockTitle(l, pad)}
+      onClick={() => client.setLever(pad.lock, pad.locked ? 0 : 1)}
+    >
+      <Icon name={pad.locked ? 'lock' : 'unlock'} size={14} />
+    </button>
   );
 }
 
-const LeverRow = memo(function LeverRow({ lever: l, value, fired, client, mark }: { lever: LeverInfo; value: number; fired: number; client: EngineClient; mark?: StabiliserMark }) {
+const LeverRow = memo(function LeverRow({ lever: l, value: stored, fired, client, mark, pad }: { lever: LeverInfo; value: number; fired: number; client: EngineClient; mark?: StabiliserMark; pad?: StabiliserState }) {
   const [showInfo, setShowInfo] = useState(false);
-  const changed = isChanged(l, value, new Map<Id, number>([[l.id, fired]]));
+  const value = shownValue(stored, pad);
+  const auto = !!pad && !pad.locked;
+  const changed = isLeverChanged(l, value, new Map<Id, number>([[l.id, fired]]), pad);
   const infoId = `lever-info-${l.id}`;
   const calling = mark?.kind === 'calling' ? mark : undefined;
   return (
-    <div className={`lever ${changed ? 'changed' : ''} ${calling ? 'calling' : ''}`}>
+    <div className={['lever', changed && 'changed', calling && 'calling', auto && 'auto'].filter(Boolean).join(' ')}>
       <div className="lever-head">
         <span className="lever-label" id={`lever-label-${l.id}`}>
           {l.label}
         </span>
-        {l.kind === 'setting' && <span className="lever-value mono">{leverValueLabel(l, value)}</span>}
-        {l.kind !== 'oneoff' && changed && (
+        {auto && (
+          <span className="auto-tag" title={`Set by ${pad.label}`}>
+            auto
+          </span>
+        )}
+        {l.kind === 'setting' && <span className="lever-value mono">{leverValueLabel(l, auto ? Number(value.toFixed(2)) : value)}</span>}
+        {pad && <Padlock lever={l} pad={pad} client={client} />}
+        {!pad && l.kind !== 'oneoff' && changed && (
           <button type="button" className="icon-btn tiny" onClick={() => client.setLever(l.id, l.default)} aria-label={`Set ${l.label} back to its baseline`} title="Back to baseline">
             <Icon name="undo" size={14} />
           </button>
@@ -183,7 +164,7 @@ const LeverRow = memo(function LeverRow({ lever: l, value, fired, client, mark }
           </button>
         </div>
       )}
-      {(mark?.kind === 'acting' || mark?.kind === 'beyond') && <div className="stab-note">{mark.text}</div>}
+      {mark?.kind === 'beyond' && <div className="stab-note">{mark.text}</div>}
       {showInfo && (
         <div className="lever-info" id={infoId}>
           <p>{l.description}</p>

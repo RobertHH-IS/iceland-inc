@@ -37,9 +37,9 @@ describe('engine client', () => {
 
   test('setLever and fire start the clock when paused; pause stops it', () => {
     const c = fresh();
-    c.setLever('keyRateAddon', 1);
+    c.setLever('keyRate', 4);
     expect(c.getFrame().playing).toBe(true);
-    expect(c.getFrame().levers[c.info.leverById.get('keyRateAddon')!.index]).toBe(1);
+    expect(c.getFrame().levers[c.info.leverById.get('keyRate')!.index]).toBe(4);
     c.pause();
     expect(c.getFrame().playing).toBe(false);
     c.fire('wageSettlement', 5);
@@ -83,7 +83,7 @@ describe('engine client', () => {
 
   test('seek back and forward reproduces the same numbers (deterministic replay)', () => {
     const c = fresh();
-    c.setLever('keyRateAddon', 1);
+    c.setLever('keyRate', 4);
     c.pause();
     c.step(40);
     const at25 = c.info.indicators.map((i) => c.series(i.id)[25]);
@@ -102,7 +102,7 @@ describe('engine client', () => {
 
   test('frames keep array identity for unchanged levers and events', () => {
     const c = fresh();
-    c.setLever('keyRateAddon', 0.5);
+    c.setLever('keyRate', 3.5);
     c.pause();
     const f1 = c.getFrame();
     c.step(1);
@@ -110,7 +110,7 @@ describe('engine client', () => {
     expect(f2).not.toBe(f1);
     expect(f2.levers).toBe(f1.levers);
     expect(f2.events).toBe(f1.events);
-    c.setLever('keyRateAddon', 1);
+    c.setLever('keyRate', 4);
     expect(c.getFrame().levers).not.toBe(f2.levers);
     c.dispose();
   });
@@ -134,12 +134,13 @@ describe('engine client', () => {
 
   test('reset returns to the baseline and clears the scenario', () => {
     const c = fresh();
-    c.setLever('keyRateAddon', 1);
+    c.setLever('keyRate', 4);
     c.step(10);
     c.reset();
     const f = c.getFrame();
     expect([f.t, f.horizon, f.events.length, f.playing]).toEqual([0, 0, 0, false]);
-    expect(f.levers[c.info.leverById.get('keyRateAddon')!.index]).toBe(0);
+    expect(f.levers[c.info.leverById.get('keyRate')!.index]).toBe(3);
+    expect(f.stabilisers.every((s) => !s.locked)).toBe(true); // the padlocks open again
     c.dispose();
   });
 
@@ -170,128 +171,78 @@ describe('engine client', () => {
     c.dispose();
   });
 
-  test('a lever changed before a later mode switch is reset at that switch, as in a straight run (decision 0004)', () => {
-    const mode = c0.info.stabiliserMode!;
-    const other = (v: number) => (v === mode.manual ? mode.automatic : mode.manual);
-    // The Manual key rate is shown on Manual and hidden on Automatic.
-    const run = (edit: (c: ReturnType<typeof fresh>) => void) => {
-      const c = fresh();
-      edit(c);
-      c.pause();
-      return c;
-    };
-    const def = c0.info.leverById.get('keyRateFixed')!.default;
-    const travelled = run((c) => {
-      if (c.getFrame().levers[c.info.leverById.get(mode.lever)!.index] !== mode.manual) c.setLever(mode.lever, mode.manual);
-      c.pause();
-      c.step(40);
-      c.setLever(mode.lever, mode.automatic); // the panel adds no reset: the Manual rate is at its default
-      c.pause();
-      c.step(30);
-      c.seek(30);
-      c.setLever('keyRateFixed', 5); // back in time, on Manual
-      c.pause();
-      c.seek(60);
-    });
-    const straight = run((c) => {
-      if (c.getFrame().levers[c.info.leverById.get(mode.lever)!.index] !== mode.manual) c.setLever(mode.lever, mode.manual);
-      c.pause();
-      c.step(30);
-      c.setLever('keyRateFixed', 5);
-      c.pause();
-      c.step(10);
-      c.setLever('keyRateFixed', def); // what the panel does when switching mode
-      c.setLever(mode.lever, mode.automatic);
-      c.pause();
-      c.step(20);
-    });
-    const at = (c: typeof travelled, id: string) => c.getFrame().levers[c.info.leverById.get(id)!.index];
-    expect(travelled.getFrame().t).toBe(60);
-    expect(at(travelled, 'keyRateFixed')).toBe(def);
-    expect(at(travelled, mode.lever)).toBe(mode.automatic);
-    const key = (c: typeof travelled) => c.scenario().events.map((e) => `${e.t}:${e.lever}=${e.value}`).sort();
-    expect(key(travelled)).toEqual(key(straight));
-    expect(travelled.value('keyRate')).toBe(straight.value('keyRate'));
-    expect(travelled.value('output')).toBe(straight.value('output'));
-    // Switching back to Manual later does not bring the old rate back.
-    travelled.setLever(mode.lever, other(mode.automatic));
-    expect(at(travelled, 'keyRateFixed')).toBe(def);
-    travelled.dispose();
-    straight.dispose();
-  });
-
-  test('a mode switch made back in time keeps a later setting of the lever it hides, reset at once (decisions 0001, 0004)', () => {
-    const mode = c0.info.stabiliserMode!;
-    const def = c0.info.leverById.get('keyRateFixed')!.default;
-    const manual = (c: ReturnType<typeof fresh>) => {
-      if (c.getFrame().levers[c.info.leverById.get(mode.lever)!.index] !== mode.manual) c.setLever(mode.lever, mode.manual);
-      c.pause();
-    };
+  test('a lock made back in time is an ordinary event: the numbers are those of a straight run (decisions 0001, 0010)', () => {
     const travelled = fresh();
-    manual(travelled);
-    travelled.step(50);
-    travelled.setLever('keyRateFixed', 5); // a straight Manual run
+    travelled.setLever('govSpending', 1);
     travelled.pause();
-    travelled.step(20);
-    travelled.seek(30);
-    travelled.setLever(mode.lever, mode.automatic); // the panel adds no reset: the Manual rate is at its default at 30
+    travelled.step(40);
+    travelled.seek(20);
+    travelled.setLever('keyRateLock', 1); // back in time: the later months are replayed with it
     travelled.pause();
-    travelled.seek(60);
+    travelled.seek(40);
     const straight = fresh();
-    manual(straight);
-    straight.step(30);
-    straight.setLever(mode.lever, mode.automatic);
+    straight.setLever('govSpending', 1);
     straight.pause();
-    straight.step(30);
-    const at = (c: typeof travelled, id: string) => c.getFrame().levers[c.info.leverById.get(id)!.index];
-    expect(travelled.getFrame().t).toBe(60);
-    expect(at(travelled, mode.lever)).toBe(mode.automatic);
-    expect(at(travelled, 'keyRateFixed')).toBe(def);
-    // The user's month-50 setting stays in the script (decision 0001), followed by a reset in the
-    // same month, so the numbers are those of the straight run.
-    const set50 = { t: 50, lever: 'keyRateFixed', value: 5 };
-    const events = travelled.scenario().events;
-    expect(events.filter((e) => e.t === 50)).toEqual([set50, { t: 50, lever: 'keyRateFixed', value: def }]);
-    expect(events.filter((e) => e.t !== 50)).toEqual(straight.scenario().events);
+    straight.step(20);
+    straight.setLever('keyRateLock', 1);
+    straight.pause();
+    straight.step(20);
+    expect(travelled.getFrame().t).toBe(40);
+    expect(travelled.scenario().events).toEqual(straight.scenario().events);
     expect(travelled.value('keyRate')).toBe(straight.value('keyRate'));
     expect(travelled.value('output')).toBe(straight.value('output'));
-    // Switching back to Manual does not bring 5 back from nowhere.
-    travelled.setLever(mode.lever, mode.manual);
-    expect(at(travelled, 'keyRateFixed')).toBe(def);
+    // locked at month 20, at the rate in force then
+    expect(travelled.varSeries('keyRate', 20, 40).every((x) => x === travelled.varSeries('keyRate', 20, 20)[0])).toBe(true);
     travelled.dispose();
     straight.dispose();
   });
 
-  test('a loaded scenario that sets a hidden lever with no mode event leaves it at its default', () => {
-    const mode = c0.info.stabiliserMode!;
-    const modeLever = c0.info.leverById.get(mode.lever)!;
-    const hidden = modeLever.default === mode.automatic ? 'keyRateFixed' : 'keyRateAddon';
-    const h = c0.info.leverById.get(hidden)!;
+  test('stepping an unlocked lever locks it at the new value, with one event (the drag of decision 0010)', () => {
     const c = fresh();
-    c.load({ modelId: 'reference', events: [{ t: 0, lever: hidden, value: h.default + 2 * (h.step ?? 0.25) }], months: 6 });
-    const f = c.getFrame();
-    expect(f.error).toBeNull();
-    expect(f.levers[h.index]).toBe(h.default);
-    // The link's setting is kept, with a reset right after it.
-    expect(f.events).toEqual([
-      { t: 0, lever: hidden, value: h.default + 2 * (h.step ?? 0.25) },
-      { t: 0, lever: hidden, value: h.default },
-    ]);
+    c.setLever('govSpending', 1);
+    c.pause();
+    c.step(12);
+    const live = c.getFrame().stabilisers.find((s) => s.id === 'taylorRule')!;
+    expect(live.locked).toBe(false);
+    expect(live.current).toBeCloseTo(100 * c.value('keyRate'), 12);
+    c.setLever('keyRate', 4.5);
+    c.pause();
+    const now = c.getFrame().stabilisers.find((s) => s.id === 'taylorRule')!;
+    expect(now).toMatchObject({ locked: true, current: 4.5 });
+    expect(c.scenario().events.filter((e) => e.t === 12)).toEqual([{ t: 12, lever: 'keyRate', value: 4.5 }]);
+    c.step(1);
+    expect(c.value('keyRate')).toBe(0.045);
     c.dispose();
   });
 
-  test('a loaded scenario gets the resets it is missing at its mode switches', () => {
-    const mode = c0.info.stabiliserMode!;
+  test('unlocking hands the key rate back to its rule, which carries on from the rate held', () => {
     const c = fresh();
-    c.load({ modelId: 'reference', events: [{ t: 0, lever: mode.lever, value: mode.manual }, { t: 2, lever: 'keyRateFixed', value: 6 }, { t: 5, lever: mode.lever, value: mode.automatic }], months: 8 });
+    c.setLever('keyRate', 6);
+    c.pause();
+    c.step(24);
+    c.setLever('keyRateLock', 0);
+    c.pause();
+    expect(c.getFrame().stabilisers.find((s) => s.id === 'taylorRule')!.locked).toBe(false);
+    c.step(1);
+    const k = c.value('keyRate');
+    expect(k).toBeLessThan(0.06);
+    expect(k).toBeGreaterThan(0.05); // one smoothed step, not a jump to the rule's own path
+    c.dispose();
+  });
+
+  test('a loaded scenario from before padlocks is migrated, with a notice for a dropped offset', () => {
+    const c = fresh();
+    const notices = c.load({ modelId: 'reference', events: [{ t: 0, lever: 'keyRateAddon', value: 1 }, { t: 5, lever: 'stabilisers', value: 0 }], months: 8, version: 1 });
+    expect(notices).toHaveLength(1);
     const f = c.getFrame();
     expect(f.error).toBeNull();
-    expect(f.levers[c.info.leverById.get('keyRateFixed')!.index]).toBe(3);
-    // The reset goes right before the switch, as the panel records it, so the switch leads the month.
     expect(f.events.filter((e) => e.t === 5)).toEqual([
-      { t: 5, lever: 'keyRateFixed', value: 3 },
-      { t: 5, lever: mode.lever, value: mode.automatic },
+      { t: 5, lever: 'keyRateLock', value: 1 },
+      { t: 5, lever: 'taxRateLock', value: 1 },
+      { t: 5, lever: 'keyRate', value: 3 },
+      { t: 5, lever: 'taxRate', value: 0 },
     ]);
+    expect(c.load({ modelId: 'reference', events: [{ t: 0, lever: 'keyRate', value: 4 }], months: 3 })).toEqual([]);
     c.dispose();
   });
 
@@ -303,33 +254,36 @@ describe('engine client', () => {
   });
 });
 
-describe('engine client: stabilisers (decision 0004)', () => {
+describe('engine client: stabilisers and padlocks (decisions 0004 and 0010)', () => {
   const iceland = models.find((m) => m.id === 'iceland')!;
   const ibase = createEngine(iceland);
 
-  test('frames carry every stabiliser; on Manual the key-rate rule calls and Apply answers it', () => {
+  test('frames carry every stabiliser; locked, the key-rate rule calls and Apply answers it', () => {
     const c = createEngineClient(createEngine(ibase.model, { baseline: ibase.baselineData }));
-    expect(c.info.stabiliserMode).toEqual({ lever: 'stabilisers', manual: 0, automatic: 1 });
-    expect(c.getFrame().stabilisers.map((s) => [s.id, s.calling, s.automatic])).toEqual([
-      ['keyRateRule', false, false],
-      ['debtRule', false, false],
+    expect(c.getFrame().stabilisers.map((s) => [s.id, s.lock, s.locked, s.calling])).toEqual([
+      ['keyRateRule', 'keyRateLock', false, false],
+      ['debtRule', 'incomeTaxLock', false, false],
     ]);
+    // plain data: the stabilisers' current() stays in the engine
+    expect(c.info.stabilisers.every((s) => !('current' in s))).toBe(true);
     const quiet = c.getFrame().stabilisers;
     c.setSpeed(3); // a frame without a step keeps the same array
     expect(c.getFrame().stabilisers).toBe(quiet);
-    c.setLever('incomeTax', 1);
+    c.setLever('keyRateLock', 1);
+    c.setLever('incomeTax', 1); // locks income tax too
     c.pause();
     c.step(12);
     const rule = c.getFrame().stabilisers.find((s) => s.id === 'keyRateRule')!;
     expect(rule.calling).toBe(true);
     expect(c.value('keyRate')).toBe(0.03);
-    const mark = stabiliserMarks(c.getFrame().stabilisers, c.info.leverById).get('keyRateFixed');
+    const mark = stabiliserMarks(c.getFrame().stabilisers, c.info.leverById).get('keyRate');
     expect(mark?.kind).toBe('calling');
     if (mark?.kind !== 'calling') return;
-    c.setLever('keyRateFixed', mark.apply); // the Apply button
+    c.setLever('keyRate', mark.apply); // the Apply button
     c.pause();
     const after = c.getFrame().stabilisers.find((s) => s.id === 'keyRateRule')!;
     expect(after.current).toBe(mark.apply);
+    expect(after.locked).toBe(true);
     expect(after.calling).toBe(false);
     c.step(1);
     expect(c.value('keyRate')).toBe(mark.apply / 100);
@@ -338,6 +292,9 @@ describe('engine client: stabilisers (decision 0004)', () => {
 
   test('a stabiliser’s feed item carries the fields a translation needs: its direction, value and change (K1)', () => {
     const c = createEngineClient(createEngine(ibase.model, { baseline: ibase.baselineData }));
+    c.setLever('keyRateLock', 1);
+    c.pause();
+    c.step(1);
     c.setLever('incomeTax', 1);
     c.pause();
     c.step(12);
@@ -354,14 +311,13 @@ describe('engine client: stabilisers (decision 0004)', () => {
     c.dispose();
   });
 
-  test('on Automatic the rules act and nothing calls', () => {
+  test('unlocked, the rules act and nothing calls', () => {
     const c = createEngineClient(createEngine(ibase.model, { baseline: ibase.baselineData }));
-    c.setLever('stabilisers', 1);
-    c.setLever('incomeTaxOffset', 1); // on Automatic the income-tax lever is the offset to the debt rule
+    c.setLever('otherServices', -2); // spending cut: the key-rate rule eases, the debt rule cuts tax
     c.pause();
     c.step(24);
     const f = c.getFrame();
-    expect(f.stabilisers.every((s) => s.automatic && !s.calling)).toBe(true);
+    expect(f.stabilisers.every((s) => !s.locked && !s.calling)).toBe(true);
     expect(c.value('keyRate')).toBeLessThan(0.03);
     c.dispose();
   });

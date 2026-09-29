@@ -148,46 +148,55 @@ test('an unknown model in a link falls back to a registered one', () => {
   expect(html).toContain('Levers');
 });
 
-describe('the lever panel and the map with stabilisers (decision 0004)', () => {
+describe('the lever panel and the map with padlocks (decision 0010)', () => {
   const iceland = models.find((m) => m.id === 'iceland')!;
 
-  test('Manual: the setting on top, only the Manual key-rate lever, red calling levers with Apply, red dots on their sections', () => {
+  test('unlocked, the default: an open padlock beside each lever with a rule, the knob following the rule, no Manual/Automatic control; the map marks the key rate "rule"', () => {
     const client = createEngineClient(iceland);
-    client.setLever('incomeTax', 1);
+    client.setLever('otherServices', 2);
     client.pause();
     client.step(12);
     const f = client.getFrame();
-    expect(f.stabilisers.every((s) => s.calling)).toBe(true);
     const html = renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />);
-    expect(html).toContain('class="stab-mode"');
-    expect(html).toMatch(/aria-pressed="true"[^>]*>Manual</);
+    expect(html).not.toContain('>Manual<');
+    expect(html).not.toContain('>Automatic<');
+    expect(html).not.toContain('Padlock on'); // the padlocks are not levers of their own
     expect(html).toContain('>Key interest rate<');
-    expect(html).not.toContain('Key rate: your offset to the rule');
-    expect(count(html, /class="lever [^"]*calling"/g)).toBe(1); // the Government section is closed
-    expect(html).toMatch(/class="stab-call"><span>Central bank’s inflation rule: 2\.\d\d%<\/span>/);
-    expect(html).toContain('>Apply</button>');
-    expect(count(html, /class="call-dot"/g)).toBe(2); // Central bank and Government
-    client.dispose();
-  });
-
-  test('Automatic: the offset lever instead, with what the rule sets; the map marks the key rate "rule"', () => {
-    const client = createEngineClient(iceland);
-    client.setLever('stabilisers', 1);
-    client.pause();
-    client.step(3);
-    const f = client.getFrame();
-    const html = renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />);
-    expect(html).toMatch(/aria-pressed="true"[^>]*>Automatic</);
-    expect(html).toContain('Key rate: your offset to the rule');
-    expect(html).not.toContain('>Key interest rate<');
-    expect(html).toContain('class="stab-note">Set by Central bank’s inflation rule: 3%');
+    expect(html).toMatch(/aria-pressed="false" aria-label="Lock the key interest rate" title="Unlocked: Central bank’s inflation rule sets the key interest rate/);
+    expect(count(html, /class="icon-btn tiny padlock"/g)).toBe(1); // the Government section is closed
+    expect(html).toContain('class="lever auto"');
+    expect(html).toContain('>auto</span>');
+    // the knob and the value show the rule's live rate, not the stored 3%
+    const live = f.stabilisers.find((s) => s.id === 'keyRateRule')!.current;
+    expect(live).not.toBe(3);
+    expect(html).toContain(`>${Number(live.toFixed(2))}%</span>`); // to two decimals while it moves
     expect(html).not.toContain('class="call-dot"');
+    expect(html).not.toContain('>Apply</button>');
     const info = client.info;
     const eff = effectiveExpanded(info, []);
     const map = (acting: string) =>
       renderToString(<FlowMap info={info} client={client} expanded={eff} pipes={client.pipes({ expanded: [...eff] })} legs={f.legs} regimes={f.regimes} rulesActing={acting} seq={f.seq} selection={null} onSelect={noop} onOpenGroup={noop} onCloseGroup={noop} />);
     expect(count(map('keyRateRule debtRule'), /class="node-rule"/g)).toBe(1);
     expect(count(map(''), /class="node-rule"/g)).toBe(0);
+    client.dispose();
+  });
+
+  test('locked: a closed padlock, red calling levers with Apply and red dots on their sections; a lever without a rule has no padlock', () => {
+    const client = createEngineClient(iceland);
+    client.setLever('keyRateLock', 1);
+    client.setLever('incomeTax', 1); // moving it locks it
+    client.pause();
+    client.step(12);
+    const f = client.getFrame();
+    expect(f.stabilisers.every((s) => s.locked && s.calling)).toBe(true);
+    const html = renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />);
+    expect(html).toMatch(/aria-pressed="true" aria-label="Unlock the key interest rate" title="Locked: the key interest rate stays where you set it/);
+    expect(html).not.toContain('>auto</span>');
+    expect(count(html, /class="lever [^"]*calling"/g)).toBe(1); // the Government section is closed
+    expect(html).toMatch(/class="stab-call"><span>Central bank’s inflation rule: 2\.\d\d%<\/span>/);
+    expect(html).toContain('>Apply</button>');
+    expect(count(html, /class="call-dot"/g)).toBe(2); // Central bank and Government
+    expect(html).toContain('>3%</span>'); // held where it is
     client.dispose();
   });
 });

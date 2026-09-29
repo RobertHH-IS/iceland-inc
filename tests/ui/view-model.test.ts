@@ -144,7 +144,7 @@ describe('player cards', () => {
 describe('ideas at play', () => {
   test('ranked, normalised, with readable "via" labels, once something moves', () => {
     const e = engine.fork();
-    e.setLever('keyRateAddon', 2);
+    e.setLever('keyRate', 5);
     e.step(12);
     const rows = topIdeas(info, e.ideasAtPlay(), 5);
     expect(rows.length).toBeGreaterThan(0);

@@ -6,13 +6,23 @@
  "events": [
   {
    "t": 0,
-   "lever": "keyRateFixed",
+   "lever": "incomeTaxLock",
+   "value": 1
+  },
+  {
+   "t": 0,
+   "lever": "keyRate",
    "value": 4
   },
   {
    "t": 12,
-   "lever": "stabilisers",
-   "value": 1
+   "lever": "keyRateLock",
+   "value": 0
+  },
+  {
+   "t": 12,
+   "lever": "incomeTaxLock",
+   "value": 0
   }
  ],
  "indicators": {

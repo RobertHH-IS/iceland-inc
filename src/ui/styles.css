@@ -19,7 +19,7 @@
   --cat-contract: #c3a6ff;
   --cat-behaviour: #ffb454;
   --cat-policy: #7fe3ff;
-  /* A stabiliser calling for action (Manual mode): 6.3:1 on the cards, never used without text. */
+  /* A locked stabiliser calling for action: 6.3:1 on the cards, never used without text. */
   --alert: #ff6b6b;
   color-scheme: dark;
 }
@@ -793,17 +793,33 @@ button.chip {
   background: rgba(255, 180, 84, 0.18);
   border-color: var(--amber);
 }
-/* Stabilisers (decision 0004): the Manual / Automatic setting, a lever whose rule is calling
-   for action (red edge, tint and text), and the note on a lever a rule acts through (cyan). */
-.stab-mode {
-  padding: 10px 2px 12px;
-  border-bottom: 1px solid var(--line-soft);
+/* Padlocks (decisions 0004 and 0010): an unlocked lever follows its rule, shown calmly in cyan
+   (a hollow knob, a cyan fill and an "auto" tag); a locked one is the user's, amber like any
+   changed lever; a locked lever whose rule is calling for action gets a red edge, tint and text. */
+.auto-tag {
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid rgba(127, 227, 255, 0.35);
+  border-radius: 6px;
+  padding: 0 5px;
+  line-height: 16px;
 }
-.stab-choices {
-  display: flex;
+.lever.auto .lbar-knob {
+  background: var(--bg);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 4px rgba(11, 15, 26, 0.9);
 }
-.stab-choices .seg {
-  flex: 1;
+.lever.auto .lbar-fill {
+  background: rgba(127, 227, 255, 0.55);
+  box-shadow: 0 0 8px rgba(127, 227, 255, 0.3);
+}
+.icon-btn.padlock {
+  color: var(--muted);
+}
+.icon-btn.padlock.on {
+  color: var(--amber);
+  border-color: rgba(255, 180, 84, 0.5);
 }
 .lever.calling {
   border-color: rgba(255, 107, 107, 0.5);

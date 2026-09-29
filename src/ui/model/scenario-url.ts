@@ -1,9 +1,11 @@
 /**
  * Scenario ⇄ URL hash, so a shared link replays exactly.
  *
- *   #m=reference&t=36&e=0:keyRateAddon:1,12:!wageSettlement:10
+ *   #m=reference&v=2&t=36&e=0:keyRate:4,12:!wageSettlement:10,24:keyRateLock:0
  *
  *   m  model id
+ *   v  scenario format version (src/core/migrate.ts). A link without it was written before
+ *      padlocks (version 1): the client migrates it as it loads (decision 0010).
  *   t  month to replay to (the scenario's `months`)
  *   e  events, comma-separated: month:lever:value, with '!' before the lever for a one-off
  *      that is fired. Lever ids are URI-encoded; values use JavaScript's shortest exact
@@ -14,11 +16,14 @@
  * Unknown keys are ignored, so the hash can carry more view state later without breaking links.
  */
 import type { Id, Scenario, ScenarioEvent } from '../../core/types.ts';
+import { SCENARIO_VERSION } from '../../core/migrate.ts';
 
 export interface HashState {
   modelId?: Id;
   months: number;
   events: ScenarioEvent[];
+  /** Scenario format version: 1 when the link does not say (it was written before padlocks). */
+  version: number;
   /** Groups open on the flow map; undefined when the link does not say. */
   expanded?: Id[];
 }
@@ -29,9 +34,10 @@ function encodeEvent(e: ScenarioEvent): string {
   return `${e.t}:${e.fire ? '!' : ''}${encodeURIComponent(e.lever)}:${String(e.value)}`;
 }
 
-/** Encode a scenario (and, optionally, the groups open on the map) as a URL hash, without the '#'. */
-export function encodeScenarioHash(s: Pick<Scenario, 'modelId' | 'events' | 'months'> & { expanded?: readonly Id[] }): string {
-  const parts = [`m=${encodeURIComponent(s.modelId)}`, `t=${Math.max(0, Math.round(s.months))}`];
+/** Encode a scenario (and, optionally, the groups open on the map) as a URL hash, without the '#'.
+ *  The version is the scenario's own, the current one unless it says otherwise. */
+export function encodeScenarioHash(s: Pick<Scenario, 'modelId' | 'events' | 'months' | 'version'> & { expanded?: readonly Id[] }): string {
+  const parts = [`m=${encodeURIComponent(s.modelId)}`, `v=${s.version ?? SCENARIO_VERSION}`, `t=${Math.max(0, Math.round(s.months))}`];
   const events = [...s.events].sort((a, b) => a.t - b.t);
   if (events.length) parts.push(`e=${events.map(encodeEvent).join(',')}`);
   if (s.expanded?.length) parts.push(`x=${s.expanded.map(encodeURIComponent).join(',')}`);
@@ -41,8 +47,8 @@ export function encodeScenarioHash(s: Pick<Scenario, 'modelId' | 'events' | 'mon
 /** Decode a URL hash (with or without the leading '#'). An empty hash decodes to no scenario. */
 export function decodeScenarioHash(hash: string): DecodeResult {
   const h = hash.replace(/^#/, '').trim();
-  const state: HashState = { months: 0, events: [] };
-  if (!h) return { ok: true, state };
+  const state: HashState = { months: 0, events: [], version: 1 };
+  if (!h) return { ok: true, state: { ...state, version: SCENARIO_VERSION } };
   for (const part of h.split('&')) {
     if (!part) continue;
     const eq = part.indexOf('=');
@@ -54,6 +60,10 @@ export function decodeScenarioHash(hash: string): DecodeResult {
       } catch {
         return { ok: false, error: `bad model id '${val}'` };
       }
+    } else if (key === 'v') {
+      const v = Number(val);
+      if (!(Number.isInteger(v) && v >= 1 && v <= SCENARIO_VERSION)) return { ok: false, error: `unknown scenario version '${val}'` };
+      state.version = v;
     } else if (key === 't') {
       const t = Number(val);
       if (!(Number.isInteger(t) && t >= 0)) return { ok: false, error: `bad month '${val}'` };

@@ -2,9 +2,9 @@
  * The compiler: turns a declared ModelDef into a validated, indexed and scheduled model.
  *
  *   1. merge modules and apply `replaces`;
- *   2. check that ids are unique and every reference resolves (including levers' `showWhen`,
- *      the stabiliser setting and each stabiliser's levers and suggestion), and build the
- *      player hierarchy (groups; see hierarchy.ts);
+ *   2. add a padlock (a 'lock' lever) for each stabiliser's lever, check that ids are unique and
+ *      every reference resolves (including each stabiliser's lever and suggestion), and build
+ *      the player hierarchy (groups; see hierarchy.ts);
  *   3. enforce one rule per endogenous variable;
  *   4. dry-run every rule, term and indicator against a recording context, so that reading
  *      an undeclared input (or an id that does not exist) is a compile error;
@@ -70,7 +70,7 @@ export interface CTerm {
   rule: number;
   def: TermDef;
   /** Variables the term read during the compile-time dry run (for navigation): the union over
-   *  every option of the choice levers its rule declares, including both stabiliser modes. */
+   *  every option of the choice levers its rule declares, with each padlock it reads open and closed. */
   reads: Id[];
 }
 
@@ -95,6 +95,8 @@ export interface CRule {
   lagMap: Map<Id, number>;
   paramMap: Map<Id, number>;
   leverMap: Map<Id, number>;
+  /** Declared `locks`: stabiliser id → lever index of its padlock. */
+  lockMap: Map<Id, number>;
   /** 'instrument\u0000player' → position index × 2 + (1 if the player is the issuer). */
   stockMap: Map<string, number>;
 }
@@ -168,24 +170,34 @@ export interface KModel extends CompiledModel {
   groupChains: Id[][];
   /** Indices behind each stabiliser, in `stabilisers` order. */
   cstabilisers: CStabiliser[];
-  /** Lever index of the stabiliser setting, or -1 when the model has none. */
-  modeLever: number;
+  /** For each lever (by index): the stabiliser (by index) whose lever it is, or -1. */
+  stabiliserOfLever: Int32Array;
+  /** Variables that drive nothing under each lock configuration, indexed by lock mask (bit j set:
+   *  stabiliser j locked): every suggestion, and the shadows of the locked stabilisers that no
+   *  rule still acting reads. */
+  inertByMask: Set<number>[];
 }
 
 export interface CStabiliser {
   lever: number;
-  offset: number;
+  /** Lever index of its padlock (a 'lock' lever: 0 open, 1 closed). */
+  lock: number;
   suggestion: number;
-  /** Variables (by index) that only feed the suggestion on Manual (StabiliserDef.shadow). */
+  /** Variables (by index) that only feed the suggestion while it is locked (StabiliserDef.shadow). */
   shadow: number[];
   /** Module that declared it (for messages). */
   module: Id;
 }
 
-/** Is a stabiliser-mode lever value Automatic? The value nearer `automatic` wins; a tie is Automatic. */
-export function isAutomatic(mode: { manual: number; automatic: number }, value: number): boolean {
-  return Math.abs(value - mode.automatic) <= Math.abs(value - mode.manual);
-}
+/** A padlock lever's value is closed (locked) from one half up. */
+export const isLocked = (value: number): boolean => value >= 0.5;
+
+/** The most stabilisers a model may declare: each lock configuration (2^n) gets its own baseline
+ *  terms and inert set. */
+export const MAX_STABILISERS = 8;
+
+/** The padlock lever the compiler adds for a stabiliser's lever. */
+export const lockIdFor = (lever: Id): Id => `${lever}Lock`;
 
 /* ---------------------------------------------------------------- utilities */
 
@@ -317,6 +329,36 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   const concepts = gather((m) => m.concepts);
   const feed = gather((m) => m.feed);
   const stabilisers = gather((m) => m.stabilisers);
+  for (const { def: l, module } of levers) if (l.kind === 'lock') err(`lever '${l.id}' (module '${module}') has kind 'lock'; padlocks are added by the compiler, one per stabiliser`);
+  if (stabilisers.length > MAX_STABILISERS) err(`the model declares ${stabilisers.length} stabilisers; at most ${MAX_STABILISERS} are supported`);
+  // one padlock per stabiliser, after the declared levers (decision 0010)
+  for (const { def: s, module } of stabilisers) {
+    const target = levers.find((x) => x.def.id === s.lever)?.def;
+    const name = target ? `“${target.label}”` : `'${s.lever}'`;
+    levers.push({
+      module,
+      def: {
+        id: lockIdFor(s.lever),
+        label: `Padlock on ${target?.label ?? s.lever}`,
+        group: target?.group ?? 'Policy',
+        section: target?.section,
+        kind: 'lock',
+        unit: 'lock',
+        default: 0,
+        min: 0,
+        max: 1,
+        step: 1,
+        options: [
+          { value: 0, label: 'Unlocked' },
+          { value: 1, label: 'Locked' },
+        ],
+        locks: { lever: s.lever, stabiliser: s.id },
+        description: `Unlocked (the default): ${s.label} moves the ${name} lever by itself, and the lever shows where it is. Locked: the lever stays where it is until you move it, and the rule only suggests. Moving the lever locks it.`,
+        definition: `Padlock, persistent while set, taking effect in the month it is set. 0 (unlocked, the default): ${s.label} sets the policy every month, and the ${name} lever follows it. 1 (locked): the lever holds the value in force in the month you lock it, or the value you then set, until you move it; the rule keeps working out what it would do, shown as a suggestion. Setting the lever while it is unlocked locks it at the new value. Unlocking hands the lever back to the rule, which carries on from the value in force.`,
+        concepts: s.concepts,
+      },
+    });
+  }
 
   /* 2. replaces ----------------------------------------------------------- */
   const ruleById = new Map<Id, Tagged<RuleDef>>();
@@ -355,7 +397,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   const leverIndex = indexOf(levers, 'lever');
   const indicatorIndex = indexOf(indicators, 'indicator');
   indexOf(feed, 'feed rule');
-  indexOf(stabilisers, 'stabiliser');
+  const stabiliserIndex = indexOf(stabilisers, 'stabiliser');
   const conceptList: ConceptDef[] = [];
   const conceptIndex = new Map<Id, number>();
   for (const c of concepts) {
@@ -537,10 +579,18 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     const lagMap = mapIds(r.lagInputs, varIndex, 'lagged input');
     const paramMap = mapIds(r.params, paramIndex, 'parameter');
     const leverMap = mapIds(r.levers, leverIndex, 'lever');
+    const lockMap = new Map<Id, number>();
+    for (const id of r.locks ?? []) {
+      const k = stabiliserIndex.get(id);
+      const lock = k === undefined ? undefined : leverIndex.get(lockIdFor(stabilisers[k].def.lever));
+      if (lock === undefined) err(`${where} declares the padlock of unknown stabiliser '${id}' in locks`);
+      else lockMap.set(id, lock);
+    }
     for (const id of r.params ?? []) usedParams.add(id);
     for (const id of r.levers ?? []) {
       leverReadByRule.add(id);
       if (leverIndex.has(id) && leverIsOneoff(id)) err(`${where} reads one-off lever '${id}'; one-off levers act through fire(), not as settings`);
+      if (leverIndex.has(id) && levers[leverIndex.get(id)!].def.kind === 'lock') err(`${where} reads padlock '${id}' as a lever; read it with locked() and declare its stabiliser in locks`);
     }
     for (const k of lagMap.values()) lagged[k] = 1;
     const stockMap = new Map<string, number>();
@@ -609,6 +659,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
       lagMap,
       paramMap,
       leverMap,
+      lockMap,
       stockMap,
     });
   });
@@ -738,7 +789,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   const clevers: CLever[] = levers.map(({ def: l, module }) => {
     const where = `lever '${l.id}' (module '${module}')`;
     if (!l.definition) err(`${where} needs a precise 'definition' (level or growth, duration, what happens when it ends)`);
-    if (!['setting', 'choice', 'oneoff'].includes(l.kind)) err(`${where} has unknown kind '${l.kind}'`);
+    if (!['setting', 'choice', 'oneoff', 'lock'].includes(l.kind)) err(`${where} has unknown kind '${l.kind}'`);
     if (l.kind === 'oneoff' && typeof l.fire !== 'function') err(`${where} is one-off but has no fire()`);
     if (l.kind !== 'oneoff' && l.fire) warn(`${where} is a setting but has fire(); fire is only used by one-off levers`);
     if (l.kind === 'choice' && !(l.options ?? []).length) warn(`${where} is a choice without options`);
@@ -773,7 +824,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
         else if (!exogenous[k]) err(`${where} binds to '${l.binds.variable}', which has a rule; levers bind to parameters or exogenous variables`);
         else bindVar = k;
       }
-    } else if (l.kind !== 'oneoff' && !leverReadByRule.has(l.id)) warn(`lever '${l.id}' is bound to nothing: it binds no parameter or variable and no rule reads it`);
+    } else if (l.kind !== 'oneoff' && l.kind !== 'lock' && !leverReadByRule.has(l.id)) warn(`lever '${l.id}' is bound to nothing: it binds no parameter or variable and no rule reads it`);
     return { def: l, bindParam, bindVar, mode, scale };
   });
   /** A lever another declaration refers to: it must exist and be a setting or choice. */
@@ -786,44 +837,19 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     if (levers[k].def.kind === 'oneoff') err(`${where} ${what} one-off lever '${id}'; it must be a setting or a choice`);
     return k;
   };
-  /** Values a choice lever cannot take are almost certainly typos. */
-  const checkOption = (k: number, value: number, where: string) => {
-    const l = levers[k]?.def;
-    if (!Number.isFinite(value)) err(`${where}: value ${value} is not a finite number`);
-    else if (l?.kind === 'choice' && (l.options ?? []).length && !l.options!.some((o) => o.value === value)) err(`${where}: ${value} is not an option of choice lever '${l.id}'`);
-  };
-  levers.forEach(({ def: l, module }) => {
-    if (!l.showWhen) return;
-    const where = `lever '${l.id}' (module '${module}')`;
-    if (l.showWhen.lever === l.id) err(`${where} showWhen refers to itself`);
-    const k = settingLever(l.showWhen.lever, where, 'showWhen refers to');
-    const vals = Array.isArray(l.showWhen.equals) ? l.showWhen.equals : [l.showWhen.equals];
-    if (!vals.length) err(`${where} showWhen lists no values`);
-    if (k >= 0) for (const v of vals) checkOption(k, v, `${where} showWhen`);
-  });
-
   /* 8b. stabilisers --------------------------------------------------------- */
-  const sm = def.stabiliserMode;
-  let modeLever = -1;
-  if (sm) {
-    modeLever = settingLever(sm.lever, 'stabiliserMode', 'names');
-    if (modeLever >= 0) {
-      checkOption(modeLever, sm.manual, 'stabiliserMode.manual');
-      checkOption(modeLever, sm.automatic, 'stabiliserMode.automatic');
-      if (!leverReadByRule.has(sm.lever)) warn(`stabiliserMode lever '${sm.lever}' is read by no rule, so the mode changes nothing`);
-    }
-    if (sm.manual === sm.automatic) err('stabiliserMode: manual and automatic must be different values');
-    if (!stabilisers.length) warn('stabiliserMode is declared but no module declares a stabiliser');
-  } else if (stabilisers.length) err(`the model declares ${stabilisers.length} stabiliser(s) but no stabiliserMode: say which lever switches them between Manual and Automatic`);
-  const cstabilisers: CStabiliser[] = stabilisers.map(({ def: s, module }) => {
+  const stabiliserOfLever = new Int32Array(levers.length).fill(-1);
+  const cstabilisers: CStabiliser[] = stabilisers.map(({ def: s, module }, j) => {
     const where = `stabiliser '${s.id}' (module '${module}')`;
     if (!s.label) err(`${where} has no label`);
     if (!s.description) err(`${where} needs a description`);
     if (!(Number.isFinite(s.threshold) && s.threshold > 0)) err(`${where} needs a positive threshold (in lever units)`);
+    if (typeof s.current !== 'function') err(`${where} needs current(): the value in force, in the lever's units`);
     const lever = settingLever(s.lever, where, 'acts on');
-    const offset = s.offset === undefined ? lever : settingLever(s.offset, where, 'offsets with');
-    if (lever >= 0 && lever === modeLever) err(`${where} acts on the stabiliser setting itself`);
-    if (offset >= 0 && offset === modeLever && offset !== lever) err(`${where} offsets with the stabiliser setting itself`);
+    if (lever >= 0 && levers[lever].def.kind !== 'setting') err(`${where} acts on '${s.lever}', which is a ${levers[lever].def.kind}; a stabiliser moves a setting`);
+    if (lever >= 0 && stabiliserOfLever[lever] >= 0) err(`${where} acts on '${s.lever}', which stabiliser '${stabilisers[stabiliserOfLever[lever]].def.id}' already moves; a lever has one padlock`);
+    if (lever >= 0) stabiliserOfLever[lever] = j;
+    const lock = leverIndex.get(lockIdFor(s.lever)) ?? -1;
     const suggestion = varIndex.get(s.suggestion) ?? -1;
     if (suggestion < 0) err(`${where} suggests unknown variable '${s.suggestion}'`);
     if (s.feed) {
@@ -837,8 +863,9 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
       else if (k === suggestion) err(`${where} lists its suggestion '${id}' as a shadow; the suggestion is always left out of ideas at play`);
       else shadow.push(k);
     }
-    return { lever, offset, suggestion, shadow, module };
+    return { lever, lock, suggestion, shadow, module };
   });
+  if (stabilisers.length && !crules.some((cr) => cr.lockMap.size)) warn('the model declares stabilisers but no rule reads a padlock (locks), so locking changes nothing');
 
   /* 9. indicators, feed, steady state, calibration ------------------------ */
   indicators.forEach(({ def: ind, module }) => {
@@ -883,13 +910,14 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
   const probeStocks = new Map<string, number>();
   for (const [ins, pl, v] of ss?.initialStocks ?? []) probeStocks.set(sk(ins, pl), v);
   const undeclared = new Set<string>();
-  // A term may read a variable only under some lever settings (the Taylor rule's rate only on
-  // Automatic), so each rule is run once per combination of the choice levers it declares,
-  // with the stabiliser setting at both modes, and a term's reads are the union of all passes.
+  // A term may read a variable only under some lever settings (the Taylor rule's rate only while
+  // it is unlocked), so each rule is run once per combination of the choice levers it declares,
+  // with each padlock it reads open and closed, and a term's reads are the union of all passes.
   const MAX_PASSES = 16;
   const leverOverride = new Map<number, number>();
-  /** Per rule: the variables its value (terms, combine or compute) reads on Manual. */
-  const manualReads: Set<Id>[] = [];
+  /** Per rule, per pass: the padlocks it reads (lever index → closed?) and what its value
+   *  (terms, combine or compute) read under them. */
+  const passReads: { locks: Map<number, boolean>; reads: Set<Id> }[][] = [];
   crules.forEach((cr) => {
     const r = cr.def;
     const where = `rule '${r.id}' (module '${cr.module}')`;
@@ -948,6 +976,14 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
         if (!cr.leverMap.has(id)) note(`reads lever('${id}') without declaring it in levers`);
         return leverOverride.get(k) ?? levers[k].def.default;
       },
+      locked(id) {
+        const k = cr.lockMap.get(id);
+        if (k === undefined) {
+          note(stabiliserIndex.has(id) ? `reads locked('${id}') without declaring it in locks` : `reads locked('${id}'), which is not a stabiliser`);
+          return false;
+        }
+        return isLocked(leverOverride.get(k) ?? 0);
+      },
       base(id) {
         const k = varIndex.get(id);
         if (k === undefined) {
@@ -964,19 +1000,17 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     const axes: { k: number; values: number[] }[] = [];
     for (const k of cr.leverMap.values()) {
       const l = levers[k].def;
-      const values = k === modeLever && sm ? [sm.manual, sm.automatic] : l.kind === 'choice' ? (l.options ?? []).map((o) => o.value) : [];
+      const values = l.kind === 'choice' ? (l.options ?? []).map((o) => o.value) : [];
       const alt = [...new Set(values)].filter((x) => x !== l.default);
       if (alt.length) axes.push({ k, values: [l.default, ...alt] });
     }
+    for (const k of cr.lockMap.values()) axes.push({ k, values: [0, 1] });
     let passes: Map<number, number>[] = [new Map()];
     if (axes.reduce((n, a) => n * a.values.length, 1) <= MAX_PASSES)
       for (const a of axes) passes = passes.flatMap((p) => a.values.map((x) => new Map(p).set(a.k, x)));
     else for (const a of axes) for (const x of a.values.slice(1)) passes.push(new Map([[a.k, x]]));
-    // a rule that does not read the stabiliser setting behaves the same in both modes
-    const readsMode = !!sm && modeLever >= 0 && cr.leverMap.has(sm.lever);
-    const isManual = (pass: Map<number, number>) => !readsMode || !isAutomatic(sm!, pass.get(modeLever) ?? levers[modeLever].def.default);
     const termReads = Array.from({ length: cr.termCount }, () => new Set<Id>());
-    const manual = new Set<Id>();
+    const byPass: { locks: Map<number, boolean>; reads: Set<Id> }[] = [];
     passes.forEach((pass, n) => {
       leverOverride.clear();
       for (const [k, x] of pass) leverOverride.set(k, x);
@@ -988,7 +1022,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
           if (n === 0) warn(`${where}: ${what} threw during the compile-time dry run: ${(e as Error).message}`);
         }
       };
-      const onManual = isManual(pass);
+      const valueReads = new Set<Id>();
       const termValues: Record<Id, number> = {};
       for (let j = 0; j < cr.termCount; j++) {
         const t = cterms[cr.termStart + j];
@@ -998,30 +1032,72 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
         });
         for (const id of reads) {
           termReads[j].add(id);
-          if (onManual) manual.add(id);
+          valueReads.add(id);
         }
       }
       reads = [];
       if (r.combine) guard('combine', () => void r.combine!(termValues, ctx));
       if (r.compute) guard('compute', () => void r.compute!(ctx));
-      if (onManual) for (const id of reads) manual.add(id);
+      for (const id of reads) valueReads.add(id);
       if (r.regime && n === 0) guard('regime', () => void r.regime!(ctx, 1, termValues));
+      const locks = new Map<number, boolean>();
+      for (const k of cr.lockMap.values()) locks.set(k, isLocked(pass.get(k) ?? 0));
+      byPass.push({ locks, reads: valueReads });
     });
     leverOverride.clear();
     for (let j = 0; j < cr.termCount; j++) cterms[cr.termStart + j].reads = [...termReads[j]];
-    manualReads[cr.idx] = manual;
+    passReads[cr.idx] = byPass;
   });
-  // a stabiliser's shadow variables may feed only its suggestion (or other shadows) on Manual
-  const inert = new Set<number>();
-  cstabilisers.forEach((cs) => {
-    if (cs.suggestion >= 0) inert.add(cs.suggestion);
-    for (const k of cs.shadow) inert.add(k);
-  });
+  // Shadows: a locked stabiliser's shadow variables drive nothing, unless a rule that still acts
+  // reads them (an unlocked stabiliser's rule may: the debt rule's escape clause reads where the
+  // key-rate rule is heading). Worked out for every lock configuration by removing, until nothing
+  // changes, each shadow that a rule outside the inert set reads under it.
+  const NS = cstabilisers.length;
+  const stabiliserOfLock = new Map<number, number>();
+  cstabilisers.forEach((cs, j) => stabiliserOfLock.set(cs.lock, j));
+  const readsUnder = (cr: CRule, mask: number): Set<Id> => {
+    const all = passReads[cr.idx] ?? [];
+    const match = all.filter((p) => [...p.locks].every(([k, closed]) => closed === !!(mask & (1 << stabiliserOfLock.get(k)!))));
+    const out = new Set<Id>();
+    for (const p of match.length ? match : all) for (const id of p.reads) out.add(id);
+    return out;
+  };
+  const inertByMask: Set<number>[] = [];
+  const allLocked = (1 << NS) - 1;
+  for (let mask = 0; NS <= MAX_STABILISERS && mask <= allLocked; mask++) {
+    const inert = new Set<number>();
+    const shadowOf = new Map<number, number>();
+    cstabilisers.forEach((cs, j) => {
+      if (cs.suggestion >= 0) inert.add(cs.suggestion);
+      if (mask & (1 << j))
+        for (const k of cs.shadow) {
+          inert.add(k);
+          shadowOf.set(k, j);
+        }
+    });
+    for (let changed = true; changed; ) {
+      changed = false;
+      for (const cr of crules) {
+        if (inert.has(cr.target)) continue;
+        for (const id of readsUnder(cr, mask)) {
+          const k = varIndex.get(id)!;
+          if (!shadowOf.has(k) || !inert.has(k)) continue;
+          // with every stabiliser locked, a shadow must drive nothing (decision 0004)
+          if (mask === allLocked) {
+            const j = shadowOf.get(k)!;
+            err(`stabiliser '${stabilisers[j].def.id}' (module '${cstabilisers[j].module}') declares '${id}' a shadow, but rule '${cr.def.id}' reads it while the stabiliser is locked`);
+          }
+          inert.delete(k);
+          changed = true;
+        }
+      }
+    }
+    inertByMask.push(inert);
+  }
   cstabilisers.forEach((cs, j) => {
     const where = `stabiliser '${stabilisers[j].def.id}' (module '${cs.module}')`;
     for (const k of cs.shadow) {
       const id = vars[k].def.id;
-      for (const cr of crules) if (!inert.has(cr.target) && manualReads[cr.idx]?.has(id)) err(`${where} declares '${id}' a shadow, but rule '${cr.def.id}' reads it on Manual`);
       for (const { def: f } of flows) if ((f.legs ?? []).some((l) => l.amount === id)) err(`${where} declares '${id}' a shadow, but flow '${f.id}' pays it`);
     }
   });
@@ -1059,6 +1135,23 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     };
     try {
       if (typeof ind.compute === 'function') ind.compute(ictx);
+    } catch (e) {
+      warn(`${where} threw during the compile-time dry run: ${(e as Error).message}`);
+    }
+  });
+  // a stabiliser's current() reads like an indicator
+  stabilisers.forEach(({ def: s, module }) => {
+    if (typeof s.current !== 'function') return;
+    const where = `stabiliser '${s.id}' (module '${module}') current()`;
+    const probe = (id: Id) => {
+      const k = varIndex.get(id);
+      if (k === undefined) err(`${where} reads unknown variable '${id}'`);
+      else readByIndicators.add(id);
+      return k === undefined ? 1 : probeVar(k);
+    };
+    const sctx: IndicatorCtx = { v: probe, base: probe, stock: () => 1, baseStock: () => 1 };
+    try {
+      s.current(sctx);
     } catch (e) {
       warn(`${where} threw during the compile-time dry run: ${(e as Error).message}`);
     }
@@ -1172,7 +1265,6 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     concepts: conceptList,
     feed: feed.map((x) => x.def as FeedRule),
     stabilisers: stabilisers.map((x) => x.def as StabiliserDef),
-    stabiliserMode: sm ? { ...sm } : undefined,
     schedule: blocks.map((b) => ({ rules: b.rules.map((j) => ruleList[j].id), simultaneous: b.simultaneous })),
     ruleFor(varId: Id) {
       const k = varIndex.get(varId);
@@ -1213,7 +1305,8 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     groupIndex: hierarchy.groupIndex,
     groupChains,
     cstabilisers,
-    modeLever,
+    stabiliserOfLever,
+    inertByMask,
   };
   return model;
 }

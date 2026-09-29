@@ -1,11 +1,14 @@
 /**
- * Stabilisers and showWhen (decision 0004): the contract's validation in the compiler, and
- * Engine.stabilisers() and the stabiliser narration in the engine, on a tiny model with one
- * rule; then the Iceland model's promise that, on Manual, policy stays where it is set.
+ * Stabilisers and their padlocks (decisions 0004 and 0010): the contract's validation in the
+ * compiler; the padlock rules in the engine (locking freezes the lever at the value in force,
+ * setting an unlocked lever locks it, unlocking hands it back to the rule), Engine.stabilisers()
+ * and the narration, on a tiny model with one rule; then the Iceland model's promise that a locked
+ * policy lever stays where it is set.
  */
 import { describe, expect, test } from 'bun:test';
 import { compile, CompileError } from '../../src/core/compile.ts';
 import { createEngine } from '../../src/core/engine.ts';
+import { lockAll } from '../../src/core/scenario.ts';
 import type { LeverDef, ModelDef, ModuleDef, StabiliserDef } from '../../src/core/types.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 import { rule, tinyModel } from './fixtures.ts';
@@ -25,14 +28,14 @@ const RULE: StabiliserDef = {
   id: 'theRule',
   label: 'The rule',
   lever: 'rate',
-  offset: 'offset',
   suggestion: 'ruleSays',
+  current: (c) => c.v('policyRate'),
   threshold: 0.125,
   description: 'A rule that says 3% plus the pressure.',
   feed: { raise: 'The rule would raise the rate to {value}%', lower: 'The rule would cut the rate to {value}% ({change} pp)', indicator: 'rateNow' },
 };
 
-/** A policy rate set by the user (Manual) or by a rule plus an offset (Automatic). */
+/** A policy rate set by a rule (unlocked, the default) or held by the user (locked). */
 function policyModule(over: Partial<ModuleDef> = {}): ModuleDef {
   return {
     id: 'policy',
@@ -50,16 +53,16 @@ function policyModule(over: Partial<ModuleDef> = {}): ModuleDef {
         target: 'policyRate',
         category: 'POLICY',
         inputs: ['ruleSays'],
-        levers: ['mode', 'rate', 'offset'],
-        compute: (c) => (Math.round(c.lever('mode')) >= 1 ? c.v('ruleSays') + c.lever('offset') : c.lever('rate')),
+        levers: ['rate'],
+        locks: ['theRule'],
+        compute: (c) => (c.locked('theRule') ? c.lever('rate') : c.v('ruleSays')),
       }),
     ],
     levers: [
-      setting({ id: 'mode', kind: 'choice', unit: 'mode', min: 0, max: 1, step: 1, options: [{ value: 0, label: 'Manual' }, { value: 1, label: 'Automatic' }] }),
-      setting({ id: 'rate', default: 3, step: 0.25, showWhen: { lever: 'mode', equals: 0 } }),
-      setting({ id: 'offset', unit: 'pp', step: 0.25, showWhen: { lever: 'mode', equals: [1] } }),
+      setting({ id: 'rate', default: 3, min: 0, max: 15, step: 0.25 }),
       setting({ id: 'pressure', unit: 'pp', group: 'World', binds: { variable: 'pressure', mode: 'replace' }, default: 0 }),
       { id: 'kick', label: 'Kick', group: 'World', kind: 'oneoff', unit: 'pp', default: 1, description: 'kick', definition: 'One-off: nothing, for tests.', fire: () => {} },
+      setting({ id: 'mode', kind: 'choice', unit: 'mode', min: 0, max: 1, step: 1, options: [{ value: 0, label: 'A' }, { value: 1, label: 'B' }] }),
     ],
     indicators: [{ id: 'rateNow', label: 'Rate', group: 'Overview', unit: 'pp vs baseline', display: 'deviation', compute: (c) => c.v('policyRate'), description: 'the rate' }],
     stabilisers: [RULE],
@@ -67,10 +70,7 @@ function policyModule(over: Partial<ModuleDef> = {}): ModuleDef {
   };
 }
 
-function stabModel(over: Partial<ModuleDef> = {}, mode: ModelDef['stabiliserMode'] | null = { lever: 'mode', manual: 0, automatic: 1 }): ModelDef {
-  const m = tinyModel([policyModule(over)]);
-  return mode ? { ...m, stabiliserMode: mode } : m;
-}
+const stabModel = (over: Partial<ModuleDef> = {}): ModelDef => tinyModel([policyModule(over)]);
 
 const errorsOf = (def: ModelDef): string[] => {
   try {
@@ -82,84 +82,188 @@ const errorsOf = (def: ModelDef): string[] => {
   }
 };
 
-describe('compiler: showWhen, the stabiliser setting and stabilisers', () => {
-  test('a valid model compiles and publishes its stabilisers and mode', () => {
+describe('compiler: stabilisers and their padlocks', () => {
+  test('a valid model compiles, publishes its stabilisers and adds a padlock for each one’s lever', () => {
     const m = compile(stabModel());
     expect(m.stabilisers.map((s) => s.id)).toEqual(['theRule']);
-    expect(m.stabiliserMode).toEqual({ lever: 'mode', manual: 0, automatic: 1 });
-    expect(m.warnings.filter((w) => w.includes('ruleSays'))).toEqual([]); // a suggestion counts as read
+    const lock = m.levers.find((l) => l.kind === 'lock')!;
+    expect(lock).toMatchObject({ id: 'rateLock', default: 0, min: 0, max: 1, locks: { lever: 'rate', stabiliser: 'theRule' }, group: 'Policy' });
+    expect(lock.options).toEqual([
+      { value: 0, label: 'Unlocked' },
+      { value: 1, label: 'Locked' },
+    ]);
+    expect(lock.description).toContain('The rule');
+    expect(lock.definition).toContain('Unlocking hands the lever back to the rule');
+    expect(m.levers.map((l) => l.id).at(-1)).toBe('rateLock'); // after the declared levers
+    expect(m.cstabilisers[0].lock).toBe(m.leverIndex.get('rateLock')!);
+    expect(m.warnings.filter((w) => w.includes('ruleSays') || w.includes('rateLock'))).toEqual([]); // a suggestion counts as read
   });
 
-  test('every reference must resolve to a setting or choice, and a variable for the suggestion', () => {
+  test('every reference must resolve: a setting to lock, a variable for the suggestion, a value in force', () => {
     const bad = (s: Partial<StabiliserDef>) => errorsOf(stabModel({ stabilisers: [{ ...RULE, ...s }] })).join('\n');
     expect(bad({ lever: 'nope' })).toContain("acts on unknown lever 'nope'");
     expect(bad({ lever: 'kick' })).toContain("acts on one-off lever 'kick'");
-    expect(bad({ offset: 'nope' })).toContain("offsets with unknown lever 'nope'");
+    expect(bad({ lever: 'mode' })).toContain("acts on 'mode', which is a choice; a stabiliser moves a setting");
     expect(bad({ suggestion: 'nope' })).toContain("suggests unknown variable 'nope'");
     expect(bad({ threshold: 0 })).toContain('needs a positive threshold');
-    expect(bad({ lever: 'mode' })).toContain('acts on the stabiliser setting itself');
-    expect(bad({ offset: 'mode' })).toContain('offsets with the stabiliser setting itself');
-    expect(bad({ lever: 'mode', offset: undefined })).not.toContain('offsets with the stabiliser setting itself'); // reported once, as 'acts on'
+    expect(bad({ current: undefined })).toContain('needs current()');
+    expect(bad({ current: (c) => c.v('nope') })).toContain("current() reads unknown variable 'nope'");
     expect(bad({ feed: { raise: 'x', lower: 'y', indicator: 'nope' } })).toContain("feed opens unknown indicator 'nope'");
     expect(bad({ description: '' })).toContain('needs a description');
   });
 
-  test('stabilisers need a stabiliser setting, and the setting must be sound', () => {
-    expect(errorsOf(stabModel({}, null)).join()).toContain('no stabiliserMode');
-    expect(errorsOf(stabModel({}, { lever: 'nope', manual: 0, automatic: 1 })).join()).toContain("stabiliserMode names unknown lever 'nope'");
-    expect(errorsOf(stabModel({}, { lever: 'mode', manual: 1, automatic: 1 })).join()).toContain('must be different');
-    expect(errorsOf(stabModel({}, { lever: 'mode', manual: 0, automatic: 2 })).join()).toContain("2 is not an option of choice lever 'mode'");
+  test('a lever has one padlock: two stabilisers cannot move one lever, and a model cannot declare a padlock itself', () => {
+    expect(errorsOf(stabModel({ stabilisers: [RULE, { ...RULE, id: 'another' }] })).join()).toContain("which stabiliser 'theRule' already moves; a lever has one padlock");
+    const mod = policyModule();
+    mod.levers = [...mod.levers!, setting({ id: 'myLock', kind: 'lock' })];
+    expect(errorsOf(tinyModel([mod])).join()).toContain("lever 'myLock' (module 'policy') has kind 'lock'; padlocks are added by the compiler");
   });
 
-  test('showWhen must name another setting or choice, with values it can take', () => {
-    const withShow = (showWhen: LeverDef['showWhen']) => {
+  test('a rule reads a padlock with locked(), declared in locks, never as a lever', () => {
+    const withRule = (r: Parameters<typeof rule>[0]) => {
       const mod = policyModule();
-      mod.levers = mod.levers!.map((l) => (l.id === 'rate' ? { ...l, showWhen } : l));
-      return errorsOf({ ...tinyModel([mod]), stabiliserMode: { lever: 'mode', manual: 0, automatic: 1 } }).join('\n');
+      mod.rules = [mod.rules![0], rule(r)];
+      return errorsOf(tinyModel([mod])).join('\n');
     };
-    expect(withShow({ lever: 'nope', equals: 0 })).toContain("showWhen refers to unknown lever 'nope'");
-    expect(withShow({ lever: 'rate', equals: 0 })).toContain('showWhen refers to itself');
-    expect(withShow({ lever: 'kick', equals: 0 })).toContain("showWhen refers to one-off lever 'kick'");
-    expect(withShow({ lever: 'mode', equals: [0, 3] })).toContain("3 is not an option of choice lever 'mode'");
-    expect(withShow({ lever: 'mode', equals: [] })).toContain('lists no values');
-    expect(withShow({ lever: 'mode', equals: [0, 1] })).toBe('');
+    const base = { id: 'policyRate', target: 'policyRate', category: 'POLICY' as const, inputs: ['ruleSays'], levers: ['rate'] };
+    expect(withRule({ ...base, compute: (c) => (c.locked('theRule') ? c.lever('rate') : c.v('ruleSays')) })).toContain("reads locked('theRule') without declaring it in locks");
+    expect(withRule({ ...base, locks: ['nope'], compute: (c) => c.v('ruleSays') })).toContain("declares the padlock of unknown stabiliser 'nope' in locks");
+    expect(withRule({ ...base, levers: ['rate', 'rateLock'], compute: (c) => c.lever('rateLock') })).toContain("reads padlock 'rateLock' as a lever; read it with locked()");
+    // a model whose rules read no padlock compiles, with a warning that locking changes nothing
+    const mod = policyModule();
+    mod.rules = [mod.rules![0], rule({ ...base, compute: (c) => c.lever('rate') })];
+    expect(compile(tinyModel([mod])).warnings.join()).toContain('no rule reads a padlock');
+  });
+
+  test('a shadow may drive nothing while its stabiliser is locked', () => {
+    const shadowed = (reader: boolean) => {
+      const mod = policyModule({ stabilisers: [{ ...RULE, shadow: ['echo'] }] });
+      mod.vars = [...mod.vars!, { id: 'echo', label: 'echo', unit: '%', kind: 'rate', initial: 3 }, { id: 'user', label: 'user', unit: '%', kind: 'rate', initial: 3 }];
+      mod.rules = [
+        ...mod.rules!,
+        rule({ id: 'echo', target: 'echo', category: 'POLICY', inputs: ['ruleSays'], compute: (c) => c.v('ruleSays') }),
+        rule({ id: 'user', target: 'user', inputs: ['echo'], locks: ['theRule'], compute: (c) => (reader || !c.locked('theRule') ? c.v('echo') : 3) }),
+      ];
+      return errorsOf(tinyModel([mod])).join('\n');
+    };
+    expect(shadowed(false)).toBe('');
+    expect(shadowed(true)).toContain("declares 'echo' a shadow, but rule 'user' reads it while the stabiliser is locked");
   });
 });
 
-describe('engine: stabilisers() and their narration', () => {
+describe('engine: padlocks', () => {
   const model = compile(stabModel());
 
-  test('Manual: the lever holds, and the stabiliser calls once the rule is more than its threshold away', () => {
+  test('unlocked, the default: the rule sets the policy, and the lever reports the live value', () => {
     const e = createEngine(model);
-    expect(e.stabilisers()).toEqual([{ id: 'theRule', label: 'The rule', lever: 'rate', offset: 'offset', suggested: 3, current: 3, gap: 0, calling: false, automatic: false, description: RULE.description }]);
-    e.setLever('pressure', 0.1);
+    expect(e.stabilisers()).toEqual([{ id: 'theRule', label: 'The rule', lever: 'rate', lock: 'rateLock', locked: false, suggested: 3, current: 3, gap: 0, calling: false, description: RULE.description }]);
+    e.setLever('pressure', 0.6);
     e.step(1);
-    expect(e.value('policyRate')).toBe(3);
-    expect(e.stabilisers()[0]).toMatchObject({ suggested: 3.1, calling: false });
-    e.setLever('pressure', 0.5);
-    e.step(1);
-    expect(e.value('policyRate')).toBe(3);
-    const s = e.stabilisers()[0];
-    expect(s.gap).toBeCloseTo(0.5, 12);
-    expect(s.calling).toBe(true);
-    // the message, and the parts an interface needs to write it in another language
-    expect(e.feed().filter((f) => f.stabiliser)).toEqual([{ t: 2, message: 'The rule would raise the rate to 3.5%', indicator: 'rateNow', stabiliser: 'theRule', dir: 1, value: 3.5, change: 0.5 }]);
+    expect(e.value('policyRate')).toBeCloseTo(3.6, 12);
+    expect(e.stabilisers()[0]).toMatchObject({ locked: false, current: e.value('policyRate'), calling: false });
+    expect(e.leverValue('rate')).toBe(3); // the stored level waits until the lever is locked
   });
 
-  test('Applying the suggestion stops the call; Automatic never calls', () => {
+  test('locking freezes the lever at the value in force: no jump, and the rule only suggests', () => {
     const e = createEngine(model);
+    e.setLever('pressure', 0.6);
+    e.step(1);
+    const inForce = e.value('policyRate');
+    e.setLever('rateLock', 1);
+    expect(e.leverValue('rate')).toBe(inForce);
+    expect(e.events.map((x) => x.lever)).toEqual(['pressure', 'rateLock']); // a lock is an ordinary event
+    e.setLever('pressure', 1.5);
+    e.step(1);
+    expect(e.value('policyRate')).toBe(inForce);
+    expect(e.stabilisers()[0]).toMatchObject({ locked: true, current: inForce, suggested: 4.5, calling: true });
+    expect(e.stabilisers()[0].gap).toBeCloseTo(4.5 - inForce, 12);
+  });
+
+  test('locking an untouched lever at the baseline keeps its default exactly (the value in force is within LOCK_SNAP)', () => {
+    const mod = policyModule({ stabilisers: [{ ...RULE, current: (c) => c.v('policyRate') * (1 + 1e-15) }] });
+    const e = createEngine(tinyModel([mod]));
+    e.setLever('rateLock', 1);
+    expect(e.leverValue('rate')).toBe(3);
+  });
+
+  test('setting an unlocked lever takes control: the padlock closes at the new value, in replays too', () => {
+    const e = createEngine(model);
+    e.setLever('pressure', 1);
+    e.setLever('rate', 5);
+    expect(e.stabilisers()[0].locked).toBe(true);
+    expect(e.events.map((x) => x.lever)).toEqual(['pressure', 'rate']); // no separate lock event
+    e.step(2);
+    expect(e.value('policyRate')).toBe(5);
+    const replay = createEngine(model);
+    replay.load({ modelId: model.def.id, events: e.events, months: 2 });
+    expect(replay.value('policyRate')).toBe(5);
+    expect(replay.stabilisers()[0].locked).toBe(true);
+  });
+
+  test('Apply sets the lever to the suggestion and keeps it locked; the call stops', () => {
+    const e = createEngine(model);
+    lockAll(e);
     e.setLever('pressure', 0.6);
     e.step(1);
     expect(e.stabilisers()[0].calling).toBe(true);
     e.setLever('rate', 3.5); // Apply, rounded to a quarter point: within the threshold
-    expect(e.stabilisers()[0].calling).toBe(false);
+    expect(e.stabilisers()[0]).toMatchObject({ locked: true, calling: false });
     e.step(1);
     expect(e.value('policyRate')).toBe(3.5);
-    e.setLever('mode', 1);
-    e.setLever('pressure', 2);
+  });
+
+  test('unlocking hands the lever back to its rule, and nothing calls while unlocked', () => {
+    const e = createEngine(model);
+    e.setLever('rate', 5);
+    e.setLever('pressure', 3);
     e.step(1);
-    expect(e.stabilisers()[0]).toMatchObject({ automatic: true, calling: false, suggested: 5 });
-    expect(e.value('policyRate')).toBe(5);
+    expect(e.stabilisers()[0].calling).toBe(true);
+    e.setLever('rateLock', 0);
+    expect(e.stabilisers()[0]).toMatchObject({ locked: false, calling: false });
+    e.step(1);
+    expect(e.value('policyRate')).toBe(6); // the rule's value: 3 + 3
+    expect(e.leverValue('rate')).toBe(5); // the lever keeps its stored level, which no longer counts
+    e.setLever('pressure', 0);
+    e.step(1);
+    expect(e.value('policyRate')).toBe(3);
+  });
+
+  test('locks replay, rewind and fork like any lever event', () => {
+    const e = createEngine(model);
+    e.setLever('pressure', 1);
+    e.step(12);
+    e.setLever('rateLock', 1);
+    e.step(12);
+    e.setLever('pressure', -1);
+    e.step(6);
+    e.setLever('rateLock', 0);
+    e.step(6);
+    const path = e.series('policyRate').map((p) => p.v);
+    expect(path[20]).toBe(4); // held at the rule's value in month 12
+    expect(path[36]).toBe(2);
+    e.seek(18);
+    expect(e.stabilisers()[0].locked).toBe(true);
+    expect(e.value('policyRate')).toBe(4);
+    e.seek(36);
+    expect(e.series('policyRate').map((p) => p.v)).toEqual(path);
+    expect(e.fork().series('policyRate').map((p) => p.v)).toEqual(path);
+    const replay = createEngine(model);
+    replay.load({ modelId: model.def.id, events: e.events, months: 36 });
+    expect(replay.series('policyRate').map((p) => p.v)).toEqual(path);
+  });
+
+  test('narration: a locked stabiliser that starts calling says so, with the numbers', () => {
+    const e = createEngine(model);
+    lockAll(e);
+    e.setLever('pressure', 0.1);
+    e.step(1);
+    expect(e.stabilisers()[0]).toMatchObject({ suggested: 3.1, calling: false });
+    e.setLever('pressure', 0.5);
+    e.step(1);
+    expect(e.value('policyRate')).toBe(3);
+    expect(e.stabilisers()[0].calling).toBe(true);
+    // the message, and the parts an interface needs to write it in another language
+    expect(e.feed().filter((f) => f.stabiliser)).toEqual([{ t: 2, message: 'The rule would raise the rate to 3.5%', indicator: 'rateNow', stabiliser: 'theRule', dir: 1, value: 3.5, change: 0.5 }]);
   });
 
   test('the narration is sparse: not when the user moved the lever, never a repeat within a year', () => {
@@ -186,13 +290,27 @@ describe('engine: stabilisers() and their narration', () => {
     expect(e.feed().filter((f) => f.stabiliser).length).toBe(2);
   });
 
-  test('seek and forks replay the narration exactly', () => {
+  test('closing a padlock is not narrated as a call in the month it closes', () => {
     const e = createEngine(model);
     e.setLever('pressure', 1);
-    e.step(20);
+    e.step(1);
+    e.setLever('rateLock', 1);
+    e.step(1);
+    e.setLever('pressure', 2); // the rule moves a point away from the frozen rate
+    e.step(1);
+    expect(e.feed().filter((f) => f.stabiliser).map((f) => f.t)).toEqual([3]);
+  });
+
+  test('seek and forks replay the narration exactly', () => {
+    const e = createEngine(model);
+    lockAll(e);
+    e.step(1);
+    e.setLever('pressure', 1);
+    e.step(19);
     e.setLever('pressure', -1);
     e.step(20);
     const feed = e.feed();
+    expect(feed.length).toBeGreaterThan(0);
     e.seek(15);
     e.seek(40);
     expect(e.feed()).toEqual(feed);
@@ -200,11 +318,11 @@ describe('engine: stabilisers() and their narration', () => {
   });
 });
 
-describe('Iceland: policy is held on Manual', () => {
+describe('Iceland: a locked policy lever is held', () => {
   const e = createEngine(icelandModel);
+  lockAll(e);
 
-  test('by default, income tax +1 pp leaves the key rate at exactly 3.000% for 20 years; the rule calls within 12 months', () => {
-    expect(e.leverValue('stabilisers')).toBe(0);
+  test('income tax +1 pp with both levers locked leaves the key rate at exactly 3.000% for 20 years; the rule calls within 12 months', () => {
     e.setLever('incomeTax', 1);
     let firstCall = -1;
     for (let m = 1; m <= 240; m++) {
@@ -218,11 +336,38 @@ describe('Iceland: policy is held on Manual', () => {
     expect(e.feed().some((f) => f.stabiliser === 'keyRateRule' && f.t === firstCall && /cut the key rate/.test(f.message))).toBe(true);
   });
 
-  test('the debt rule is a shadow on Manual: computed, never applied', () => {
+  test('the debt rule is a shadow while income tax is locked: computed, never applied', () => {
     const f = e.fork();
     const taxRate = f.value('taxRate');
     const tau0 = f.influences('taxRate').params.find((p) => p.id === 'tau0')!.value;
     expect(taxRate).toBe(tau0 + 0.01);
     expect(Math.abs(f.value('taxRuleAdjustment'))).toBeGreaterThan(1e-3);
+  });
+
+  test('both rules take over smoothly when unlocked: the first month moves each rate one smoothed step from the rate held', () => {
+    const f = createEngine(icelandModel, { baseline: e.baselineData, dev: false });
+    f.setLever('keyRate', 6); // locks the key rate
+    f.setLever('incomeTax', -3); // and income tax
+    f.step(36);
+    const [key, tax] = [f.value('keyRate'), f.value('taxRate')];
+    const kKey = 1 - Math.exp(-f.influences('ruleRate').params.find((p) => p.id === 'lamPol')!.value / 12);
+    const kTax = 1 - Math.exp(-f.influences('taxRuleAdjustment').params.find((p) => p.id === 'lamTau')!.value / 12);
+    lockAll(f, false);
+    f.step(1);
+    expect(Math.abs(f.value('keyRate') - key - kKey * (f.value('ruleTarget') - key))).toBeLessThan(1e-12);
+    expect(Math.abs(f.value('taxRate') - tax - kTax * (f.value('taxRuleTarget') + 0.03))).toBeLessThan(1e-12);
+    expect(Math.abs(f.value('keyRate') - key)).toBeLessThan(0.005);
+    expect(Math.abs(f.value('taxRate') - tax)).toBeLessThan(0.005);
+  });
+
+  test('locking the key rate alone leaves the debt rule acting, and the key-rate rule’s target still feeds its escape clause', () => {
+    const m = e.model;
+    const j = m.stabilisers.findIndex((s) => s.id === 'keyRateRule');
+    const inert = [...m.inertByMask[1 << j]].map((v) => m.vars[v].id);
+    expect(inert).toContain('ruleRate');
+    expect(inert).not.toContain('ruleTarget'); // the debt rule's escape clause reads it
+    expect(inert).not.toContain('taxRuleAdjustment');
+    const all = [...m.inertByMask[(1 << m.stabilisers.length) - 1]].map((v) => m.vars[v].id);
+    expect(all).toEqual(expect.arrayContaining(['ruleRate', 'ruleTarget', 'neutralRate', 'taxRuleAdjustment', 'taxRuleTarget']));
   });
 });

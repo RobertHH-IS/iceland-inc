@@ -10,6 +10,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 import { compile } from '../../src/core/compile.ts';
+import { lockAll } from '../../src/core/scenario.ts';
 import { createEngine, type KernelEngine } from '../../src/core/engine.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 import { withConcepts } from '../../src/models/index.ts';
@@ -23,7 +24,7 @@ type Setting = [lever: string, value: number];
 function twins(settings: Setting[], automatic: boolean, months: number, params?: Record<string, number>) {
   const make = (shock: boolean) => {
     const e = createEngine(model, { baseline: base.baselineData, dev: false, forkParams: params });
-    e.setLever('stabilisers', automatic ? 1 : 0);
+    lockAll(e, !automatic);
     if (shock)
       for (const [id, v] of settings) {
         if (model.levers.find((l) => l.id === id)!.kind === 'oneoff') e.fire(id, v);
@@ -45,7 +46,7 @@ function twins(settings: Setting[], automatic: boolean, months: number, params?:
 const param = (e: KernelEngine, rule: string, id: string) => e.influences(rule).params.find((p) => p.id === id)!.value;
 
 describe('trade-nominal-drift: wages are measured against the value-added price', () => {
-  test('a lasting tourism fall no longer leaves inflation off target on Automatic', () => {
+  test('a lasting tourism fall no longer leaves inflation off target with the policy rules acting', () => {
     // Before: +0.88 pp at month 180 and +0.82 at month 240, the price level 16% higher and rising.
     const r = twins([['tourism', -15]], true, 240);
     expect(Math.abs(r.pp('inflation12', 180))).toBeLessThan(0.1);
@@ -53,7 +54,7 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
     expect(Math.abs(r.pct('cpi', 240))).toBeLessThan(2);
   });
 
-  test('on Manual the inflation gap is much smaller, and the real effects stay small', () => {
+  test('with both policy levers locked the inflation gap is much smaller, and the real effects stay small', () => {
     // Before: +1.05 pp at month 240. What is left is the half-anchored expectations' slope on a
     // lasting unemployment gap, which the lever texts state.
     const r = twins([['tourism', -15]], false, 240);
@@ -69,7 +70,7 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
     ['foreignDemand', 20],
     ['fishPrices', 30],
   ];
-  test('lasting export changes on Automatic: output and unemployment end near baseline after 20 years', () => {
+  test('lasting export changes with the policy rules acting: output and unemployment end near baseline after 20 years', () => {
     for (const setting of exportShocks) {
       const r = twins([setting], true, 240);
       expect(Math.abs(r.pct('output', 240))).toBeLessThan(0.5);
@@ -77,7 +78,7 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
     }
   });
 
-  test('more exports raise output in the first two years in both modes', () => {
+  test('more exports raise output in the first two years locked and unlocked', () => {
     for (const setting of exportShocks.filter(([id, v]) => id !== 'fishPrices' && v > 0))
       for (const automatic of [false, true]) expect(twins([setting], automatic, 24).pct('output', 24)).toBeGreaterThan(0.25);
   });
@@ -96,7 +97,7 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
       expect(r.pct('output', 240)).toBeGreaterThan(-3);
       expect(r.pp('unemployment', 240)).toBeLessThan(1.2);
     }
-    for (const id of ['tourism', 'foreignDemand', 'fishPrices']) expect(model.levers.find((l) => l.id === id)!.definition).toMatch(/key rate held \(Manual\)/);
+    for (const id of ['tourism', 'foreignDemand', 'fishPrices']) expect(model.levers.find((l) => l.id === id)!.definition).toMatch(/key rate held \(both policy levers locked\)/);
   });
 
   test('a lasting rise in world prices leaves no lasting wage gap: the error correction closes, while wages ÷ domestic prices have moved', () => {
@@ -110,6 +111,7 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
 
   test('the value-added price is domestic prices less the imported inputs in them, 1 at baseline', () => {
     const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    lockAll(e); // both policy levers locked
     expect(e.value('valueAddedPrice')).toBeCloseTo(1, 12);
     e.setLever('importPrices', 20);
     e.step(12);
@@ -118,12 +120,14 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
     for (const j of FIRMS) expect(e.influences(`employment${j}`).terms.some((t) => t.id === 'realWage')).toBe(true);
   });
 
-  test('the key-rate offset, spending, tax and benefit levers and the Manual setting say that a held rate leaves no nominal anchor', () => {
+  // Until padlocks (decision 0010) the key-rate offset's definition said the rule learns a lower
+  // neutral rate, and the stabiliser setting's that nothing anchors inflation on Manual; the offset
+  // is gone, and the key-rate lever now says the second.
+  test('the key-rate, spending, tax and benefit levers say that a held rate leaves no nominal anchor', () => {
     const def = (id: string) => model.levers.find((l) => l.id === id)!.definition;
     for (const id of ['incomeTax', 'vat', 'health', 'education', 'otherServices', 'publicInvestment', 'oldAgeTransfers', 'familyBenefits', 'unemploymentBenefits'])
       expect(def(id)).toMatch(/long-run Phillips curve is not vertical/);
-    expect(def('keyRateAddon')).toMatch(/learns a lower neutral rate/);
-    expect(def('stabilisers')).toMatch(/nothing anchors inflation/);
+    expect(def('keyRate')).toMatch(/nothing anchors inflation/);
   });
 });
 
@@ -135,10 +139,10 @@ describe('trade-exporter-debt-spiral: owners keep a squeezed firm’s debt in pr
   ];
   for (const [label, setting] of cases)
     for (const automatic of [false, true])
-      test(`${label} held for 50 years (${automatic ? 'Automatic' : 'Manual'}): every firm’s loans stay below three times their normal share of GDP`, () => {
+      test(`${label} held for 50 years (${automatic ? 'unlocked' : 'locked'}): every firm’s loans stay below three times their normal share of GDP`, () => {
         // Before: fisheries' loans reached 78–349% of GDP by month 600 (6.2% at baseline).
         const e = createEngine(model, { baseline: base.baselineData, dev: false });
-        e.setLever('stabilisers', automatic ? 1 : 0);
+        lockAll(e, !automatic);
         e.setLever(setting[0], setting[1]);
         const l0 = Object.fromEntries(FIRMS.map((j) => [j, base.stock('businessLoans', j) / base.value('gdpTrailing12')]));
         let worst = 0;
@@ -149,8 +153,9 @@ describe('trade-exporter-debt-spiral: owners keep a squeezed firm’s debt in pr
         expect(worst).toBeLessThan(3);
       });
 
-  test('fish prices −30 on Manual: fisheries invest less while their debt is above normal, and their owners put money in', () => {
+  test('fish prices −30 with both policy levers locked: fisheries invest less while their debt is above normal, and their owners put money in', () => {
     const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    lockAll(e); // both policy levers locked
     e.setLever('fishPrices', -30);
     let cut = 0,
       putIn = 0;
@@ -166,6 +171,7 @@ describe('trade-exporter-debt-spiral: owners keep a squeezed firm’s debt in pr
 
   test('owners in Iceland put in no more than they can spare: in a deflationary collapse no owner is overdrawn by a firm’s call', () => {
     const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    lockAll(e); // both policy levers locked
     e.setLever('incomeTax', 10);
     e.setLever('vat', 10);
     let capped = 0;
@@ -178,9 +184,10 @@ describe('trade-exporter-debt-spiral: owners keep a squeezed firm’s debt in pr
   });
 
   test('pension funds put money into firms only from deposits above their cash buffer, so 40 years of collapse do not overdraw them', () => {
-    // Before this limit, public investment −3 held on Manual overdrew the funds' deposits from month
+    // Before this limit, public investment −3 held with both policy levers locked overdrew the funds' deposits from month
     // 456 (−1.94% of GDP by month 480) while fisheries' owners were putting money in.
     const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    lockAll(e); // both policy levers locked
     e.setLever('publicInvestment', -3);
     const legs = ['FC', 'FR', 'XF', 'XT', 'XO'].map((j) => `dividends${j}_PF`);
     let lowest = Infinity,
@@ -203,10 +210,12 @@ describe('trade-exporter-debt-spiral: owners keep a squeezed firm’s debt in pr
 });
 
 describe('trade-fish-windfall-hoarded: a fish windfall is paid out and taxed, not hoarded', () => {
-  test('fish prices +30 on Manual: over five years owners receive more than 2% of GDP-years and the state takes a fishing fee', () => {
+  test('fish prices +30 with both policy levers locked: over five years owners receive more than 2% of GDP-years and the state takes a fishing fee', () => {
     // Before: dividends 0.70 of an extra profit of 8.5% of GDP-years, 5.6 used to repay loans, no fee.
     const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    lockAll(e); // both policy levers locked
     const b = createEngine(model, { baseline: base.baselineData, dev: false });
+    lockAll(b); // both policy levers locked
     e.setLever('fishPrices', 30);
     let div = 0,
       fee = 0,
@@ -230,6 +239,7 @@ describe('trade-fish-windfall-hoarded: a fish windfall is paid out and taxed, no
     // twenty), so the windfall repays about three-quarters of their loans in 20 years rather than
     // all of them, and the payout rule hands on the rest as it comes: their deposits never swell.
     const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    lockAll(e); // both policy levers locked
     e.setLever('tourism', -60);
     const loans0 = e.stock('businessLoans', 'XF');
     let most = 0;
@@ -250,7 +260,7 @@ describe('trade-month1-export-jump: foreign demand and visitors reach volumes ov
     ['tourism', 30],
   ] as const)
     for (const automatic of [false, true])
-      test(`${lever} +${value} (${automatic ? 'Automatic' : 'Manual'}): output peaks after month 3, not in month 1`, () => {
+      test(`${lever} +${value} (${automatic ? 'unlocked' : 'locked'}): output peaks after month 3, not in month 1`, () => {
         // Before: output peaked in month 1 (foreign demand +20: +2.05%, tourism +30: +3.20%).
         const r = twins([[lever, value]], automatic, 36);
         const out = Array.from({ length: 37 }, (_, m) => (m ? r.pct('output', m) : 0));
@@ -278,8 +288,8 @@ describe('trade-month1-export-jump: foreign demand and visitors reach volumes ov
 
 describe('labour-LAB-1: more generous benefits raise normal unemployment', () => {
   for (const automatic of [false, true])
-    test(`benefits +30 points (${automatic ? 'Automatic' : 'Manual'}): unemployment higher over months 60–240, without a jump, and the real wage barely moves`, () => {
-      // Before: −0.15 pp on Manual and −0.05 on Automatic (demand only).
+    test(`benefits +30 points (${automatic ? 'unlocked' : 'locked'}): unemployment higher over months 60–240, without a jump, and the real wage barely moves`, () => {
+      // Before: −0.15 pp with both policy levers locked and −0.05 with the policy rules acting (demand only).
       const r = twins([['unemploymentBenefits', 30]], automatic, 240);
       let mean = 0;
       for (let m = 60; m <= 240; m++) mean += r.pp('unemployment', m) / 181;
@@ -292,6 +302,7 @@ describe('labour-LAB-1: more generous benefits raise normal unemployment', () =>
 
   test('the extra people searching longer do not hold wages back', () => {
     const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    lockAll(e); // both policy levers locked
     e.setLever('unemploymentBenefits', 30);
     e.step(60);
     const s = e.value('benefitSearch');
@@ -305,7 +316,7 @@ describe('labour-LAB-1: more generous benefits raise normal unemployment', () =>
 });
 
 describe('labour-LAB-2: a wage settlement erodes mostly through prices', () => {
-  test('wages +10% on Manual: in the first year consumer prices rise by more than nominal wages give back', () => {
+  test('wages +10% with both policy levers locked: in the first year consumer prices rise by more than nominal wages give back', () => {
     // Before: wages gave back 2.7 points and prices rose 2.2.
     const r = twins([['wageSettlement', 10]], false, 12);
     const givenBack = 10 - r.pct('wage', 12);
@@ -315,6 +326,7 @@ describe('labour-LAB-2: a wage settlement erodes mostly through prices', () => {
 
   test('labour cost reaches unit cost faster than import cost', () => {
     const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    lockAll(e); // both policy levers locked
     const lamUCw = model.def.modules.flatMap((m) => m.params ?? []).find((p) => p.id === 'lamUCw')!.value;
     const lamUC = model.def.modules.flatMap((m) => m.params ?? []).find((p) => p.id === 'lamUC')!.value;
     expect(lamUCw).toBeGreaterThan(lamUC);
@@ -335,12 +347,12 @@ describe('labour-LAB-6: net immigration', () => {
       expect(r.pct('wage', 24)).toBeLessThan(0);
       expect(r.s.value('labourInflow')).toBe(5);
       // before, the newcomers left again: employment +0.02% and output +0.04% after 20 years on
-      // Automatic, and house prices back at baseline
+      // with the rules acting, and house prices back at baseline
       expect(r.pct('employmentTotal', 240)).toBeGreaterThan(0.5);
       expect(r.pct('output', 240)).toBeGreaterThan(1);
       expect(r.pct('realHousePrice', 240)).toBeGreaterThan(1);
     }
-    // on Automatic the central bank counts them in capacity and eases until most have found work
+    // with the policy rules acting the central bank counts them in capacity and eases until most have found work
     const a = twins([['netImmigration', 5]], true, 240);
     expect(a.pp('unemployment', 240)).toBeLessThan(0.5 * a.pp('unemployment', 1));
   });
@@ -354,9 +366,10 @@ describe('labour-LAB-6: net immigration', () => {
 
 describe('tax-TAX-2: households keep a cash buffer', () => {
   for (const settings of [[['incomeTax', 5]], [['incomeTax', -5]], [['vat', 10]]] as Setting[][])
-    test(`${settings[0][0]} ${settings[0][1] > 0 ? '+' : ''}${settings[0][1]} held on Manual: spending never runs into the cash limit and working-age deposits keep at least a quarter of their baseline`, () => {
+    test(`${settings[0][0]} ${settings[0][1] > 0 ? '+' : ''}${settings[0][1]} held with both policy levers locked: spending never runs into the cash limit and working-age deposits keep at least a quarter of their baseline`, () => {
       // Before: income tax +5 left 0.31 of 13.8 at month 240, and VAT +10 emptied them by month 150.
       const e = createEngine(model, { baseline: base.baselineData, dev: false });
+      lockAll(e); // both policy levers locked
       for (const [id, v] of settings) e.setLever(id, v);
       let limited = 0,
         lowest = Infinity;
@@ -377,12 +390,14 @@ describe('tax-TAX-2: households keep a cash buffer', () => {
 describe('monetary-MON-11: investment is planned before it is spent', () => {
   test('the key rate held +1 pp for a year: investment keeps falling after the hold ends and troughs later than consumption', () => {
     const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    lockAll(e); // both policy levers locked
     const b = createEngine(model, { baseline: base.baselineData, dev: false });
-    e.setLever('keyRateFixed', 4);
+    lockAll(b); // both policy levers locked
+    e.setLever('keyRate', 4);
     const inv: number[] = [0],
       cons: number[] = [0];
     for (let m = 1; m <= 36; m++) {
-      if (m === 13) e.setLever('stabilisers', 1), b.setLever('stabilisers', 1);
+      if (m === 13) lockAll(e, false), lockAll(b, false);
       e.step(1);
       b.step(1);
       inv.push(e.value('investmentReal') - b.value('investmentReal'));
@@ -411,7 +426,7 @@ describe('the key-rate rule learns its neutral rate (lever review AUTO-FIXED-NEU
     for (let t = 0; t <= 72; t++) expect(Math.abs(r.s.valueAt('neutralRate', t) - r.b.valueAt('neutralRate', t))).toBeLessThan(0.005);
   });
 
-  test('lasting credit shocks on Automatic leave smaller gaps after twenty years than with a fixed neutral rate', () => {
+  test('lasting credit shocks with the policy rules acting leave smaller gaps after twenty years than with a fixed neutral rate', () => {
     // with the fixed neutral rate, months 180–240: output −0.58% (ltvCap 50), −0.53% (lendingAppetite −3); inflation −0.29 pp after fish +30
     const ltv = twins([['ltvCap', 50]], true, 240);
     expect(ltv.pct('output', 240)).toBeGreaterThan(-0.45);
@@ -423,7 +438,7 @@ describe('the key-rate rule learns its neutral rate (lever review AUTO-FIXED-NEU
 });
 
 describe('the debt rule’s escape clause (lever review ZLB-DEBT-RULE)', () => {
-  test('tourism −60 on Automatic: while the key rate is stuck at zero the debt rule raises no taxes, and output recovers far more', () => {
+  test('tourism −60 with the policy rules acting: while the key rate is stuck at zero the debt rule raises no taxes, and output recovers far more', () => {
     // before: income tax up to 3.3 points higher and output 3.85% lower after 20 years
     const r = twins([['tourism', -60]], true, 240);
     const tau0 = param(base, 'taxRate', 'tau0');

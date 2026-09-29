@@ -129,7 +129,7 @@ describe('models without GroupDefs', () => {
     expect(m.groups.map((g) => g.color)).toEqual(m.players.map((p) => p.color));
     for (const g of m.groups) expect(g).toMatchObject({ depth: 0, children: [], players: g.allPlayers, label: g.id });
     const e = createEngine(m);
-    e.setLever('keyRateAddon', 1);
+    e.setLever('keyRate', 4);
     e.step(18);
     // what pipes('group') was before the hierarchy: legs summed by each player's group label
     const old = new Map<string, { value: number; baseline: number; n: number }>();
