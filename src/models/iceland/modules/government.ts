@@ -534,7 +534,7 @@ const rules: RuleDef[] = [
  *  good (trade-nominal-drift, decision 0002 §6): their definitions say so. */
 const DRIFTS = new Set(['incomeTax', 'vat', 'health', 'education', 'otherServices', 'publicInvestment', 'oldAgeTransfers', 'familyBenefits', 'unemploymentBenefits']);
 const HELD_RATE =
-  ' With the key rate held (Manual), a lasting change that keeps unemployment off its normal rate keeps inflation off target, and the price level drifts: expectations are only half anchored to the target, so the long-run Phillips curve is not vertical (decision 0002 §6). On Automatic the central bank’s rule brings inflation back.';
+  ' With the key rate held (Manual), a lasting change that keeps unemployment off its normal rate keeps inflation off target, and the price level drifts: expectations are only half anchored to the target, so the long-run Phillips curve is not vertical (decision 0002 §6). On Automatic the central bank’s rule pulls inflation mostly back within a few years, but its neutral rate and potential output are fixed, so a small gap can remain: after 20 years about 0.1 point for VAT ±2.5, 0.2–0.3 for benefits ±30 points or the income-tax offset ±2.5, and up to about 1 point for spending ±3% of GDP.';
 const heldRateNote = (l: LeverDef): LeverDef => (DRIFTS.has(l.id) ? { ...l, definition: `${l.definition}${HELD_RATE}` } : l);
 
 const leverFor = (id: string, label: string, param: Id, unit: string, min: number, max: number, step: number, description: string, definition: string, concepts: Id[], scale?: number) => ({

@@ -256,8 +256,11 @@ describe('Iceland model: balance sheets stay possible', () => {
 
   test('known gap: when the economy collapses, the funds run through every asset they can sell and overdraw deposits', () => {
     // decision 0002 §6: shares and mortgages are never sold, and pensions are paid in full.
-    // Non-residents, who also ran out of krónur here, now borrow them from banks (review M6).
-    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false)).toEqual(['deposits/PF']);
+    // Non-residents, who also ran out of krónur here, now borrow them from banks (review M6). Since
+    // firms call on the funds only for deposits above their buffer, the overdraft starts in month
+    // 248, not 228, so the run is 22 years.
+    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 240)).toEqual([]);
+    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 264)).toEqual(['deposits/PF']);
   });
 
   test('pension funds pay for new government bonds only from cash above their buffer, so a deficit they buy does not force foreign sales (review E1 follow-up)', () => {

@@ -45,8 +45,9 @@ describe('Iceland model: the foreign interest rate (review E3)', () => {
   test('known gap: after three years the króna keeps strengthening and prices keep drifting down, as the lever definition says (20-year values per point)', () => {
     // decision 0002 §6: no steady state with a lasting surplus of foreign income, so non-residents'
     // krónur keep draining (merge note 5 of review E3: a design decision owns the fix). Per point held,
-    // after 10 and 20 years: Automatic about 2–2.5% and 3.5–4% stronger, the price level about 1.2%
-    // lower after 20; Manual about 3–3.5% and 8–10.5% stronger, the price level about 5% lower. (Before
+    // after 10 and 20 years, over the lever's range (−3 to +5): Automatic about 1.9–2.2% and 3–3.8%
+    // stronger, the price level about 1.1% lower after 20; Manual about 2.5–3.3% and 6–10% stronger,
+    // the price level 4.6–5% lower. (Before
     // wages were measured against the value-added price, trade-nominal-drift, the stronger króna also
     // set off a wage–price spiral downward: Automatic 5–6% and 3%, Manual 9–11.5% and 6–6.5%.)
     const bands = { true: { k10: [1.8, 2.8], k20: [3, 4.5], p20: [-1.6, -0.9] }, false: { k10: [2.8, 4], k20: [7, 11], p20: [-5.6, -4.4] } };

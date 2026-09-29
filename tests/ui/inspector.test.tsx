@@ -202,13 +202,13 @@ describe('positions with the wrong sign: a warning in the header and on the bala
   test('Iceland: the frame carries the kernel’s violations, and the header lists every one (the Manual collapse known gap)', () => {
     // Non-residents now borrow krónur instead of overdrawing (review M6), so the known gap this
     // uses is the Manual collapse, where the pension funds overdraw (decision 0002 §6,
-    // tests/models/iceland-balance-sheets).
+    // tests/models/iceland-balance-sheets), from month 248.
     const c = createEngineClient(iceland, { tickMs: 1e9 });
     c.setLever('publicInvestment', -3);
     c.setLever('foreignDemand', 20);
     c.setLever('incomeTax', 10);
     c.pause();
-    c.step(240);
+    c.step(264);
     const f = c.getFrame();
     expect(f.checks.ok).toBe(true);
     const html = header(c);

@@ -270,6 +270,14 @@ function valueAddedRule(j: Firm): RuleDef {
   };
 }
 
+/** The pension funds' cash buffer, as pensions.ts (pfFloor) sets it: pfLiquidityFloorShare of their
+ *  usual deposit share, less in proportion when their foreign target is raised. Declare PF_BUFFER. */
+const pfBuffer = (c: Ctx) => {
+  const foreignShift = c.p('pfForeignShift') + c.p('psiPF') * (c.v('foreignRate') - c.p('iF0'));
+  return c.p('pfLiquidityFloorShare') * c.p('dPF0') * (1 - foreignShift / (1 - c.p('pfForeignTarget'))) * c.v('pensionFundAssets');
+};
+const PF_BUFFER = { inputs: ['pensionFundAssets', 'foreignRate'], params: ['pfLiquidityFloorShare', 'dPF0', 'pfForeignShift', 'psiPF', 'iF0', 'pfForeignTarget'] };
+
 function dividendsRule(j: Firm): RuleDef {
   if (j === 'XA')
     return {
@@ -297,12 +305,15 @@ function dividendsRule(j: Firm): RuleDef {
   const marginal = (c: Ctx) => Math.max(1 - c.p(rho0), c.p('payMarginal'));
   const fromProfit = (t: Record<Id, number>) => Math.max(0, t.normal + t.profits);
   // Owners at home put money in only from deposits they have: each firm may call on at most
-  // ownerCashSpeed a year of any owner's deposits, in proportion to that owner's share. Foreign
-  // owners pay from abroad.
+  // ownerCashSpeed a year of any owner's spare deposits, in proportion to that owner's share. The
+  // pension funds' spare deposits are those above the cash buffer they keep for pensions and
+  // their own purchases (pensions.ts), so a call never takes them below it. Foreign owners pay
+  // from abroad.
   const home = OWNERS[j].filter((o) => o !== 'W').map((o) => ({ o, ...ownerShare(j, o) }));
+  const spare = (c: Ctx, o: Owner) => c.stock('deposits', o) - (o === 'PF' ? pfBuffer(c) : 0);
   const canPutIn = (c: Ctx) => {
     let least = Infinity;
-    for (const h of home) least = Math.min(least, (c.p('ownerCashSpeed') * Math.max(0, c.stock('deposits', h.o))) / Math.max(1e-9, h.share(c)));
+    for (const h of home) least = Math.min(least, (c.p('ownerCashSpeed') * Math.max(0, spare(c, h.o))) / Math.max(1e-9, h.share(c)));
     return least;
   };
   const wanted = (t: Record<Id, number>) => fromProfit(t) + t.debt + t.spare;
@@ -311,9 +322,9 @@ function dividendsRule(j: Firm): RuleDef {
     target: `dividends${j}`,
     category: 'BEHAVIOUR',
     label: 'Payout: profits, debt and spare cash',
-    inputs: [prof, 'cpi'],
+    inputs: [prof, 'cpi', ...PF_BUFFER.inputs],
     lagInputs: ['nominalGDP'],
-    params: [rho0, pi0, l0, dep0, 'tauF', 'payMarginal', 'payDebt', 'paySpare', 'ownerCashSpeed', ...new Set(home.flatMap((h) => h.params))],
+    params: [rho0, pi0, l0, dep0, 'tauF', 'payMarginal', 'payDebt', 'paySpare', 'ownerCashSpeed', ...PF_BUFFER.params, ...new Set(home.flatMap((h) => h.params))],
     stocks: [
       ['businessLoans', j],
       ['deposits', j],
@@ -341,7 +352,7 @@ function dividendsRule(j: Firm): RuleDef {
     concepts: ['stock-flow-consistency', 'minsky-instability'],
     explain: {
       what: `Profit ${FIRM_NAME[j]} pay out to owners (dividends, and owners’ and self-employed income). Negative means the owners put money in.`,
-      rule: `Payout = normal payout (1 − {${rho0}}) × baseline after-tax profit {${pi0}} + the larger of {payMarginal} and that normal payout share × (after-tax profit − baseline), both at today’s prices and never below zero, − {payDebt} × (their bank debt − its normal share {${l0}} of last month’s GDP) + {paySpare} × any deposits above their usual {${dep0}} of GDP. So a windfall is partly paid out at once and the rest repays debt; once debt is below normal they pay out more, and cash they do not need is paid out too. A firm that keeps losing money borrows only until its debt is well above normal; then its owners put money in, so its debt stays in proportion to the economy, as owners of Icelandic firms did after 2008. Owners in Iceland put in no more than {ownerCashSpeed} a year of their deposits.`,
+      rule: `Payout = normal payout (1 − {${rho0}}) × baseline after-tax profit {${pi0}} + the larger of {payMarginal} and that normal payout share × (after-tax profit − baseline), both at today’s prices and never below zero, − {payDebt} × (their bank debt − its normal share {${l0}} of last month’s GDP) + {paySpare} × any deposits above their usual {${dep0}} of GDP. So a windfall is partly paid out at once and the rest repays debt; once debt is below normal they pay out more, and cash they do not need is paid out too. A firm that keeps losing money borrows only until its debt is well above normal; then its owners put money in, so its debt stays in proportion to the economy, as owners of Icelandic firms did after 2008. Owners in Iceland put in no more than {ownerCashSpeed} a year of their deposits, and pension funds only from deposits above the cash buffer they keep ({pfLiquidityFloorShare%} of their usual {dPF0%} of assets, less when their foreign target is raised).`,
     },
   };
 }
@@ -448,7 +459,7 @@ export const firms: ModuleDef = {
   id: 'firms',
   label: 'Firms and output',
   description:
-    'Six sectors (builders, retail and services, fisheries, aluminium, tourism, other exporters): each one’s investment, profit, retention, dividends (the smelters’ all abroad), capital, depreciation and borrowing; builders’ sales and purchases; output as the sum of demand.',
+    'Six sectors (builders, retail and services, fisheries, aluminium, tourism, other exporters): each one’s investment, profit, payout (dividends and owners putting money in; the smelters’ all abroad), capital, depreciation and borrowing; builders’ sales and purchases; output as the sum of demand.',
   requires: ['structure', 'labour-and-wages', 'prices', 'banks', 'external', 'government', 'households'],
   params: pickParams(ALL_PARAMS, [
     'iFD0', 'iFX0', 'betaPi', 'betaRI', 'betaU', 'lamInv', 'lamInvSpend', 'lamPi', 'rhoL', 'payMarginal', 'payDebt', 'paySpare', 'ownerCashSpeed', 'betaLev', 'fishFee', 'firmCashSpeed', 'depreciationRate', 'cEr', 'rl0',

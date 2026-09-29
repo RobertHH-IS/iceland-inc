@@ -498,7 +498,7 @@ export const calibration: CalibrationCheck[] = [
 export const KNOWN_GAPS: Record<string, { cited?: [number, number]; why: string }> = {
   'rate-output-timing': {
     cited: [5, 5],
-    why: 'The output trough is month 12, the last month of the key-rate hold (quarter 4); QMM’s is quarter 5. With a gradual takeover it moves only to month 13, less than 0.01 deeper, so the hold’s length sets the quarter. Investment now troughs two months after the hold (its planning stage), but consumption answers the key rate within the month and turns with it; a lag in how households feel the key rate did not move the trough either, because the króna and exports also turn when the rule cuts the rate in month 13 (monetary-MON-11, 29 September 2026). Tripwire: the generic test, and "the rate checks’ takeover" test in tests/models.',
+    why: 'The output trough is month 12, the last month of the key-rate hold (quarter 4); QMM’s is quarter 5. With a gradual takeover it moves only to month 13, less than 0.01 deeper, so the hold’s length sets the quarter. Investment now troughs two months after the hold (its planning stage), but consumption answers the key rate within the month and turns with it; a lag in how households feel the key rate did not move the trough either, because the króna and exports also turn when the rule cuts the rate in month 13 (monetary-MON-11, 29 September 2026). The fix belongs to the rule’s takeover (central-bank.ts ruleRate): with a rule that eases from the rate held, the trough is in quarter 5. Tripwire: the generic test, and "the rate checks’ takeover" test in tests/models.',
   },
   'rate-krona': {
     cited: [0.67, 0.67],

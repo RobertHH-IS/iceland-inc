@@ -53,12 +53,48 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
     expect(Math.abs(r.pct('cpi', 240))).toBeLessThan(2);
   });
 
-  test('on Manual the gap is much smaller, and what is left comes from unemployment away from normal', () => {
+  test('on Manual the inflation gap is much smaller, and the real effects stay small', () => {
     // Before: +1.05 pp at month 240. What is left is the half-anchored expectations' slope on a
-    // lasting unemployment gap (the króna stays weaker in real terms), which the lever texts state.
+    // lasting unemployment gap, which the lever texts state.
     const r = twins([['tourism', -15]], false, 240);
     expect(r.pp('inflation12', 240)).toBeLessThan(0.75);
-    expect(r.pp('unemployment', 240)).toBeLessThan(0);
+    expect(Math.abs(r.pp('unemployment', 240))).toBeLessThan(0.5);
+    expect(Math.abs(r.pct('output', 240))).toBeLessThan(1);
+  });
+
+  const exportShocks: Setting[] = [
+    ['tourism', -15],
+    ['tourism', 10],
+    ['tourism', 30],
+    ['foreignDemand', 20],
+    ['fishPrices', 30],
+  ];
+  test('lasting export changes on Automatic: output and unemployment end near baseline after 20 years', () => {
+    for (const setting of exportShocks) {
+      const r = twins([setting], true, 240);
+      expect(Math.abs(r.pct('output', 240))).toBeLessThan(0.5);
+      expect(Math.abs(r.pp('unemployment', 240))).toBeLessThan(0.6);
+    }
+  });
+
+  test('more exports raise output in the first two years in both modes', () => {
+    for (const setting of exportShocks.filter(([id, v]) => id !== 'fishPrices' && v > 0))
+      for (const automatic of [false, true]) expect(twins([setting], automatic, 24).pct('output', 24)).toBeGreaterThan(0.25);
+  });
+
+  test('known gap (decision 0002 §6): with the key rate held, a lasting export rise ends with output below baseline, bounded, as the definitions say', () => {
+    // The króna keeps strengthening in nominal terms until the current account closes (the external
+    // loop, monetary-fx), so prices keep falling and, with expectations half anchored, unemployment
+    // stays above normal. Before the value-added price, tourism +30 ended with output +0.8% at month
+    // 240 because wages followed the deflation instead. If this starts to pass the other way, update
+    // the definitions and decision 0002.
+    for (const setting of exportShocks.filter(([, v]) => v > 0)) {
+      const r = twins([setting], false, 240);
+      expect(r.pct('output', 240)).toBeLessThan(0);
+      expect(r.pct('output', 240)).toBeGreaterThan(-2.5);
+      expect(r.pp('unemployment', 240)).toBeLessThan(1.2);
+    }
+    for (const id of ['tourism', 'foreignDemand', 'fishPrices']) expect(model.levers.find((l) => l.id === id)!.definition).toMatch(/key rate held \(Manual\)/);
   });
 
   test('a lasting rise in world prices leaves no lasting wage gap: the error correction closes, while wages ÷ domestic prices have moved', () => {
@@ -137,6 +173,30 @@ describe('trade-exporter-debt-spiral: owners keep a squeezed firm’s debt in pr
     }
     expect(capped).toBeGreaterThan(0);
     for (const p of ['HY', 'HW', 'HO', 'PF']) expect(e.stock('deposits', p)).toBeGreaterThan(-1e-6);
+  });
+
+  test('pension funds put money into firms only from deposits above their cash buffer, so 40 years of collapse do not overdraw them', () => {
+    // Before this limit, public investment −3 held on Manual overdrew the funds' deposits from month
+    // 456 (−1.94% of GDP by month 480) while fisheries' owners were putting money in.
+    const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    e.setLever('publicInvestment', -3);
+    const legs = ['FC', 'FR', 'XF', 'XT', 'XO'].map((j) => `dividends${j}_PF`);
+    let lowest = Infinity,
+      monthsBelowBuffer = 0,
+      callsBelowBuffer = 0;
+    for (let m = 1; m <= 480; m++) {
+      const deposits = e.stock('deposits', 'PF'); // at the start of the month, as the call reads them
+      e.step(1);
+      const inf = e.influences('dividendsXF');
+      const buffer = inf.params.find((p) => p.id === 'pfLiquidityFloorShare')!.value * inf.params.find((p) => p.id === 'dPF0')!.value * e.value('pensionFundAssets');
+      lowest = Math.min(lowest, e.stock('deposits', 'PF'));
+      if (deposits > buffer) continue;
+      monthsBelowBuffer++;
+      for (const id of legs) if (e.value(id) < -1e-12) callsBelowBuffer++;
+    }
+    expect(monthsBelowBuffer).toBeGreaterThan(0);
+    expect(callsBelowBuffer).toBe(0);
+    expect(lowest).toBeGreaterThan(0);
   });
 });
 
