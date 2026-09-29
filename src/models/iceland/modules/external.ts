@@ -95,19 +95,16 @@ const wDepositsBeforeTrade = (c: Ctx) => c.stock('deposits', 'W') + c.dt * (c.v(
 /** The least they keep in deposits: the share wDepositFloorShare of their baseline deposit share
  *  of króna holdings. */
 const wDepositFloor = (c: Ctx) => ((c.p('wDepositFloorShare') * c.p('depW')) / (c.p('depW') + c.p('bondW'))) * (wDepositsBeforeTrade(c) + c.stock('govBonds', 'W'));
-/** Bond sales that keep their deposits at that floor this month (a yearly rate). */
-const wSaleNeeded = (c: Ctx) => Math.max(0, wDepositFloor(c) - wDepositsBeforeTrade(c)) / c.dt;
 /** The carry trade: toward normal holdings, and more when Icelandic rates are high relative to abroad
  *  (the key rate against its normal nominal level i0 + piT, the foreign rate against iF0). */
 const wNormal = (c: Ctx) => gapRate(c.p('lamBW'), c.dt) * (c.p('bW0') * c.v('nominalGDP') - c.stock('govBonds', 'W'));
 const wCarry = (c: Ctx) => gapRate(c.p('lamBW'), c.dt) * c.p('bW0') * c.v('nominalGDP') * c.p('psiB') * (c.v('keyRate') - (c.p('i0') + c.p('piT')) - (c.v('foreignRate') - c.p('iF0')));
-/** When a sale is needed it overrides buying: normal + carry + this term = min(normal + carry, −the sale). */
-const wLiquidity = (c: Ctx) => {
-  const need = wSaleNeeded(c);
-  return need > 0 ? Math.min(0, -need - wNormal(c) - wCarry(c)) : 0;
-};
-/** Króna cash they can spend on bonds this month. */
-const wCash = (c: Ctx) => gapRate(c.p('liquiditySpeed'), c.dt) * Math.max(0, wDepositsBeforeTrade(c));
+/** Króna cash they can put into bonds this month (a yearly rate): the share 1 − e^(−liquiditySpeed ×
+ *  dt) of their deposits above the floor, after this month's payments. Below the floor it is
+ *  negative: the bonds they sell to rebuild their deposits, closing the same share of the shortfall,
+ *  and always at least enough to keep the deposits from going below zero. One smooth limit for
+ *  buying and selling, so they do not switch between the two from month to month (review E1). */
+const wCash = (c: Ctx) => Math.min(gapRate(c.p('liquiditySpeed'), c.dt) * (wDepositsBeforeTrade(c) - wDepositFloor(c)), wDepositsBeforeTrade(c) / c.dt);
 /** Government bonds banks can still sell non-residents this month, after the buyback and the
  *  purchases of pension funds and older households. */
 const wFromBanks = (c: Ctx) => Math.max(0, bondsBanksCanSell(c) - Math.max(0, c.v('bondPurchasesPF')) - Math.max(0, c.v('bondPurchasesHO')));
@@ -456,25 +453,26 @@ export const external: ModuleDef = {
       terms: terms(
         ['normal', 'Toward normal holdings', undefined, wNormal],
         ['carry', 'Interest-rate gap with abroad', 'carry-trade', wCarry],
-        ['liquidity', 'Selling bonds to keep enough króna cash', 'floating-exchange-rate', wLiquidity],
+        ['cash', 'Króna cash above the deposits they keep (negative: cash to raise)', 'floating-exchange-rate', wCash],
       ),
-      // Buy only with króna cash in hand and only bonds banks still hold after pension funds' and
-      // older households' purchases; sell only bonds they hold.
+      // Buy only with króna cash above the deposits they keep, and only bonds banks still hold after
+      // pension funds' and older households' purchases; sell toward that floor when below it; sell
+      // only bonds they hold.
       combine: (t, c) => {
-        const want = t.normal + t.carry + t.liquidity;
-        return want > 0 ? Math.min(want, wCash(c), wFromBanks(c)) : Math.max(want, -c.stock('govBonds', 'W') / c.dt);
+        const want = Math.min(t.normal + t.carry, t.cash);
+        return Math.max(want > 0 ? Math.min(want, wFromBanks(c)) : want, -c.stock('govBonds', 'W') / c.dt);
       },
       regime: (c, _v, t) => {
-        const want = t.normal + t.carry + t.liquidity;
-        const [cash, fromBanks] = [wCash(c), wFromBanks(c)];
-        if (want > Math.min(cash, fromBanks)) return fromBanks <= cash ? 'Limited by the bonds banks hold' : 'Purchases limited by cash in hand';
+        const want = Math.min(t.normal + t.carry, t.cash);
         if (want < -c.stock('govBonds', 'W') / c.dt) return 'Sales limited by holdings';
-        return t.liquidity < 0 ? 'Selling bonds to keep enough króna cash' : null;
+        if (want > wFromBanks(c)) return 'Limited by the bonds banks hold';
+        if (t.cash < t.normal + t.carry) return t.cash < 0 ? 'Selling bonds to keep enough króna cash' : 'Purchases limited by cash in hand';
+        return null;
       },
       concepts: ['carry-trade'],
       explain: {
         what: 'Government bonds non-residents buy from banks (negative: sell), paying with their króna deposits.',
-        rule: 'They want bonds worth {bW0} of GDP × (1 + {psiB} × the rate gap with abroad), and close the gap to their holdings at speed {lamBW} a year. The rate gap is the key rate above its normal nominal level ({i0%} + the inflation target {piT%}) minus the foreign rate above its normal {iF0%}. They also keep at least {wDepositFloorShare%} of their usual share of króna holdings in deposits ({wDepositFloorShare%} of {depW} ÷ ({depW} + {bondW})): when this month’s payments for exports, income and pension funds’ foreign sales would take their deposits below that, they sell enough bonds to banks to cover it. They buy only with deposits they have (at most 1 − e^(−{liquiditySpeed} × one month) of them) and only bonds banks hold, and sell only bonds they hold.',
+        rule: 'They want bonds worth {bW0} of GDP × (1 + {psiB} × the rate gap with abroad), and close the gap to their holdings at speed {lamBW} a year. The rate gap is the key rate above its normal nominal level ({i0%} + the inflation target {piT%}) minus the foreign rate above its normal {iF0%}. They also keep at least {wDepositFloorShare%} of their usual share of króna holdings in deposits ({wDepositFloorShare%} of {depW} ÷ ({depW} + {bondW})). They buy only with deposits above that, at most about 63% of them in a month (the liquidity speed, {liquiditySpeed} a year), and only bonds banks hold. When this month’s payments for exports, income and pension funds’ foreign sales take their deposits below it, they sell bonds to banks instead, raising about 63% of the shortfall in a month, and always enough to keep their deposits above zero. They sell only bonds they hold.',
       },
     },
     {

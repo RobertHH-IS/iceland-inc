@@ -182,20 +182,30 @@ describe('Iceland model: balance sheets stay possible', () => {
   });
 
   test('a purchase capped by both cash and banks’ holdings is labelled by the cap that binds', () => {
-    // Non-residents want 5 a year, banks can sell them 0.2 ÷ one month = 2.4, and their cash allows
-    // far less: the cash limit binds, whichever cap the rule checks first.
+    // Non-residents want 5 a year and banks can sell them 0.2 ÷ one month = 2.4. With 0.5 in
+    // deposits and 1 in bonds they keep about 0.32 (half their usual deposit share of 1.5), and may
+    // spend about 63% of the 0.18 above it in a month, about 1.4 a year: the cash limit binds,
+    // whichever cap the rule checks first.
     const rule = icelandModel.modules.flatMap((m) => m.rules ?? []).find((r) => r.id === 'bondPurchasesW') as RuleDef;
-    const stocks: Record<string, number> = { 'deposits/W': 0.01, 'govBonds/W': 1, 'govBonds/B': 0.2 };
+    const stocks: Record<string, number> = { 'deposits/W': 0.5, 'govBonds/W': 1, 'govBonds/B': 0.2 };
     const values: Record<string, number> = { nominalGDP: 100, foreignAssetPurchases: 0, currentAccount: 0, bondIssueB: 0, bondPurchasesPF: 0, bondPurchasesHO: 0 };
     const params = Object.fromEntries(icelandModel.modules.flatMap((m) => m.params ?? []).map((p) => [p.id, p.value]));
     const c = { v: (id: string) => values[id], p: (id: string) => params[id], stock: (i: string, p: string) => stocks[`${i}/${p}`], dt: 1 / 12, t: 0 } as unknown as Ctx;
-    const t = { normal: 5, carry: 0, liquidity: 0 };
+    const cash = () => rule.terms!.find((x) => x.id === 'cash')!.compute(c);
+    let t = { normal: 5, carry: 0, cash: cash() };
+    expect(t.cash).toBeGreaterThan(1);
+    expect(t.cash).toBeLessThan(2);
     const v = rule.combine!(t, c);
-    expect(v).toBeLessThan(0.1);
+    expect(v).toBeCloseTo(t.cash, 9);
     expect(rule.regime!(c, v, t)).toBe('Purchases limited by cash in hand');
     stocks['deposits/W'] = 10; // now banks' holdings bind
+    t = { normal: 5, carry: 0, cash: cash() };
     expect(rule.combine!(t, c)).toBeCloseTo(2.4, 9);
     expect(rule.regime!(c, 2.4, t)).toBe('Limited by the bonds banks hold');
+    stocks['deposits/W'] = 0.01; // below the floor: they sell bonds instead of buying
+    t = { normal: 5, carry: 0, cash: cash() };
+    expect(rule.combine!(t, c)).toBeLessThan(0);
+    expect(rule.regime!(c, rule.combine!(t, c), t)).toBe('Selling bonds to keep enough króna cash');
   });
 
   test('households spend no more cash than they have: working-age deposits run down toward zero, never below, under income tax +10 held on Manual', () => {

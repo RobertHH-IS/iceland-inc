@@ -510,7 +510,7 @@ const rules: RuleDef[] = [
       explain: {
         what: `New government bonds bought by ${who} (negative: bonds the government buys back from them). ${h === 'B' || h === 'CB' ? 'They pay with newly created money.' : 'They pay with deposits that already exist.'}`,
         rule: `Their share of new bonds under the bond-buyer lever: mix ({bondMixBankShare%} banks, the rest pension funds), or all to banks, the central bank, pension funds or older households.${
-          nonBank ? ` They buy only what they can pay for from their deposits this month (${h === 'PF' ? 'at most' : '{hoBondCashShare%} of'} 1 − e^(−{liquiditySpeed} × one month) of them); banks take the rest.` : h === 'B' ? ' Banks also take whatever pension funds or older households cannot pay for.' : ''
+          nonBank ? ` They buy only what they can pay for from their deposits this month (${h === 'PF' ? 'at most about 63% of them' : '{hoBondCashShare%} of the about 63% of them they can draw'}; the liquidity speed is {liquiditySpeed} a year); banks take the rest.` : h === 'B' ? ' Banks also take whatever pension funds or older households cannot pay for.' : ''
         } When the government buys bonds back, it buys from every holder in proportion to what they hold.`,
       },
     };

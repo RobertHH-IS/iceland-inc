@@ -380,8 +380,8 @@ P('lamPFinc', 1, 'per year', 'BEHAVIOUR', 'Smoothing of the fund income credited
 /* ------------------------------------------------ liquidity: nobody pays with money they do not have */
 const liq = 'New in the port (audit H1): keeps balance sheets possible far from the baseline; it never binds at the baseline.';
 P('liquiditySpeed', 12, 'per year', 'BEHAVIOUR', 'How fast pension funds, households and non-residents can draw down their deposits to buy assets, or households to spend beyond their income: at 12 a year, at most 63% of their deposits in a month.', assumed(liq));
-P('pfLiquidityFloorShare', 0.5, 'fraction', 'BEHAVIOUR', 'Share of their usual deposit holdings below which pension funds sell foreign assets, then bank bonds, to raise cash.', assumed(liq));
-P('wDepositFloorShare', 0.5, 'fraction', 'BEHAVIOUR', 'Share of their usual deposit share of króna holdings below which non-residents sell government bonds to raise króna cash.', assumed(liq));
+P('pfLiquidityFloorShare', 0.5, 'fraction', 'BEHAVIOUR', 'Cash buffer of pension funds, as a share of their usual deposit holdings: they buy assets only with deposits above it, and below it sell foreign assets, then let bank bonds run off, to rebuild it.', assumed(liq));
+P('wDepositFloorShare', 0.5, 'fraction', 'BEHAVIOUR', 'Cash buffer of non-residents, as a share of their usual deposit share of króna holdings: they buy bonds only with deposits above it, and below it sell government bonds to rebuild it.', assumed(liq));
 P('hoBondCashShare', 0.5, 'fraction', 'BEHAVIOUR', 'Share of older households’ spendable deposits set aside for buying bonds; the rest is for spending.', assumed(liq));
 
 /* ------------------------------------------------ government financing */
