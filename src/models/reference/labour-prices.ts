@@ -60,7 +60,15 @@ export const labourPrices: ModuleDef = {
   requires: ['structure'],
   params,
   vars: [
-    { id: 'employment', label: 'Jobs', unit: 'index', kind: 'index', scale: 'real', initial: 1, description: 'Number of jobs relative to the baseline (1 = baseline).' },
+    {
+      id: 'employment',
+      label: 'Work employed (jobs index)',
+      unit: 'index',
+      kind: 'index',
+      scale: 'real',
+      initial: 1,
+      description: 'How much work firms employ: jobs counted in normal full-time hours, relative to the baseline (1 = baseline). In a strong boom it can rise above what the usual labour force works in normal hours, because people join the labour force and work longer.',
+    },
     { id: 'unemployment', label: 'Unemployment rate', unit: 'fraction', kind: 'ratio', scale: 'none', initial: 0.05 },
     { id: 'wages', label: 'Wage bill', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 66.67 },
     { id: 'wageGrowth', label: 'Wage growth', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: 0 },
@@ -80,7 +88,7 @@ export const labourPrices: ModuleDef = {
       params: ['okunCoefficient', 'potentialOutput'],
       adjust: { speed: 'hiringSpeed' },
       terms: [
-        { id: 'normal', label: 'Normal number of jobs', compute: () => 1 },
+        { id: 'normal', label: 'Normal amount of work', compute: () => 1 },
         { id: 'outputGap', label: 'Output above capacity', concept: 'okun-law', compute: (c) => c.p('okunCoefficient') * (c.v('output') / c.p('potentialOutput') - 1) },
       ],
       concepts: ['okun-law', 'capacity-utilisation'],
