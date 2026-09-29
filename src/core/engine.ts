@@ -93,6 +93,9 @@ export interface KernelEngine extends Engine {
   valueAt(varId: Id, month: number): number;
   /** Signed positions at a past month ([instrument * NP + player], asset +). */
   positionsAt(month: number): Float64Array;
+  /** Every rule's regime label at a past month of the current history, in rule order
+   *  (`model.rules`), null where the rule names none. Read-only. */
+  regimesAt(month: number): readonly (string | null)[];
   /** The history so far as a RunResult (for calibration measures). */
   runResult(): RunResult;
   /** A fork is a kernel engine too. */
@@ -634,6 +637,12 @@ class KEngine implements KernelEngine {
 
   positionsAt(month: number): Float64Array {
     const h = this.hPos[month];
+    if (!h) throw new Error(`no history at month ${month} (now at ${this.M.t})`);
+    return h;
+  }
+
+  regimesAt(month: number): readonly (string | null)[] {
+    const h = this.hRegimes[month];
     if (!h) throw new Error(`no history at month ${month} (now at ${this.M.t})`);
     return h;
   }
