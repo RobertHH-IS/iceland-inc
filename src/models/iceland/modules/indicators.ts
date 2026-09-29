@@ -77,7 +77,7 @@ export const indicators: ModuleDef = {
         concepts: ['borrowers-and-savers', 'intergenerational-flows'],
       }),
     ),
-    I({ id: 'realHousePrice', label: 'Real house prices', group: 'People', display: 'deviation-pct', compute: (c) => c.v('realHousePrice'), description: 'House prices relative to consumer prices. They follow household income, the flow of mortgage credit and real mortgage rates.', drivers: ['logRealHousePrice'], concepts: ['credit-and-house-prices'] }),
+    I({ id: 'realHousePrice', label: 'Real house prices', group: 'People', display: 'deviation-pct', compute: (c) => c.v('realHousePrice'), description: 'House prices relative to consumer prices. They follow household income, the flow of mortgage credit, real mortgage rates and the number of people who have moved to Iceland.', drivers: ['logRealHousePrice', 'settledMigrants'], concepts: ['credit-and-house-prices'] }),
     /* ---------------------------------------------------- Money and credit */
     I({ id: 'mortgageRate', label: 'Non-indexed mortgage rate', group: 'Money and credit', display: 'deviation-pp', compute: (c) => c.v('mortgageRateN'), description: 'Interest rate on non-indexed mortgages: the key rate plus a spread and a premium when bank capital runs short.', drivers: ['mortgageRateN', 'keyRate', 'loanPremium'], concepts: ['interest-distribution', 'bank-capital'] }),
     I({

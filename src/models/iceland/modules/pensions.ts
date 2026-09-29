@@ -511,10 +511,10 @@ export const pensions: ModuleDef = {
     },
     {
       id: 'tilt-abroad-reprices-domestic-funding',
-      label: 'When the funds move 5 points of assets abroad (Manual), covered bonds and indexed mortgages carry a funding premium of 0.05–0.4 pp and the funds lend a smaller share of new mortgages, banks the rest; at 20 points real house prices stay below no change for 30 months',
+      label: 'When the funds move 5 points of assets abroad (Manual), covered bonds and indexed mortgages carry a funding premium of 0.05–0.4 pp and the funds lend a smaller share of new mortgages, banks the rest; at 20 points the premium keeps real house prices lower than without it in every month from 6 to 60',
       run: (e) => {
-        const path = (shift: number) => {
-          const f = e.fork();
+        const path = (shift: number, params: Record<string, number> = {}) => {
+          const f = e.fork({ params });
           if (shift) f.setLever('pfForeign', shift);
           const out: { premium: number; bb: number; key: number; shareI: number; tilt: number; rhp: number }[] = [];
           for (let m = 1; m <= 60; m++) {
@@ -523,18 +523,19 @@ export const pensions: ModuleDef = {
           }
           return out;
         };
-        const [calm, five, twenty] = [path(0), path(5), path(20)];
+        const [calm, five, twenty, noPremium] = [path(0), path(5), path(20), path(20, { kapPFdom: 0 })];
         const m24 = five[23];
         const pfShI = e.influences('pfMortgageShareI').params.find((p) => p.id === 'pfShI')!.value;
-        const below = twenty.slice(0, 30).every((x, k) => x.rhp <= calm[k].rhp + 1e-12);
+        const lower = twenty.slice(5).every((x, k) => x.rhp < noPremium[k + 5].rhp);
+        const gap = (m: number) => 100 * (twenty[m - 1].rhp / noPremium[m - 1].rhp - 1);
         const ok =
           m24.premium > 0.0005 && m24.premium < 0.004 &&
           Math.abs(m24.bb - calm[23].bb - m24.premium) < 1e-12 && m24.key === calm[23].key &&
           m24.tilt < 0 && Math.abs(m24.shareI - pfShI * (1 + m24.tilt)) < 1e-12 && m24.shareI < calm[23].shareI &&
-          below && twenty[59].rhp / calm[59].rhp - 1 < 0.028;
+          lower;
         return {
           pass: ok,
-          detail: `+5: premium ${(100 * m24.premium).toFixed(3)} pp at month 24, funds’ share of new indexed mortgages ${(100 * m24.shareI).toFixed(1)}% (usually ${(100 * pfShI).toFixed(1)}%); +20: real house prices below no change in months 1–30: ${below}, ${(100 * (twenty[59].rhp / calm[59].rhp - 1)).toFixed(2)}% at month 60`,
+          detail: `+5: premium ${(100 * m24.premium).toFixed(3)} pp at month 24, funds’ share of new indexed mortgages ${(100 * m24.shareI).toFixed(1)}% (usually ${(100 * pfShI).toFixed(1)}%); +20: real house prices ${gap(12).toFixed(2)}% at month 12 and ${gap(60).toFixed(2)}% at month 60 against the same run without the premium`,
         };
       },
     },

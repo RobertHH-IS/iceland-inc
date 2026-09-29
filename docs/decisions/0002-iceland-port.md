@@ -141,6 +141,7 @@ Legacy results from `node legacy/v1-engine/run_tests.js` (rebuilt against `data/
 
 Improvements over v1:
 - Every flow is a set of legs with its own rule, so pipes are exact and each is explained; v1 split multi-party rows after the fact.
+- Migration moves population, and so housing demand (`netMigrants`, `settledMigrants` and the population term of real house prices, housing.ts), but not potential output: output is demand-led and the wage bill already carries migrants' pay (lever review LAB-4, 29 September 2026).
 - Homes are a real asset: purchases between generations are trades, homes are revalued with house prices, and they move with their owners as they age, so households' net worth includes housing (v1: a memo item). The loan-to-value cap uses the value of all the homes each group buys: from older households and, at the turnover rate `turnRate`, from others in the same group, whose sellers pay off their mortgages (lever review, 29 September 2026).
 - Firms own their capital: investment buys machines and buildings, and depreciation (8% a year, assumed) writes them off, so firms' balance sheets are complete (v1 counted investment as current spending). Neither change moves any v1 result.
 - Pension payouts follow the national-accounts treatment (a redemption of rights).
