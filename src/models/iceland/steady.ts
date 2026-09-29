@@ -22,6 +22,7 @@
 import type { Id, ParamDef, Provenance } from '../../core/types.ts';
 import { INPUT_PARAMS, INPUT_VALUES } from './params.ts';
 import { annuity, derived, DOMESTIC, EXPORTERS, FIRMS, FIRM_NAME, solved, sum, type Exporter, type Firm } from './util.ts';
+import { cappedShare } from './modules/borrowers.ts';
 
 export interface IcelandSteadyState {
   params: Record<Id, number>;
@@ -268,17 +269,33 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   const taxFree = FAM.map((f) => (1 - p.famTaxableShare) * f);
   o.mRY = M[0] / (gross[0] + taxFree[0]);
   o.mRW = M[1] / (gross[1] + taxFree[1]);
+  // Home buying by the two borrowing groups: from older households (purY, purW) and from others in
+  // their own group (turnRate of their homes). New loans pay for ltvAvg0 of the price.
+  const H = [p.house0 * p.hshY, p.house0 * p.hshW, p.house0 * (1 - p.hshY - p.hshW)];
+  const grossBuy = [p.purY + p.turnRate * H[0], p.purW + p.turnRate * H[1]];
+  const lend0 = grossBuy.map((b) => p.ltvAvg0 * b);
+  // Gross lending replaces what is repaid, so net lending is zero: amortisation over Tm years plus the
+  // loans sellers pay off when they sell to others in their group. Sellers' loans are sellerDebt times
+  // their group's average loan per home, which includes homes bought long ago with little debt left.
+  o.sellerDebtY = (lend0[0] - M[0] / p.Tm) / (p.turnRate * M[0]);
+  o.sellerDebtW = (lend0[1] - M[1] / p.Tm) / (p.turnRate * M[1]);
+  for (const g of ['Y', 'W']) if (!(o[`sellerDebt${g}`] > 0)) warn.push(`sellers' debt relative to the average (${g}) is not positive: ${o[`sellerDebt${g}`].toFixed(3)}`);
   // the debt-service cap is set on income after income tax (Rules 1300/2025: disposable income)
   const afterTax = G3.map((_, h) => gross[h] * (1 - o.tau0) + taxFree[h]);
-  o.nuY = M[0] / p.Tm / ((p.capUse0 * afterTax[0] * p.dstiY) / annT);
-  o.nuW = M[1] / p.Tm / ((p.capUse0 * afterTax[1] * p.dstiW) / annT);
+  o.nuY = lend0[0] / ((p.capUse0 * afterTax[0] * p.dstiY) / annT);
+  o.nuW = lend0[1] / ((p.capUse0 * afterTax[1] * p.dstiW) / annT);
   o.rmR0 = rmR;
   o.lendShY = M[0] / p.mortTot;
   o.lendShW = M[1] / p.mortTot;
-  const H = [p.house0 * p.hshY, p.house0 * p.hshW, p.house0 * (1 - p.hshY - p.hshW)];
   G3.forEach((g, h) => (o[`H0${g}`] = H[h]));
   o.homeAgeingRateY = p.purY / H[0];
   o.homeAgeingRateW = (p.purY + p.purW) / H[1];
+  // The borrower-based caps trim the loans of the borrowers who want most (borrowers.ts); at baseline
+  // they already trim a little, and lending is measured against that share.
+  const ltv0 = [p.ltvLimit + p.ltvYExtra, p.ltvLimit];
+  o.dstiShare0 = cappedShare(1 / p.capUse0, p.sigmaDsti);
+  o.ltvShare0Y = cappedShare((ltv0[0] * grossBuy[0]) / lend0[0], p.sigmaLtv);
+  o.ltvShare0W = cappedShare((ltv0[1] * grossBuy[1]) / lend0[1], p.sigmaLtv);
 
   /* ------------------------------------------------ baseline normalisers */
   const y = Ctot + gServ + inv + XN - IM;
@@ -459,11 +476,14 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   for (const g of ['Y', 'W'] as const) {
     const h = g === 'Y' ? 0 : 1;
     v[`mortgageTarget${g}`] = M[h];
-    v[`mortgageRepayment${g}`] = M[h] / p.Tm;
-    v[`mortgageDemand${g}`] = M[h] / p.Tm;
-    v[`mortgageLending${g}`] = M[h] / p.Tm;
+    v[`mortgageRepayment${g}`] = lend0[h];
+    v[`mortgageDemand${g}`] = lend0[h];
+    v[`mortgageLending${g}`] = lend0[h];
     v[`netMortgageLending${g}`] = 0;
     v[`dstiCap${g}`] = (o[`nu${g}`] * afterTax[h] * (g === 'Y' ? p.dstiY : p.dstiW)) / annT;
+    v[`ltvCap${g}`] = ltv0[h] * grossBuy[h];
+    v[`grossHomePurchases${g}`] = grossBuy[h];
+    v[`permIncome${g}`] = gross[h] + taxFree[h];
   }
 
   const targets = {
@@ -508,8 +528,13 @@ const meta: [Id, string, ParamDef['category'], string, Provenance][] = [
   ['c0O', '% of GDP/yr', 'BEHAVIOUR', 'Older: spending not tied to current income (at baseline prices).', solved('zero saving at baseline.')],
   ['payout', 'per year', 'CONTRACT', 'Pension payout rate on pensioners’ rights.', solved('pensioners’ rights stay constant (payouts = contributions + fund income).')],
   ['ageing', 'per year', 'IDENTITY', 'Share of working-age members’ rights that moves to pensioners each year as members retire.', solved('working-age rights stay constant.')],
-  ['nuY', 'fraction', 'POLICY', 'Young: share of the group’s income after income tax that belongs to new borrowers, for the debt-service cap.', solved('baseline lending uses 60% of the cap (capUse0).')],
+  ['nuY', 'fraction', 'POLICY', 'Young: share of the group’s income after income tax that belongs to new borrowers, for the debt-service cap.', solved('baseline lending, the loans of home buyers (amortisation plus the loans paid off when homes are sold), uses 60% of the cap (capUse0).')],
   ['nuW', 'fraction', 'POLICY', 'Working age: share of the group’s income after income tax that belongs to new borrowers.', solved('baseline lending uses 60% of the cap.')],
+  ['dstiShare0', 'fraction', 'POLICY', 'Share of the loans new borrowers want that the debt-service cap lets them have at baseline (the rest is trimmed from the borrowers who want most).', derived('E[min(x, 1/capUse0)] for borrowers’ ratios x log-normal around 1 with log-standard deviation sigmaDsti (borrowers.ts).')],
+  ['ltvShare0Y', 'fraction', 'POLICY', 'Young: share of the loans home buyers want that the 90% loan-to-value cap lets them have at baseline.', derived('E[min(x, k)] for x log-normal with log-standard deviation sigmaLtv (borrowers.ts), k = the cap ÷ the average loan-to-value of new loans (ltvAvg0).')],
+  ['ltvShare0W', 'fraction', 'POLICY', 'Working age: share of the loans home buyers want that the 80% loan-to-value cap lets them have at baseline.', derived('As for the young, with the 80% cap.')],
+  ['sellerDebtY', 'ratio', 'CONTRACT', 'Young: debt on a home sold to another young household, relative to the group’s average debt per home.', solved('baseline gross lending (ltvAvg0 × all homes bought) equals amortisation plus the loans sellers pay off, so net lending is zero.')],
+  ['sellerDebtW', 'ratio', 'CONTRACT', 'Working age: debt on a home sold within the group, relative to the group’s average debt per home.', solved('baseline gross lending equals amortisation plus the loans sellers pay off.')],
   ['mRY', 'ratio', 'BEHAVIOUR', 'Young: desired mortgage debt per króna of gross income.', solved('desired debt equals actual debt at baseline.')],
   ['mRW', 'ratio', 'BEHAVIOUR', 'Working age: desired mortgage debt per króna of gross income.', solved('desired debt equals actual debt at baseline.')],
   ['potentialOutput', '% of GDP/yr', 'IDENTITY', 'Real output at baseline: the benchmark for the output gap.', derived('Baseline real output C + G + I + X − IM (100 by construction).')],

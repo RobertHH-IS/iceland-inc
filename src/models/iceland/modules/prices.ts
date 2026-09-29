@@ -9,7 +9,7 @@
  * cost of getting the goods to them (unloading, wholesale, transport and retail) is part of what
  * shops and firms pay, so only part of a weaker króna reaches the CPI and unit cost (review E6). The CPI weights domestic goods, imported goods and housing as in the
  * Statistics Iceland basket; VAT scales the first two. Household spending is turned into a volume
- * with a consumption deflator that leaves out the housing part, which here follows house prices
+ * with a consumption deflator that leaves out the housing part, which here follows market rents
  * and is mostly owner-occupiers' imputed rent, never paid in cash (audit H4). Expected inflation
  * mixes the target (the anchor) with a slowly updated memory of recent inflation.
  */
@@ -217,7 +217,7 @@ export const prices: ModuleDef = {
       ),
       explain: {
         what: 'The prices of the goods and services households pay for, with VAT (1 at baseline). Household spending ÷ this is real consumption.',
-        rule: 'Deflator = VAT factor × ({omD%} × domestic prices + {omM%} × imported goods as delivered) ÷ ({omD%} + {omM%}): the CPI without its housing part. In the CPI, most of housing ({omH%}) is owner-occupiers’ imputed rent, what they would pay to rent their own homes; nobody pays it in cash, and here it follows house prices. Household spending is a cash flow that does not change when house prices do, so dividing it by the full CPI would count a rise in house prices as households buying less. Excluding housing avoids that, and the deflator still rises one for one with a general rise in prices. The full CPI still drives indexation, inflation, expectations, wages and the key rate.',
+        rule: 'Deflator = VAT factor × ({omD%} × domestic prices + {omM%} × imported goods as delivered) ÷ ({omD%} + {omM%}): the CPI without its housing part. In the CPI, most of housing ({omH%}) is owner-occupiers’ imputed rent, what they would pay to rent their own homes; nobody pays it in cash, and here it follows market rents, which rise with house prices. Household spending is a cash flow that does not change when rents and house prices do, so dividing it by the full CPI would count a rise in house prices as households buying less. Excluding housing avoids that, and the deflator still rises one for one with a general rise in prices. The full CPI still drives indexation, inflation, expectations, wages and the key rate.',
       },
     },
     {

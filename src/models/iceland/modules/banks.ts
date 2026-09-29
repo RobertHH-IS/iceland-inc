@@ -150,12 +150,21 @@ export const banks: ModuleDef = {
       category: 'BEHAVIOUR',
       inputs: ['capitalRatio'],
       params: ['sCap', 'kapT', 'kapMin'],
-      compute: (c) => (c.p('sCap') * Math.max(0, c.p('kapT') - c.v('capitalRatio'))) / (c.p('kapT') - c.p('kapMin')),
-      regime: (c) => (c.v('capitalRatio') < c.p('kapT') - 1e-12 ? 'Capital below target: loans cost more' : null),
+      terms: terms(['capitalGap', 'Capital short of (or above) target', 'bank-capital', (c) => (c.p('sCap') * (c.p('kapT') - c.v('capitalRatio'))) / (c.p('kapT') - c.p('kapMin'))]),
+      // at most sCap (capital at its minimum), at least −sCap/2 (capital well above target). Equity is
+      // assets minus liabilities of about 100% of GDP each, so at baseline the ratio carries rounding of
+      // about 1e-15; a gap below 1e-12 is that rounding, not capital, and prices nothing.
+      combine: (t, c) => Math.min(c.p('sCap'), Math.max(-c.p('sCap') / 2, Math.abs(t.capitalGap) < 1e-12 ? 0 : t.capitalGap)),
+      regime: (c, _v, t) => {
+        if (t.capitalGap >= c.p('sCap')) return 'Capital at its minimum: premium at its largest';
+        if (t.capitalGap <= -c.p('sCap') / 2) return 'Ample capital: discount at its largest';
+        // a regime marks a real shortfall, a quarter of the way to the minimum (1 pp), not rounding-size moves around target
+        return c.v('capitalRatio') < c.p('kapT') - 0.25 * (c.p('kapT') - c.p('kapMin')) ? 'Capital below target: loans cost more' : null;
+      },
       concepts: ['bank-capital'],
       explain: {
-        what: 'Extra interest banks charge on loans and mortgages when their capital is below target, to rebuild it.',
-        rule: 'Premium = {sCap pp} × (target {kapT%} − capital ratio) ÷ ({kapT%} − {kapMin%}), and zero when capital is at or above target.',
+        what: 'Extra interest banks charge on loans and mortgages when their capital is below target, to rebuild it, and the small discount they offer when they have more capital than they need.',
+        rule: 'Premium = {sCap pp} × (target {kapT%} − capital ratio) ÷ ({kapT%} − {kapMin%}): zero at target, rising to {sCap pp} when capital falls to {kapMin%}, and no higher. With capital above target the same slope gives a discount, which competing for borrowers makes banks offer, of at most half that. The premium changes smoothly as capital moves either side of target, so a small move one way costs as much as the same move the other way saves.',
       },
     },
     {
@@ -186,40 +195,46 @@ export const banks: ModuleDef = {
       id: 'mortgageRateN',
       target: 'mortgageRateN',
       category: 'BEHAVIOUR',
-      inputs: ['keyRate', 'loanPremium'],
-      params: ['sMN'],
+      inputs: ['keyRate', 'loanPremium', 'domesticFundingPremium'],
+      params: ['sMN', 'psiPFdomN'],
       terms: terms(
         ['keyRate', 'Key rate', 'interest-rate-channel', (c) => c.v('keyRate')],
         ['spread', 'Mortgage spread', undefined, (c) => c.p('sMN')],
         ['capitalPremium', 'Capital premium', 'bank-capital', (c) => c.v('loanPremium')],
+        ['funding', 'Pension funds’ demand for domestic assets', 'bond-buyers', (c) => c.p('psiPFdomN') * c.v('domesticFundingPremium')],
       ),
-      explain: { what: 'Interest on non-indexed mortgages, new and old (they float with the key rate).', rule: 'Rate = key rate + {sMN pp} + the capital premium.' },
+      explain: { what: 'Interest on non-indexed mortgages, new and old (they float with the key rate).', rule: 'Rate = key rate + {sMN pp} + the capital premium + {psiPFdomN} × the domestic funding premium (banks price new loans on what their next króna of funding costs, the covered bonds the pension funds buy, though deposits fund part of these loans).' },
     },
     {
       id: 'mortgageRateI',
       target: 'mortgageRateI',
       category: 'BEHAVIOUR',
-      inputs: ['keyRate', 'loanPremium'],
+      inputs: ['keyRate', 'loanPremium', 'domesticFundingPremium'],
       params: ['rMI0', 'psiIdx', 'i0', 'piT'],
       terms: terms(
         ['normal', 'Normal real rate', undefined, (c) => c.p('rMI0')],
         ['keyRate', 'Key rate above neutral (partly passed on)', 'interest-rate-channel', (c) => c.p('psiIdx') * (c.v('keyRate') - (c.p('i0') + c.p('piT')))],
         ['capitalPremium', 'Capital premium', 'bank-capital', (c) => c.v('loanPremium')],
+        ['funding', 'Pension funds’ demand for domestic assets', 'bond-buyers', (c) => c.v('domesticFundingPremium')],
       ),
       concepts: ['indexation'],
       explain: {
         what: 'The real interest rate paid in cash on CPI-indexed mortgages. Inflation is added to the loan instead of being paid.',
-        rule: 'Real rate = {rMI0%} + {psiIdx} × (key rate − its neutral level, the real neutral rate {i0%} + the inflation target {piT%}) + the capital premium.',
+        rule: 'Real rate = {rMI0%} + {psiIdx} × (key rate − its neutral level, the real neutral rate {i0%} + the inflation target {piT%}) + the capital premium + the domestic funding premium: pension funds and covered-bond buyers are the marginal lenders at fixed real rates, so when the funds want fewer domestic assets the real rate rises.',
       },
     },
     {
       id: 'bankBondRate',
       target: 'bankBondRate',
       category: 'CONTRACT',
-      inputs: ['keyRate'],
+      inputs: ['keyRate', 'domesticFundingPremium'],
       params: ['sBB'],
-      terms: terms(['keyRate', 'Key rate', 'interest-rate-channel', (c) => c.v('keyRate')], ['spread', 'Bank-bond spread', undefined, (c) => c.p('sBB')]),
-      explain: { what: 'Interest banks pay on the covered bonds pension funds hold.', rule: 'Rate = key rate + {sBB pp}.' },
+      terms: terms(
+        ['keyRate', 'Key rate', 'interest-rate-channel', (c) => c.v('keyRate')],
+        ['spread', 'Bank-bond spread', undefined, (c) => c.p('sBB')],
+        ['funding', 'Pension funds’ demand for domestic assets', 'bond-buyers', (c) => c.v('domesticFundingPremium')],
+      ),
+      explain: { what: 'Interest banks pay on the covered bonds pension funds hold.', rule: 'Rate = key rate + {sBB pp} + the domestic funding premium: when the funds, the main buyers of covered bonds, want fewer of them, banks pay more to fund themselves.' },
     },
     ...depositInterest,
     ...FIRMS.map(
@@ -373,6 +388,59 @@ export const banks: ModuleDef = {
         const k = e.baseline('capitalRatio');
         const gap = e.baseline('bankDividends') - e.baseline('bankProfit');
         return { pass: Math.abs(k - 0.22) < 1e-9 && Math.abs(e.baseline('loanPremium')) < 1e-12 && Math.abs(gap) < 1e-9, detail: `capital ratio ${k.toFixed(6)}, dividends − profit ${gap.toExponential(2)}` };
+      },
+    },
+    {
+      id: 'capital-premium-symmetric',
+      label: 'Small moves in bank capital either side of target price loans symmetrically, with no regime switching on: a króna shock of ±5% moves the premium by the same slope both ways',
+      run: (e) => {
+        const at = (size: number) => {
+          const f = e.fork();
+          f.fire('kronaShock', size);
+          const regimes = new Set<string>();
+          for (let m = 0; m < 60; m++) {
+            f.step(1);
+            const r = f.influences('loanPremium').regime;
+            if (r) regimes.add(r);
+          }
+          return { gap: f.value('capitalRatio') - 0.22, premium: f.value('loanPremium'), regimes: [...regimes] };
+        };
+        const [up, down] = [at(5), at(-5)];
+        const slope = 0.02 / 0.04; // sCap ÷ (kapT − kapMin)
+        const ok =
+          up.gap * down.gap < 0 &&
+          Math.abs(up.premium + slope * up.gap) < 1e-12 &&
+          Math.abs(down.premium + slope * down.gap) < 1e-12 &&
+          up.premium * down.premium < 0 &&
+          up.regimes.length + down.regimes.length === 0;
+        return {
+          pass: ok,
+          detail: `+5: capital ${(100 * up.gap).toFixed(3)} pp from target, premium ${(100 * up.premium).toFixed(4)} pp; −5: ${(100 * down.gap).toFixed(3)} pp, ${(100 * down.premium).toFixed(4)} pp; regimes: ${[...up.regimes, ...down.regimes].join(', ') || 'none'}`,
+        };
+      },
+    },
+    {
+      id: 'capital-premium-bounds',
+      label: 'The capital premium reaches its largest, sCap, at the minimum ratio and goes no higher; far above target the discount is half of it; each bound names itself',
+      run: (e) => {
+        // the same banks, judged against a target far above (and far below) their capital
+        const at = (kapT: number, kapMin: number) => {
+          const f = e.fork({ params: { kapT, kapMin } });
+          f.step(1);
+          return { k: f.value('capitalRatio'), premium: f.value('loanPremium'), regime: f.influences('loanPremium').regime ?? null };
+        };
+        const [short, ample, near] = [at(0.3, 0.25), at(0.15, 0.11), at(0.225, 0.185)];
+        const ok =
+          Math.abs(short.premium - 0.02) < 1e-15 &&
+          short.regime === 'Capital at its minimum: premium at its largest' &&
+          Math.abs(ample.premium + 0.01) < 1e-15 &&
+          ample.regime === 'Ample capital: discount at its largest' &&
+          near.premium > 0 &&
+          near.regime === null;
+        return {
+          pass: ok,
+          detail: `capital ${(100 * short.k).toFixed(2)}% against a 30% target: ${(100 * short.premium).toFixed(2)} pp (${short.regime}); against 15%: ${(100 * ample.premium).toFixed(2)} pp (${ample.regime}); half a point short: ${(100 * near.premium).toFixed(3)} pp (${near.regime ?? 'no regime'})`,
+        };
       },
     },
   ],

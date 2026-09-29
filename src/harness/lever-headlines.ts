@@ -136,7 +136,6 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
       { variable: 'vatRate', label: 'VAT rate', levers: ['vat'] },
     ],
     companions: {
-      ltvCap: { lever: 'lendingAppetite', value: 3, why: 'the cap applies only to new lending beyond what replaces repayments, and there is none at baseline' },
       migration: { lever: 'foreignDemand', value: -20, why: 'the buffer acts only on changes in jobs from the baseline, and there are none without a shock' },
       bondBuyers: { lever: 'publicInvestment', value: 2, why: 'the choice acts only on new bonds, and the baseline budget balances, so none are sold without a deficit' },
     },

@@ -121,7 +121,7 @@ describe('Iceland charts: one GDP base for every "% of GDP" chart (design L2/L3,
   });
 });
 
-describe('Iceland mortgages: the loan-to-value cap applies to the homes bought this year (audit M3)', () => {
+describe('Iceland mortgages: the loan-to-value cap applies to every home bought this year (audit M3, lever review credit-ltv-cap-exempts-replacement-lending)', () => {
   test('first-time buyers get 10 points more, from Rules 1131/2025, and the lever says so from the parameter', () => {
     const p = model.params.find((x) => x.id === 'ltvYExtra')!;
     expect(p.value).toBe(0.1);
@@ -130,21 +130,46 @@ describe('Iceland mortgages: the loan-to-value cap applies to the homes bought t
     expect(model.levers.find((l) => l.id === 'ltvCap')!.description).toMatch(/10 points more/);
   });
 
-  test('the cap is repayments plus the limit times this year’s purchases, and does not read the stock of homes', () => {
+  test('the rule in force is the default: 80%, from Rules 1131/2025, on a lever from 50% to 100% with no “off”', () => {
+    const p = model.params.find((x) => x.id === 'ltvLimit')!;
+    expect(p.value).toBe(0.8);
+    expect(p.provenance.basis).toBe('data');
+    expect(p.provenance.source).toMatch(/1131\/2025/);
+    const lever = model.levers.find((l) => l.id === 'ltvCap')!;
+    expect([lever.default, lever.min, lever.max]).toEqual([80, 50, 100]);
+    expect(lever.definition).not.toMatch(/replace repayments|switches it off/);
+  });
+
+  test('the cap is the limit times all homes bought this year, from older households and from each other, with no exemption for loans that replace repayments', () => {
     const e = fresh();
-    e.setLever('ltvCap', 80);
     e.setLever('lendingAppetite', 3);
     e.step(6);
     for (const [g, limit] of [['Y', 0.9], ['W', 0.8]] as const) {
-      expect(e.value(`ltvCap${g}`)).toBeCloseTo(e.value(`mortgageRepayment${g}`) + limit * e.value(`homePurchases${g}`), 12);
+      expect(e.value(`ltvCap${g}`)).toBeCloseTo(limit * e.value(`grossHomePurchases${g}`), 12);
+      // homes bought from older households plus the group's own homes that change hands
+      const t = Object.fromEntries(e.influences(`grossHomePurchases${g}`).terms.map((x) => [x.id, x.value]));
+      expect(t.fromOlder).toBeCloseTo(e.value(`homePurchases${g}`), 12);
+      expect(t.turnover).toBeGreaterThan(t.fromOlder);
+      expect(e.value(`grossHomePurchases${g}`)).toBeCloseTo(t.fromOlder + t.turnover, 12);
       const rule = icelandModel.modules.flatMap((m) => m.rules ?? []).find((r) => r.id === `ltvCap${g}`)!;
-      expect(rule.stocks ?? []).toEqual([]);
+      expect(rule.inputs).not.toContain(`mortgageRepayment${g}`);
     }
+  });
+
+  test('a tighter cap lowers lending on its own, with no push from banks: 60% cuts working-age lending, debt and house prices within a year', () => {
+    const [tight, calm] = [fresh(), fresh()];
+    tight.setLever('ltvCap', 60);
+    tight.step(12);
+    calm.step(12);
+    expect(tight.value('mortgageLendingW')).toBeLessThan(0.95 * calm.value('mortgageLendingW'));
+    expect(tight.indicator('mortgageDebt')).toBeLessThan(calm.indicator('mortgageDebt') - 0.1);
+    expect(tight.indicator('realHousePrice')).toBeLessThan(calm.indicator('realHousePrice') - 0.1);
+    expect(tight.indicator('broadMoney')).toBeLessThan(calm.indicator('broadMoney'));
   });
 });
 
 describe('Iceland mortgages: the debt-service cap is a share of income after tax (audit M4)', () => {
-  test('the baseline cap is unchanged: new lending uses 60% of it', () => {
+  test('the baseline cap is unchanged: new lending, amortisation plus the loans paid off as homes are sold, uses 60% of it', () => {
     const e = fresh();
     for (const g of ['Y', 'W']) expect(e.baseline(`mortgageLending${g}`) / e.baseline(`dstiCap${g}`)).toBeCloseTo(0.6, 12);
   });

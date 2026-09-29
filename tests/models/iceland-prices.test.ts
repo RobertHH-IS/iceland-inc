@@ -115,10 +115,11 @@ describe('H5: purchasing-power parity is a slow anchor for world prices', () => 
 
 describe('H4: consumption is deflated by prices households pay for, not by house prices', () => {
   const pct = (e: KernelEngine, id: string) => 100 * (e.value(id) / e.baseline(id) - 1);
-  const lending = (lamHC: number) => {
-    const e = createEngine(model).fork({ params: { lamHC } });
-    e.setLever('lendingAppetite', 1);
-    e.step(6);
+  // rents that follow house prices one for one and fast, against rents that never move
+  const lending = (lamRent: number) => {
+    const e = createEngine(model).fork({ params: { lamRent, betaRentH: 1 } });
+    e.setLever('lendingAppetite', 2); // the loan-to-value cap trims part of the push
+    e.step(9); // long enough for house prices to reach the CPI clearly (0.1 point after 9 months)
     return e;
   };
 
@@ -149,14 +150,63 @@ describe('H4: consumption is deflated by prices households pay for, not by house
   });
 });
 
-describe('L10: the housing part of the CPI says what it stands in for', () => {
-  test('the rule, the speed and the weight name rental equivalence and the proxy', () => {
+describe('MON-4: the housing part of the CPI is a market-rent index (L10)', () => {
+  const pct = (e: KernelEngine, id: string) => 100 * (e.value(id) / e.baseline(id) - 1);
+
+  test('the rule, the speeds and the weight name rental equivalence and the rent index', () => {
     const e = createEngine(model);
     const inf = e.influences('housingCost');
-    expect(inf.rule!.rule).toContain('rental equivalence');
-    expect(inf.rule!.what).toContain('actual rents');
-    expect(inf.params.find((p) => p.id === 'lamHC')!.provenance.note).toContain('June 2024');
+    expect(inf.rule!.what).toContain('rental equivalence');
+    expect(inf.terms.map((t) => t.id)).toEqual(['prices', 'housePrice', 'income']);
+    for (const id of ['lamRent', 'betaRentH', 'betaRentY']) {
+      const note = inf.params.find((p) => p.id === id)?.provenance.note ?? '';
+      expect(note).toContain('June 2024');
+      expect(note).toContain('leiguvísitala');
+    }
     expect(e.influences('cpi').params.find((p) => p.id === 'omH')!.provenance.note).toContain('rental equivalence');
+  });
+
+  test('rents keep up with a general rise in prices: with the real terms off, they end where other consumer prices do', () => {
+    const e = createEngine(model).fork({ params: { betaRentH: 0, betaRentY: 0 } });
+    e.setLever('stabilisers', 1); // prices settle on Automatic
+    e.fire('wageSettlement', 10);
+    e.step(240);
+    expect(pct(e, 'consumptionDeflator')).toBeGreaterThan(2);
+    expect(Math.abs(e.value('housingCost') / e.value('consumptionDeflator') - 1)).toBeLessThan(1e-3);
+  });
+
+  test('rents follow real house prices less than one for one: a credit boom raises house prices more than rents', () => {
+    const e = createEngine(model);
+    e.setLever('lendingAppetite', 1);
+    e.step(60);
+    const rentsReal = 100 * (e.value('housingCost') / e.value('consumptionDeflator') - 1);
+    const housesReal = pct(e, 'realHousePrice');
+    expect(housesReal).toBeGreaterThan(1);
+    expect(rentsReal).toBeGreaterThan(0);
+    expect(rentsReal).toBeLessThan(0.75 * housesReal);
+  });
+
+  test('a key rate held 1 pp higher on Manual lowers inflation mostly outside housing: housing gives under a third of the fall at month 12 and under half at month 24 (it gave 58% at month 24)', () => {
+    const run = (key: number) => {
+      const e = createEngine(model);
+      e.setLever('keyRateFixed', key);
+      const path: { cpi: number; rent: number }[] = [];
+      for (let m = 0; m <= 24; m++) {
+        path.push({ cpi: e.value('cpi'), rent: e.value('housingCost') });
+        e.step(1);
+      }
+      return path;
+    };
+    const [hi, lo] = [run(4), run(3)];
+    const omH = createEngine(model).influences('cpi').params.find((p) => p.id === 'omH')!.value;
+    for (const [m, most] of [[12, 1 / 3], [24, 1 / 2]] as const) {
+      const infl = (x: typeof hi, k: 'cpi' | 'rent') => x[m][k] / x[m - 12][k] - 1;
+      const cpi = infl(hi, 'cpi') - infl(lo, 'cpi');
+      const housing = omH * (infl(hi, 'rent') - infl(lo, 'rent'));
+      expect(cpi).toBeLessThan(-0.0015);
+      expect(housing).toBeLessThan(0);
+      expect(housing / cpi).toBeLessThan(most);
+    }
   });
 });
 
