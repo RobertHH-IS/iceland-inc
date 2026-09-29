@@ -10,21 +10,24 @@
  * mixes the target (the anchor) with a slowly updated memory of recent inflation.
  */
 import type { ModuleDef } from '../../../core/types.ts';
-import { ALL_PARAMS } from '../steady.ts';
+import { ALL_PARAMS, base } from '../steady.ts';
 import { pickParams, stepsIn, terms, lastMonth } from '../util.ts';
 
-const vatFactor = (c: { v(id: string): number; p(id: string): number }) => (1 + c.v('vatRate')) / (1 + c.p('vat0'));
+/** How far VAT in shop prices is above or below its baseline: (1 + the rate built into prices) ÷
+ *  (1 + the baseline rate). */
+const vatFactor = (c: { v(id: string): number; p(id: string): number }) => (1 + c.v('vatInPrices')) / (1 + c.p('vat0'));
 
 export const prices: ModuleDef = {
   id: 'prices',
   label: 'Prices and expectations',
   description: 'Markup pricing on smoothed unit labour and import costs, import prices, the CPI with data weights, inflation and expectations.',
   requires: ['structure', 'labour-and-wages', 'external', 'housing', 'government'],
-  params: pickParams(ALL_PARAMS, ['aLab', 'eta', 'lamUC', 'lamP', 'lamPm', 'omD', 'omM', 'omH', 'chi', 'lamPia']),
+  params: pickParams(ALL_PARAMS, ['aLab', 'eta', 'lamUC', 'lamP', 'lamPm', 'omD', 'omM', 'omH', 'chi', 'lamPia', 'lamVat']),
   vars: [
     { id: 'importPrice', label: 'Import prices', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Prices of imported goods in shops, in krónur (1 at baseline).' },
     { id: 'unitCost', label: 'Unit cost (as firms see it)', unit: 'index', kind: 'price', scale: 'nominal', initial: 1 },
     { id: 'domesticPrice', label: 'Domestic prices', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Prices of goods and services made in Iceland, before VAT (1 at baseline).' },
+    { id: 'vatInPrices', label: 'VAT built into shop prices', unit: 'fraction', kind: 'rate', scale: 'none', initial: base('vatRate'), description: 'The VAT rate shops have so far passed into their prices: it follows the statutory rate within a few months.' },
     { id: 'cpi', label: 'Consumer price index', unit: 'index', kind: 'price', scale: 'nominal', initial: 1 },
     {
       id: 'consumptionDeflator',
@@ -93,10 +96,24 @@ export const prices: ModuleDef = {
       },
     },
     {
+      id: 'vatInPrices',
+      target: 'vatInPrices',
+      category: 'BEHAVIOUR',
+      label: 'VAT pass-through',
+      inputs: ['vatRate'],
+      adjust: { speed: 'lamVat', form: 'exponential' },
+      terms: terms(['statutory', 'The VAT rate in force', 'cost-pass-through', (c) => c.v('vatRate')]),
+      concepts: ['cost-pass-through'],
+      explain: {
+        what: 'The VAT rate shops have built into their prices so far.',
+        rule: 'Moves toward the VAT rate in force at speed {lamVat} a year: shops reprice over a few months, not all on the day the rate changes. Until they do, the difference stays in their margins (VAT itself is paid at the new rate at once).',
+      },
+    },
+    {
       id: 'cpi',
       target: 'cpi',
       category: 'IDENTITY',
-      inputs: ['domesticPrice', 'importPrice', 'housingCost', 'vatRate'],
+      inputs: ['domesticPrice', 'importPrice', 'housingCost', 'vatInPrices'],
       params: ['omD', 'omM', 'omH', 'vat0'],
       terms: terms(
         ['domestic', 'Domestic goods and services', 'markup-pricing', (c) => vatFactor(c) * c.p('omD') * c.v('domesticPrice')],
@@ -105,7 +122,7 @@ export const prices: ModuleDef = {
       ),
       explain: {
         what: 'The consumer price index (1 at baseline).',
-        rule: 'CPI = VAT factor × ({omD%} × domestic prices + {omM%} × import prices) + {omH%} × housing costs, with the Statistics Iceland basket weights. The VAT factor is (1 + VAT rate) ÷ (1 + baseline VAT rate).',
+        rule: 'CPI = VAT factor × ({omD%} × domestic prices + {omM%} × import prices) + {omH%} × housing costs, with the Statistics Iceland basket weights. The VAT factor is (1 + the VAT rate built into prices) ÷ (1 + the baseline VAT rate).',
       },
     },
     {
@@ -113,7 +130,7 @@ export const prices: ModuleDef = {
       target: 'consumptionDeflator',
       category: 'IDENTITY',
       label: 'Consumption deflator',
-      inputs: ['domesticPrice', 'importPrice', 'vatRate'],
+      inputs: ['domesticPrice', 'importPrice', 'vatInPrices'],
       params: ['omD', 'omM', 'vat0'],
       terms: terms(
         ['domestic', 'Domestic goods and services', 'markup-pricing', (c) => (vatFactor(c) * c.p('omD') * c.v('domesticPrice')) / (c.p('omD') + c.p('omM'))],

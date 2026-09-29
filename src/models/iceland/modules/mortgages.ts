@@ -503,7 +503,7 @@ export const mortgages: ModuleDef = {
       label: 'Indexation moves no deposits: after a CPI jump, young households’ deposits change only by their cash flows while their indexed debt grows by the indexation',
       run: (e) => {
         const ke = e as unknown as { stock(i: string, p: string): number };
-        e.setLever('vat', 5); // prices jump at once
+        e.setLever('vat', 5); // prices rise within the month
         const dep0 = ke.stock('deposits', 'HY'),
           mi0 = ke.stock('mortgagesI', 'HY');
         e.step(1);

@@ -353,6 +353,7 @@ P('lamUC', 1.5, 'per year', 'BEHAVIOUR', 'How fast firms’ view of their unit c
 P('lamP', 2, 'per year', 'BEHAVIOUR', 'How fast prices follow the markup on unit cost.', tuned('the wage-shock inflation peak timing'));
 P('lamPm', 2, 'per year', 'BEHAVIOUR', 'How fast import prices in shops follow world prices in krónur (retail pass-through).', tuned());
 P('chi', 0.5, 'fraction', 'BEHAVIOUR', 'Weight of the inflation target in expectations (how well anchored they are).', tuned());
+P('lamVat', 6, 'per year', 'BEHAVIOUR', 'How fast shops pass a change in VAT into their prices: at 6 a year about 40% in the first month, 78% within a quarter and 95% within six months.', assumed('Teaching value for the speed. Pass-through of standard-rate VAT changes is close to full across countries (Benedek, De Mooij, Keen and Wingender 2020, "Varieties of VAT pass through", International Tax and Public Finance), but not always immediate, and weaker for cuts than for rises (Benzarti, Carloni, Harju and Kosonen 2020, Journal of Political Economy). Passing it all through in the month the rate changed made real spending jump 8% in month 1 for a 10-point cut (review E4).'));
 P('lamPia', 1.5, 'per year', 'BEHAVIOUR', 'How fast the remembered rate of inflation updates (adaptive expectations).', assumed());
 
 /* ------------------------------------------------------------ policy rule */

@@ -265,7 +265,7 @@ const rules: RuleDef[] = [
     category: 'POLICY',
     params: ['vat0', 'vatShift'],
     terms: terms(['normal', 'Baseline effective rate', undefined, (c) => c.p('vat0')], ['lever', 'VAT lever', undefined, (c) => c.p('vatShift')]),
-    explain: { what: 'The effective VAT rate on consumer spending.', rule: 'VAT rate = {vat0%} + the VAT lever. A change moves consumer prices at once.' },
+    explain: { what: 'The effective VAT rate on consumer spending.', rule: 'VAT rate = {vat0%} + the VAT lever. Shops pass a change into their prices over a few months (see VAT built into shop prices).' },
   },
   {
     id: 'vat',
@@ -714,7 +714,7 @@ export const government: ModuleDef = {
         'Level shift in the income-tax rate, in percentage points on top of the baseline rate and the debt rule’s adjustment, applied in the month it is set and persistent while set (stabilisers on Automatic). The debt rule keeps leaning against government debt underneath it. Setting it back to 0 leaves the rate to the rule. It has no effect while stabilisers are Manual.',
       concepts: ['automatic-stabilisers', 'fiscal-rule'],
     },
-    leverFor('vat', 'VAT rate', 'vatShift', 'pp', -10, 10, 0.5, 'Changes the effective VAT rate on consumer spending; prices move at once.', 'Level shift in the effective VAT rate, in percentage points, applied at once and persistent while set. Consumer prices jump with it and indexed debts are revalued. Setting it back to 0 removes the shift (prices drop back).', ['cost-pass-through'], 0.01),
+    leverFor('vat', 'VAT rate', 'vatShift', 'pp', -10, 10, 0.5, 'Changes the effective VAT rate on consumer spending; shops pass it into prices over a few months.', 'Level shift in the effective VAT rate, in percentage points, applied at once and persistent while set. VAT is paid at the new rate at once; shops pass it into their prices over a few months (about 40% in the first month, nearly all within six), keeping the difference in their margins meanwhile. Consumer prices follow, and indexed debts are revalued with them. Setting it back to 0 removes the shift (prices drop back the same way).', ['cost-pass-through'], 0.01),
     leverFor('health', 'Health spending', 'gHealth', '% of GDP', -3, 3, 0.1, 'Real change in public health spending: staff pay and purchases.', 'Level shift in real health spending, % of baseline GDP a year, split between staff and purchases as at baseline; persistent while set. Nominal spending also rises with wages and prices. Setting it back to 0 returns spending to baseline; the debt built up meanwhile remains.', ['multiplier']),
     leverFor('education', 'Education spending', 'gEdu', '% of GDP', -3, 3, 0.1, 'Real change in public education spending.', 'Level shift in real education spending, % of baseline GDP a year, persistent while set, split between staff and purchases as at baseline. Setting it back to 0 returns spending to baseline.', ['multiplier']),
     leverFor('otherServices', 'Other public services', 'gOther', '% of GDP', -3, 3, 0.1, 'Real change in other public services: administration, police, culture, roads.', 'Level shift in real spending on other public services, % of baseline GDP a year, persistent while set, split between staff and purchases as at baseline. Setting it back to 0 returns spending to baseline.', ['multiplier']),
