@@ -1,7 +1,7 @@
 /**
  * Iceland Inc.: the 20 calibration checks of engine v1 (legacy/v1-engine/tools/calibration_checks.js),
- * three checks on the firm sectors (decision 0003), one on the world-prices lever (audit H5), one
- * on the foreign-rate lever (review E3) and five on the stabiliser setting (decision 0004).
+ * three checks on the firm sectors (decision 0003), two on the world-prices lever (audit H5, review
+ * E6), one on the foreign-rate lever (review E3) and five on the stabiliser setting (decision 0004).
  * After the audit of 29 September 2026 (docs/audit/2026-09-29-audit.md: M12/M20, M13, M14/M21, L26)
  * each check's scenario is the experiment its source describes, and its range is the source's where
  * the source gives one. Where the model lies outside a cited estimate, or inside its band only
@@ -9,7 +9,7 @@
  * label and source, and is listed in KNOWN_GAPS for a calibration decision.
  *
  * Every published response these checks compare with comes from an economy whose policy reacts:
- * the central bank follows its rule and the debt rule leans on income tax. So each of these 25
+ * the central bank follows its rule and the debt rule leans on income tax. So each of these 26
  * scenarios sets stabilisers to Automatic (AUTO), at month 0, or at month 12 in the rate
  * experiment, which first holds the key rate as its source does. The Manual checks run with the
  * default setting.
@@ -112,6 +112,8 @@ const SRC = {
     'Reasoned from ownership and tax: the three smelters are wholly foreign-owned (Rio Tinto, Alcoa, Century), so every króna of profit they do not reinvest is paid abroad; corporate tax takes about 9% of profit (effective rate from Hagstofa THJ05132); inward-FDI equity income was 78% dividends and 22% reinvested earnings in 2024 (Eurostat bop_c6_a). So 60–95% of a windfall should leave within two years (calibration.json: firm_sectors.aluminium).',
   world:
     'Purchasing-power parity is a slow anchor: Sarno and Taylor (2002) report half-lives of three to five years for deviations from PPP, so parity alone absorbs 13–21% of a lasting rise in world prices within a year, about 2% of a 10% rise. With policy reacting, the higher key rate adds a carry appreciation (0.3–1.5% per point, the rate-krona range above; the rule raises the rate by up to about 2 points). So after a year the króna should have strengthened by well under half the shock: 0–5%. Fish revenue in krónur must still be up by at least half the shock after 6 months (audit H5, 29 September 2026). https://doi.org/10.1017/CBO9780511754920',
+  worldCpi:
+    'CBI WP85: exchange-rate pass-through to the CPI of 0.15 within the quarter and 0.23 in the long run per 1% of sustained depreciation. A lasting 10% rise in world prices raises import prices in krónur as a 10% depreciation would (and, as it does, lifts fish and aluminium revenue), so after a year the CPI should be about 1.5–2.3% higher. The range is the krona-price-level-8q band (v1’s band for a 10% shock to import prices in krónur, v1 SPEC §7.3). KNOWN GAP: the model passes through more, about 2.7% after a year and 3.9% after three (import prices in shops follow world prices in krónur one for one within about two years, and imported inputs are 45% of domestic unit cost), the same gap as the króna check’s; the price block needs recalibrating (review E6, 29 September 2026). https://ideas.repec.org/p/ice/wpaper/wp85.html',
   foreignRate:
     'Uncovered interest parity: a higher foreign rate narrows the rate gap with abroad, so carry traders and domestic savers move money out of krónur and the króna weakens (CBI QMM v2.1: the króna moves 0.67% on impact per 1 pp of interest-rate differential). The range mirrors the rate-krona band (0.3–1.5% per point, v1 SPEC §7.3), sign reversed, for the average over the first two years. In the long run the funds’ higher foreign income, spent at home, strengthens the króna a little (a transfer effect; decision 0002 §6), so the check covers only quarters 1–8 (review E3, 29 September 2026). https://english.sedlabanki.is/library/?itemid=14262546-54d5-4aed-a520-4daa6d6407cb&type=pdf',
   manualHeld: 'Design of the stabiliser setting (decision 0004): on Manual no policy lever moves unless the user moves it, so the key rate is the level of its lever, exactly, whatever else happens.',
@@ -399,6 +401,15 @@ export const calibration: CalibrationCheck[] = [
     source: SRC.world,
   },
   {
+    id: 'world-prices-cpi-year1',
+    label: 'World prices +10% held: price level at month 12, % vs baseline (known gap: pass-through above WP85’s)',
+    scenario: WORLD,
+    months: 72,
+    measure: (run) => run.series('priceLevel')[12],
+    range: [1.5, 3],
+    source: SRC.worldCpi,
+  },
+  {
     id: 'foreign-rate-krona-2y',
     label: 'Foreign interest rate +1 pp held: króna value, average of months 1–24, % vs baseline (+ stronger)',
     scenario: FOREIGN_RATE,
@@ -495,6 +506,10 @@ export const KNOWN_GAPS: Record<string, { cited?: [number, number]; why: string 
   'wage-unemployment-peak': {
     cited: [0.5, 1],
     why: 'Unemployment peaks about 0.47 pp above baseline against the research report’s +0.5–1 pp. Recalibration would touch mig, okun and sigW; no decomposition has yet shown which of them causes the gap.',
+  },
+  'world-prices-cpi-year1': {
+    cited: [1.5, 2.3],
+    why: 'World prices +10% raise the CPI about 2.7% within a year against the 1.5–2.3% that WP85’s pass-through of 0.15 (within the quarter) to 0.23 (long run) gives: import prices in shops follow world prices in krónur fully within about two years, and imported inputs are 45% of domestic unit cost (aLab). The same recalibration of the price block as for krona-price-level-8q.',
   },
   'krona-price-level-8q': {
     why: 'The scenario is a fading sentiment shock, not WP85’s sustained depreciation, and per point of realised depreciation the model passes through far more than WP85. Tripwire: the "króna held about 10% weaker" test in tests/models fails once the price block is recalibrated.',

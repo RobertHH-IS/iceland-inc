@@ -173,7 +173,7 @@ export const centralBank: ModuleDef = {
       showWhen: { lever: STABILISERS, equals: MANUAL },
       description: 'The central bank’s key interest rate, held where you set it. The central bank’s inflation rule only suggests a rate beside the lever.',
       definition:
-        'Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual). Nothing in the model moves it. The default, 3%, is the neutral rate, so the baseline is unchanged. It has no effect while stabilisers are Automatic, when the rule sets the key rate.',
+        'Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual). Nothing in the model moves it. The default, 3%, is the neutral rate, so the baseline is unchanged. A rate held far above it for many years with taxes and spending also held (Manual) ends up raising spending: the government’s interest bill grows with its debt, and that interest is income for households and pension funds (at 15%, output is back above baseline after about seven and a half years; decision 0002 §6). It has no effect while stabilisers are Automatic, when the rule sets the key rate.',
       concepts: ['taylor-rule'],
     },
     {

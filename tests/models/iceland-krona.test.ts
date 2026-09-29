@@ -90,3 +90,21 @@ describe('Iceland model: fish and aluminium volumes follow their own price (revi
     expect(e.value('profitabilityAluminium')).toBeCloseTo(e.value('realExchangeRate'), 12);
   });
 });
+
+describe('Iceland model: a high key rate held for years (review E7)', () => {
+  test('on Automatic, with the debt rule acting, a +5-point offset keeps output below baseline for 20 years', () => {
+    const output = series(run('keyRateAddon', 5, true, 240), 'output');
+    expect(Math.max(...output.slice(1))).toBeLessThan(0);
+  });
+
+  test('on Manual, 15% held: output below baseline for seven years, then the interest-income channel lifts it', () => {
+    // Taxes and spending are held too, so the government's interest bill feeds households' and
+    // pension funds' income (decision 0002 §6, Godley and Lavoie's model PC).
+    const e = run('keyRateFixed', 15, false, 120);
+    const output = series(e, 'output');
+    expect(Math.max(...output.slice(1, 85))).toBeLessThan(0);
+    expect(output[120]).toBeGreaterThan(0);
+    const income = (m: number) => ['Y', 'W', 'O'].reduce((s, g) => s + e.valueAt(`propertyIncome${g}`, m), 0);
+    expect(income(120) / income(0)).toBeGreaterThan(1.5);
+  });
+});
