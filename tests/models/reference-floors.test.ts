@@ -58,18 +58,21 @@ describe('reference economy: floors', () => {
     expect(at(120)).toBeGreaterThan(0.1);
   });
 
-  test('a key rate held at zero: the surplus buys back only the bonds the bank holds, and the rest stays in the treasury account', () => {
-    let limited = 0;
-    let lowestBonds = Infinity;
-    let highestTreasury = 0;
-    manual('keyRateFixed', 0, 240, (e) => {
-      lowestBonds = Math.min(lowestBonds, e.stock('bonds', 'B'), e.stock('bonds', 'CB'));
-      highestTreasury = Math.max(highestTreasury, e.stock('treasuryAccount', 'G'));
-      if (e.influences('bondIssue').regime === 'Buyback limited by the bank’s bonds') limited++;
-    });
-    expect(limited).toBeGreaterThan(0);
-    expect(lowestBonds).toBeGreaterThan(-1e-9);
-    expect(highestTreasury).toBeGreaterThan(3);
+  test('a surplus buys back only the bonds the bank holds: the buyback floor and its regime', () => {
+    // A key rate held at zero used to reach this branch on Manual, but only because deposits then
+    // paid −1%; with the deposit rate floored at zero no lever does (review
+    // REF-negative-deposit-rate). So the rule is checked directly: the bank holds 1% of GDP in
+    // bonds and sells the central bank 6% of GDP a year of them this month.
+    const rule = referenceModel.modules.flatMap((m) => m.rules ?? []).find((r) => r.id === 'bondIssue')!;
+    const holdings: Record<string, number> = { 'bonds/B': 1 };
+    const c = { dt: 1 / 12, v: (id: string) => (id === 'openMarket' ? 6 : 0), stock: (ins: string, pl: string) => holdings[`${ins}/${pl}`] ?? 0 } as unknown as Ctx;
+    const surplus = { deficit: -30, topUp: 0 };
+    expect(rule.combine!(surplus, c)).toBeCloseTo(6 - 12, 12); // what is left after the sale, over one month
+    expect(rule.regime!(c, rule.combine!(surplus, c), surplus)).toBe('Buyback limited by the bank’s bonds');
+    // a buyback within the bank's bonds, and any sale, are not limited
+    expect(rule.combine!({ deficit: -5, topUp: 0 }, c)).toBe(-5);
+    expect(rule.regime!(c, -5, { deficit: -5, topUp: 0 })).toBeNull();
+    expect(rule.regime!(c, 3, { deficit: 3, topUp: 0 })).toBeNull();
   });
 
   test('the central bank sells at most the bonds it holds: the sale floor and its regime', () => {

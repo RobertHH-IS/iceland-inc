@@ -54,7 +54,13 @@ export const banking: ModuleDef = {
         { id: 'keyRate', label: 'Key rate', concept: 'taylor-rule', compute: (c) => c.v('keyRate') },
         { id: 'spread', label: 'Bank margin', compute: (c) => -c.p('depositSpread') },
       ],
-      explain: { what: 'Interest the bank pays on deposits, per year.', rule: 'Deposit rate = key rate − {depositSpread pp}.' },
+      // Not additive at the bottom: banks do not charge ordinary savers for holding deposits.
+      combine: (t) => Math.max(0, t.keyRate + t.spread),
+      regime: (_c, _v, t) => (t.keyRate + t.spread < 0 ? 'Deposit rate at its floor: bank margin squeezed' : null),
+      explain: {
+        what: 'Interest the bank pays on deposits, per year.',
+        rule: 'Deposit rate = key rate − {depositSpread pp}, never below 0%: when the key rate is below the margin, the bank pays nothing on deposits and its margin is squeezed instead.',
+      },
     },
     {
       id: 'loanRate',
@@ -307,6 +313,19 @@ export const banking: ModuleDef = {
         const want = loans / term;
         const got = e.value('loanRepayments');
         return { pass: Math.abs(got - want) < 1e-9, detail: `repayments ${got.toFixed(6)} vs ${want.toFixed(6)}` };
+      },
+    },
+    {
+      id: 'deposit-rate-floor',
+      label: 'With the key rate held at 0%, the bank pays 0% on deposits, not −1%: no deposit interest is negative',
+      run: (e) => {
+        e.setLever('stabilisers', 0);
+        e.setLever('keyRateFixed', 0);
+        e.step(3);
+        const rate = e.value('depositRate');
+        const lowest = Math.min(e.value('depositInterestHH'), e.value('depositInterestF'));
+        const regime = e.influences('depositRate').regime ?? '';
+        return { pass: rate === 0 && lowest >= 0 && regime.startsWith('Deposit rate at its floor'), detail: `deposit rate ${rate}, lowest deposit interest ${lowest.toFixed(4)}; regime “${regime}”` };
       },
     },
     {
