@@ -524,14 +524,14 @@ export const external: ModuleDef = {
         ['kronaLoansW', 'W'],
       ],
       terms: terms(
-        ['overdraft', 'Covering what this month’s payments would overdraw', 'endogenous-money', (c) => Math.max(0, -wDepositsAfterTrade(c)) / c.dt],
-        [
-          'repayment',
-          'Repaying from deposits above what they keep',
-          'money-destruction',
-          (c) => -Math.min(c.stock('kronaLoansW', 'W') / c.dt, gapRate(c.p('liquiditySpeed'), c.dt) * Math.max(0, wDepositsAfterTrade(c) - wDepositFloor(c))),
-        ],
+        ['shortfall', 'What this month’s payments and bond trade would overdraw (negative: deposits left)', 'endogenous-money', (c) => -wDepositsAfterTrade(c) / c.dt],
+        ['repayable', 'About 63% of deposits above what they keep (negative: below it)', 'money-destruction', (c) => gapRate(c.p('liquiditySpeed'), c.dt) * (wDepositsAfterTrade(c) - wDepositFloor(c))],
+        ['owed', 'What they owe', 'endogenous-money', (c) => c.stock('kronaLoansW', 'W') / c.dt],
       ),
+      // Borrow exactly what would be overdrawn; otherwise repay from deposits above what they keep,
+      // never more than they owe. (An overdraft leaves nothing above the floor, so the two never meet.)
+      combine: (t) => Math.max(0, t.shortfall) - Math.min(t.owed, Math.max(0, t.repayable)),
+      regime: (_c, v) => (v > 0 ? 'Borrowing krónur to cover an overdraft' : v < 0 ? 'Repaying króna loans' : null),
       concepts: ['current-account', 'endogenous-money'],
       explain: {
         what: 'Krónur non-residents borrow from Icelandic banks (negative: repay). It happens only when they have no government bonds left to sell and a month’s payments, for Iceland’s exports and the income it earns abroad, would overdraw their deposits.',
@@ -722,7 +722,7 @@ export const external: ModuleDef = {
       binds: { param: 'foreignRateShift', mode: 'add', scale: 0.01 },
       description: 'Interest rates abroad; a higher rate pulls carry money and pension savings out of krónur, so the króna weakens.',
       definition:
-        'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. The rate gap with abroad narrows, so carry traders sell króna bonds and pension funds raise their foreign target by 1 point of assets per point: the króna weakens for the first few years (about 1% on average over two years per point on Automatic). It also raises the yield on the central bank’s reserves and on the funds’ foreign bonds (not their shares), and so the profit the central bank hands to the government. That extra income, spent at home, strengthens the króna slowly: after about three and a half years it is stronger than at the start, by 2–3% after ten years per point held (a known gap, decision 0002 §6: the model has no steady state with a lasting surplus of foreign income, so prices drift down slowly). Setting it back to 0 ends it.',
+        'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. The rate gap with abroad narrows, so carry traders sell króna bonds and pension funds raise their foreign target by 1 point of assets per point: the króna weakens for the first three years (about 0.9% on average over the first two per point on Automatic). It also raises the yield on the central bank’s reserves and on the funds’ foreign bonds (not their shares), and so the profit the central bank hands to the government. That extra income, spent at home, strengthens the króna slowly: after about three and a half years it is stronger than at the start, and the drift does not level off. Per point held, the króna is about 2–2.5% stronger after ten years and 5–6% after twenty on Automatic (3–3.5% and 9–11.5% on Manual), and the price level about 3% lower after twenty years (6–6.5% on Manual), with inflation still below baseline. This is a known gap (decision 0002 §6): the model has no steady state with a lasting surplus of foreign income. Setting it back to 0 ends it.',
       concepts: ['carry-trade'],
     },
     {
@@ -739,7 +739,7 @@ export const external: ModuleDef = {
       binds: { param: 'worldPriceShift', mode: 'add', scale: 0.01 },
       description: 'Foreign-currency prices of imports and of fish and aluminium.',
       definition:
-        'Level shift in world prices in foreign currency, in percent, applied at once and persistent while set. Fish and aluminium revenue in krónur jumps at once and import prices in shops follow within a year or two. The króna strengthens only slowly, over several years, as purchasing-power parity absorbs the new world prices, which takes back part of the rise in krónur. Setting it back to 0 ends it.',
+        'Level shift in world prices in foreign currency, in percent, applied at once and persistent while set. Fish and aluminium revenue in krónur jumps at once and import prices in krónur follow within a year or two. What buyers pay for imported goods rises by less, since part of it is the Icelandic cost of getting the goods to them: +10 raises consumer prices about 2% within a year and 2.8% within two on Automatic. The króna strengthens only slowly, over several years, as purchasing-power parity absorbs the new world prices, which takes back part of the rise in krónur. Setting it back to 0 ends it.',
       concepts: ['exchange-rate-pass-through'],
     },
     {

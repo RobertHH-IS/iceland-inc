@@ -2,8 +2,11 @@
  * Iceland Inc.: prices and expectations (v1 equations E9, E10, E12 and E47).
  *
  * Firms price at a markup on a smoothed unit cost, made of labour and imported inputs, and
- * capacity pressure pushes prices a little above it. Import prices in shops follow world prices
- * in krónur with a lag. The CPI weights domestic goods, imported goods and housing as in the
+ * capacity pressure pushes prices a little above it. Import prices in krónur follow world prices
+ * × the exchange rate with a lag, and imports are paid for at them. Buyers in Iceland pay more: the
+ * domestic cost of getting the goods to them (unloading, wholesale, transport and retail) is part
+ * of what shops and firms pay, so only part of a weaker króna reaches the CPI and unit cost
+ * (review E6). The CPI weights domestic goods, imported goods and housing as in the
  * Statistics Iceland basket; VAT scales the first two. Household spending is turned into a volume
  * with a consumption deflator that leaves out the housing part, which here follows house prices
  * and is mostly owner-occupiers' imputed rent, never paid in cash (audit H4). Expected inflation
@@ -22,9 +25,26 @@ export const prices: ModuleDef = {
   label: 'Prices and expectations',
   description: 'Markup pricing on smoothed unit labour and import costs, import prices, the CPI with data weights, inflation and expectations.',
   requires: ['structure', 'labour-and-wages', 'external', 'housing', 'government'],
-  params: pickParams(ALL_PARAMS, ['aLab', 'eta', 'lamUC', 'lamP', 'lamPm', 'omD', 'omM', 'omH', 'chi', 'lamPia', 'lamVat']),
+  params: pickParams(ALL_PARAMS, ['aLab', 'eta', 'lamUC', 'lamP', 'lamPm', 'distM', 'omD', 'omM', 'omH', 'chi', 'lamPia', 'lamVat']),
   vars: [
-    { id: 'importPrice', label: 'Import prices', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Prices of imported goods in shops, in krónur (1 at baseline).' },
+    {
+      id: 'importPrice',
+      label: 'Import prices',
+      unit: 'index',
+      kind: 'price',
+      scale: 'nominal',
+      initial: 1,
+      description: 'What imported goods and inputs cost in krónur as they arrive: world prices × the exchange rate, followed with a lag (1 at baseline). Imports are paid for at these prices.',
+    },
+    {
+      id: 'deliveredImportPrice',
+      label: 'Imported goods, delivered',
+      unit: 'index',
+      kind: 'price',
+      scale: 'nominal',
+      initial: 1,
+      description: 'What buyers in Iceland pay for imported goods and inputs, before VAT (1 at baseline): import prices plus the Icelandic cost of getting them to the buyer (unloading, wholesale, transport and retail).',
+    },
     { id: 'unitCost', label: 'Unit cost (as firms see it)', unit: 'index', kind: 'price', scale: 'nominal', initial: 1 },
     { id: 'domesticPrice', label: 'Domestic prices', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Prices of goods and services made in Iceland, before VAT (1 at baseline).' },
     { id: 'vatInPrices', label: 'VAT built into shop prices', unit: 'fraction', kind: 'rate', scale: 'none', initial: base('vatRate'), description: 'The VAT rate shops have so far passed into their prices: it follows the statutory rate within a few months.' },
@@ -54,8 +74,26 @@ export const prices: ModuleDef = {
       terms: terms(['worldPriceInKronur', 'World prices in krónur', 'exchange-rate-pass-through', (c) => c.v('exchangeRate') * c.v('worldPrice')]),
       concepts: ['exchange-rate-pass-through'],
       explain: {
-        what: 'What imported goods cost in Icelandic shops, in krónur.',
-        rule: 'Moves toward world prices × the exchange rate (krónur per unit of foreign currency) at speed {lamPm} a year: a weaker króna makes imports dearer, but retailers pass it on gradually.',
+        what: 'What imported goods and inputs cost in krónur as they arrive in Iceland. Imports are paid for at these prices.',
+        rule: 'Moves toward world prices × the exchange rate (krónur per unit of foreign currency) at speed {lamPm} a year: a weaker króna makes imports dearer, but importers pass it on gradually.',
+      },
+    },
+    {
+      id: 'deliveredImportPrice',
+      target: 'deliveredImportPrice',
+      category: 'IDENTITY',
+      label: 'Distribution margin',
+      inputs: ['importPrice'],
+      lagInputs: ['domesticPrice'],
+      params: ['distM'],
+      terms: terms(
+        ['imported', 'The goods as they arrive', 'exchange-rate-pass-through', (c) => (1 - c.p('distM')) * c.v('importPrice')],
+        ['distribution', 'Unloading, wholesale, transport and retail in Iceland', 'markup-pricing', (c) => c.p('distM') * lastMonth(c, 'domesticPrice')],
+      ),
+      concepts: ['exchange-rate-pass-through'],
+      explain: {
+        what: 'What households and firms in Iceland pay for imported goods and inputs, before VAT.',
+        rule: 'Delivered price = (1 − {distM}) × import prices + {distM} × last month’s domestic prices. The second part is the Icelandic cost of getting the goods to the buyer (unloading, wholesale, transport and retail), paid in krónur and priced like other domestic goods. So when foreign currency becomes 10% dearer, what buyers pay for imported goods rises by 10% × (1 − {distM}) once import prices have caught up, and by more only as domestic prices rise too.',
       },
     },
     {
@@ -63,17 +101,17 @@ export const prices: ModuleDef = {
       target: 'unitCost',
       category: 'BEHAVIOUR',
       label: 'Unit cost',
-      inputs: ['wage', 'importPrice'],
+      inputs: ['wage', 'deliveredImportPrice'],
       params: ['aLab'],
       adjust: { speed: 'lamUC', form: 'exponential' },
       terms: terms(
         ['labour', 'Labour cost', 'cost-pass-through', (c) => c.p('aLab') * c.v('wage')],
-        ['imports', 'Imported inputs', 'exchange-rate-pass-through', (c) => (1 - c.p('aLab')) * c.v('importPrice')],
+        ['imports', 'Imported inputs', 'exchange-rate-pass-through', (c) => (1 - c.p('aLab')) * c.v('deliveredImportPrice')],
       ),
       concepts: ['cost-pass-through'],
       explain: {
         what: 'What it costs firms to make one unit, as they judge it: a smoothed mix of wages and imported inputs.',
-        rule: 'Moves toward {aLab} × wage rate + (1 − {aLab}) × import prices at speed {lamUC} a year.',
+        rule: 'Moves toward {aLab} × wage rate + (1 − {aLab}) × what imported inputs cost delivered at speed {lamUC} a year.',
       },
     },
     {
@@ -113,16 +151,16 @@ export const prices: ModuleDef = {
       id: 'cpi',
       target: 'cpi',
       category: 'IDENTITY',
-      inputs: ['domesticPrice', 'importPrice', 'housingCost', 'vatInPrices'],
+      inputs: ['domesticPrice', 'deliveredImportPrice', 'housingCost', 'vatInPrices'],
       params: ['omD', 'omM', 'omH', 'vat0'],
       terms: terms(
         ['domestic', 'Domestic goods and services', 'markup-pricing', (c) => vatFactor(c) * c.p('omD') * c.v('domesticPrice')],
-        ['imported', 'Imported goods', 'exchange-rate-pass-through', (c) => vatFactor(c) * c.p('omM') * c.v('importPrice')],
+        ['imported', 'Imported goods', 'exchange-rate-pass-through', (c) => vatFactor(c) * c.p('omM') * c.v('deliveredImportPrice')],
         ['housing', 'Housing', 'credit-and-house-prices', (c) => c.p('omH') * c.v('housingCost')],
       ),
       explain: {
         what: 'The consumer price index (1 at baseline).',
-        rule: 'CPI = VAT factor × ({omD%} × domestic prices + {omM%} × import prices) + {omH%} × housing costs, with the Statistics Iceland basket weights. The VAT factor is (1 + the VAT rate built into prices) ÷ (1 + the baseline VAT rate).',
+        rule: 'CPI = VAT factor × ({omD%} × domestic prices + {omM%} × imported goods as delivered) + {omH%} × housing costs, with the Statistics Iceland basket weights. The VAT factor is (1 + the VAT rate built into prices) ÷ (1 + the baseline VAT rate).',
       },
     },
     {
@@ -130,15 +168,15 @@ export const prices: ModuleDef = {
       target: 'consumptionDeflator',
       category: 'IDENTITY',
       label: 'Consumption deflator',
-      inputs: ['domesticPrice', 'importPrice', 'vatInPrices'],
+      inputs: ['domesticPrice', 'deliveredImportPrice', 'vatInPrices'],
       params: ['omD', 'omM', 'vat0'],
       terms: terms(
         ['domestic', 'Domestic goods and services', 'markup-pricing', (c) => (vatFactor(c) * c.p('omD') * c.v('domesticPrice')) / (c.p('omD') + c.p('omM'))],
-        ['imported', 'Imported goods', 'exchange-rate-pass-through', (c) => (vatFactor(c) * c.p('omM') * c.v('importPrice')) / (c.p('omD') + c.p('omM'))],
+        ['imported', 'Imported goods', 'exchange-rate-pass-through', (c) => (vatFactor(c) * c.p('omM') * c.v('deliveredImportPrice')) / (c.p('omD') + c.p('omM'))],
       ),
       explain: {
         what: 'The prices of the goods and services households pay for, with VAT (1 at baseline). Household spending ÷ this is real consumption.',
-        rule: 'Deflator = VAT factor × ({omD%} × domestic prices + {omM%} × import prices) ÷ ({omD%} + {omM%}): the CPI without its housing part. In the CPI, most of housing ({omH%}) is owner-occupiers’ imputed rent, what they would pay to rent their own homes; nobody pays it in cash, and here it follows house prices. Household spending is a cash flow that does not change when house prices do, so dividing it by the full CPI would count a rise in house prices as households buying less. Excluding housing avoids that, and the deflator still rises one for one with a general rise in prices. The full CPI still drives indexation, inflation, expectations, wages and the key rate.',
+        rule: 'Deflator = VAT factor × ({omD%} × domestic prices + {omM%} × imported goods as delivered) ÷ ({omD%} + {omM%}): the CPI without its housing part. In the CPI, most of housing ({omH%}) is owner-occupiers’ imputed rent, what they would pay to rent their own homes; nobody pays it in cash, and here it follows house prices. Household spending is a cash flow that does not change when house prices do, so dividing it by the full CPI would count a rise in house prices as households buying less. Excluding housing avoids that, and the deflator still rises one for one with a general rise in prices. The full CPI still drives indexation, inflation, expectations, wages and the key rate.',
       },
     },
     {

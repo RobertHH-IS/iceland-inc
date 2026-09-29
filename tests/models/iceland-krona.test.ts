@@ -42,6 +42,29 @@ describe('Iceland model: the foreign interest rate (review E3)', () => {
     expect(Math.min(...series(e, 'inflation'))).toBeGreaterThan(-1.5);
   });
 
+  test('known gap: after three years the króna keeps strengthening and prices keep drifting down, as the lever definition says (20-year values per point)', () => {
+    // decision 0002 §6: no steady state with a lasting surplus of foreign income, so non-residents'
+    // krónur keep draining (merge note 5 of review E3: a design decision owns the fix). Per point held,
+    // after 10 and 20 years: Automatic about 2–2.5% and 5–6% stronger, the price level about 3% lower
+    // after 20; Manual about 3–3.5% and 9–11.5% stronger, the price level about 6–6.5% lower.
+    const bands = { true: { k10: [1.8, 2.8], k20: [4.5, 6.5], p20: [-3.6, -2.5] }, false: { k10: [2.8, 4], k20: [8, 12.5], p20: [-7.2, -5.3] } };
+    for (const automatic of [true, false])
+      for (const size of [1, 5]) {
+        const e = run('foreignRate', size, automatic, 240);
+        const [k, p, pi] = [series(e, 'krona'), series(e, 'priceLevel'), series(e, 'inflation')];
+        const b = bands[`${automatic}`];
+        expect(k[120] / size).toBeGreaterThan(b.k10[0]);
+        expect(k[120] / size).toBeLessThan(b.k10[1]);
+        expect(k[240] / size).toBeGreaterThan(b.k20[0]);
+        expect(k[240] / size).toBeLessThan(b.k20[1]);
+        expect(p[240] / size).toBeGreaterThan(b.p20[0]);
+        expect(p[240] / size).toBeLessThan(b.p20[1]);
+        expect(pi[240]).toBeLessThan(0); // still drifting down: it does not level off
+        expect(k[240]).toBeGreaterThan(k[180]);
+      }
+    expect(model.levers.find((l) => l.id === 'foreignRate')!.definition).toMatch(/does not level off/);
+  });
+
   test('only the bond part of the funds’ foreign assets earns more when rates abroad rise', () => {
     const e = run('foreignRate', 1, false, 1);
     const inf = e.influences('foreignAssetIncome');

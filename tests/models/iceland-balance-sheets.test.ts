@@ -157,6 +157,16 @@ describe('Iceland model: balance sheets stay possible', () => {
     }
     expect(ran).toBeGreaterThan(0);
     expect(lowest).toBeGreaterThan(-1e-9);
+
+    // When foreign purchases spend all the cash, what is left can be a rounding error below zero;
+    // that is not a run-off (it was labelled one in 5 months of this run before).
+    const f = createEngine(model, { baseline: base.baselineData, dev: false });
+    f.setLever('stabilisers', 1);
+    f.setLever('pfForeign', 20);
+    for (let m = 1; m <= 240; m++) {
+      f.step(1);
+      expect(f.influences('bankBondPurchases').regime ?? '').not.toBe('Letting bank bonds run off to raise cash');
+    }
   });
 
   test('a current-account surplus after non-residents have sold every bond: they borrow krónur from banks instead of overdrawing (review M6)', () => {
@@ -177,6 +187,37 @@ describe('Iceland model: balance sheets stay possible', () => {
     expect(e.stock('kronaLoansW', 'W')).toBeLessThan(1e-9); // repaid
   });
 
+  test('non-residents borrow exactly what a month would overdraw, and repay from deposits above what they keep, never more than they owe (review M6)', () => {
+    // The rule on its own, with the limits in its combine and the regime that names them.
+    const rule = icelandModel.modules.flatMap((m) => m.rules ?? []).find((r) => r.id === 'kronaBorrowingW') as RuleDef;
+    const params = Object.fromEntries(icelandModel.modules.flatMap((m) => m.params ?? []).map((p) => [p.id, p.value]));
+    const stocks: Record<string, number> = { 'deposits/W': 0.1, 'govBonds/W': 0, 'kronaLoansW/W': 0 };
+    const values: Record<string, number> = { nominalGDP: 100, foreignAssetPurchases: 0, currentAccount: 3, bondPurchasesW: 0 };
+    const c = { v: (id: string) => values[id], p: (id: string) => params[id], stock: (i: string, p: string) => stocks[`${i}/${p}`], dt: 1 / 12, t: 0 } as unknown as Ctx;
+    const value = () => {
+      const t = Object.fromEntries(rule.terms!.map((x) => [x.id, x.compute(c)]));
+      const v = rule.combine!(t, c);
+      return { v, regime: rule.regime!(c, v, t) };
+    };
+    // a surplus of 3 a year takes 0.25 in a month from 0.1 of deposits: they borrow the 0.15 short, 1.8 a year
+    let r = value();
+    expect(r.v).toBeCloseTo(0.15 * 12, 9);
+    expect(r.regime).toBe('Borrowing krónur to cover an overdraft');
+    // with deposits well above what they keep, they repay about 63% of the excess in a month, capped by the loan
+    Object.assign(stocks, { 'deposits/W': 1, 'kronaLoansW/W': 0.05 });
+    values.currentAccount = 0;
+    r = value();
+    expect(r.v).toBeCloseTo(-0.05 * 12, 9);
+    expect(r.regime).toBe('Repaying króna loans');
+    stocks['kronaLoansW/W'] = 10;
+    r = value();
+    const kept = (params.wDepositFloorShare * params.depW) / (params.depW + params.bondW); // share of holdings kept in deposits
+    expect(r.v).toBeCloseTo(-(1 - Math.exp(-params.liquiditySpeed / 12)) * 12 * (1 - kept), 9);
+    // nothing owed and nothing short: no regime
+    stocks['kronaLoansW/W'] = 0;
+    expect(value()).toEqual({ v: 0, regime: null });
+  });
+
   test('non-residents borrow no krónur at the baseline or under moderate shocks', () => {
     for (const settings of [[], [['tourism', -30]], [['kronaShock', -10]], [['foreignRate', 1]], [['pfForeign', 5]]] as Setting[][]) {
       const e = createEngine(model, { baseline: base.baselineData, dev: false });
@@ -192,6 +233,27 @@ describe('Iceland model: balance sheets stay possible', () => {
     // decision 0002 §6: shares and mortgages are never sold, and pensions are paid in full.
     // Non-residents, who also ran out of krónur here, now borrow them from banks (review M6).
     expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false)).toEqual(['deposits/PF']);
+  });
+
+  test('pension funds pay for new government bonds only from cash above their buffer, so a deficit they buy does not force foreign sales (review E1 follow-up)', () => {
+    // bond buyers = pension funds with a large deficit: before, new bonds took 63% of all their
+    // deposits each month, the buffer ran down, and the funds sold foreign assets to rebuild it,
+    // which lifted the króna up to 17.5% on Automatic.
+    const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    e.setLever('stabilisers', 1);
+    e.setLever('bondBuyers', 3);
+    e.setLever('incomeTaxOffset', -10);
+    let lowestForeign = Infinity,
+      banks = 0;
+    for (let m = 1; m <= 120; m++) {
+      e.step(1);
+      lowestForeign = Math.min(lowestForeign, e.value('foreignAssetPurchases'));
+      banks = Math.max(banks, e.value('bondIssueB'));
+      expect(e.indicator('krona')).toBeLessThan(1);
+      if (e.value('bondIssuePF') > 0) expect(e.influences('foreignAssetPurchases').regime ?? '').not.toBe('Selling foreign assets to raise cash');
+    }
+    expect(lowestForeign).toBeGreaterThan(-0.5);
+    expect(banks).toBeGreaterThan(1); // banks take what the funds cannot pay for
   });
 
   test('the floors do not bind at the baseline, in either mode', () => {

@@ -54,6 +54,9 @@ const INCOME: [Id, string, Id | undefined][] = [
  * inputs, params and stocks below.
  */
 const pos = (x: number) => Math.max(0, x);
+/** Cash as the regimes read it: what earlier purchases leave can come out a rounding error below
+ *  zero when they spent it all, which is not cash to raise. */
+const cashLeft = (x: number) => (Math.abs(x) < 1e-9 ? 0 : x);
 /** The shift of the funds' target foreign share: the lever's, plus psiPF per point the foreign
  *  interest rate is above normal (higher yields abroad draw more of their savings abroad). Declare
  *  SHIFT_INPUTS and SHIFT_PARAMS. */
@@ -73,6 +76,11 @@ const pfFloor = (c: Ctx) => c.p('pfLiquidityFloorShare') * c.p('dPF0') * (1 + do
 /** Cash the funds can still put into assets this month after the purchases `spent` (a yearly rate;
  *  negative: cash they must raise). A sale among `spent` adds its proceeds. */
 const pfCash = (c: Ctx, spent: Id[]) => gapRate(c.p('liquiditySpeed'), c.dt) * (c.stock('deposits', 'PF') - pfFloor(c)) - spent.reduce((s, id) => s + c.v(id), 0);
+/** What the funds can pay for new government bonds this month (government.ts, bondIssuePF): the
+ *  limit before any purchase, and nothing when their deposits are below the buffer. A reader
+ *  declares PF_CASH (inputs, params and stocks). */
+export const pfCashForNewBonds = (c: Ctx) => pos(pfCash(c, []));
+export const PF_CASH = { inputs: CASH_INPUTS, params: CASH_PARAMS, stocks: CASH_STOCKS };
 
 /** Foreign purchases toward the target share of assets, both valued at this month's exchange rate
  *  (funds see market values), and the lever's shift of that target. */
@@ -270,10 +278,11 @@ const rules: RuleDef[] = [
     // nor more than non-residents have krónur to pay for.
     combine: (t, c) => Math.max(Math.min(t.target + t.lever + t.returns, t.cash), -foreignHeld(c) / c.dt, -kronurAbroad(c)),
     regime: (c, _v, t) => {
-      const want = Math.min(t.target + t.lever + t.returns, t.cash);
+      const cash = cashLeft(t.cash);
+      const want = Math.min(t.target + t.lever + t.returns, cash);
       const [held, kronur] = [foreignHeld(c) / c.dt, kronurAbroad(c)];
       if (want < -Math.min(held, kronur)) return held <= kronur ? 'Sales limited by holdings' : 'Sales limited by the krónur non-residents hold';
-      if (t.cash < t.target + t.lever + t.returns) return t.cash < 0 ? 'Selling foreign assets to raise cash' : 'Purchases limited by cash in hand';
+      if (cash < t.target + t.lever + t.returns) return cash < 0 ? 'Selling foreign assets to raise cash' : 'Purchases limited by cash in hand';
       return null;
     },
     explain: {
@@ -297,8 +306,9 @@ const rules: RuleDef[] = [
     // no more than they hold.
     combine: (t, c) => Math.max(Math.min(t.target + t.foreignShift, t.cash), -c.stock('bankBonds', 'PF') / c.dt),
     regime: (c, _v, t) => {
-      if (Math.min(t.target + t.foreignShift, t.cash) < -c.stock('bankBonds', 'PF') / c.dt) return 'Run-off limited by holdings';
-      if (t.cash < t.target + t.foreignShift) return t.cash < 0 ? 'Letting bank bonds run off to raise cash' : 'Purchases limited by cash in hand';
+      const cash = cashLeft(t.cash);
+      if (Math.min(t.target + t.foreignShift, cash) < -c.stock('bankBonds', 'PF') / c.dt) return 'Run-off limited by holdings';
+      if (cash < t.target + t.foreignShift) return cash < 0 ? 'Letting bank bonds run off to raise cash' : 'Purchases limited by cash in hand';
       return null;
     },
     concepts: ['broad-money'],
