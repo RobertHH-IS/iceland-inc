@@ -27,6 +27,9 @@ const debt = (c: Ctx, ins: 'mortgagesN' | 'mortgagesI', g: B) => c.stock(ins, HH
 const lenderShare = (c: Ctx, ins: 'mortgagesN' | 'mortgagesI', l: L) => c.stock(ins, l) / (c.stock(ins, 'B') + c.stock(ins, 'PF'));
 const allMortgageStocks: [Id, Id][] = (['mortgagesN', 'mortgagesI'] as const).flatMap((ins) => [[ins, 'HY'], [ins, 'HW'], [ins, 'B'], [ins, 'PF']] as [Id, Id][]);
 
+/** Last month's tax-free child and housing benefits: income for the mortgage rules, though not taxed. */
+const taxFreeBenefits = (c: Ctx, g: B) => (1 - c.p('famTaxableShare')) * lastMonth(c, `familyBenefits${g}`);
+
 function groupRules(g: B): RuleDef[] {
   const pl = HH[g];
   const who = AGE_LABEL[g];
@@ -38,17 +41,17 @@ function groupRules(g: B): RuleDef[] {
       category: 'BEHAVIOUR',
       label: 'Desired mortgage debt',
       inputs: ['realMortgageRate', 'realHousePrice'],
-      lagInputs: [`grossIncome${g}`],
-      params: [`mR${g}`, 'betaM', 'rmR0', 'betaMH'],
+      lagInputs: [`grossIncome${g}`, `familyBenefits${g}`],
+      params: [`mR${g}`, 'betaM', 'rmR0', 'betaMH', 'famTaxableShare'],
       terms: terms(
-        ['income', 'Debt in proportion to income', 'debt-service-constraint', (c) => c.p(`mR${g}`) * lastMonth(c, `grossIncome${g}`)],
+        ['income', 'Debt in proportion to income', 'debt-service-constraint', (c) => c.p(`mR${g}`) * lastMonth(c, `grossIncome${g}`) + c.p(`mR${g}`) * taxFreeBenefits(c, g)],
         ['rate', 'Real mortgage rate', 'interest-distribution', (c) => 1 - c.p('betaM') * (c.v('realMortgageRate') - c.p('rmR0'))],
         ['housePrice', 'Real house prices', 'credit-and-house-prices', (c) => Math.pow(Math.max(1e-6, c.v('realHousePrice')), c.p('betaMH'))],
       ),
       combine: (t) => t.income * t.rate * t.housePrice,
       explain: {
         what: `The mortgage debt the ${who} would like to have.`,
-        rule: `Desired debt = {mR${g}} × last month’s gross income × (1 − {betaM} × (real mortgage rate − baseline)) × (real house price)^{betaMH}.`,
+        rule: `Desired debt = {mR${g}} × last month’s gross income (with the tax-free child and housing benefits) × (1 − {betaM} × (real mortgage rate − baseline)) × (real house price)^{betaMH}.`,
       },
     },
     {
@@ -90,13 +93,13 @@ function groupRules(g: B): RuleDef[] {
       category: 'POLICY',
       label: 'Debt-service cap',
       inputs: ['stressTestPayment'],
-      lagInputs: [`grossIncome${g}`, `incomeTax${g}`],
-      params: [`nu${g}`, dsti, 'dstiShift'],
-      compute: (c) => (c.p(`nu${g}`) * (lastMonth(c, `grossIncome${g}`) - lastMonth(c, `incomeTax${g}`)) * (c.p(dsti) + c.p('dstiShift'))) / c.v('stressTestPayment'),
+      lagInputs: [`grossIncome${g}`, `incomeTax${g}`, `familyBenefits${g}`],
+      params: [`nu${g}`, dsti, 'dstiShift', 'famTaxableShare'],
+      compute: (c) => (c.p(`nu${g}`) * (lastMonth(c, `grossIncome${g}`) - lastMonth(c, `incomeTax${g}`) + taxFreeBenefits(c, g)) * (c.p(dsti) + c.p('dstiShift'))) / c.v('stressTestPayment'),
       concepts: ['debt-service-constraint', 'macroprudential-policy'],
       explain: {
         what: `The most new lending the debt-service rule allows the ${who} this year.`,
-        rule: `Cap = the income of new borrowers ({nu${g}} of the group’s income after income tax, last month) × the payment cap {${dsti}%} (plus the lever) ÷ the stressed yearly payment per króna of loan. New borrowers may spend at most that share of their disposable income, as Rules 1300/2025 define it, on payments tested at stressed rates, so a tax rise tightens the cap.`,
+        rule: `Cap = the income of new borrowers ({nu${g}} of the group’s income after income tax, with the tax-free child and housing benefits, last month) × the payment cap {${dsti}%} (plus the lever) ÷ the stressed yearly payment per króna of loan. New borrowers may spend at most that share of their disposable income, as Rules 1300/2025 define it, on payments tested at stressed rates, so a tax rise tightens the cap.`,
       },
     },
     {
@@ -442,7 +445,8 @@ export const mortgages: ModuleDef = {
         // at baseline the non-indexed rate (4%) is below its 5.5% floor and the indexed (2.5%) below 3%: both floors bind
         const floorsBind = rN < 0.055 && rI < 0.03;
         const cap = e.value('dstiCapY');
-        const inc = e.baseline('grossIncomeY') - e.baseline('incomeTaxY'); // income after income tax
+        const share = e.influences('dstiCapY').params.find((p) => p.id === 'famTaxableShare')!.value;
+        const inc = e.baseline('grossIncomeY') - e.baseline('incomeTaxY') + (1 - share) * e.baseline('familyBenefitsY'); // income after income tax
         const nu = e.influences('dstiCapY').params.find((p) => p.id === 'nuY')!.value;
         const capWant = (nu * inc * 0.4) / want;
         const ok = Math.abs(got - want) < 1e-12 && floorsBind && ps.termN === 40 && ps.termI === 25 && Math.abs(cap - capWant) < 1e-9;

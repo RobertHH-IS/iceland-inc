@@ -219,7 +219,8 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   o.ageing = (CON + (incPF * EW) / Et) / EW;
 
   /* ------------------------------------ government: balanced budget -> tau0 */
-  const gross = G3.map((_, h) => (1 - o.cEe) * Ng[h] + UE[h] + OA[h] + FAM[h] + (h === 2 ? PAY : 0));
+  // Only the taxable share of family benefits is taxable income; the rest reaches households untaxed.
+  const gross = G3.map((_, h) => (1 - o.cEe) * Ng[h] + UE[h] + OA[h] + p.famTaxableShare * FAM[h] + (h === 2 ? PAY : 0));
   const taxBase = sum(gross);
   const Gspend = (1 + p.cEr) * NG + gPur + p.gInv + p.trOA + p.trFam + sum(UE) + ib * Bnom + rbi * BI;
   const Grev0 = VAT + o.tauF * sum(FIRMS.map((j) => Pi[j])) + p.css * Wpriv + profCB + dB.G * profB;
@@ -235,7 +236,7 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     ydk: number[] = [],
     C: number[] = [];
   G3.forEach((g, h) => {
-    ydl[h] = gross[h] * (1 - o.tau0) - mint[h];
+    ydl[h] = gross[h] * (1 - o.tau0) + (1 - p.famTaxableShare) * FAM[h] - mint[h];
     ydk[h] = id * Dh[h] + (h === 2 ? ib * p.bondO : 0) + divHv[h];
     C[h] = ydl[h] + ydk[h] + HC[h];
     o[`c0${g}`] = C[h] - aL[h] * (ydl[h] + HC[h]) - p.aK * ydk[h];
@@ -263,11 +264,14 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   /* --------------------- mortgages: desired stock = actual, debt-service cap slack */
   const rmR = th * rmi + (1 - th) * imn;
   const annT = th * annuity(Math.max(rmi, p.floorI), p.termI) + (1 - th) * annuity(Math.max(imn, p.floorN), p.termN);
-  o.mRY = M[0] / gross[0];
-  o.mRW = M[1] / gross[1];
+  // Mortgage rules read income with the tax-free family benefits, which are not in gross (taxable) income.
+  const taxFree = FAM.map((f) => (1 - p.famTaxableShare) * f);
+  o.mRY = M[0] / (gross[0] + taxFree[0]);
+  o.mRW = M[1] / (gross[1] + taxFree[1]);
   // the debt-service cap is set on income after income tax (Rules 1300/2025: disposable income)
-  o.nuY = M[0] / p.Tm / ((p.capUse0 * gross[0] * (1 - o.tau0) * p.dstiY) / annT);
-  o.nuW = M[1] / p.Tm / ((p.capUse0 * gross[1] * (1 - o.tau0) * p.dstiW) / annT);
+  const afterTax = G3.map((_, h) => gross[h] * (1 - o.tau0) + taxFree[h]);
+  o.nuY = M[0] / p.Tm / ((p.capUse0 * afterTax[0] * p.dstiY) / annT);
+  o.nuW = M[1] / p.Tm / ((p.capUse0 * afterTax[1] * p.dstiW) / annT);
   o.rmR0 = rmR;
   o.lendShY = M[0] / p.mortTot;
   o.lendShW = M[1] / p.mortTot;
@@ -403,6 +407,7 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     v[`unemployed${g}`] = U[h];
     v[`unemployment${g}`] = u0[h];
     v[`unemploymentBenefits${g}`] = UE[h];
+    if (h < 2) v[`familyBenefits${g}`] = FAM[h];
     v[`grossIncome${g}`] = gross[h];
     v[`incomeTax${g}`] = o.tau0 * gross[h];
     v[`netLabourIncome${g}`] = ydl[h];
@@ -457,7 +462,7 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     v[`mortgageDemand${g}`] = M[h] / p.Tm;
     v[`mortgageLending${g}`] = M[h] / p.Tm;
     v[`netMortgageLending${g}`] = 0;
-    v[`dstiCap${g}`] = (o[`nu${g}`] * gross[h] * (1 - o.tau0) * (g === 'Y' ? p.dstiY : p.dstiW)) / annT;
+    v[`dstiCap${g}`] = (o[`nu${g}`] * afterTax[h] * (g === 'Y' ? p.dstiY : p.dstiW)) / annT;
   }
 
   const targets = {

@@ -15,7 +15,7 @@ import { AGE_LABEL, AGES, FIRM_NAME, gapRate, HH, pickParams, sumTerms, terms, t
 import { dividendsTo } from './firms.ts';
 import { bondsBanksCanSell, cashToSpend } from './banks.ts';
 
-/** Wages of the group (private and public), transfers and pensions: the taxable income. */
+/** Wages of the group (private and public), taxable transfers and pensions: the taxable income. */
 function grossIncomeRule(g: Age): RuleDef {
   // ids built once, not on every evaluation (these rules sit in the income–spending block)
   const [emp, ub, oa, fam] = [`employment${g}`, `unemploymentBenefits${g}`, `oldAgeTransfers${g}`, `familyBenefits${g}`];
@@ -24,18 +24,18 @@ function grossIncomeRule(g: Age): RuleDef {
     target: `grossIncome${g}`,
     category: 'IDENTITY',
     inputs: ['wage', `employment${g}`, `unemploymentBenefits${g}`, `oldAgeTransfers${g}`, ...(g !== 'O' ? [`familyBenefits${g}`] : ['pensionPayouts'])],
-    params: ['cEe'],
+    params: ['cEe', ...(g !== 'O' ? ['famTaxableShare'] : [])],
     terms: terms(
       ['wages', 'Wages after the employee pension contribution', 'real-wages', (c) => (1 - c.p('cEe')) * c.v('wage') * c.v(emp)],
       ['unemploymentBenefits', 'Unemployment benefits', 'automatic-stabilisers', (c) => c.v(ub)],
       ['oldAge', 'Old-age and disability transfers', undefined, (c) => c.v(oa)],
       ...(g !== 'O'
-        ? ([['family', 'Family and housing benefits', undefined, (c: Ctx) => c.v(fam)]] as [string, string, undefined, (c: Ctx) => number][])
+        ? ([['family', 'Taxable family benefits (parental leave, other TR payments, municipal assistance)', undefined, (c: Ctx) => c.p('famTaxableShare') * c.v(fam)]] as [string, string, undefined, (c: Ctx) => number][])
         : ([['pensions', 'Pension-fund pensions', 'funded-pensions', (c: Ctx) => c.v('pensionPayouts')]] as [string, string, string, (c: Ctx) => number][])),
     ),
     explain: {
-      what: `Taxable income of the ${AGE_LABEL[g]}: wages, benefits${g === 'O' ? ' and pensions' : ''}.`,
-      rule: `Gross income = wage rate × their jobs × (1 − {cEe%}) + unemployment benefits + old-age and disability transfers${g === 'O' ? ' + pension-fund pensions' : ' + family and housing benefits'}.`,
+      what: `Taxable income of the ${AGE_LABEL[g]}: wages, benefits${g === 'O' ? ' and pensions' : ' (except the tax-free child and housing benefits)'}.`,
+      rule: `Gross income = wage rate × their jobs × (1 − {cEe%}) + unemployment benefits + old-age and disability transfers${g === 'O' ? ' + pension-fund pensions' : ' + the taxable share {famTaxableShare%} of family and housing benefits (parental leave, other TR payments and municipal assistance; child and housing benefits are tax-free)'}.`,
     },
   };
 }
@@ -125,7 +125,7 @@ const hoFromBanks = (c: Ctx) => Math.max(0, bondsBanksCanSell(c) - Math.max(0, c
 const hoBondsToSell = (c: Ctx) => Math.max(0, c.stock('govBonds', 'HO') / c.dt + Math.min(0, c.v('bondIssueHO')));
 
 const perGroup: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
-  const [gross, tax] = [`grossIncome${g}`, `incomeTax${g}`];
+  const [gross, tax, fam] = [`grossIncome${g}`, `incomeTax${g}`, `familyBenefits${g}`];
   const [mB, mPF] = g === 'O' ? ['', ''] : mortgageInterest(g);
   return [
     grossIncomeRule(g),
@@ -133,15 +133,20 @@ const perGroup: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
       id: `netLabourIncome${g}`,
       target: `netLabourIncome${g}`,
       category: 'IDENTITY',
-      inputs: [gross, tax, ...mortgageInterest(g)],
+      inputs: [gross, tax, ...mortgageInterest(g), ...(g !== 'O' ? [fam] : [])],
+      params: ['tau0', ...(g !== 'O' ? ['famTaxableShare'] : [])],
+      // Tax is split as in the income-tax rule: at the baseline rate it moves with income by itself
+      // (an automatic stabiliser); the rest is a change in the rate (review TAX-4).
       terms: terms(
-        ['gross', 'Gross income', undefined, (c) => c.v(gross)],
-        ['tax', 'Income tax', 'automatic-stabilisers', (c) => -c.v(tax)],
+        ['gross', 'Gross taxable income', undefined, (c) => c.v(gross)],
+        ['tax', 'Income tax at the baseline rate', 'automatic-stabilisers', (c) => -c.p('tau0') * c.v(gross)],
+        ['taxChange', 'Income tax: change in the rate', 'multiplier', (c) => -(c.v(tax) - c.p('tau0') * c.v(gross))],
+        ...(g !== 'O' ? ([['familyTaxFree', 'Tax-free child and housing benefits', 'consumption-function', (c: Ctx) => (1 - c.p('famTaxableShare')) * c.v(fam)]] as [string, string, string, (c: Ctx) => number][]) : []),
         ...(g !== 'O' ? ([['mortgage', 'Mortgage interest paid in cash', 'interest-distribution', (c: Ctx) => -(c.v(mB) + c.v(mPF))]] as [string, string, string, (c: Ctx) => number][]) : []),
       ),
       explain: {
         what: `Income of the ${AGE_LABEL[g]} from work, benefits${g === 'O' ? ' and pensions' : ''} after income tax${g !== 'O' ? ' and the cash interest on their mortgages' : ''}.`,
-        rule: `Net labour income = gross income − income tax${g !== 'O' ? ' − mortgage interest (the indexation on indexed loans is added to the loan, not paid)' : ''}.`,
+        rule: `Net labour income = gross taxable income − income tax${g !== 'O' ? ' + the tax-free child and housing benefits (1 − {famTaxableShare%} of family benefits) − mortgage interest (the indexation on indexed loans is added to the loan, not paid)' : ''}.`,
       },
     },
     {

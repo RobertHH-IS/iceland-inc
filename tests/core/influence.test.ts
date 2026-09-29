@@ -163,6 +163,31 @@ describe('weights', () => {
     expect(effects[demand]).toBeCloseTo(-0.3 * term('normal').baseline * term('competitiveness').baseline, 9); // … exports by about 3.9 pp of GDP
     expect(Math.abs(effects[demand])).toBeGreaterThan(3.5);
   });
+
+  test('Iceland: a decided tax or transfer change is the multiplier and the consumption function, not an automatic stabiliser (review TAX-4)', () => {
+    const at = (lever: string, value: number) => {
+      const e = ice();
+      e.setLever(lever, value);
+      e.step(1);
+      return e;
+    };
+    // An income-tax cut: the rate change is spent through the multiplier; the tax at the baseline
+    // rate on income that has barely moved yet is the only stabiliser.
+    const cut = at('incomeTax', -2.5);
+    expect(weightOf(cut, 'multiplier')).toBeGreaterThan(weightOf(cut, 'automatic-stabilisers'));
+    expect(weightOf(cut, 'automatic-stabilisers')).toBeLessThan(0.5);
+    const tax = cut.influences('incomeTaxW');
+    const term = (id: string) => tax.terms.find((t) => t.id === id)!.change;
+    expect(term('base') + term('rateChange') + term('debtRule')).toBeCloseTo(cut.value('incomeTaxW') - cut.baseline('incomeTaxW'), 12);
+    expect(Math.abs(term('rateChange'))).toBeGreaterThan(10 * Math.abs(term('base')));
+    // Old-age and family transfers are fixed real amounts, not stabilisers: what recipients spend leads.
+    for (const [lever, value] of [['incomeTax', -2.5], ['familyBenefits', 1], ['oldAgeTransfers', 1]] as const) {
+      const e = at(lever, value);
+      expect(weightOf(e, 'automatic-stabilisers'), lever).toBeLessThan(weightOf(e, 'consumption-function'));
+    }
+    // Unemployment benefits are the stabiliser.
+    expect(concepts(at('unemploymentBenefits', 10))[0]).toBe('automatic-stabilisers');
+  });
 });
 
 describe('what is at play on Manual and Automatic', () => {

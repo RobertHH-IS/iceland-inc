@@ -64,7 +64,17 @@ P('compG', d(eco + 'compensation_of_employees'), '% of GDP/yr', 'IDENTITY', 'Pub
   P('trFam', fam, '% of GDP/yr', 'POLICY', 'Family, housing and other benefits, real: child benefits, parental leave, housing benefits and the rest of social benefits.', {
     ...dataProv(eco + 'social_benefits'),
     basis: 'derived',
-    note: `The rest of social benefits: item 27 (${d(eco + 'social_benefits')}) − unemployment (${d(sp + 'unemployment')}) − old-age and disability pensions (${oa.toFixed(2)}) (THJ05143/THJ05142, TR 2025). Besides child, parental-leave and housing benefits it holds other TR payments (rehabilitation pension, supplements), municipal assistance, and the non-cash part of the unemployment figure, which comes from a COFOG function that includes administration.`,
+    note: `The rest of social benefits: item 27 (${d(eco + 'social_benefits')}) − unemployment (${d(sp + 'unemployment')}) − old-age and disability pensions (${oa.toFixed(2)}) (THJ05143/THJ05142, TR 2025). Besides child, parental-leave and housing benefits it holds other TR payments (rehabilitation pension, supplements), municipal assistance, and the non-cash part of the unemployment figure, which comes from a COFOG function that includes administration. Child and housing benefits are tax-free, the rest taxable (famTaxableShare).`,
+  });
+  // Only the taxable part of family benefits is income-taxed (review SP-4): taxable social benefits
+  // from withholding-tax data, less the old-age, disability and unemployment benefits (all taxable),
+  // leave the taxable part of this channel.
+  const taxable = d(eco + 'taxable_social_benefits');
+  const ue = d(sp + 'unemployment');
+  P('famTaxableShare', (taxable - oa - ue) / fam, 'fraction', 'CONTRACT', 'Share of family and housing benefits that is income-taxed: parental-leave pay, TR rehabilitation pensions and supplements, and municipal assistance. Child benefits (barnabætur), interest rebates and housing benefits (húsnæðisbætur) are tax-free.', {
+    ...dataProv(eco + 'taxable_social_benefits'),
+    basis: 'derived',
+    note: `(taxable social benefits ${taxable} − old-age and disability pensions ${oa.toFixed(2)} − unemployment ${ue}) ÷ family and other benefits ${fam.toFixed(2)} (Hagstofa TEK02011, THJ05143/THJ05142, TR 2025). Tax-free: child, interest and housing benefits (Income Tax Act 90/2003, art. 28). The unemployment figure includes some administration, so the share is if anything a little low.`,
   });
 }
 P('oaShareY', 0.07, 'fraction', 'POLICY', 'Share of old-age and disability transfers (disability) paid to the young; the rest goes to working age.', assumed());

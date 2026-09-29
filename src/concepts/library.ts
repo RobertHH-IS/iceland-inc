@@ -160,6 +160,10 @@ const ref = {
     title: 'Íslandsbanki Research (2026), "Current account balance set to improve after 2025 deficit"',
     url: 'https://www.islandsbanki.is/en/news/current-account-balance-set-to-improve-after-2025-deficit',
   },
+  coenen2012: {
+    title: 'Coenen et al. (2012), "Effects of Fiscal Stimulus in Structural Models", American Economic Journal: Macroeconomics 4(1)',
+    url: 'https://www.aeaweb.org/articles?id=10.1257/mac.4.1.22',
+  },
   lanamal: {
     title: 'Government Debt Management (Lánamál ríkisins), Iceland',
     url: 'https://www.lanamal.is/en',
@@ -734,12 +738,13 @@ export const concepts: ConceptDef[] = [
       "An extra króna of spending becomes someone's income, part of which is spent again, so the total effect can exceed the first injection.",
     body: p(
       `When the government pays for a new school, the builders are paid; they spend part of their income in shops; the shops pay their staff, who spend part of theirs; and so on. Each round is smaller, because some income is saved, some goes in taxes and some is spent on imports. The *multiplier* is the total rise in output divided by the first injection of spending.`,
+      `Tax cuts and benefits multiply less than purchases: recipients save part of the first round (Coenen et al. 2012).`,
       `Leakages set its size. Iceland's imports equal over 40% of GDP, so much of each round leaks abroad. Taxes that rise with income shrink it further, and if the central bank raises rates in response, it shrinks again. IMF guidance (Batini et al. 2014) finds that fiscal multipliers are larger in downturns and smaller in very open economies and where monetary policy leans against fiscal policy.`,
       `Economists disagree about the size. Some argue that households save tax cuts in anticipation of later tax rises (*Ricardian equivalence*); others that multipliers are large in deep slumps. Keynesian models put the multiplier at the centre of fiscal policy.`,
       `Iceland Inc. has no multiplier parameter. The multiplier emerges from the spending rules and leakages, and can be measured by comparing a run with extra spending to one without.`,
     ),
     school: 'keynesian',
-    references: [ref.imfKeynes, ref.imfMultipliers],
+    references: [ref.imfKeynes, ref.imfMultipliers, ref.coenen2012],
     related: ['import-leakage', 'consumption-function', 'automatic-stabilisers', 'paradox-of-thrift', 'counterfactual'],
   },
   {
@@ -897,10 +902,10 @@ export const concepts: ConceptDef[] = [
     id: 'bond-buyers',
     title: 'Who buys government bonds',
     oneLiner:
-      'Whether new government bonds are bought by banks, the central bank, pension funds or foreigners changes money, interest rates and the króna.',
+      'Whether banks, the central bank, pension funds or foreigners buy new government bonds changes the money supply, who earns the interest and the króna.',
     body: p(
       `The Treasury finances deficits and refinances maturing debt by selling bonds, managed by Government Debt Management (*Lánamál ríkisins*). Who buys them matters in four ways:`,
-      `- **Money:** banks and the central bank pay with newly created reserves, leaving new deposits in the economy; pension funds and households pay with deposits that already exist (see deficits and money).\n- **Interest rates:** if domestic savers must be persuaded to hold more bonds, yields may rise, and so may the mortgage rates priced off them.\n- **The króna:** foreign buyers must first buy krónur. In 2025 foreign financial institutions bought about ISK 100bn net of krónur, roughly double 2024, drawn by the interest-rate differential; such inflows support the currency but can reverse (see carry trade).\n- **Who earns the interest:** indexed Treasury bonds pay indexation to their holders, largely pension funds, and so, in the end, to retirees.`,
+      `- **Money:** banks and the central bank pay with newly created reserves, leaving new deposits in the economy; pension funds and households pay with deposits that already exist (see deficits and money).\n- **Interest rates:** if domestic savers must be persuaded to hold more bonds, yields may rise. Iceland Inc. leaves this out: its bond rate is the key rate plus a fixed spread, whoever buys.\n- **The króna:** foreign buyers must first buy krónur. In 2025 foreign financial institutions bought about ISK 100bn net of krónur, roughly double 2024, drawn by the interest-rate differential; such inflows support the currency but can reverse (see carry trade). In the Iceland model they trade bonds with banks on their own, not through the bond-buyer lever.\n- **Who earns the interest:** indexed Treasury bonds pay indexation to their holders, largely pension funds, and so, in the end, to retirees.`,
       `Pension funds are natural buyers of long, indexed bonds because their liabilities are long and in real terms. That closes a domestic circuit: contributions flow to the funds, the funds lend to the state, and the state pays interest back to the funds.`,
     ),
     school: 'institutional',

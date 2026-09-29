@@ -399,6 +399,13 @@
       "year": 2025,
       "source": "Hagstofa THJ05143 (General government total expenditure by economic type, % of GDP)",
       "note": "Grants to intl orgs 0.33 + other expense 2.01. With CFC netted out (item 23 in current expense offset by -23 in NFA), the seven items sum to total 45.65. 2024: 3.97."
+    },
+    "taxable_social_benefits": {
+      "value": 5.8,
+      "unit": "% of GDP",
+      "year": 2025,
+      "source": "Hagstofa TEK02011 (All taxable payments by sex and age, monthly withholding-tax data, summed Jan-Dec 2025)",
+      "note": "Memo item, not one of the seven items above. Taxable social benefits: TR/Icelandic Health Insurance payments + unemployment benefits + parental (childbirth) leave + municipal financial assistance = 286.6 bn ISK in 2025 (the total behind households.*.share_of_social_benefits_received) / GDP 4,941.2 bn. Excludes pension-fund payments. Child benefits (barnabaetur), interest rebates (vaxtabaetur) and housing benefits (husnaedisbaetur) are tax-free (Income Tax Act 90/2003, art. 28) and so are not in it; the rest of item 27 social benefits (7.28) is taxable."
     }
   },
   "tax_revenue_pct_gdp": {

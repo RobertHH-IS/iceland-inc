@@ -151,8 +151,10 @@ describe('Iceland model: balance sheets stay possible', () => {
     expect(wrongSigns([['incomeTax', 10], ['aluminiumPrice', -40], ['pfForeign', 20]], false)).toEqual([]);
     expect(wrongSigns([['foreignRate', 5], ['pfForeign', 20], ['education', -3]], false)).toEqual([]);
     // With the consumption deflator and the recalibrated rule (audit H4), VAT +10 with income tax
-    // +10 now also reaches the collapse gap below in month 238, after the bank bonds are gone.
-    expect(wrongSigns([['vat', 10], ['incomeTax', 10]], false)).toEqual(['deposits/PF']);
+    // +10 also reaches the collapse gap below, after the bank bonds are gone: just after 20 years
+    // (month 242) since tax-free child and housing benefits left the income-tax base (review SP-4).
+    expect(wrongSigns([['vat', 10], ['incomeTax', 10]], false)).toEqual([]);
+    expect(wrongSigns([['vat', 10], ['incomeTax', 10]], false, 250)).toEqual(['deposits/PF']);
     // What the run-off fixed still holds in every case: the funds never overdraw while bank bonds remain.
     for (const settings of [
       [['incomeTax', 10], ['aluminiumPrice', -40], ['pfForeign', 20]],
