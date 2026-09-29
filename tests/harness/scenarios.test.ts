@@ -8,13 +8,16 @@ import { createEngine } from '../../src/core/engine.ts';
 import { runScenario } from '../../src/core/scenario.ts';
 import type { LeverDef, ScenarioEvent } from '../../src/core/types.ts';
 import { models } from '../../src/models/index.ts';
-import { ALL_LEVERS_TAIL, allLeversScenarios, extremeValues, leverExtremeRuns, timingShock } from '../../src/harness/scenarios.ts';
+import { ALL_LEVERS_TAIL, allLeversScenarios, extremeValues, leverExtremeRuns, shownWith, timingShock } from '../../src/harness/scenarios.ts';
 
 const compiled = models.map((def) => compile(def));
 
 describe.each(compiled.map((m) => [m.def.id, m] as const))('%s', (_, m) => {
   const mode = m.def.stabiliserMode!;
   const others = m.levers.filter((l) => l.id !== mode.lever);
+  const modeValue: Record<string, number> = { Manual: mode.manual, Automatic: mode.automatic };
+  /** The levers the panel shows in a mode (decision 0004): the ones a scenario may move there. */
+  const shownIn = (label: string) => others.filter((l) => shownWith(m, l, [{ t: 0, lever: mode.lever, value: modeValue[label] }]));
 
   test('all-levers: one scenario per stabiliser mode, the mode set at month 0', () => {
     const s = allLeversScenarios(m);
@@ -23,11 +26,30 @@ describe.each(compiled.map((m) => [m.def.id, m] as const))('%s', (_, m) => {
     expect(s[1].events[0]).toEqual({ t: 0, lever: mode.lever, value: mode.automatic });
   });
 
-  test('all-levers: every lever moves, and every event reaches the recorded history with room to act', () => {
-    for (const s of allLeversScenarios(m)) {
+  test('all-levers: every lever shown in the mode moves, and every event reaches the recorded history with room to act', () => {
+    const scen = allLeversScenarios(m);
+    scen.forEach((s, i) => {
       const moved = s.events.slice(1);
-      expect(moved.map((e) => e.lever)).toEqual(others.map((l) => l.id));
+      expect(moved.map((e) => e.lever)).toEqual(shownIn(['Manual', 'Automatic'][i]).map((l) => l.id));
       for (const e of moved) expect(e.t).toBeLessThanOrEqual(s.months - ALL_LEVERS_TAIL);
+    });
+    // every lever moves in at least one mode
+    const moved = new Set(scen.flatMap((s) => s.events.slice(1).map((e) => e.lever)));
+    expect(others.filter((l) => !moved.has(l.id))).toEqual([]);
+  });
+
+  test('a lever hidden in a mode is never moved in it (showWhen, decision 0004)', () => {
+    const hidden = others.filter((l) => l.showWhen);
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const label of ['Manual', 'Automatic']) {
+      const inMode = new Set(shownIn(label).map((l) => l.id));
+      const off = hidden.filter((l) => !inMode.has(l.id)).map((l) => l.id);
+      expect(off.length).toBeGreaterThan(0);
+      const s = allLeversScenarios(m).find((x) => x.name === `all-levers-${label.toLowerCase()}`)!;
+      for (const id of off) {
+        expect(s.events.some((e) => e.lever === id)).toBe(false);
+        expect(leverExtremeRuns(m).some((r) => r.mode === label && r.lever === id)).toBe(false);
+      }
     }
   });
 
@@ -41,10 +63,10 @@ describe.each(compiled.map((m) => [m.def.id, m] as const))('%s', (_, m) => {
       }
   });
 
-  test('extremes: every lever other than the mode at its min and max, alone, from month 0, in each mode', () => {
+  test('extremes: every lever other than the mode at its min and max, alone, from month 0, in each mode that shows it', () => {
     const runs = leverExtremeRuns(m);
     for (const modeLabel of ['Manual', 'Automatic'])
-      for (const l of others) {
+      for (const l of shownIn(modeLabel)) {
         const values = runs.filter((r) => r.mode === modeLabel && r.lever === l.id).map((r) => r.value);
         const expected = l.kind === 'choice' ? l.options!.map((o) => o.value).filter((v) => v !== l.default) : [l.min!, l.max!].filter((v) => l.kind === 'oneoff' || v !== l.default);
         expect(values).toEqual(expected);

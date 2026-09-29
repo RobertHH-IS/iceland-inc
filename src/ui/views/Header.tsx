@@ -1,13 +1,15 @@
 /**
  * Header: title, model name and switcher, the clock and its transport controls, the timeline
- * slider (seek), the accounting badge from engine.checks(), and scenario sharing.
+ * slider (seek), the accounting badge from engine.checks(), a calmer badge for positions with
+ * the wrong sign (decision 0005: a warning, not an accounting failure), and scenario sharing.
  */
 import { memo, useCallback, useEffect, useRef, type ChangeEvent } from 'react';
-import type { Id, ScenarioEvent } from '../../core/types.ts';
+import type { Id, ScenarioEvent, SignViolation } from '../../core/types.ts';
 import { SPEEDS, type ChecksSummary, type EngineClient, type Speed } from '../engine-client.ts';
 import { fmtClock, fmtResidual } from '../model/format.ts';
 import type { ModelInfo } from '../model/info.ts';
 import { leverValueLabel } from '../model/levers.ts';
+import { POSITION_NOTE, positionBadge, positionWarnings } from '../model/signs.ts';
 import { Icon } from './common.tsx';
 
 export interface ModelChoice {
@@ -27,6 +29,7 @@ interface HeaderProps {
   ended: boolean;
   events: readonly ScenarioEvent[];
   checks: ChecksSummary;
+  signViolations: readonly SignViolation[];
   models: ModelChoice[];
   modelId: Id;
   onModelChange: (id: Id) => void;
@@ -77,6 +80,7 @@ export const Header = memo(function Header(p: HeaderProps) {
             Accounts out of balance: {fmtResidual(p.checks.maxResidual)}
           </span>
         )}
+        {p.signViolations.length > 0 && <PositionBadge info={info} violations={p.signViolations} />}
         <label className="model-switch">
           <span className="sr-only">Model</span>
           <select value={p.modelId} onChange={(e) => p.onModelChange(e.target.value)} aria-label="Choose a model">
@@ -92,6 +96,17 @@ export const Header = memo(function Header(p: HeaderProps) {
     </header>
   );
 });
+
+/** Positions with the wrong sign: a quiet badge whose tooltip lists each one and its first month. */
+function PositionBadge({ info, violations }: { info: ModelInfo; violations: readonly SignViolation[] }) {
+  const list = positionWarnings(info, violations);
+  const title = [...list.map((w) => w.text), '', POSITION_NOTE].join('\n');
+  return (
+    <span className="books warn" title={title} role="status" aria-label={`${positionBadge(list.length)}. ${list.map((w) => w.text).join('. ')}. ${POSITION_NOTE}`}>
+      {positionBadge(list.length)}
+    </span>
+  );
+}
 
 function Timeline({ client, info, t, horizon, events }: { client: EngineClient; info: ModelInfo; t: number; horizon: number; events: readonly ScenarioEvent[] }) {
   const max = Math.max(1, horizon);

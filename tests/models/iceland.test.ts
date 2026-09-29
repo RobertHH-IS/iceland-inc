@@ -148,20 +148,33 @@ describe('Iceland model: the steady state matches engine v1', () => {
   // gross income by age, and with it the debt-to-income ratios mR* and the debt-service shares nu*.
   // v1's debt-service cap was a share of gross income; it is now a share of income after income tax
   // (Rules 1300/2025, audit M4), so nu × (1 − tau0) is what compares with v1's nu.
-  const V1_AFTER_TAX: Record<string, number> = { nuY: 0.0088, nuW: 0.016 };
-  const V1_MOVED: Record<string, number> = { tau0: 0.3848, c0Y: 0.9612, c0W: 9.5947, c0O: 4.4101, payout: 0.1788, ageing: 0.1159, muD: 0.0267, cEe: 0.0465, rr: 0.3879, mRY: 0.8906, mRW: 1.4206 };
-  const e = createEngine(model);
+  // These six moved for a stated reason, so each is pinned at its new value (to 0.01%), and its move
+  // from v1 must stay within 8%: an unintended move of a few percent fails the first check.
   const solvedValue = (id: string) => e.baselineData.pBase[model.paramIndex.get(id)!];
+  const afterTax = (id: string) => solvedValue(id) * (1 - solvedValue('tau0'));
+  const V1_EXPLAINED: Record<string, { v1: number; now: number; value: () => number }> = {
+    cEe: { v1: 0.0465, now: 0.048975, value: () => solvedValue('cEe') },
+    rr: { v1: 0.3879, now: 0.393879, value: () => solvedValue('rr') },
+    mRY: { v1: 0.8906, now: 0.923974, value: () => solvedValue('mRY') },
+    mRW: { v1: 1.4206, now: 1.430036, value: () => solvedValue('mRW') },
+    'nuY × (1 − tau0)': { v1: 0.0088, now: 0.0091073, value: () => afterTax('nuY') },
+    'nuW × (1 − tau0)': { v1: 0.016, now: 0.0161091, value: () => afterTax('nuW') },
+  };
+  const V1_MOVED: Record<string, number> = { tau0: 0.3848, c0Y: 0.9612, c0W: 9.5947, c0O: 4.4101, payout: 0.1788, ageing: 0.1159, muD: 0.0267 };
+  const e = createEngine(model);
 
   test('solved balancing parameters that do not depend on the firm split equal v1’s to four decimals', () => {
     for (const [id, want] of Object.entries(V1_UNCHANGED)) expect(Math.abs(solvedValue(id) - want)).toBeLessThan(6e-5);
   });
 
-  test('the debt-service cap’s shares of income after tax stay within 8% of v1’s shares of gross income', () => {
-    for (const [id, want] of Object.entries(V1_AFTER_TAX)) expect(Math.abs((solvedValue(id) * (1 - solvedValue('tau0'))) / want - 1)).toBeLessThan(0.08);
+  test('those the public wage bill, TR’s payments and after-tax income move are pinned at their new values, within 8% of v1’s', () => {
+    for (const [id, { v1, now, value }] of Object.entries(V1_EXPLAINED)) {
+      expect(Math.abs(value() / now - 1), id).toBeLessThan(1e-4);
+      expect(Math.abs(value() / v1 - 1), id).toBeLessThan(0.08);
+    }
   });
 
-  test('those that balance dividend income, the current account and income by age stay within 8% of v1’s', () => {
+  test('those that balance dividend income and the current account stay within 8% of v1’s', () => {
     for (const [id, want] of Object.entries(V1_MOVED)) expect(Math.abs(solvedValue(id) / want - 1)).toBeLessThan(0.08);
   });
 

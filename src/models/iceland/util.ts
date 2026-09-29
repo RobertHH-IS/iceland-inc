@@ -117,3 +117,6 @@ export function pickParams(table: Record<Id, ParamDef>, ids: Id[]): ParamDef[] {
 
 /** Sum of a list of numbers. */
 export const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0);
+
+/** Sum of a rule's named terms, for a `combine` that floors or caps the sum (AGENTS.md rule 4). */
+export const sumTerms = (t: Record<Id, number>): number => sum(Object.values(t));

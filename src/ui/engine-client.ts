@@ -16,11 +16,12 @@
  * A lever hidden by the stabiliser setting stays at its default (decision 0004). The panel adds
  * those resets when the user switches mode. After going back in time, a change can break the rule
  * later in the script (a lever set before a later switch that hides it, or a switch made before a
- * later setting of a lever it hides), and so can a loaded scenario; the client then rewrites the
- * script as a straight run would have recorded it (keepHiddenAtDefault).
+ * later setting of a lever it hides), and so can a loaded scenario; the client then adds the
+ * missing resets to the script (keepHiddenAtDefault). It never removes an event, so a change keeps
+ * the later ones (decision 0001), and the lever values are those of a straight run.
  */
 import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
-import type { BalanceSheet, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent, StabiliserState } from '../core/types.ts';
+import type { BalanceSheet, FeedEntry, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent, SignViolation, StabiliserState } from '../core/types.ts';
 import { describeModel, type ModelInfo } from './model/info.ts';
 import { keepHiddenAtDefault } from './model/levers.ts';
 
@@ -31,14 +32,9 @@ export const TICK_MS = 250;
 /** The clock stops here (100 years): the history of every variable is kept for seek(). */
 export const MAX_MONTHS = 1200;
 
-export interface FeedItem {
-  t: number;
-  message: string;
-  indicator: Id;
-  concept?: Id;
-  /** Set when a stabiliser started calling for action (Manual mode). */
-  stabiliser?: Id;
-}
+/** A feed message as the kernel gives it: the English sentence, and the rule, direction, value
+ *  and change a translation can build its own sentence from (docs/i18n/architecture.md, K1). */
+export type FeedItem = FeedEntry;
 
 export interface IdeaWeight {
   concept: Id;
@@ -74,6 +70,9 @@ export interface Frame {
   legs: Float64Array;
   pipes: { player: Pipe[]; group: Pipe[] };
   checks: ChecksSummary;
+  /** Positions that took the wrong sign since the last reset, oldest first (checks().signViolations):
+   *  a warning beside the accounting badge, never an accounting failure (decision 0005). */
+  signViolations: readonly SignViolation[];
   /** Narration, newest first. */
   feed: readonly FeedItem[];
   /** Active regime of each rule that has one (null when nothing special), by rule id. */
@@ -128,6 +127,9 @@ const sameEvents = (a: readonly ScenarioEvent[], b: readonly ScenarioEvent[]) =>
   a.length === b.length && a.every((e, i) => e.t === b[i].t && e.lever === b[i].lever && e.value === b[i].value && !!e.fire === !!b[i].fire);
 
 const sameNumbers = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((x, i) => Object.is(x, b[i]));
+
+const sameViolations = (a: readonly SignViolation[], b: readonly SignViolation[]) =>
+  a.length === b.length && a.every((x, i) => x.instrument === b[i].instrument && x.player === b[i].player && x.t === b[i].t && Object.is(x.value, b[i].value));
 
 const sameStabilisers = (a: readonly StabiliserState[], b: readonly StabiliserState[]) =>
   a.length === b.length && a.every((x, i) => x.id === b[i].id && Object.is(x.suggested, b[i].suggested) && Object.is(x.current, b[i].current) && x.calling === b[i].calling && x.automatic === b[i].automatic);
@@ -194,6 +196,7 @@ class MainThreadClient implements EngineClient {
     const tolerance = ck.tolerance ?? 1e-9;
     const failures = ck.failures?.length ?? 0;
     const checks: ChecksSummary = { ok: failures === 0 && ck.maxResidual <= tolerance, maxResidual: ck.maxResidual, tolerance, failures, items: ck.items };
+    const violations = ck.signViolations ?? [];
     const rawFeed = e.feed();
     const feed =
       prev && prev.feed.length === rawFeed.length && (rawFeed.length === 0 || (prev.feed[0].t === rawFeed[rawFeed.length - 1].t && prev.feed[0].message === rawFeed[rawFeed.length - 1].message))
@@ -224,6 +227,7 @@ class MainThreadClient implements EngineClient {
       legs,
       pipes: { player: e.pipes('player'), group: e.pipes('group') },
       checks,
+      signViolations: prev && sameViolations(prev.signViolations, violations) ? prev.signViolations : violations,
       feed,
       regimes: sameRegimes ? prev!.regimes : regimes,
       stabilisers: prev && sameStabilisers(prev.stabilisers, stabilisers) ? prev.stabilisers : stabilisers,
@@ -357,7 +361,7 @@ class MainThreadClient implements EngineClient {
     });
   }
 
-  /** Keep every hidden lever at its default through the script, replaying it to this month if it changes. */
+  /** Keep every hidden lever at its default through the script by adding resets, replaying it to this month if it changes. */
   private keepHiddenAtDefault(): void {
     const events = keepHiddenAtDefault(this.info.levers, this.engine.events);
     if (!events) return;

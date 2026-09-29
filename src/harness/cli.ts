@@ -29,11 +29,6 @@ const opts: HarnessOptions = {
   seed: Number(option('--seed') ?? 20260928),
   extremeMonths: 240,
 };
-for (const gone of ['--plausibility', '--signs'])
-  if (flag(gone)) {
-    console.error(`${gone} is gone: implausible values and wrong-signed positions always fail (decision 0005)`);
-    process.exit(1);
-  }
 const only = option('--model');
 const selected = only ? models.filter((m) => m.id === only) : models;
 if (only && !selected.length) {

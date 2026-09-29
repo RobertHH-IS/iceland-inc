@@ -804,14 +804,9 @@ class KEngine implements KernelEngine {
     return this.feedLog.map((f) => ({ ...f }));
   }
 
-  /** Is the stabiliser setting Automatic now? (A model without one counts as Automatic.) */
-  private automaticNow(): boolean {
-    return this.M.automaticNow();
-  }
-
   stabilisers(): StabiliserState[] {
     const m = this.model;
-    const automatic = this.automaticNow();
+    const automatic = this.M.automaticNow();
     return m.stabilisers.map((s, j) => {
       const cs = m.cstabilisers[j];
       const suggested = this.M.cur[cs.suggestion];

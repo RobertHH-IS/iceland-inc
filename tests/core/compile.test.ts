@@ -125,6 +125,23 @@ describe('compile: errors', () => {
     def.steadyState.free = ['level'];
     expect(errorsOf(def).some((e) => e.includes('1 free parameters but 0 targets'))).toBe(true);
   });
+
+  test('a choice lever’s default must be one of its options, and its options inside [min, max] (L7)', () => {
+    const choice = (over: object): ModuleDef => ({
+      id: 'x',
+      label: 'x',
+      description: 'x',
+      params: [param('mode', 0)],
+      levers: [{ id: 'mode', label: 'Mode', group: 'Policy', kind: 'choice', unit: '', default: 0, min: 0, max: 1, options: [{ value: 0, label: 'Off' }, { value: 1, label: 'On' }], binds: { param: 'mode', mode: 'replace' }, description: 'm', definition: 'm', ...over }],
+    });
+    const ours = (errs: string[]) => errs.filter((e) => e.includes("lever 'mode'"));
+    expect(ours(errorsOf(tinyModel([choice({})])))).toEqual([]);
+    // the engine would snap a default of 0.4 to Off (0) at load and at every reset
+    expect(ours(errorsOf(tinyModel([choice({ default: 0.4 })])))).toEqual(["lever 'mode' (module 'x') has default 0.4, which is not one of its options (0, 1)"]);
+    // an option the clamp to [0, 1] can never reach
+    const outside = ours(errorsOf(tinyModel([choice({ options: [{ value: 0, label: 'Off' }, { value: 1, label: 'On' }, { value: 2, label: 'Both' }] })])));
+    expect(outside).toEqual(["lever 'mode' (module 'x') has option 2 ('Both') outside its range [0, 1]"]);
+  });
 });
 
 describe('compile: replaces', () => {

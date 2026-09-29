@@ -1,7 +1,7 @@
 /**
- * What the robustness layer asks of a run beyond the accounting: every value finite, every
- * variable inside its plausible bounds and every position with the sign its role gives it. Each
- * is a failure (decision 0005): the property runs, the lever-extremes sweep and the golden
+ * What the robustness layer asks of a run beyond the accounting: every value finite (variables,
+ * stocks and the charts' indicator series), every variable inside its plausible bounds and every
+ * position with the sign its role gives it. Each is a failure (decision 0005): the property runs, the lever-extremes sweep and the golden
  * scenarios fail on any breach.
  *
  * Plausibility has two parts:
@@ -60,11 +60,19 @@ export interface Breach {
   worst: number;
 }
 
-/** The first variable or stock that is not finite, in words, or '' when every value is finite. */
+/**
+ * The first variable, stock or indicator that is not finite, in words, or '' when every value is
+ * finite. Indicators are checked as the charts show them (display units), so a chart that divides
+ * by a variable reaching zero fails even when every variable is finite (audit M22).
+ */
 export function firstNonFinite(m: KModel, e: KernelEngine): string {
   for (let t = 0; t <= e.t; t++) {
     for (const v of m.vars) if (!Number.isFinite(e.valueAt(v.id, t))) return `${v.id} is not finite at month ${t}`;
     if (!e.positionsAt(t).every(Number.isFinite)) return `a stock is not finite at month ${t}`;
+  }
+  for (const ind of m.indicators) {
+    const bad = e.series(ind.id).find((p) => !Number.isFinite(p.v));
+    if (bad) return `chart ${ind.id} is not finite at month ${bad.t}`;
   }
   return '';
 }

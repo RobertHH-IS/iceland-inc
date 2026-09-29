@@ -363,6 +363,32 @@ describe('runtime guards', () => {
     replay.load({ modelId: 'reference', events, months: 12 });
     expect(allVars(strict, 12)).toEqual(allVars(replay, 12));
   });
+
+  test('when a month fails its checks and one of its events throws, the accounting error wins (L8)', () => {
+    // a one-off whose fire() throws, scheduled in the month the tampered ledger fails
+    const boom: ModuleDef = {
+      id: 'boom',
+      label: 'x',
+      description: 'x',
+      levers: [{ id: 'boom', label: 'Boom', group: 'Shocks', kind: 'oneoff', unit: 'x', default: 0, fire: () => { throw new Error('the event failed'); }, description: 'x', definition: 'x' }],
+    };
+    const withBoom = compile({ ...referenceModel, modules: [...referenceModel.modules, boom] });
+    const dep = withBoom.instrumentIndex.get('deposits')! * withBoom.NP;
+    const [a, b] = ['HH', 'F'].map((p) => dep + withBoom.playerIndex.get(p)!);
+    const tamper = {
+      afterPost: (L: { pos: Float64Array }, step: number) => {
+        if (step !== 3) return;
+        L.pos[a] += 1e-6;
+        L.pos[b] -= 1e-6;
+      },
+    };
+    const events: ScenarioEvent[] = [{ t: 3, lever: 'boom', value: 1, fire: true }];
+    const strict = createEngine(withBoom, { testHooks: tamper, onCheckFailure: 'throw' });
+    expect(() => strict.load({ modelId: 'reference', events, months: 6 })).toThrow(/accounting check failed at month 3/);
+    // without the tampering the event's own error comes through
+    const plain = createEngine(withBoom, { baseline: strict.baselineData, onCheckFailure: 'throw' });
+    expect(() => plain.load({ modelId: 'reference', events, months: 6 })).toThrow(/the event failed/);
+  });
 });
 
 describe('lag history', () => {

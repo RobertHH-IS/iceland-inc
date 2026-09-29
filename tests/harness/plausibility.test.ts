@@ -13,7 +13,8 @@ import { firstNonFinite, MAX_UNEMPLOYMENT, plausibilityBounds, plausibilityBreac
 
 const SIGN_TOL = 1e-6;
 
-/** Three variables, one instrument held by A and issued by B, and a path of a few months. */
+/** Three variables, one instrument held by A and issued by B, a chart of 1 ÷ price, and a path of
+ *  a few months. */
 function fakeRun(unemployment: number[], price: number[], held: number[], issued: number[]) {
   const m = {
     vars: [
@@ -26,6 +27,7 @@ function fakeRun(unemployment: number[], price: number[], held: number[], issued
     role: new Uint8Array([ROLE_HOLDER, ROLE_ISSUER, ROLE_NONE]),
     instruments: [{ id: 'loans' }],
     players: [{ id: 'A' }, { id: 'B' }, { id: 'C' }],
+    indicators: [{ id: 'perPrice' }],
   } as unknown as KModel;
   const vals: Record<string, number[]> = { unemployment, price, unemploymentBenefits: unemployment.map(() => -1) };
   const positionsAt = (t: number) => new Float64Array([held[t], issued[t], 0]);
@@ -46,6 +48,7 @@ function fakeRun(unemployment: number[], price: number[], held: number[], issued
     t: unemployment.length - 1,
     valueAt: (id: string, t: number) => vals[id][t],
     positionsAt,
+    series: (id: string) => (id === 'perPrice' ? price.map((p, t) => ({ t, v: 1 / p })) : []),
     checks: () => ({ signViolations, signTolerance: SIGN_TOL }),
   } as unknown as KernelEngine;
   return { m, e };
@@ -97,5 +100,20 @@ describe('plausibilityBreaches', () => {
     expect(firstNonFinite(a.m, a.e)).toBe('unemployment is not finite at month 1');
     const b = fakeRun([0, 0, 0], [1, 1, 1], [0, 0, Infinity], [0, 0, 0]);
     expect(firstNonFinite(b.m, b.e)).toBe('a stock is not finite at month 2');
+  });
+
+  test('firstNonFinite also names a chart that divides by a variable reaching zero (audit M22)', () => {
+    // every variable and stock is finite, but the chart 1 ÷ price is infinite at month 2
+    const c = fakeRun([0, 0, 0], [1, 0.5, 0], [0, 0, 0], [0, 0, 0]);
+    expect(firstNonFinite(c.m, c.e)).toBe('chart perPrice is not finite at month 2');
+  });
+
+  test('every chart of every model is finite over two years of its baseline', () => {
+    for (const def of models) {
+      const m = compile(def);
+      const e = createEngine(m);
+      e.step(24);
+      expect(firstNonFinite(m, e), def.id).toBe('');
+    }
   });
 });

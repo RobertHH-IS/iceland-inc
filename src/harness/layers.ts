@@ -319,7 +319,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Property tests',
       '',
-      `${opts.propertyRuns} runs of ${opts.propertyMonths} months, each with 1 to 4 random lever events (values uniform within each lever's range, months 0 to 24; seed ${opts.seed}). Every variable and stock must stay finite and every accounting check must pass. ${plausibleNote}. Largest residual: ${e2(worstRes)}. ${ok}/${opts.propertyRuns} pass: ${verdict(pass)}.`,
+      `${opts.propertyRuns} runs of ${opts.propertyMonths} months, each with 1 to 4 random lever events (values uniform within each lever's range, months 0 to 24; seed ${opts.seed}). Every variable, stock and chart must stay finite and every accounting check must pass. ${plausibleNote}. Largest residual: ${e2(worstRes)}. ${ok}/${opts.propertyRuns} pass: ${verdict(pass)}.`,
       '',
       ...bad.slice(0, 10),
       '',
@@ -349,11 +349,11 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     const pass = ok === runs.length;
     pass6 &&= pass;
     sum6.push(`extremes ${ok}/${runs.length} (${nBreach} breach(es))`);
-    const modes = def.stabiliserMode ? ', in each stabiliser mode' : '';
+    const modes = def.stabiliserMode ? ', in each stabiliser mode that shows the lever' : '';
     body6.push(
       '### Lever extremes',
       '',
-      `Every lever alone at its min and at its max (a choice: each option other than its default), from month 0 for ${opts.extremeMonths} months${modes}: ${runs.length} runs in ${f(seconds, 1)} s. Every variable and stock must stay finite and every accounting check must pass. ${plausibleNote}. ${ok}/${runs.length} pass: ${verdict(pass)}.`,
+      `Every lever alone at its min and at its max (a choice: each option other than its default), from month 0 for ${opts.extremeMonths} months${modes}: ${runs.length} runs in ${f(seconds, 1)} s. Every variable, stock and chart must stay finite and every accounting check must pass. ${plausibleNote}. ${ok}/${runs.length} pass: ${verdict(pass)}.`,
       '',
       ...bad.slice(0, 10),
       '',
@@ -522,7 +522,7 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     body6.push(
       '### Golden scenarios',
       '',
-      `Stored indicator paths in \`tests/golden/${m.def.id}/\`, compared point by point with tolerance ${GOLDEN_ABS} + ${GOLDEN_REL} × |stored value|; a stored or new value that is not a finite number fails, and so does a run with an implausible value or a wrong-signed position (the checks of the lever extremes). The table shows the point furthest outside, or nearest to, its tolerance. The all-levers scenarios move every lever in turn, one every 3 months, and run 36 months past the last${def.stabiliserMode ? ', once in each stabiliser mode' : ''}. ${opts.updateGolden ? 'Updated in this run.' : ''}`,
+      `Stored indicator paths in \`tests/golden/${m.def.id}/\`, compared point by point with tolerance ${GOLDEN_ABS} + ${GOLDEN_REL} × |stored value|; a stored or new value that is not a finite number fails, and so does a run with an implausible value or a wrong-signed position (the checks of the lever extremes). The table shows the point furthest outside, or nearest to, its tolerance. The all-levers scenarios move every lever in turn, one every 3 months, and run 36 months past the last${def.stabiliserMode ? ', once in each stabiliser mode, moving only the levers that mode shows' : ''}. ${opts.updateGolden ? 'Updated in this run.' : ''}`,
       '',
       '| Scenario | Difference at the worst point | Where | Verdict |',
       '|---|---|---|---|',

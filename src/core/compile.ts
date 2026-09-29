@@ -743,6 +743,13 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     if (l.kind !== 'oneoff' && l.fire) warn(`${where} is a setting but has fire(); fire is only used by one-off levers`);
     if (l.kind === 'choice' && !(l.options ?? []).length) warn(`${where} is a choice without options`);
     if (!Number.isFinite(l.default)) err(`${where} has a non-finite default`);
+    // The engine snaps a choice to its nearest option within [min, max] (engine.ts, clamp), so a
+    // default that is not an option, or an option outside the range, would be moved silently.
+    if (l.kind === 'choice' && l.options?.length) {
+      if (!l.options.some((o) => o.value === l.default)) err(`${where} has default ${l.default}, which is not one of its options (${l.options.map((o) => o.value).join(', ')})`);
+      for (const o of l.options)
+        if ((l.min !== undefined && o.value < l.min) || (l.max !== undefined && o.value > l.max)) err(`${where} has option ${o.value} ('${o.label}') outside its range [${l.min ?? '−∞'}, ${l.max ?? '∞'}]`);
+    }
     let bindParam = -1,
       bindVar = -1,
       mode: 'replace' | 'add' | null = null,

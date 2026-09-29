@@ -579,6 +579,13 @@ button.chip {
   border-color: rgba(255, 150, 150, 0.45);
   background: rgba(255, 150, 150, 0.08);
 }
+/* A position with the wrong sign (decision 0005): a warning, calmer than an accounting failure. */
+.books.warn {
+  color: #ffe2b8;
+  border-color: rgba(255, 180, 84, 0.4);
+  background: rgba(255, 180, 84, 0.07);
+  cursor: help;
+}
 .model-switch select {
   font: inherit;
   font-size: 13px;
@@ -1746,6 +1753,28 @@ button.chip {
 .bs-total td {
   font-weight: 600;
   border-top: 1px solid var(--line);
+}
+/* A position with the wrong sign (decision 0005): a warning, not an accounting failure. */
+.bs-warning {
+  margin: 6px 0 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 180, 84, 0.35);
+  border-radius: 10px;
+  background: rgba(255, 180, 84, 0.06);
+  color: #ffe2b8;
+  font-size: 12px;
+}
+.bs-warning ul {
+  margin: 0;
+  padding-left: 16px;
+}
+.bs-warning p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+.bs-warn-mark {
+  color: #ffe2b8;
+  font-size: 11px;
 }
 .pipe-row {
   width: 100%;

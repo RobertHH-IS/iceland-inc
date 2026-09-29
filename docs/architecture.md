@@ -167,8 +167,8 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 4. **Baseline:** 240 months with no shock; the maximum drift of every variable and stock must be below 1e-9.
 5. **Calibration:** the model's `CalibrationCheck`s, each a scenario, a measure and a plausible range with a source. The result is a PASS/FAIL table.
 6. **Robustness:**
-   - **property tests:** random lever combinations within range produce no NaNs, no failed checks, no implausible values (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate) and no position with the wrong sign for its role (`checks().signViolations`, which leaves out the positions a model declares with `mayGoNegative`, each listed in decision 0005). Any of these fails the run;
-   - **lever extremes:** every lever alone at its min and at its max for 240 months, in each stabiliser mode, with the same requirements;
+   - **property tests:** random lever combinations within range produce no NaNs (in variables, stocks or chart series), no failed checks, no implausible values (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate) and no position with the wrong sign for its role (`checks().signViolations`, which leaves out the positions a model declares with `mayGoNegative`, each listed in decision 0005). Any of these fails the run;
+   - **lever extremes:** every lever alone at its min and at its max for 240 months, in each stabiliser mode that shows it (a lever `showWhen` hides in a mode is never moved there, as in the panel), with the same requirements;
    - **numerics:** half-step and tolerance sensitivity (a timing measure may move by one quarter, any other by 10%);
    - **determinism:** the same scenario gives identical results;
    - **golden scenarios:** stored outputs, so any change in results is visible in review. A golden run must also meet the plausibility and sign requirements, so no stored path is one a real economy could not take.
@@ -225,6 +225,8 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
 | 8 | Engine v1 kept in `legacy/` | A reference to port from and to compare results against |
 | 9 | Groups are views over players, not players ([0003](decisions/0003-player-hierarchy.md)) | Opening and closing groups can never change the accounting; pipes and balance sheets at any level are sums of the same legs and positions |
 | 10 | Policy is held; stabilisers are a setting, Manual by default ([0004](decisions/0004-stabilisers.md)) | Levers never move by themselves; every automatic policy reaction is declared, acts only on Automatic, and is a visible suggestion on Manual |
+| 11 | Position signs are a diagnostic beside the accounting checks, and a harness failure ([0005](decisions/0005-position-signs.md)) | A wrong-signed position balances exactly, so it is a question of plausibility, not bookkeeping; exemptions are declared on the instrument and listed |
+| 12 | Household spending is deflated by the CPI without housing ([0006](decisions/0006-consumption-deflator.md)) | Housing in the CPI follows house prices and is mostly imputed rent nobody pays; dividing cash spending by it made house-price moves look like changes in output |
 
 ## 10. Roadmap
 

@@ -151,20 +151,30 @@ describe('showWhen and stabilisers (decision 0004)', () => {
 
   test('a script keeps every hidden lever at its default, as a straight run would have recorded it', () => {
     const ev = (t: number, lever: string, value: number) => ({ t, lever, value });
-    // Set the Manual rate at 30, before a switch to Automatic at 40 that was recorded without a reset.
-    expect(keepHiddenAtDefault(all, [ev(40, 'mode', 1), ev(30, 'fixed', 5)])).toEqual([ev(30, 'fixed', 5), ev(40, 'mode', 1), ev(40, 'fixed', 3)]);
+    // Set the Manual rate at 30, before a switch to Automatic at 40 that was recorded without a
+    // reset: the reset goes right before the switch, as the panel records it.
+    expect(keepHiddenAtDefault(all, [ev(40, 'mode', 1), ev(30, 'fixed', 5)])).toEqual([ev(30, 'fixed', 5), ev(40, 'fixed', 3), ev(40, 'mode', 1)]);
     // Chained: Automatic at 40, Manual at 50, Automatic at 70, the Manual rate set at 55.
     const chain = [ev(40, 'mode', 1), ev(50, 'mode', 0), ev(55, 'fixed', 4), ev(70, 'mode', 1)];
-    expect(keepHiddenAtDefault(all, chain)).toEqual([...chain, ev(70, 'fixed', 3)]);
+    expect(keepHiddenAtDefault(all, chain)).toEqual([...chain.slice(0, 3), ev(70, 'fixed', 3), ev(70, 'mode', 1)]);
     // An offset set on Automatic is reset when switching to Manual.
-    expect(keepHiddenAtDefault(all, [ev(0, 'mode', 1), ev(10, 'offset', 1.5), ev(20, 'mode', 0)])).toEqual([ev(0, 'mode', 1), ev(10, 'offset', 1.5), ev(20, 'mode', 0), ev(20, 'offset', 0)]);
+    expect(keepHiddenAtDefault(all, [ev(0, 'mode', 1), ev(10, 'offset', 1.5), ev(20, 'mode', 0)])).toEqual([ev(0, 'mode', 1), ev(10, 'offset', 1.5), ev(20, 'offset', 0), ev(20, 'mode', 0)]);
+    // A switch and a later setting in the same month: the reset follows the setting.
+    expect(keepHiddenAtDefault(all, [ev(40, 'mode', 1), ev(40, 'fixed', 5)])).toEqual([ev(40, 'mode', 1), ev(40, 'fixed', 5), ev(40, 'fixed', 3)]);
     // Mode switched earlier, the hidden lever set later (a switch made after going back in time):
-    // the setting is dropped, so switching back later does not bring it back.
-    expect(keepHiddenAtDefault(all, [ev(30, 'mode', 1), ev(50, 'fixed', 5)])).toEqual([ev(30, 'mode', 1)]);
-    expect(keepHiddenAtDefault(all, [ev(30, 'mode', 1), ev(50, 'fixed', 5), ev(60, 'mode', 0)])).toEqual([ev(30, 'mode', 1), ev(60, 'mode', 0)]);
+    // the user's setting stays, with a reset right after it, so it takes no effect and switching
+    // back later does not bring it back. No event is ever removed (decision 0001).
+    expect(keepHiddenAtDefault(all, [ev(30, 'mode', 1), ev(50, 'fixed', 5)])).toEqual([ev(30, 'mode', 1), ev(50, 'fixed', 5), ev(50, 'fixed', 3)]);
+    expect(keepHiddenAtDefault(all, [ev(30, 'mode', 1), ev(50, 'fixed', 5), ev(60, 'mode', 0)])).toEqual([ev(30, 'mode', 1), ev(50, 'fixed', 5), ev(50, 'fixed', 3), ev(60, 'mode', 0)]);
     // A hidden lever set with no mode event at all (a hand-made link): the default mode hides the offset.
-    expect(keepHiddenAtDefault(all, [ev(0, 'offset', 2)])).toEqual([]);
-    expect(keepHiddenAtDefault(all, [ev(0, 'offset', 2), ev(0, 'tax', 1)])).toEqual([ev(0, 'tax', 1)]);
+    expect(keepHiddenAtDefault(all, [ev(0, 'offset', 2)])).toEqual([ev(0, 'offset', 2), ev(0, 'offset', 0)]);
+    expect(keepHiddenAtDefault(all, [ev(0, 'offset', 2), ev(0, 'tax', 1)])).toEqual([ev(0, 'offset', 2), ev(0, 'offset', 0), ev(0, 'tax', 1)]);
+    // Every event of the input is kept, and the output needs no further change.
+    for (const input of [[ev(40, 'mode', 1), ev(30, 'fixed', 5)], chain, [ev(30, 'mode', 1), ev(50, 'fixed', 5), ev(60, 'mode', 0)], [ev(0, 'offset', 2), ev(0, 'tax', 1)]]) {
+      const outp = keepHiddenAtDefault(all, input)!;
+      for (const e of input) expect(outp).toContainEqual(e);
+      expect(keepHiddenAtDefault(all, outp)).toBeNull();
+    }
     // Nothing to change: the reset is there already (the panel's), nothing is hidden off its
     // default, or the lever is shown by the end of the month it is set in.
     expect(keepHiddenAtDefault(all, [...chain, ev(70, 'fixed', 3)])).toBeNull();
