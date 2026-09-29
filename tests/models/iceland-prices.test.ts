@@ -222,3 +222,22 @@ describe('L11: public and private gross wages are on the same basis', () => {
     expect(Math.abs(e.baseline('deficit'))).toBeLessThan(1e-9);
   });
 });
+
+describe('Iceland model: VAT reaches prices over a few months (review E4)', () => {
+  test('a 10-point VAT cut raises output gradually: under 1.5% in month 1, less than half the peak of the first two years', () => {
+    // Before, shops passed the whole cut into prices in the month it took effect while nominal
+    // spending followed only slowly, so real spending jumped 8.2% and output 3.05% in month 1.
+    const e = createEngine(model);
+    e.setLever('stabilisers', 1);
+    e.setLever('vat', -10);
+    e.step(24);
+    const output = e.series('output').map((p) => p.v);
+    const peak = Math.max(...output.slice(1, 25));
+    expect(output[1]).toBeGreaterThan(0);
+    expect(output[1]).toBeLessThan(1.5);
+    expect(output[1]).toBeLessThan(peak / 2);
+    // nearly all of the cut is in prices within six months
+    const passed = (e.valueAt('vatInPrices', 6) - e.valueAt('vatInPrices', 0)) / (e.value('vatRate') - e.valueAt('vatRate', 0));
+    expect(passed).toBeGreaterThan(0.9);
+  });
+});

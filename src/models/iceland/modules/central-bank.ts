@@ -104,12 +104,12 @@ export const centralBank: ModuleDef = {
       params: ['iFXR', 'iF0'],
       stocks: [['fxReserves', 'CB']],
       terms: terms(
-        ['normal', 'Normal yield on the reserves', undefined, (c) => c.p('iFXR') * c.stock('fxReserves', 'CB')],
-        ['foreignRate', 'Change in rates abroad', undefined, (c) => (c.v('foreignRate') - c.p('iF0')) * c.stock('fxReserves', 'CB')],
+        ['normal', 'Normal yield on the reserves', 'current-account', (c) => c.p('iFXR') * c.stock('fxReserves', 'CB')],
+        ['foreignRate', 'Change in rates abroad', 'carry-trade', (c) => (c.v('foreignRate') - c.p('iF0')) * c.stock('fxReserves', 'CB')],
       ),
       explain: {
         what: 'Interest and dividends the central bank earns on its foreign reserves.',
-        rule: 'Income = (normal reserve yield {iFXR%} + the change in the foreign interest rate since normal, {iF0%}) × the reserves’ value in krónur. Reserves are held in foreign bonds and deposits, so their yield follows rates abroad.',
+        rule: 'Income = (the normal reserve yield {iFXR%} + (the foreign interest rate − its normal level {iF0%})) × the reserves’ value in krónur. Reserves are held in foreign bonds and deposits, so their yield follows rates abroad point for point.',
       },
     },
     {
@@ -173,7 +173,7 @@ export const centralBank: ModuleDef = {
       showWhen: { lever: STABILISERS, equals: MANUAL },
       description: 'The central bank’s key interest rate, held where you set it. The central bank’s inflation rule only suggests a rate beside the lever.',
       definition:
-        'Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual). Nothing in the model moves it. The default, 3%, is the neutral rate, so the baseline is unchanged. It has no effect while stabilisers are Automatic, when the rule sets the key rate.',
+        'Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual). Nothing in the model moves it. The default, 3%, is the neutral rate, so the baseline is unchanged. A rate held far above it for many years with taxes and spending also held (Manual) ends up raising spending: the government’s interest bill grows with its debt, and that interest is income for households and pension funds (at 15%, output is back above baseline after about seven and a half years; decision 0002 §6). It has no effect while stabilisers are Automatic, when the rule sets the key rate.',
       concepts: ['taylor-rule'],
     },
     {

@@ -383,6 +383,7 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     taxRuleAdjustment: 0,
     taxRate: o.tau0,
     vatRate: o.vat0,
+    vatInPrices: o.vat0,
     realMortgageRate: rmR,
     stressTestPayment: annT,
     output: y,

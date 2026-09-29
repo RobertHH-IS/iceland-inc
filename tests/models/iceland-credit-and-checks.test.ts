@@ -255,13 +255,13 @@ describe('Iceland calibration: each check runs the experiment its source describ
     expect(check('rate-output-timing').measure(r)).toBe(4);
   });
 
-  test('known gap: a króna held about 10% weaker passes through to the CPI far more than CBI WP85’s 0.15 in a year and 0.23 in the long run', () => {
+  test('a króna held about 10% weaker passes through to the CPI as CBI WP85 gives within a year, and the pass-through check agrees with it (review E6)', () => {
     // hold the realised depreciation near 10% by topping up the sentiment shock every month (Automatic, as in the check)
     const e = fresh();
     e.setLever('stabilisers', 1);
     const krona: number[] = [];
     const cpi: number[] = [];
-    for (let m = 0; m < 24; m++) {
+    for (let m = 0; m < 36; m++) {
       const now = e.indicator('krona');
       e.fire('kronaShock', m === 0 ? -10 : 100 * (0.9 / (1 + now / 100) - 1));
       e.step(1);
@@ -270,13 +270,37 @@ describe('Iceland calibration: each check runs the experiment its source describ
     }
     // krónur per unit of foreign currency, % above baseline, averaged over the months so far
     const dearer = (m: number) => krona.slice(0, m).reduce((s, k) => s + 100 * (1 / (1 + k / 100) - 1), 0) / m;
-    const pass12 = cpi[11] / dearer(12);
-    const pass24 = cpi[23] / dearer(24);
+    const pass = (m: number) => cpi[m - 1] / dearer(m);
     expect(dearer(24)).toBeGreaterThan(9);
-    // if these fail, the price block has been recalibrated: give krona-price-level-8q a held-depreciation
-    // scenario with WP85's ranges and drop the known-gap note
-    expect(pass12).toBeGreaterThan(0.23);
-    expect(pass24).toBeGreaterThan(0.4);
-    expect(check('krona-price-level-8q').source).toMatch(/KNOWN GAP/);
+    const c = check('krona-pass-through-year1');
+    expect(c.range).toEqual([0.15, 0.23]); // WP85: 0.15 within the quarter, 0.23 in the long run
+    expect(pass(12)).toBeGreaterThanOrEqual(0.15);
+    expect(pass(12)).toBeLessThanOrEqual(0.23);
+    // the check's fading shock gives nearly the same ratio as the held depreciation
+    expect(Math.abs(c.measure(run('krona-pass-through-year1')) - pass(12))).toBeLessThan(0.03);
+    // as its source says: slower than WP85 within the quarter, and past WP85's long-run 0.23 later, near the IMF's 0.4 at 36 months
+    expect(pass(3)).toBeLessThan(0.15);
+    expect(pass(24)).toBeGreaterThan(0.3);
+    expect(pass(24)).toBeLessThan(0.4);
+    expect(pass(36)).toBeGreaterThan(0.35);
+    expect(pass(36)).toBeLessThan(0.5);
+    expect(c.source).toMatch(/0\.34 after two years and 0\.43 after three/);
+    expect(KNOWN_GAPS['krona-pass-through-year1']).toBeUndefined();
+  });
+
+  test('world prices +10% held raise the CPI within WP85’s 1.5–2.3% in the first year and no more than 3% after two (review E6)', () => {
+    const r = run('world-prices-cpi-year1');
+    const p = r.series('priceLevel');
+    expect(check('world-prices-cpi-year1').range).toEqual([1.5, 2.3]);
+    expect(p[12]).toBeGreaterThanOrEqual(1.5);
+    expect(p[12]).toBeLessThanOrEqual(2.3);
+    expect(p[24]).toBeLessThanOrEqual(3); // the upper edge of v1's 8-quarter band for the same shock
+    expect(p[24]).toBeGreaterThan(p[12]); // still rising: wages and domestic prices catch up
+    expect(KNOWN_GAPS['world-prices-cpi-year1']).toBeUndefined();
+    // only the part bought abroad follows world prices: what buyers pay for imported goods is
+    // (1 − distM) × import prices + distM × last month's domestic prices
+    const distM = model.params.find((q) => q.id === 'distM')!.value;
+    for (const m of [12, 24]) expect(r.value('deliveredImportPrice', m)).toBeCloseTo((1 - distM) * r.value('importPrice', m) + distM * r.value('domesticPrice', m - 1), 12);
+    expect(100 * (r.value('deliveredImportPrice', 24) - 1)).toBeLessThan(100 * (r.value('importPrice', 24) - 1));
   });
 });

@@ -312,6 +312,16 @@ export const structure: ModuleDef = {
       concepts: ['revaluation', 'floating-exchange-rate'],
     },
     {
+      id: 'kronaLoansW',
+      label: 'Non-residents’ króna loans',
+      kind: 'financial',
+      issuers: ['W'],
+      holders: ['B'],
+      valuation: 'nominal',
+      description: 'Krónur non-residents borrow from Icelandic banks when a month’s payments would overdraw their deposits after they have sold every government bond; they repay as their deposits recover. Zero at baseline.',
+      concepts: ['endogenous-money', 'current-account'],
+    },
+    {
       id: 'foreignAssets',
       label: 'Pension funds’ foreign assets',
       kind: 'financial',

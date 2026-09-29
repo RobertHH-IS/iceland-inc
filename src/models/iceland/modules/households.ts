@@ -112,7 +112,7 @@ function consumptionRule(g: Age): RuleDef {
     concepts: ['consumption-function', 'habit-persistence', 'borrowers-and-savers'],
     explain: {
       what: `What the ${AGE_LABEL[g]} spend on goods and services, including VAT (% of baseline GDP a year).`,
-      rule: `Target = [{${aL}} × (net labour income ${g === 'O' ? '+ home sales' : '− home purchases'}) + {aK} × (interest and dividends − expected inflation × savings)] × (1 − {betaC} × (real key rate − neutral)) + {${c0}} × consumer prices + {${aW}} × savings above normal${g !== 'O' ? ' + {aNL} × net new mortgage borrowing' : ''} + {${aH}} × housing wealth × (real house price − 1). Consumer prices here are the consumption deflator, the CPI without housing, so a rise in house prices is not read as a rise in the cost of what households buy. Spending moves toward the target at speed {lamC} a year (a habit), but never beyond their cash: income after tax, mortgage interest${g !== 'O' ? ', home purchases and new borrowing' : ' and home sales'} plus 1 − e^(−{liquiditySpeed} × one month) of their deposits${g === 'O' ? ' (less the {hoBondCashShare%} of that they keep for buying bonds)' : ''}, so their deposits never go negative.`,
+      rule: `Target = [{${aL}} × (net labour income ${g === 'O' ? '+ home sales' : '− home purchases'}) + {aK} × (interest and dividends − expected inflation × savings)] × (1 − {betaC} × (real key rate − neutral)) + {${c0}} × consumer prices + {${aW}} × savings above normal${g !== 'O' ? ' + {aNL} × net new mortgage borrowing' : ''} + {${aH}} × housing wealth × (real house price − 1). Consumer prices here are the consumption deflator, the CPI without housing, so a rise in house prices is not read as a rise in the cost of what households buy. Spending moves toward the target at speed {lamC} a year (a habit), but never beyond their cash: income after tax, mortgage interest${g !== 'O' ? ', home purchases and new borrowing' : ' and home sales'} plus about 63% of their deposits in a month (the liquidity speed, {liquiditySpeed} a year)${g === 'O' ? ', less the {hoBondCashShare%} of that they keep for buying bonds' : ''}, so their deposits never go negative.`,
     },
   };
 }
@@ -272,7 +272,7 @@ export const households: ModuleDef = {
       concepts: ['bond-buyers'],
       explain: {
         what: 'Government bonds older households buy from banks (negative: sell) to keep their usual mix of deposits and bonds.',
-        rule: 'They aim to hold {boSh0} of their savings in bonds and close the gap at speed {lamReb} a year. They buy with at most {hoBondCashShare%} of 1 − e^(−{liquiditySpeed} × one month) of their deposits, less any new bonds they buy from the government, and only bonds banks hold; they sell only bonds they hold.',
+        rule: 'They aim to hold {boSh0} of their savings in bonds and close the gap at speed {lamReb} a year. They buy with at most {hoBondCashShare%} of the deposits they can draw in a month (about 63% of them; the liquidity speed is {liquiditySpeed} a year), less any new bonds they buy from the government, and only bonds banks hold; they sell only bonds they hold.',
       },
     },
   ],

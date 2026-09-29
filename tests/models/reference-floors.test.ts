@@ -1,7 +1,9 @@
 /**
- * The reference economy's floors (audit H1, M22; decision 0005): firms cannot hire more people
- * than there are, and nobody sells government bonds it does not hold. Each is a `combine` with a
- * named regime on the existing rule, idle at the baseline.
+ * The reference economy's floors (audit H1, M22; decision 0005): unemployment never falls below
+ * the people between jobs, and nobody sells government bonds it does not hold. Each is a
+ * `combine` with a named regime on the existing rule, idle at the baseline. The unemployment
+ * floor must not stop excess demand raising wages and prices (review E2): the wage Phillips curve
+ * reads the work firms employ, which the floor does not limit.
  */
 import { describe, expect, test } from 'bun:test';
 import { createEngine, type KernelEngine } from '../../src/core/engine.ts';
@@ -23,13 +25,36 @@ function manual(lever: string, value: number, months: number, each: (e: KernelEn
 describe('reference economy: floors', () => {
   test('a boom never takes unemployment below the people between jobs (2%)', () => {
     let lowest = Infinity;
-    let capped = 0;
+    let floored = 0;
     manual('govSpending', 3, 240, (e) => {
       lowest = Math.min(lowest, e.value('unemployment'));
-      if (e.influences('employment').regime === 'No one left to hire') capped++;
+      if (e.influences('unemployment').regime?.startsWith('Few unemployed left')) floored++;
     });
-    expect(capped).toBeGreaterThan(0);
-    expect(lowest).toBeGreaterThanOrEqual(0.02 - 1e-9);
+    expect(floored).toBeGreaterThan(0);
+    expect(lowest).toBeGreaterThan(0.02);
+  });
+
+  test('with the floor binding, excess demand keeps raising wages and inflation (review E2)', () => {
+    // Government spending +3 held on Manual: unemployment sits at its floor from about year 2, yet
+    // the wage pressure keeps growing past what a 2% rate could give (0.5 × (5% − 2%) = 1.5% a
+    // year), and 12-month inflation keeps rising, as it did before the floor.
+    const inflation: number[] = [];
+    let widest = 0;
+    let floored = 0;
+    manual('govSpending', 3, 120, (e) => {
+      inflation.push(e.value('inflation12'));
+      const tight = e.influences('wageGrowth').terms.find((t) => t.id === 'tightLabourMarket')!.value;
+      if (e.value('unemployment') < 0.021) {
+        floored++;
+        widest = Math.max(widest, tight);
+      }
+    });
+    expect(floored).toBeGreaterThan(60);
+    expect(widest).toBeGreaterThan(0.03);
+    const at = (m: number) => inflation[m - 1];
+    expect(at(48)).toBeGreaterThan(at(24));
+    expect(at(120)).toBeGreaterThan(at(48));
+    expect(at(120)).toBeGreaterThan(0.1);
   });
 
   test('a key rate held at zero: the surplus buys back only the bonds the bank holds, and the rest stays in the treasury account', () => {
@@ -51,7 +76,7 @@ describe('reference economy: floors', () => {
       const e = createEngine(base.model, { baseline: base.baselineData });
       e.setLever('stabilisers', mode);
       e.step(24);
-      for (const id of ['employment', 'bondIssue', 'openMarket']) expect(`${id}: ${e.influences(id).regime ?? 'none'}`).toBe(`${id}: none`);
+      for (const id of ['unemployment', 'bondIssue', 'openMarket']) expect(`${id}: ${e.influences(id).regime ?? 'none'}`).toBe(`${id}: none`);
       expect(Math.abs(e.value('unemployment') - e.baseline('unemployment'))).toBeLessThan(1e-9);
     }
   });

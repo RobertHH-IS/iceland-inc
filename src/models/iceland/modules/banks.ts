@@ -105,17 +105,18 @@ export const banks: ModuleDef = {
         ['reserves', 'B'],
         ['deposits', 'B'],
         ['bankBonds', 'B'],
+        ['kronaLoansW', 'B'],
       ],
       terms: terms(
         ['mortgages', 'Mortgages', undefined, (c) => c.stock('mortgagesN', 'B') + c.stock('mortgagesI', 'B')],
-        ['loans', 'Business loans', undefined, (c) => c.stock('businessLoans', 'B')],
+        ['loans', 'Business loans and non-residents’ króna loans', undefined, (c) => c.stock('businessLoans', 'B') + c.stock('kronaLoansW', 'B')],
         ['bonds', 'Government bonds', undefined, (c) => c.stock('govBonds', 'B')],
         ['reserves', 'Reserves', 'reserves-and-payments', (c) => c.stock('reserves', 'B')],
         ['deposits', 'Deposits owed', 'endogenous-money', (c) => -c.stock('deposits', 'B')],
         ['bankBonds', 'Bank bonds owed', undefined, (c) => -c.stock('bankBonds', 'B')],
       ),
       concepts: ['net-worth', 'bank-capital'],
-      explain: { what: 'The banks’ own capital: what they own minus what they owe, at the start of the month.', rule: 'Equity = mortgages + business loans + government bonds + reserves − deposits − bank bonds.' },
+      explain: { what: 'The banks’ own capital: what they own minus what they owe, at the start of the month.', rule: 'Equity = mortgages + business loans + non-residents’ króna loans + government bonds + reserves − deposits − bank bonds.' },
     },
     {
       id: 'riskWeightedAssets',
@@ -247,11 +248,11 @@ export const banks: ModuleDef = {
       id: 'bankProfit',
       target: 'bankProfit',
       category: 'IDENTITY',
-      inputs: [...MORT_B, ...IDX_B, ...LOAN_ALL, 'bondInterestB', 'reserveInterest', ...DEP_ALL, 'bankBondInterest'],
+      inputs: [...MORT_B, ...IDX_B, ...LOAN_ALL, 'kronaLoanInterestW', 'bondInterestB', 'reserveInterest', ...DEP_ALL, 'bankBondInterest'],
       terms: terms(
         ['mortgages', 'Mortgage interest', 'interest-distribution', sumOf(MORT_B)],
         ['indexation', 'Indexation of indexed mortgages', 'indexation', sumOf(IDX_B)],
-        ['loans', 'Business-loan interest', 'interest-distribution', sumOf(LOAN_ALL)],
+        ['loans', 'Interest on business loans and non-residents’ króna loans', 'interest-distribution', (c) => sumOf(LOAN_ALL)(c) + c.v('kronaLoanInterestW')],
         ['bonds', 'Government-bond interest', undefined, (c) => c.v('bondInterestB')],
         ['reserves', 'Interest on reserves', 'reserves-and-payments', (c) => c.v('reserveInterest')],
         ['deposits', 'Interest paid on deposits', 'interest-distribution', (c) => -sumOf(DEP_ALL)(c)],
@@ -260,7 +261,7 @@ export const banks: ModuleDef = {
       concepts: ['bank-capital'],
       explain: {
         what: 'The banks’ profit: interest earned (including indexation added to indexed mortgages) minus interest paid. Banks have no other costs in the model.',
-        rule: 'Profit = mortgage interest and indexation + business-loan interest + bond interest + interest on reserves − deposit interest − bank-bond interest.',
+        rule: 'Profit = mortgage interest and indexation + interest on business loans and non-residents’ króna loans + bond interest + interest on reserves − deposit interest − bank-bond interest.',
       },
     },
     {

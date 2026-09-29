@@ -1,7 +1,7 @@
 {
  "format": "iceland-inc/golden@1",
  "modelId": "iceland",
- "scenario": "calibration-world-prices-krona-year1",
+ "scenario": "calibration-world-prices-cpi-year1",
  "months": 72,
  "events": [
   {
