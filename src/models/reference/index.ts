@@ -53,7 +53,9 @@ export const referenceModel: ModelDef = {
   calibration,
   // Scenarios written before padlocks (format 1): the global setting was Automatic by default here;
   // on Manual the key rate and the tax shift were held levels, on Automatic the key-rate offset and
-  // the tax lever tilted the rules (decision 0010).
+  // the tax lever tilted the rules (decision 0010). Switching to Automatic after a hold jumped onto
+  // the rules' shadow paths; unlocking now steps from the held values, so such a run differs from
+  // the switch on.
   legacyStabiliserMode: {
     lever: 'stabilisers',
     manual: 0,
@@ -61,5 +63,6 @@ export const referenceModel: ModelDef = {
     default: 1,
     held: { keyRateFixed: 'keyRate', taxRate: 'taxRate' },
     offsets: ['keyRateAddon', 'taxRate'],
+    takeoverChanged: true,
   },
 };

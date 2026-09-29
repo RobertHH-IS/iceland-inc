@@ -286,7 +286,7 @@ export const prices: ModuleDef = {
       category: 'BEHAVIOUR',
       inputs: ['inflation'],
       adjust: { speed: 'lamPia', form: 'exponential' },
-      terms: terms(['recent', 'Inflation this month', 'adaptive-expectations', (c) => c.v('inflation')]),
+      terms: terms(['recent', 'Inflation right now (at an annual rate)', 'adaptive-expectations', (c) => c.v('inflation')]),
       concepts: ['adaptive-expectations'],
       explain: { what: 'Inflation as people remember it: a slowly updated average of what they have seen.', rule: 'Moves toward this month’s inflation at speed {lamPia} a year.' },
     },

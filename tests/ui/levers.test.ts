@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { LeverInfo } from '../../src/ui/model/info.ts';
 import {
+  canStep,
   changedCount,
   changedCountWithLocks,
   clampLever,
@@ -78,6 +79,19 @@ describe('steppers', () => {
     let v = 0;
     for (let i = 0; i < 7; i++) v = stepLever({ ...l, step: 0.1, max: 10 }, v, 1);
     expect(v).toBe(0.7);
+  });
+
+  test('a stepper never moves the wrong way: at the edge of the range, or from a value a padlock froze outside it, it is off', () => {
+    expect(canStep(l, 0, 1)).toBe(true);
+    expect(canStep(l, 0, -1)).toBe(true);
+    expect(canStep(l, 3, 1)).toBe(false);
+    expect(canStep(l, -2, -1)).toBe(false);
+    // income tax frozen at +38.16 by its padlock (above its max of 3 here): + would cut it to 3
+    expect(stepLever(l, 38.16, 1)).toBe(3);
+    expect(canStep(l, 38.16, 1)).toBe(false);
+    expect(canStep(l, 38.16, -1)).toBe(true);
+    expect(canStep(l, -5, -1)).toBe(false);
+    expect(canStep(l, -5, 1)).toBe(true);
   });
 
   test('an off-grid value snaps to the next grid point in the direction of the click', () => {

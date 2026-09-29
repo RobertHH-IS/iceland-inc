@@ -1,13 +1,14 @@
 /**
  * The harness layers on the reference model: half-step tolerances (audit L27, L28), runs on
  * forks reaching the accounting layer (L29), the golden guard for late events (M19), and the
- * plausibility gate of the property, lever-extremes and golden runs (M22, H1, decision 0005).
+ * plausibility gate of the property, lever-extremes and golden runs (M22, H1, decision 0005), and
+ * the half-step gate on injected checks (decision 0011).
  */
 import { describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createEngine } from '../../src/core/engine.ts';
+import { createEngine, type KernelEngine } from '../../src/core/engine.ts';
 import { runScenario } from '../../src/core/scenario.ts';
 import type { CalibrationCheck, InstrumentDef, ModelDef, ModuleDef, RunResult } from '../../src/core/types.ts';
 import { param, rule, tinyModel, variable } from '../core/fixtures.ts';
@@ -161,6 +162,45 @@ describe('runHarness on the reference model', () => {
     const none = layer(runHarness(reference, { ...opts, expectations: null }), 6);
     expect(none.pass).toBe(true);
     expect(none.body.some((x) => x.startsWith('The model declares no expectations'))).toBe(true);
+  });
+
+  describe('the half-step gate (decision 0011) on injected checks', () => {
+    /** A check whose measure is `at(N)` at N kernel steps a month, whatever the run. */
+    const stepped = (id: string, at: (N: number) => number, range: [number, number], extra: Partial<CalibrationCheck> = {}): CalibrationCheck => ({
+      id,
+      label: id,
+      scenario: [],
+      months: 3,
+      measure: (r) => at((r as RunResult & { engine: KernelEngine }).engine.model.def.substeps ?? 1),
+      range,
+      ...extra,
+    });
+    const withChecks = (...cs: CalibrationCheck[]): ModelDef => ({ ...reference, calibration: [...reference.calibration!, ...cs] });
+    const row = (l: ReturnType<typeof layer>, id: string) => l.body.find((x) => x.startsWith(`| ${id} |`))!;
+
+    test('a check whose step change is allowed but whose limit falls outside its range fails', () => {
+      // 1 at one step a month, 1.01 at two: the change is 0.89 of the allowed 10% of the width,
+      // but the limit, 1.02, is past the top of the range (1.012) and its 1% slack
+      const l6 = layer(runHarness(withChecks(stepped('drifts-out', (N) => 1 + 0.01 * (N - 1), [0.9, 1.012])), opts), 6);
+      expect(l6.pass).toBe(false);
+      expect(row(l6, 'drifts-out')).toContain('FAIL (limit outside range)');
+      expect(l6.summary).toContain('1 limit(s) outside range');
+    });
+
+    test('the full run fails a measure whose order is outside 0.5–2 unless it declares its limit indicative', () => {
+      // 1, 1.001, 1: the change does not shrink with the step, so the observed order is 0
+      const wobble = (N: number) => 1 + (N === 2 ? 0.001 : 0);
+      const undeclared = layer(runHarness(withChecks(stepped('wobbles', wobble, [0, 2])), { ...opts, full: true }), 6);
+      expect(undeclared.pass).toBe(false);
+      expect(row(undeclared, 'wobbles')).toContain('FAIL (order outside 0.5–2: declare limitIndicative)');
+      const declared = withChecks(stepped('wobbles', wobble, [0, 2], { limitIndicative: 'a test measure that does not converge' }));
+      const full = layer(runHarness(declared, { ...opts, full: true }), 6);
+      expect(row(full, 'wobbles')).toContain('PASS (limit indicative, not gated)');
+      expect(full.summary).toContain('1 indicative (full run)');
+      // the default run takes the order to be 1 and does not gate a declared limit either
+      const everyday = layer(runHarness(declared, opts), 6);
+      expect(row(everyday, 'wobbles')).toContain('PASS (limit indicative, not gated)');
+    });
   });
 
   test('M22: a lever setting that pushes a variable out of its plausible bounds fails the sweep', () => {

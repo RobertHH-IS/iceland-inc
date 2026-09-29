@@ -378,6 +378,10 @@ export interface LegacyStabiliserMode {
    *  while it acted. A lever may be both held and an offset (a tax lever that was a level on
    *  Manual and a shift on top of the rule on Automatic). */
   offsets: Id[];
+  /** True when the rules no longer took over the old way: switching to Automatic after a hold
+   *  jumped onto the rule's shadow path, and unlocking now steps from the held value. The run
+   *  then differs from that month on, and the migration says so. */
+  takeoverChanged?: boolean;
 }
 
 export interface ShockApi {

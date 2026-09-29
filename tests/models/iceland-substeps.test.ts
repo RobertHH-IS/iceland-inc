@@ -1,7 +1,8 @@
 /**
- * The Iceland model at two kernel steps a month (decision 0011, the acceptance tests of
- * docs/design/long-run-anchors.md §A): what a month shows does not depend on the number of steps,
- * the structural results the step must not move stay put, and a locked lever stays where it is set at every N.
+ * The Iceland model at two kernel steps a month (decision 0011, the acceptance tests of section A
+ * of the long-run anchors proposal): what a month shows does not depend on the number of steps,
+ * the structural results the step must not move stay put, and a locked lever stays where it is set
+ * at every N.
  */
 import { describe, expect, test } from 'bun:test';
 import { compile } from '../../src/core/compile.ts';

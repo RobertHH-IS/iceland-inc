@@ -274,7 +274,7 @@ export const calibration: CalibrationCheck[] = [
     },
     range: [1, 1.5],
     source: SRC.wageRate,
-    limitIndicative: 'the peak barely moves with the step (1.262 pp at 2, 4 and 8 steps a month), so the differences the order is measured from are rounding-sized and the order the full run finds (−2.3) means nothing; its limit is the value itself',
+    limitIndicative: 'the peak converges non-monotonically (1.2622 pp at 2 and 4 steps a month, 1.2619 at 8), so the order the full run finds (−2.3) means nothing; it moves by less than 0.001, far inside its allowance',
   },
   {
     id: 'wage-unemployment-peak',

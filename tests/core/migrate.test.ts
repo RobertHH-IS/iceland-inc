@@ -1,8 +1,10 @@
 /**
  * Scenario format 2 and the migration of format-1 scenarios, written for the global stabiliser
  * setting, to padlocks (src/core/migrate.ts, decision 0010). The fixture holds format-1 scenarios
- * with values the engine gave before padlocks (tests/fixtures/scenarios-v1.json): migrated, they
- * must give the same numbers bit for bit, except where an offset tilted a rule.
+ * with values the engine gave before padlocks (tests/fixtures/scenarios-v1.json; Iceland's at two
+ * kernel steps a month, decision 0011): migrated, they
+ * must give the same numbers bit for bit, except where an offset tilted a rule or, in the reference
+ * economy, from a switch to Automatic after a hold (the rules now take over smoothly; a notice says so).
  */
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
@@ -114,6 +116,23 @@ describe('migrating the stabiliser setting to padlocks', () => {
     expect(notices[0]).toContain("'taxRate' = 1");
   });
 
+  test('the reference economy’s rules now take over smoothly: a switch to Automatic after a hold gets a notice, one with nothing held before it does not', () => {
+    const held = migrate(reference, [
+      { t: 0, lever: 'stabilisers', value: 0 },
+      { t: 0, lever: 'keyRateFixed', value: 6 },
+      { t: 24, lever: 'stabilisers', value: 1 },
+    ]);
+    expect(held.notices.length).toBe(1);
+    expect(held.notices[0]).toContain('From month 24 the policy rules take over');
+    const none = migrate(reference, [
+      { t: 6, lever: 'stabilisers', value: 0 },
+      { t: 6, lever: 'stabilisers', value: 1 },
+    ]);
+    expect(none.notices).toEqual([]);
+    // Iceland's rules already stepped from the held rate (decisions 0007 and 0009): no notice
+    expect(migrate(iceland, [{ t: 24, lever: 'stabilisers', value: 1 }]).notices).toEqual([]);
+  });
+
   test('a model without a legacy setting loads a format-1 scenario unchanged', () => {
     const m = compile({ ...models[0], legacyStabiliserMode: undefined });
     const events = [{ t: 0, lever: 'govSpending', value: 1 }];
@@ -129,14 +148,19 @@ describe('migrating the stabiliser setting to padlocks', () => {
 });
 
 describe('format-1 scenarios give the numbers they gave before padlocks', () => {
-  type Fixture = { modelId: string; months: number; events: ScenarioEvent[]; expected: Record<string, Record<string, number>> };
+  // `notice`: the start of the one notice a scenario whose numbers change from a month on must get;
+  // its values are recorded only up to that month.
+  type Fixture = { modelId: string; months: number; events: ScenarioEvent[]; notice?: string; expected: Record<string, Record<string, number>> };
   const fixtures = JSON.parse(readFileSync(join(import.meta.dir, '../fixtures/scenarios-v1.json'), 'utf8')) as Record<string, Fixture>;
   const engines = { iceland: createEngine(iceland, { dev: false }), reference: createEngine(reference, { dev: false }) };
   for (const [name, f] of Object.entries(fixtures))
     test(`${name}: every recorded value, bit for bit`, () => {
       const e = engines[f.modelId as keyof typeof engines];
       const { scenario, notices } = migrateScenario(e.model, v1(f.modelId, f.events, f.months));
-      expect(notices).toEqual([]);
+      if (f.notice) {
+        expect(notices.length).toBe(1);
+        expect(notices[0]).toStartWith(f.notice);
+      } else expect(notices).toEqual([]);
       e.load(scenario);
       for (const [id, byMonth] of Object.entries(f.expected)) {
         const series = e.series(id).map((p) => p.v);

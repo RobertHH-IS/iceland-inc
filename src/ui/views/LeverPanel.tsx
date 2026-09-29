@@ -21,6 +21,7 @@ import type { Id, ScenarioEvent, StabiliserState } from '../../core/types.ts';
 import type { EngineClient } from '../engine-client.ts';
 import type { LeverInfo, ModelInfo } from '../model/info.ts';
 import {
+  canStep,
   changedCountWithLocks,
   firedCounts,
   isLeverChanged,
@@ -183,7 +184,7 @@ function SettingControl({ lever: l, value, client }: { lever: LeverInfo; value: 
     up = stepLever(l, value, 1);
   return (
     <div className="stepper">
-      <button type="button" className="icon-btn step-btn" onClick={() => client.setLever(l.id, down)} disabled={down === value} aria-label={`Lower ${l.label} to ${leverValueLabel(l, down)}`}>
+      <button type="button" className="icon-btn step-btn" onClick={() => client.setLever(l.id, down)} disabled={!canStep(l, value, -1)} aria-label={`Lower ${l.label} to ${leverValueLabel(l, down)}`}>
         <Icon name="minus" size={14} />
       </button>
       <div className="lbar" role="img" aria-label={`${l.label}: ${leverValueLabel(l, value)}, baseline ${leverValueLabel(l, l.default)}, range ${leverValueLabel(l, bar.min)} to ${leverValueLabel(l, bar.max)}`}>
@@ -192,7 +193,7 @@ function SettingControl({ lever: l, value, client }: { lever: LeverInfo; value: 
         <span className="lbar-base" style={{ left: `${bar.base * 100}%` }} title="Baseline" />
         <span className="lbar-knob" style={{ left: `${bar.value * 100}%` }} />
       </div>
-      <button type="button" className="icon-btn step-btn" onClick={() => client.setLever(l.id, up)} disabled={up === value} aria-label={`Raise ${l.label} to ${leverValueLabel(l, up)}`}>
+      <button type="button" className="icon-btn step-btn" onClick={() => client.setLever(l.id, up)} disabled={!canStep(l, value, 1)} aria-label={`Raise ${l.label} to ${leverValueLabel(l, up)}`}>
         <Icon name="plus" size={14} />
       </button>
     </div>

@@ -4,8 +4,8 @@
  * Runs the six test layers for every model in src/models/index.ts, writes
  * reports/harness-<modelId>.md, prints a summary and exits with code 1 on any failure.
  * `--full` (before a merge, and nightly) also runs the half-step test at four times the sub-steps
- * a month, to measure each calibration measure's order of convergence (decision 0011); it takes
- * about half as long again, so the everyday run leaves it out.
+ * a month, to measure each calibration measure's order of convergence (decision 0011); it adds
+ * about a tenth to the run, and the everyday run leaves it out.
  * Implausible values and wrong-signed positions in the property runs, the lever-extremes sweep
  * and the golden scenarios are failures (decision 0005); only a model's declared exemptions
  * (InstrumentDef.mayGoNegative) are left out.

@@ -415,7 +415,9 @@ export class Machine {
     }
     if (!(norm <= Math.max(this.tol, 1e-10))) {
       const ids = rules.map((j) => m.crules[j].def.id).join(', ');
-      throw new Error(`simultaneous block [${ids}] did not converge at step ${this.t + 1} (Gauss–Seidel and Newton both failed; residual ${norm})`);
+      // name the month, and the sub-step within it when the model takes several (ModelDef.substeps)
+      const when = `month ${Math.floor(this.t / this.N) + 1}${this.N > 1 ? `, sub-step ${(this.t % this.N) + 1} of ${this.N}` : ''}`;
+      throw new Error(`simultaneous block [${ids}] did not converge in ${when} (Gauss–Seidel and Newton both failed; residual ${norm})`);
     }
     // record terms and desired values at the solution (one Jacobi pass, then write)
     for (let i = 0; i < n; i++) cur[targets[i]] = x[i];

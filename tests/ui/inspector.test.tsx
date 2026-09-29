@@ -17,7 +17,7 @@ import { positionBadge, positionWarnings } from '../../src/ui/model/signs.ts';
 import { CategoryChip } from '../../src/ui/views/common.tsx';
 import { FlowMap } from '../../src/ui/views/FlowMap.tsx';
 import { Header } from '../../src/ui/views/Header.tsx';
-import { Inspector } from '../../src/ui/views/Inspector.tsx';
+import { InfluenceView, Inspector } from '../../src/ui/views/Inspector.tsx';
 import { LedgerView } from '../../src/ui/views/LedgerView.tsx';
 import { LeverPanel } from '../../src/ui/views/LeverPanel.tsx';
 import { hierarchyModel } from '../fixtures/hierarchy.ts';
@@ -136,6 +136,25 @@ test('a flow’s explanation is shown with its {param} placeholders filled, in t
   expect(pipeHtml).toContain('Retail pays young households 20 a year in wages.');
   expect(pipeHtml).not.toContain('{lvl_wages_FR_H1}');
   h.dispose();
+});
+
+describe('a regime that held for part of the month (decision 0011)', () => {
+  test('the regime chip says “part of the month” and why, only when the regime switched between the month’s steps', () => {
+    const c = createEngineClient(iceland);
+    c.setLever('keyRate', 4); // locks the key rate: "Held where you set it"
+    c.step(1);
+    const inf = c.influences('keyRate');
+    expect(inf.regime).toBe('Held where you set it');
+    const view = (switched: boolean) => {
+      const stub = Object.create(c) as typeof c;
+      stub.influences = () => ({ ...inf, regimeSwitched: switched });
+      return text(renderToString(<InfluenceView info={c.info} client={stub} id="keyRate" onSelect={noop} />));
+    };
+    expect(view(true)).toContain('Held where you set it (part of the month)</span>');
+    expect(view(true)).toContain('it switched between the month’s steps');
+    expect(view(false)).toContain('Held where you set it</span>');
+    expect(view(false)).not.toContain('part of the month');
+  });
 });
 
 describe('positions with the wrong sign: a warning in the header and on the balance sheet (decision 0005, audit H1)', () => {

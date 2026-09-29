@@ -318,10 +318,14 @@ function dividendsRule(j: Firm): RuleDef {
     return least;
   };
   const wanted = (t: Record<Id, number>) => fromProfit(t) + t.debt + t.spare;
-  // Spare cash is named once it is material, deposits more than 1% above their usual level:
-  // deposits that follow their target as a first-order lag (the borrowing rule) sit a hair above it
-  // after many shocks, and a label for a payout of a millionth of GDP switched on and off
-  // (decision 0011).
+  // Spare cash is named once it is material, deposits more than 1% above their usual level
+  // (assumed: a display threshold, not behaviour; the payout itself is paid whatever the label).
+  // Deposits that follow their target as a first-order lag (the borrowing rule) sit a hair above it
+  // after many shocks. With the label at any payout, fisheries' dividends switched it on and off
+  // in four lever-report runs (the króna −25% either way, the foreign rate −3, VAT +10), so this
+  // threshold, not the lag, removed the last flicker flags. It leaves unnamed payouts of up to
+  // about 0.002% of GDP a year (month 4 after the króna −25%, about 4% of fisheries' usual
+  // dividend) (decision 0011).
   const SPARE_MATERIAL = 0.01;
   return {
     id: `dividends${j}`,

@@ -10,7 +10,9 @@
  *   - the setting switched to Manual: every padlock closed at that month, then each held lever set
  *     to the level the old Manual mode would have read (so the run is the old one, number for
  *     number, rather than one frozen at the rule's value);
- *   - the setting switched to Automatic: every padlock opened at that month;
+ *   - the setting switched to Automatic: every padlock opened at that month. In a model whose rules
+ *     now take over smoothly from the held values (`takeoverChanged`), a switch after a hold gives
+ *     different numbers from that month on, and a notice says so;
  *   - a held level set on Manual: the same event, under the lever's new id (keyRateFixed → keyRate);
  *     set on Automatic, where it did nothing, it is dropped (and remembered for a later switch);
  *   - an offset (keyRateAddon, incomeTaxOffset): dropped. If one was away from 0 while its rule
@@ -56,6 +58,8 @@ export function migrateScenario(model: CompiledModel, s: Scenario): MigrationRes
   const notices: string[] = [];
   const tilted = new Set<Id>();
   let manual = isManual(legacy.default);
+  // the month the policy levers were last held from (Manual), for the takeover notice
+  let heldFrom = 0;
   const noteTilts = (t: number) => {
     if (manual) return;
     for (const id of legacy.offsets) {
@@ -78,9 +82,16 @@ export function migrateScenario(model: CompiledModel, s: Scenario): MigrationRes
     if (e.lever === legacy.lever) {
       const next = isManual(e.value);
       if (next && !manual) {
+        heldFrom = e.t;
         for (const id of locks) out.push({ t: e.t, lever: id, value: 1 });
         for (const [from, to] of Object.entries(legacy.held)) out.push({ t: e.t, lever: to, value: value.get(from)! });
-      } else if (!next && manual) for (const id of locks) out.push({ t: e.t, lever: id, value: 0 });
+      } else if (!next && manual) {
+        for (const id of locks) out.push({ t: e.t, lever: id, value: 0 });
+        if (legacy.takeoverChanged && e.t > heldFrom)
+          notices.push(
+            `From month ${e.t} the policy rules take over from the rates this scenario held until then. They now start from the held rates and move a step a month, where they used to jump onto the path they would have followed, so the run differs from that month on.`,
+          );
+      }
       manual = next;
       noteTilts(e.t);
       continue;

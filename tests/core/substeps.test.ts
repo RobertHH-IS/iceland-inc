@@ -223,3 +223,31 @@ describe('the lag history before month 0', () => {
     expect([1, 2, 3, 4, 5, 6].map((j) => M.lagValue(k, j))).toEqual([10, 9, 8, 7, 6, 6]);
   });
 });
+
+describe('errors name the month', () => {
+  test('a block that cannot be solved names its month and the sub-step within it', () => {
+    // x = k y + 1, y = x: solved at k = 0 (x = y = 1); at k = 1 there is no solution
+    const loop: ModuleDef = {
+      id: 'loop',
+      label: 'x',
+      description: 'x',
+      vars: [variable('x', 1), variable('y', 1)],
+      params: [param('k', 0)],
+      rules: [
+        rule({ id: 'x', target: 'x', inputs: ['y'], params: ['k'], compute: (c) => c.p('k') * c.v('y') + 1 }),
+        rule({ id: 'y', target: 'y', inputs: ['x'], compute: (c) => c.v('x') }),
+      ],
+      indicators: [{ id: 'xy', label: 'xy', group: 'x', unit: 'x', display: 'level', compute: (c) => c.v('x') + c.v('y'), description: 'x' }],
+      levers: [{ id: 'k', label: 'k', group: 'Economy', kind: 'setting', unit: 'x', default: 0, binds: { param: 'k', mode: 'add' }, description: 'x', definition: 'x' }],
+    };
+    for (const [N, where] of [
+      [1, /did not converge in month 3 \(/],
+      [2, /did not converge in month 3, sub-step 1 of 2 \(/],
+    ] as const) {
+      const e = createEngine({ ...tinyModel([loop]), substeps: N });
+      e.step(2);
+      e.setLever('k', 1);
+      expect(() => e.step()).toThrow(where);
+    }
+  });
+});

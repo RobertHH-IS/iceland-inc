@@ -81,6 +81,14 @@ export function stepLever(l: Pick<LeverInfo, 'step' | 'min' | 'max' | 'default'>
   return clampLever(l, Number(next.toFixed(Math.min(12, d))));
 }
 
+/** Can the − (dir −1) or + (dir 1) stepper move the lever that way? Not at the edge of its range,
+ *  and not from a value outside it (a padlock can freeze a lever at a value in force beyond its
+ *  range, decision 0010), where the clamped step would move the other way. */
+export function canStep(l: Pick<LeverInfo, 'step' | 'min' | 'max' | 'default'>, value: number, dir: 1 | -1): boolean {
+  const next = stepLever(l, value, dir);
+  return dir > 0 ? next > value : next < value;
+}
+
 export interface LeverBar {
   min: number;
   max: number;
