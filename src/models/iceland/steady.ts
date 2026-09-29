@@ -363,8 +363,14 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     foreignRate: iF,
     wage: 1,
     wageGrowth: 0,
+    wageGapSeen: 0,
+    benefitSearch: 0,
+    labourInflow: 0,
+    valueAddedPrice: 1,
     importPrice: 1,
     unitCost: 1,
+    labourCostSeen: 1,
+    importCostSeen: 1,
     domesticPrice: 1,
     cpi: 1,
     housingCost: 1,
@@ -445,10 +451,10 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
   });
   for (const j of FIRMS) {
     v[`investment${j}`] = i0[j];
+    v[`investmentPlan${j}`] = i0[j];
     v[`profits${j}`] = Pi[j];
     v[`profits${j}Smoothed`] = PiAT[j];
     v[`dividends${j}`] = DIV[j];
-    if (j !== 'XA') v[`retention${j}`] = o[`rho${j}0`];
   }
   for (const g of ['Y', 'W'] as const) {
     const h = g === 'Y' ? 0 : 1;

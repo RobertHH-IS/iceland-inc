@@ -238,7 +238,7 @@ describe('Iceland calibration: each check runs the experiment its source describ
     for (const c of calibration) if (/known gap/.test(c.label)) expect(KNOWN_GAPS[c.id]).toBeDefined();
   });
 
-  test('known gap: the rate checks’ takeover. The key rate drops about 1.5 pp when the rule takes over, and the inflation check passes only because of it', () => {
+  test('known gap: the rate checks’ takeover. The key rate drops about 1.5 pp when the rule takes over; the inflation check passes with a gradual takeover too, and the output trough stays at the end of the hold', () => {
     const r = run('rate-inflation-trough');
     // if this fails, the rule's takeover is smooth (central-bank.ts): re-run the rate checks, handle any
     // that fail as known gaps, and drop the notes that blame the drop
@@ -260,7 +260,9 @@ describe('Iceland calibration: each check runs the experiment its source describ
       inflation.push(e.indicator('inflation'));
     }
     const low = (a: number[]) => a.indexOf(Math.min(...a.slice(1)));
-    expect(inflation[low(inflation)]).toBeLessThan(check('rate-inflation-trough').range[0]); // outside the band
+    // inside the band without the drop too (it was about −0.36, outside, before trade-nominal-drift and monetary-MON-11)
+    expect(inflation[low(inflation)]).toBeGreaterThan(check('rate-inflation-trough').range[0]);
+    expect(inflation[low(inflation)]).toBeLessThan(check('rate-inflation-trough').range[1]);
     // output turns as the hold ends: with a gradual takeover the trough is month 12 or 13 and
     // the two differ by a few thousandths of a percent, so the quarter is set by the hold
     expect([12, 13]).toContain(low(output));
@@ -291,13 +293,15 @@ describe('Iceland calibration: each check runs the experiment its source describ
     expect(pass(12)).toBeLessThanOrEqual(0.23);
     // the check's fading shock gives nearly the same ratio as the held depreciation
     expect(Math.abs(c.measure(run('krona-pass-through-year1')) - pass(12))).toBeLessThan(0.03);
-    // as its source says: slower than WP85 within the quarter, and past WP85's long-run 0.23 later, near the IMF's 0.4 at 36 months
+    // as its source says: slower than WP85 within the quarter, and a little past WP85's long-run 0.23 later,
+    // levelling off below the IMF's 0.4 at 36 months: wages no longer chase a lasting depreciation (trade-nominal-drift)
     expect(pass(3)).toBeLessThan(0.15);
-    expect(pass(24)).toBeGreaterThan(0.3);
-    expect(pass(24)).toBeLessThan(0.4);
-    expect(pass(36)).toBeGreaterThan(0.35);
-    expect(pass(36)).toBeLessThan(0.5);
-    expect(c.source).toMatch(/0\.34 after two years and 0\.43 after three/);
+    expect(pass(24)).toBeGreaterThan(0.25);
+    expect(pass(24)).toBeLessThan(0.35);
+    expect(pass(36)).toBeGreaterThan(0.25);
+    expect(pass(36)).toBeLessThan(0.35);
+    expect(pass(36) - pass(24)).toBeLessThan(0.03);
+    expect(c.source).toMatch(/0\.30 after two years and 0\.32 after three/);
     expect(KNOWN_GAPS['krona-pass-through-year1']).toBeUndefined();
   });
 

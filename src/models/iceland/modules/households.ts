@@ -4,9 +4,10 @@
  * Each age group's gross income is wages (after the employee pension contribution), benefits and,
  * for older households, pensions. After income tax and cash mortgage interest it becomes
  * "net labour income"; interest and dividends are "property income". Spending moves gradually
- * (a habit) toward a target: most of net labour income, a small share of real property income,
- * less when the real interest rate is high, plus a share of savings above normal, of new
- * borrowing and of housing-wealth gains. Older households keep a share of their savings in
+ * (a habit, in krónur) toward a target: most of net labour income, a small share of real property
+ * income, less when the real interest rate is high, plus a share of savings above normal, of new
+ * borrowing and of housing-wealth gains, and less when savings fall below a buffer of a few
+ * months of spending. Older households keep a share of their savings in
  * government bonds.
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
@@ -91,7 +92,7 @@ function consumptionRule(g: Age): RuleDef {
     label: 'Consumption function with habit',
     inputs: [`netLabourIncome${g}`, `propertyIncome${g}`, 'keyRate', 'consumptionDeflator', 'realHousePrice', ...homeInputs(g), ...(g !== 'O' ? [`netMortgageLending${g}`] : [])],
     lagInputs: ['expectedInflation', `consumption${g}`],
-    params: [aL, 'aK', 'betaC', 'i0', c0, aW, `LW0${g}`, aH, `H0${g}`, ...(g !== 'O' ? ['aNL'] : []), 'lamC', 'liquiditySpeed', ...(g === 'O' ? ['hoBondCashShare'] : [])],
+    params: [aL, 'aK', 'betaC', 'i0', c0, aW, `LW0${g}`, aH, `H0${g}`, ...(g !== 'O' ? ['aNL'] : []), 'lamC', 'liquiditySpeed', 'aBuf', 'bufMonths', ...(g === 'O' ? ['hoBondCashShare'] : [])],
     stocks: liquidStocks(g),
     adjust: { speed: 'lamC', form: 'exponential' },
     terms: terms(
@@ -100,6 +101,7 @@ function consumptionRule(g: Age): RuleDef {
       ['realRate', 'Reward for saving (real key rate above neutral)', 'paradox-of-thrift', (c) => -c.p('betaC') * realGap(c) * (labour(c) + property(c))],
       ['autonomous', 'Spending not tied to this month’s income', undefined, (c) => c.p(c0) * c.v('consumptionDeflator')],
       ['wealth', 'Savings above normal', 'stock-flow-consistency', (c) => c.p(aW) * (liquid(c, g) - c.v('consumptionDeflator') * c.p(lw0))],
+      ['buffer', 'Savings running low', 'stock-flow-consistency', (c) => -c.p('aBuf') * Math.max(0, (c.p('bufMonths') / 12) * c.lag(self) - liquid(c, g))],
       ...(g !== 'O' ? ([['borrowing', 'New mortgage borrowing', 'credit-impulse', (c: Ctx) => c.p('aNL') * c.v(nml)]] as [string, string, string, (c: Ctx) => number][]) : []),
       ['housing', 'Housing wealth', 'housing-wealth-effect', (c) => c.p(aH) * c.p(h0) * (c.v('realHousePrice') - 1) * c.v('consumptionDeflator')],
     ),
@@ -107,11 +109,11 @@ function consumptionRule(g: Age): RuleDef {
     // exponential `adjust`, which closes k = 1 − e^(−lamC × dt) of the gap), but never above the
     // cash limit. Capping the target at last month + (limit − last month) ÷ k caps the spending.
     combine: (t, c) => Math.min(sumTerms(t), spendingCap(c)),
-    regime: (c, _v, t) => (sumTerms(t) > spendingCap(c) ? 'Spending limited by cash in hand' : null),
+    regime: (c, _v, t) => (sumTerms(t) > spendingCap(c) ? 'Spending limited by cash in hand' : t.buffer < 0 ? 'Savings below their buffer: spending less to rebuild them' : null),
     concepts: ['consumption-function', 'habit-persistence', 'borrowers-and-savers'],
     explain: {
       what: `What the ${AGE_LABEL[g]} spend on goods and services, including VAT (% of baseline GDP a year).`,
-      rule: `Target = [{${aL}} × (net labour income ${g === 'O' ? '+ home sales' : '− home purchases'}) + {aK} × (interest and dividends − expected inflation × savings)] × (1 − {betaC} × (real key rate − neutral)) + {${c0}} × consumer prices + {${aW}} × savings above normal${g !== 'O' ? ' + {aNL} × net new mortgage borrowing' : ''} + {${aH}} × housing wealth × (real house price − 1). Consumer prices here are the consumption deflator, the CPI without housing, so a rise in house prices is not read as a rise in the cost of what households buy. Spending moves toward the target at speed {lamC} a year (a habit), but never beyond their cash: income after tax, mortgage interest${g !== 'O' ? ', home purchases and new borrowing' : ' and home sales'} plus about 63% of their deposits in a month (the liquidity speed, {liquiditySpeed} a year)${g === 'O' ? ', less the {hoBondCashShare%} of that they keep for buying bonds' : ''}, so their deposits never go negative.`,
+      rule: `Target = [{${aL}} × (net labour income ${g === 'O' ? '+ home sales' : '− home purchases'}) + {aK} × (interest and dividends − expected inflation × savings)] × (1 − {betaC} × (real key rate − neutral)) + {${c0}} × consumer prices + {${aW}} × savings above normal${g !== 'O' ? ' + {aNL} × net new mortgage borrowing' : ''} + {${aH}} × housing wealth × (real house price − 1) − {aBuf} × any shortfall of savings below {bufMonths} months of their spending (a cash buffer they protect). Consumer prices here are the consumption deflator, the CPI without housing, so a rise in house prices is not read as a rise in the cost of what households buy. Spending moves toward the target at speed {lamC} a year (a habit), but never beyond their cash: income after tax, mortgage interest${g !== 'O' ? ', home purchases and new borrowing' : ' and home sales'} plus about 63% of their deposits in a month (the liquidity speed, {liquiditySpeed} a year)${g === 'O' ? ', less the {hoBondCashShare%} of that they keep for buying bonds' : ''}, so their deposits never go negative. The habit acts on spending in krónur: budgets are sticky in money terms, so a rise in prices (a VAT rise, a weaker króna) cuts what households buy at once, while a fall in income works through gradually. Making the habit act on real spending instead removed that difference but pushed the key rate after a wage settlement well above its cited peak, so it is kept as a known simplification (tax-TAX-7, decision 0002 §6).`,
     },
   };
 }
@@ -194,7 +196,7 @@ export const households: ModuleDef = {
   description: 'Income, taxes and spending of young, working-age and older households; their property income; older savers’ bond holdings.',
   requires: ['structure', 'labour-and-wages', 'government', 'banks', 'firms', 'pensions', 'mortgages', 'housing'],
   params: pickParams(ALL_PARAMS, [
-    'aLY', 'aLW', 'aLO', 'aK', 'betaC', 'aWY', 'aWW', 'aWO', 'aNL', 'aHY', 'aHW', 'aHO', 'lamC', 'c0Y', 'c0W', 'c0O', 'boSh0', 'hhDep', 'depShY', 'depShW', 'depShO', 'eqHY', 'eqHW', 'eqHO', 'bondO', 'hoBondCashShare',
+    'aLY', 'aLW', 'aLO', 'aK', 'betaC', 'aWY', 'aWW', 'aWO', 'aNL', 'aHY', 'aHW', 'aHO', 'lamC', 'c0Y', 'c0W', 'c0O', 'boSh0', 'hhDep', 'depShY', 'depShW', 'depShO', 'eqHY', 'eqHW', 'eqHO', 'bondO', 'hoBondCashShare', 'aBuf', 'bufMonths',
     ...AGES.flatMap((g) => [`LW0${g}`, `H0${g}`]),
   ]),
   vars,

@@ -45,9 +45,11 @@ describe('Iceland model: the foreign interest rate (review E3)', () => {
   test('known gap: after three years the króna keeps strengthening and prices keep drifting down, as the lever definition says (20-year values per point)', () => {
     // decision 0002 §6: no steady state with a lasting surplus of foreign income, so non-residents'
     // krónur keep draining (merge note 5 of review E3: a design decision owns the fix). Per point held,
-    // after 10 and 20 years: Automatic about 2–2.5% and 5–6% stronger, the price level about 3% lower
-    // after 20; Manual about 3–3.5% and 9–11.5% stronger, the price level about 6–6.5% lower.
-    const bands = { true: { k10: [1.8, 2.8], k20: [4.5, 6.5], p20: [-3.6, -2.5] }, false: { k10: [2.8, 4], k20: [8, 12.5], p20: [-7.2, -5.3] } };
+    // after 10 and 20 years: Automatic about 2–2.5% and 3.5–4% stronger, the price level about 1.2%
+    // lower after 20; Manual about 3–3.5% and 8–10.5% stronger, the price level about 5% lower. (Before
+    // wages were measured against the value-added price, trade-nominal-drift, the stronger króna also
+    // set off a wage–price spiral downward: Automatic 5–6% and 3%, Manual 9–11.5% and 6–6.5%.)
+    const bands = { true: { k10: [1.8, 2.8], k20: [3, 4.5], p20: [-1.6, -0.9] }, false: { k10: [2.8, 4], k20: [7, 11], p20: [-5.6, -4.4] } };
     for (const automatic of [true, false])
       for (const size of [1, 5]) {
         const e = run('foreignRate', size, automatic, 240);
@@ -120,12 +122,12 @@ describe('Iceland model: a high key rate held for years (review E7)', () => {
     expect(Math.max(...output.slice(1))).toBeLessThan(0);
   });
 
-  test('on Manual, 15% held: output below baseline for seven years, then the interest-income channel lifts it', () => {
+  test('on Manual, 15% held: output below baseline for almost seven years, then the interest-income channel lifts it', () => {
     // Taxes and spending are held too, so the government's interest bill feeds households' and
     // pension funds' income (decision 0002 §6, Godley and Lavoie's model PC).
     const e = run('keyRateFixed', 15, false, 120);
     const output = series(e, 'output');
-    expect(Math.max(...output.slice(1, 85))).toBeLessThan(0);
+    expect(Math.max(...output.slice(1, 81))).toBeLessThan(0);
     expect(output[120]).toBeGreaterThan(0);
     const income = (m: number) => ['Y', 'W', 'O'].reduce((s, g) => s + e.valueAt(`propertyIncome${g}`, m), 0);
     expect(income(120) / income(0)).toBeGreaterThan(1.5);

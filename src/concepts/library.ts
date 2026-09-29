@@ -192,6 +192,14 @@ const ref = {
     title: 'Blanchard & Katz (1999), "Wage dynamics: reconciling theory and evidence", American Economic Review 89(2)',
     url: 'https://www.aeaweb.org/articles?id=10.1257/aer.89.2.69',
   },
+  nickell1997: {
+    title: 'Nickell (1997), "Unemployment and labor market rigidities: Europe versus North America", Journal of Economic Perspectives 11(3)',
+    url: 'https://www.aeaweb.org/articles?id=10.1257/jep.11.3.55',
+  },
+  layardNickellJackman: {
+    title: 'Layard, Nickell & Jackman (2005), Unemployment: Macroeconomic Performance and the Labour Market, 2nd edition, Oxford University Press',
+    url: 'https://doi.org/10.1093/acprof:oso/9780199279166.001.0001',
+  },
   imfKeynes: {
     title: 'Jahan, Mahmud & Papageorgiou (2014), "What is Keynesian economics?", IMF Finance & Development 51(3)',
     url: 'https://www.imf.org/external/pubs/ft/fandd/2014/09/basics.htm',
@@ -636,6 +644,19 @@ export const concepts: ConceptDef[] = [
     school: 'keynesian',
     references: [ref.phillips1958, ref.blanchardKatz1999, ref.qmm2019],
     related: ['wage-bargaining', 'okun-law', 'adaptive-expectations', 'anchored-expectations', 'real-wages', 'migration-buffer'],
+  },
+  {
+    id: 'reservation-wage',
+    title: 'Reservation wage',
+    oneLiner: 'The lowest pay a job-seeker will accept. More generous unemployment benefits raise it, so people search longer and pay demands firm up.',
+    body: p(
+      `An unemployed person weighs a job offer against staying on benefits and looking for a better one. The lowest pay at which taking the job is worth it is their *reservation wage*. The more generous the benefits, the higher it is.`,
+      `Two things follow. People out of work search a little longer before accepting a job, so at any time more of them are unemployed. And unions and employers bargain knowing that losing a job hurts less, so wages are set a little higher for any level of unemployment. In the wage-setting and price-setting framework of Layard, Nickell and Jackman, both raise the *normal* rate of unemployment, the rate at which wages grow only with expected inflation.`,
+      `Nickell (1997) finds that the replacement rate and the duration of benefits raise unemployment across OECD countries, though by less than is often claimed. In the short run the same benefits support spending when jobs are lost, an automatic stabiliser, so they cut unemployment at first and raise it only as search and bargaining adjust.`,
+    ),
+    school: 'new-keynesian',
+    references: [ref.nickell1997, ref.layardNickellJackman],
+    related: ['wage-phillips-curve', 'wage-bargaining', 'automatic-stabilisers'],
   },
   {
     id: 'adaptive-expectations',
@@ -1190,6 +1211,7 @@ export const conceptThemes: { theme: string; ids: Id[] }[] = [
       'exchange-rate-pass-through',
       'wage-bargaining',
       'wage-phillips-curve',
+      'reservation-wage',
       'adaptive-expectations',
       'anchored-expectations',
       'profit-squeeze',

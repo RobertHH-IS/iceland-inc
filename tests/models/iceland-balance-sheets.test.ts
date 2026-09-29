@@ -87,7 +87,7 @@ describe('Iceland model: balance sheets stay possible', () => {
       expect(wrongSigns(settings, automatic)).toEqual([]);
     });
 
-  test('every lever alone at its min and at its max (every option of a choice), 20 years, in each mode where it acts: none, and banks borrow reserves only in the two documented cases', () => {
+  test('every lever alone at its min and at its max (every option of a choice), 20 years, in each mode where it acts: none, and banks borrow reserves only in the documented case', () => {
     const found: string[] = [];
     const borrowed: string[] = [];
     for (const l of model.levers) {
@@ -102,7 +102,10 @@ describe('Iceland model: balance sheets stay possible', () => {
         }
     }
     expect(found).toEqual([]);
-    expect(borrowed).toEqual(['incomeTax=10 Manual', 'publicInvestment=-3 Manual']);
+    // publicInvestment −3 on Manual also borrowed reserves until firms' debt was held near its norm
+    // and households kept a cash buffer (trade-exporter-debt-spiral, tax-TAX-2): the surplus then
+    // never outran the bonds left to buy back.
+    expect(borrowed).toEqual(['incomeTax=10 Manual']);
   }, 60_000);
 
   test('the one declared exemption: banks’ reserves, which go below zero when they borrow from the central bank', () => {
@@ -151,8 +154,10 @@ describe('Iceland model: balance sheets stay possible', () => {
     expect(wrongSigns([['incomeTax', 10], ['aluminiumPrice', -40], ['pfForeign', 20]], false)).toEqual([]);
     expect(wrongSigns([['foreignRate', 5], ['pfForeign', 20], ['education', -3]], false)).toEqual([]);
     // With the consumption deflator and the recalibrated rule (audit H4), VAT +10 with income tax
-    // +10 now also reaches the collapse gap below in month 238, after the bank bonds are gone.
-    expect(wrongSigns([['vat', 10], ['incomeTax', 10]], false)).toEqual(['deposits/PF']);
+    // +10 reached the collapse gap below in month 238, after the bank bonds were gone. With the
+    // households' cash buffer and firms' owners holding debt near its norm (tax-TAX-2,
+    // trade-exporter-debt-spiral) the collapse is shallower and the funds are not overdrawn.
+    expect(wrongSigns([['vat', 10], ['incomeTax', 10]], false)).toEqual([]);
     // What the run-off fixed still holds in every case: the funds never overdraw while bank bonds remain.
     for (const settings of [
       [['incomeTax', 10], ['aluminiumPrice', -40], ['pfForeign', 20]],
@@ -281,7 +286,7 @@ describe('Iceland model: balance sheets stay possible', () => {
       const e = createEngine(model, { baseline: base.baselineData });
       if (automatic) e.setLever('stabilisers', 1);
       e.step(12);
-      const rules = ['investmentXA', 'borrowingXA', 'bondIssue', 'bondIssuePF', 'bondIssueHO', 'foreignAssetPurchases', 'bankBondPurchases', 'bondPurchasesPF', 'bondPurchasesHO', 'bondPurchasesW', 'consumptionW', 'consumptionO', 'depositRate'];
+      const rules = ['investmentPlanXA', 'borrowingXA', 'bondIssue', 'bondIssuePF', 'bondIssueHO', 'foreignAssetPurchases', 'bankBondPurchases', 'bondPurchasesPF', 'bondPurchasesHO', 'bondPurchasesW', 'consumptionW', 'consumptionO', 'depositRate'];
       for (const id of rules) expect(`${id}: ${e.influences(id).regime ?? 'none'}`).toBe(`${id}: none`);
     }
   });
@@ -313,8 +318,8 @@ describe('Iceland model: balance sheets stay possible', () => {
     expect(rule.regime!(c, rule.combine!(t, c), t)).toBe('Selling bonds to keep enough króna cash');
   });
 
-  test('households spend no more cash than they have: working-age deposits run down toward zero, never below, under income tax +10 held on Manual', () => {
-    const e = createEngine(model, { baseline: base.baselineData, dev: false });
+  test('households spend no more cash than they have: without the cash buffer, working-age deposits run down toward zero, never below, under income tax +10 held on Manual', () => {
+    const e = createEngine(model, { baseline: base.baselineData, dev: false }).fork({ params: { aBuf: 0 } });
     e.setLever('incomeTax', 10);
     let lowest = Infinity,
       limited = 0;

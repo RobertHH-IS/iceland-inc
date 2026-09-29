@@ -8,11 +8,15 @@
  * minus imports, domestic inputs, labour costs and net interest, so a wage settlement squeezes the
  * labour-intensive sectors hardest.
  *
- * Firms invest toward a level set by recent profits, the real loan rate and (at home) how busy
- * capacity is, with a planning lag. Domestically owned firms keep a share of after-tax profit to
- * pay for investment (more when they are indebted) and pay out the rest. The aluminium smelters are
- * wholly foreign-owned: their parents take whatever cash the smelters do not reinvest, so a windfall
- * from dearer aluminium leaves the country. Firms borrow from banks whatever keeps their deposits at
+ * Firms plan investment toward a level set by recent profits, the real loan rate, their debt and
+ * (at home) how busy capacity is, and plans turn into spending over the following months. Firms
+ * other than the smelters pay out their normal share of after-tax profit, part of any change in it
+ * at once (Lintner), more when their debt is below its normal share of GDP and less when it is
+ * above, and any deposits they do not need once their loans are repaid; when debt is well above
+ * normal their owners put money in, so a squeezed firm's debt stays in proportion to the economy.
+ * Fisheries also pay the fishing fee on profit above normal. The aluminium smelters are wholly
+ * foreign-owned: their parents take whatever cash the smelters do not reinvest, so a windfall from
+ * dearer aluminium leaves the country. Firms borrow from banks whatever keeps their deposits at
  * target: that is where new business credit, and the money it creates, comes from.
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
@@ -84,36 +88,56 @@ const dividendLegs: RuleDef[] = FIRMS.flatMap((j) =>
 
 type T = [string, string, string | undefined, (c: Ctx) => number];
 
-function investmentRule(j: Firm): RuleDef {
+function investmentRule(j: Firm): RuleDef[] {
   const i0 = `i${j}0`;
   const pi0 = `pi${j}0`;
   const accel = !isExporter(j);
-  return {
-    id: `investment${j}`,
-    target: `investment${j}`,
-    category: 'BEHAVIOUR',
-    label: accel ? 'Investment with a planning lag' : 'Exporters’ investment',
-    inputs: ['loanRate'],
-    lagInputs: [`profits${j}Smoothed`, 'expectedInflation', ...(accel ? ['output'] : [])],
-    params: [i0, pi0, 'betaPi', 'betaRI', 'rl0', ...(accel ? ['betaU', 'potentialOutput'] : [])],
-    adjust: { speed: 'lamInv', form: 'exponential' },
-    terms: terms(
-      ['normal', 'Normal investment', undefined, (c) => c.p(i0)],
-      ['profits', 'Recent profits', 'investment-accelerator', (c) => c.p(i0) * c.p('betaPi') * (lastMonth(c, `profits${j}Smoothed`) / c.p(pi0) - 1)],
-      ['realRate', 'Cost of borrowing', 'policy-lags', (c) => -c.p(i0) * c.p('betaRI') * (c.v('loanRate') - lastMonth(c, 'expectedInflation') - c.p('rl0'))],
-      ...(accel ? ([['capacity', 'Busy capacity', 'investment-accelerator', (c: Ctx) => c.p(i0) * c.p('betaU') * (lastMonth(c, 'output') / c.p('potentialOutput') - 1)]] as T[]) : []),
-    ),
-    // Gross investment cannot be negative: a firm can stop buying machines but cannot sell them
-    // back to builders. The floor acts on the target, before the planning lag, so investment and
-    // capital (which then only wears out) stay at or above zero.
-    combine: (t) => Math.max(0, sumTerms(t)),
-    regime: (_c, _v, t) => (sumTerms(t) < 0 ? 'No new investment: capital only wears out' : null),
-    concepts: ['investment-accelerator', 'policy-lags'],
-    explain: {
-      what: `Investment by ${FIRM_NAME[j]} in machines and buildings, at baseline prices. They buy them from builders.`,
-      rule: `Target = {${i0}} × [1 + {betaPi} × (their smoothed real profits ÷ baseline − 1) − {betaRI} × (real loan rate − baseline)${accel ? ' + {betaU} × output gap' : ''}], never below zero: firms can stop buying machines but cannot sell them back to builders, so their capital then only wears out. Plans turn into spending at speed {lamInv} a year, so the peak effect of a rate change comes after about a year.`,
+  const plan = `investmentPlan${j}`;
+  const l0 = `l${j}0`;
+  return [
+    {
+      id: plan,
+      target: plan,
+      category: 'BEHAVIOUR',
+      label: accel ? 'Investment plans' : 'Exporters’ investment plans',
+      inputs: ['loanRate'],
+      lagInputs: [`profits${j}Smoothed`, 'expectedInflation', 'nominalGDP', ...(accel ? ['output'] : [])],
+      params: [i0, pi0, l0, 'betaPi', 'betaRI', 'betaLev', 'rl0', ...(accel ? ['betaU', 'potentialOutput'] : [])],
+      stocks: [['businessLoans', j]],
+      adjust: { speed: 'lamInv', form: 'exponential' },
+      terms: terms(
+        ['normal', 'Normal investment', undefined, (c) => c.p(i0)],
+        ['profits', 'Recent profits', 'investment-accelerator', (c) => c.p(i0) * c.p('betaPi') * (lastMonth(c, `profits${j}Smoothed`) / c.p(pi0) - 1)],
+        ['realRate', 'Cost of borrowing', 'policy-lags', (c) => -c.p(i0) * c.p('betaRI') * (c.v('loanRate') - lastMonth(c, 'expectedInflation') - c.p('rl0'))],
+        ...(accel ? ([['capacity', 'Busy capacity', 'investment-accelerator', (c: Ctx) => c.p(i0) * c.p('betaU') * (lastMonth(c, 'output') / c.p('potentialOutput') - 1)]] as T[]) : []),
+        ['debt', 'Debt above normal', 'minsky-instability', (c) => -c.p(i0) * c.p('betaLev') * (c.stock('businessLoans', j) / lastMonth(c, 'nominalGDP') / c.p(l0) - 1)],
+      ),
+      // Gross investment cannot be negative: a firm can stop buying machines but cannot sell them
+      // back to builders. The floor acts on the plan, so investment and capital (which then only
+      // wears out) stay at or above zero.
+      combine: (t) => Math.max(0, sumTerms(t)),
+      regime: (_c, _v, t) => (sumTerms(t) < 0 ? 'No new investment: capital only wears out' : t.debt < -0.25 * t.normal ? 'Debt too high: investment cut' : null),
+      concepts: ['investment-accelerator', 'policy-lags', 'minsky-instability'],
+      explain: {
+        what: `Investment ${FIRM_NAME[j]} plan and order, at baseline prices: what they will spend on machines and buildings once the work is under way.`,
+        rule: `Target = {${i0}} × [1 + {betaPi} × (their smoothed real profits ÷ baseline − 1) − {betaRI} × (real loan rate − baseline)${accel ? ' + {betaU} × output gap' : ''} − {betaLev} × (their bank debt ÷ its normal share {${l0}} of GDP − 1)], never below zero: firms can stop buying machines but cannot sell them back to builders, so their capital then only wears out. A firm that owes more than usual invests less, and banks lend to it more warily. Plans move toward the target at speed {lamInv} a year.`,
+      },
     },
-  };
+    {
+      id: `investment${j}`,
+      target: `investment${j}`,
+      category: 'BEHAVIOUR',
+      label: 'Plans become spending',
+      lagInputs: [plan],
+      adjust: { speed: 'lamInvSpend', form: 'exponential' },
+      terms: terms(['plan', 'Investment planned and ordered', 'policy-lags', (c) => lastMonth(c, plan)]),
+      concepts: ['investment-accelerator', 'policy-lags'],
+      explain: {
+        what: `Investment by ${FIRM_NAME[j]} in machines and buildings, at baseline prices. They buy them from builders.`,
+        rule: 'Spending follows last month’s plans at speed {lamInvSpend} a year: machines must be ordered and buildings built before the money is spent. With the planning lag before it, the peak effect of a rate change comes a quarter or two after the change itself, and outlasts it.',
+      },
+    },
+  ];
 }
 
 const netInterest = (j: Firm): T => {
@@ -124,7 +148,7 @@ const netInterest = (j: Firm): T => {
 const labourTerm = (j: Firm): T => ['labour', 'Labour costs (wages, pension contributions, payroll tax)', 'profit-squeeze', (c) => -labourCost(c, j)];
 
 const EXPORTER_RULE: Record<string, string> = {
-  XF: 'Profit = marine exports − imported fuel and gear − domestic inputs − labour costs − net interest. Fish sell at world prices in foreign currency, so a weaker króna or dearer fish lifts revenue at once while costs follow slowly.',
+  XF: 'Profit = marine exports − imported fuel and gear − domestic inputs − labour costs − net interest − the fishing fee on profit above normal. Fish sell at world prices in foreign currency, so a weaker króna or dearer fish lifts revenue at once while costs follow slowly.',
   XA: 'Profit = aluminium exports − imported alumina and anodes − domestic inputs (mostly power) − labour costs − net interest. Aluminium sells at a world price in dollars and labour is a small cost, so profit swings with the aluminium price and the króna.',
   XT: 'Profit = what foreign visitors spend − imported jet fuel and food − domestic inputs − labour costs − net interest. Tourism is priced in krónur and uses a lot of labour, so wage rises squeeze it hard and a strong króna keeps visitors away.',
   XO: 'Profit = other exports − imported inputs − domestic inputs − labour costs − net interest. Priced in krónur and sold in competitive markets, so volumes react to the real exchange rate.',
@@ -177,11 +201,12 @@ function profitsRule(j: Firm): RuleDef {
     };
   const k = EXPORT_OF[j];
   const [x, im, di] = [`exports${k}`, `imports${j}`, `exporterInputs${j}`];
+  const fee = j === 'XF';
   return {
     id: `profits${j}`,
     target: `profits${j}`,
     category: 'IDENTITY',
-    inputs: [x, im, di, ...common],
+    inputs: [x, im, di, ...common, ...(fee ? ['fishingFee'] : [])],
     params: ['cEr', 'css'],
     terms: terms(
       ['exports', 'Export revenue', 'export-sectors', (c) => c.v(x)],
@@ -189,6 +214,7 @@ function profitsRule(j: Firm): RuleDef {
       ['domesticInputs', 'Domestic inputs', undefined, (c) => -c.v(di)],
       labourTerm(j),
       netInterest(j),
+      ...(fee ? ([['fishingFee', 'Fishing fee', 'export-sectors', (c: Ctx) => -c.v('fishingFee')]] as T[]) : []),
     ),
     concepts: j === 'XF' || j === 'XA' ? ['profit-squeeze', 'exchange-rate-pass-through'] : ['profit-squeeze', 'real-exchange-rate'],
     explain: { what: `Gross profit of ${FIRM_NAME[j]}, before corporate tax.`, rule: EXPORTER_RULE[j] },
@@ -266,47 +292,64 @@ function dividendsRule(j: Firm): RuleDef {
         rule: 'Payout = after-tax profit ((1 − {tauF%}) × profit) − what the smelters spend on investment − {rhoL} × baseline after-tax profit {piXA0} × (their bank debt ÷ last month’s annual GDP − {lXA0}). The parents sweep up every króna not reinvested, so a rise in the aluminium price leaves Iceland almost at once, and so do losses.',
       },
     };
-  const [prof, ret] = [`profits${j}`, `retention${j}`];
+  const [prof, rho0, pi0, l0, dep0] = [`profits${j}`, `rho${j}0`, `pi${j}0`, `l${j}0`, `dep${j}0`];
+  /** Share of a change in profit paid out: the normal payout share, but at least payMarginal. */
+  const marginal = (c: Ctx) => Math.max(1 - c.p(rho0), c.p('payMarginal'));
+  const fromProfit = (t: Record<Id, number>) => Math.max(0, t.normal + t.profits);
+  // Owners at home put money in only from deposits they have: each firm may call on at most
+  // ownerCashSpeed a year of any owner's deposits, in proportion to that owner's share. Foreign
+  // owners pay from abroad.
+  const home = OWNERS[j].filter((o) => o !== 'W').map((o) => ({ o, ...ownerShare(j, o) }));
+  const canPutIn = (c: Ctx) => {
+    let least = Infinity;
+    for (const h of home) least = Math.min(least, (c.p('ownerCashSpeed') * Math.max(0, c.stock('deposits', h.o))) / Math.max(1e-9, h.share(c)));
+    return least;
+  };
+  const wanted = (t: Record<Id, number>) => fromProfit(t) + t.debt + t.spare;
   return {
     id: `dividends${j}`,
     target: `dividends${j}`,
     category: 'BEHAVIOUR',
-    inputs: [prof, ret],
-    params: ['tauF'],
-    compute: (c) => (1 - c.v(ret)) * (1 - c.p('tauF')) * c.v(prof),
-    explain: { what: `Profit ${FIRM_NAME[j]} pay out to owners (dividends, and owners’ and self-employed income).`, rule: 'Dividends = (1 − retention) × (1 − {tauF%}) × profit.' },
-  };
-}
-
-function retentionRule(j: Firm): RuleDef[] {
-  if (j === 'XA') return [];
-  const [rho0, l0] = [`rho${j}0`, `l${j}0`];
-  return [
-    {
-      id: `retention${j}`,
-      target: `retention${j}`,
-      category: 'BEHAVIOUR',
-      lagInputs: ['nominalGDP'],
-      params: [`rho${j}0`, 'rhoL', `l${j}0`],
-      stocks: [['businessLoans', j]],
-      terms: terms(
-        ['normal', 'Normal retention', undefined, (c) => c.p(rho0)],
-        ['debt', 'Debt above normal', 'minsky-instability', (c) => c.p('rhoL') * (c.stock('businessLoans', j) / lastMonth(c, 'nominalGDP') - c.p(l0))],
-      ),
-      combine: (t) => Math.min(1, Math.max(0, t.normal + t.debt)),
-      regime: (_c, _v, t) => (t.normal + t.debt > 1 ? 'Keeps all its profit' : t.normal + t.debt < 0 ? 'Pays out all its profit' : null),
-      explain: {
-        what: `Share of after-tax profit ${FIRM_NAME[j]} keep rather than pay out.`,
-        rule: `Retention = {rho${j}0} + {rhoL} × (their debt ÷ last month’s annual GDP − its baseline {l${j}0}), kept between 0 and 1: firms keep more when they owe more, but never more than all of their profit, so a loss-making firm pays nothing out and its owners share the loss.`,
-      },
+    label: 'Payout: profits, debt and spare cash',
+    inputs: [prof, 'cpi'],
+    lagInputs: ['nominalGDP'],
+    params: [rho0, pi0, l0, dep0, 'tauF', 'payMarginal', 'payDebt', 'paySpare', 'ownerCashSpeed', ...new Set(home.flatMap((h) => h.params))],
+    stocks: [
+      ['businessLoans', j],
+      ['deposits', j],
+      ...home.map((h): [Id, Id] => ['deposits', h.o]),
+    ],
+    terms: terms(
+      ['normal', 'Normal payout', undefined, (c) => (1 - c.p(rho0)) * c.p(pi0) * c.v('cpi')],
+      ['profits', 'Profits above or below normal', 'profit-squeeze', (c) => marginal(c) * ((1 - c.p('tauF')) * c.v(prof) - c.p(pi0) * c.v('cpi'))],
+      ['debt', 'Debt above or below normal', 'minsky-instability', (c) => -c.p('payDebt') * (c.stock('businessLoans', j) - c.p(l0) * lastMonth(c, 'nominalGDP'))],
+      ['spare', 'Spare cash paid out', 'stock-flow-consistency', (c) => c.p('paySpare') * Math.max(0, c.stock('deposits', j) - c.p(dep0) * lastMonth(c, 'nominalGDP'))],
+    ),
+    // Profits alone never ask owners for money; only debt above normal does, and owners at home
+    // put in no more than they can spare.
+    combine: (t, c) => Math.max(wanted(t), -canPutIn(c)),
+    regime: (c, _v, t) =>
+      wanted(t) < -canPutIn(c)
+        ? 'Owners put in all they can spare'
+        : wanted(t) < 0
+          ? 'Owners put money in: debt above normal'
+          : t.normal + t.profits < 0
+            ? 'Profits too low to pay out'
+            : t.spare > 1e-9
+              ? 'Pays out spare cash'
+              : null,
+    concepts: ['stock-flow-consistency', 'minsky-instability'],
+    explain: {
+      what: `Profit ${FIRM_NAME[j]} pay out to owners (dividends, and owners’ and self-employed income). Negative means the owners put money in.`,
+      rule: `Payout = normal payout (1 − {${rho0}}) × baseline after-tax profit {${pi0}} + the larger of {payMarginal} and that normal payout share × (after-tax profit − baseline), both at today’s prices and never below zero, − {payDebt} × (their bank debt − its normal share {${l0}} of last month’s GDP) + {paySpare} × any deposits above their usual {${dep0}} of GDP. So a windfall is partly paid out at once and the rest repays debt; once debt is below normal they pay out more, and cash they do not need is paid out too. A firm that keeps losing money borrows only until its debt is well above normal; then its owners put money in, so its debt stays in proportion to the economy, as owners of Icelandic firms did after 2008. Owners in Iceland put in no more than {ownerCashSpeed} a year of their deposits.`,
     },
-  ];
+  };
 }
 
 function firmRules(j: Firm): RuleDef[] {
   const who = FIRM_NAME[j];
   return [
-    investmentRule(j),
+    ...investmentRule(j),
     {
       id: `investmentPurchase${j}`,
       target: `investmentPurchase${j}`,
@@ -338,7 +381,6 @@ function firmRules(j: Firm): RuleDef[] {
       concepts: ['gradual-adjustment'],
       explain: { what: `Real after-tax profit of ${who} as investors see it: smoothed over recent months.`, rule: 'Moves toward (1 − {tauF%}) × profit ÷ CPI at speed {lamPi} a year.' },
     },
-    ...retentionRule(j),
     dividendsRule(j),
     {
       id: `borrowing${j}`,
@@ -377,18 +419,19 @@ const vars: VarDef[] = [
   ...FIRMS.flatMap((j): VarDef[] => {
     const who = FIRM_NAME[j];
     return [
+      { id: `investmentPlan${j}`, label: `Investment plans, ${who} (real)`, unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base(`investment${j}`), description: 'Investment planned and ordered, which becomes spending over the following months.' },
       { id: `investment${j}`, label: `Investment, ${who} (real)`, unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base(`investment${j}`) },
       { id: `investmentPurchase${j}`, label: `Investment spending, ${who}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
       { id: `depreciation${j}`, label: `Depreciation, ${who}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
       { id: `profits${j}`, label: `Profit, ${who}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`profits${j}`) },
       { id: `profits${j}Smoothed`, label: `Real after-tax profit, ${who} (smoothed)`, unit: '% of GDP/yr', kind: 'flow', scale: 'real', initial: base(`profits${j}Smoothed`) },
       { id: `valueAdded${j}`, label: `Value added, ${who} (real)`, unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base(`valueAdded${j}`) },
-      ...(j === 'XA' ? [] : [{ id: `retention${j}`, label: `Retention ratio, ${who}`, unit: 'fraction', kind: 'ratio', scale: 'none', initial: base(`retention${j}`) } satisfies VarDef]),
       { id: `dividends${j}`, label: `Dividends, ${who}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`dividends${j}`) },
       { id: `borrowing${j}`, label: `Net borrowing, ${who}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0 },
       ...OWNERS[j].map((to): VarDef => ({ id: `dividends${j}_${to}`, label: `Dividends, ${who} → ${WHO[to]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' })),
     ];
   }),
+  { id: 'fishingFee', label: 'Fishing fee (above normal)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0, description: 'The part of the fishing fee (veiðigjald) that follows fisheries’ profit above normal, two years later.' },
   { id: 'salesFC', label: 'Builders’ sales (real)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', description: 'Machines and buildings for business and public investment, plus home repairs after VAT, at baseline prices.' },
   { id: 'constructionInputs', label: 'Builders’ purchases at home', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', description: 'Materials, engineering and transport builders buy from retail and service firms.' },
   { id: 'dividendsAbroad', label: 'Dividends paid abroad', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('dividendsAbroad'), description: 'Profits exporters pay their foreign owners: the smelters’ parents and others.' },
@@ -408,7 +451,7 @@ export const firms: ModuleDef = {
     'Six sectors (builders, retail and services, fisheries, aluminium, tourism, other exporters): each one’s investment, profit, retention, dividends (the smelters’ all abroad), capital, depreciation and borrowing; builders’ sales and purchases; output as the sum of demand.',
   requires: ['structure', 'labour-and-wages', 'prices', 'banks', 'external', 'government', 'households'],
   params: pickParams(ALL_PARAMS, [
-    'iFD0', 'iFX0', 'betaPi', 'betaRI', 'betaU', 'lamInv', 'lamPi', 'rhoL', 'firmCashSpeed', 'depreciationRate', 'cEr', 'rl0',
+    'iFD0', 'iFX0', 'betaPi', 'betaRI', 'betaU', 'lamInv', 'lamInvSpend', 'lamPi', 'rhoL', 'payMarginal', 'payDebt', 'paySpare', 'ownerCashSpeed', 'betaLev', 'fishFee', 'firmCashSpeed', 'depreciationRate', 'cEr', 'rl0',
     'divFDY', 'divFDW', 'divFDO', 'divXTW', 'divXOW', 'divFXdomW', 'divFXdomO', 'fdiTarget', 'depFX', 'depShareFC', 'pfEqFDshare',
     'loanTotal', 'loanShareFC', 'loanShareXF', 'loanShareXA', 'loanShareXT', 'loanShareXO',
     'invShareFC', 'invShareXF', 'invShareXA', 'invShareXT', 'maintShare', 'gvaFC', 'dFC', 'vaFR0',
@@ -435,6 +478,28 @@ export const firms: ModuleDef = {
       explain: {
         what: 'Everything produced in Iceland in a year, at baseline prices (real GDP).',
         rule: 'Output = consumption + public services + investment + exports − imports, all at baseline prices. Output follows demand; pressure on capacity shows up in jobs, prices and the key rate.',
+      },
+    },
+    {
+      id: 'fishingFee',
+      target: 'fishingFee',
+      category: 'CONTRACT',
+      label: 'Fishing fee (veiðigjald)',
+      inputs: ['cpi'],
+      lagInputs: ['profitsXFSmoothed'],
+      params: ['fishFee', 'piXF0', 'tauF'],
+      terms: terms([
+        'rent',
+        'Fisheries’ profit above normal two years ago',
+        'export-sectors',
+        (c) => (c.p('fishFee') * (c.lag('profitsXFSmoothed', stepsIn(c, 2)) - c.p('piXF0')) * c.v('cpi')) / (1 - c.p('tauF')),
+      ]),
+      combine: (t) => Math.max(0, t.rent),
+      regime: (_c, _v, t) => (t.rent < 0 ? 'No fee: profit at or below normal' : null),
+      concepts: ['export-sectors'],
+      explain: {
+        what: 'What fisheries pay the state for the right to fish, on top of corporate tax (only the part that changes with their profit).',
+        rule: 'Fee = {fishFee%} of fisheries’ profit above normal two years earlier (their smoothed real profit before tax, less the baseline, at today’s prices), never below zero. The fishing fee law (nr. 145/2018) sets the fee at a third of the fleet’s profit from fishing, measured from its accounts two years before. The fee paid at baseline is part of the normal costs of fisheries and of government revenue, so only the change is shown here. It is paid before corporate tax.',
       },
     },
     {
@@ -563,6 +628,16 @@ export const firms: ModuleDef = {
       explain: { what: 'Firms pay out profit to households (including owners’ and self-employed income), pension funds and foreign owners. The smelters pay everything abroad.' },
     },
     {
+      id: 'fishingFee',
+      label: 'Fishing fee (veiðigjald)',
+      kind: 'cash',
+      account: 'current',
+      posting: { type: 'transfer' },
+      legs: [{ from: 'XF', to: 'G', amount: 'fishingFee' }],
+      concepts: ['export-sectors'],
+      explain: { what: 'Fisheries pay the state a third of their profit above normal two years after they earn it, for the right to fish.' },
+    },
+    {
       id: 'businessBorrowing',
       label: 'Business borrowing (net)',
       kind: 'cash',
@@ -631,14 +706,14 @@ export const firms: ModuleDef = {
             minI = Math.min(minI, e.value(`investment${j}`));
             minK = Math.min(minK, ke.stock('capital', j));
           }
-          if (e.influences('investmentXA').regime?.startsWith('No new investment')) stopped++;
+          if (e.influences('investmentPlanXA').regime?.startsWith('No new investment')) stopped++;
         }
         return { pass: minI >= 0 && minK >= 0 && stopped > 0, detail: `lowest investment ${minI.toFixed(4)}, lowest capital ${minK.toFixed(4)} (% of GDP); smelters invest nothing for ${stopped} months` };
       },
     },
     {
       id: 'loans-never-an-asset',
-      label: 'When tourism collapses, fisheries’ swelling cash repays their loans in full and then stays in their deposits: no firm’s loan becomes a claim on the bank',
+      label: 'When tourism collapses, fisheries’ swelling cash repays their loans in full, and what they do not need is then paid out to their owners: no firm’s loan becomes a claim on the bank',
       run: (e) => {
         const ke = e as unknown as { stock(i: string, p: string): number };
         e.setLever('tourism', -60);
@@ -649,7 +724,7 @@ export const firms: ModuleDef = {
           for (const j of FIRMS) minLoan = Math.min(minLoan, ke.stock('businessLoans', j));
           if (e.influences('borrowingXF').regime) repaid++;
         }
-        return { pass: minLoan >= -1e-9 && repaid > 0, detail: `lowest loan balance ${minLoan.toExponential(2)} (% of GDP); fisheries debt-free for ${repaid} months, deposits ${ke.stock('deposits', 'XF').toFixed(2)}` };
+        return { pass: minLoan >= -1e-9 && repaid > 0, detail: `lowest loan balance ${minLoan.toExponential(2)} (% of GDP); fisheries debt-free for ${repaid} months, deposits ${ke.stock('deposits', 'XF').toFixed(2)} (their usual share of GDP: ${(e.influences('dividendsXF').params.find((p) => p.id === 'depXF0')!.value * e.value('nominalGDP')).toFixed(2)})` };
       },
     },
     {

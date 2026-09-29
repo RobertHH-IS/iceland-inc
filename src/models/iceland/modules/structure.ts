@@ -109,7 +109,7 @@ export const structure: ModuleDef = {
       short: 'Fisheries',
       group: 'exporters',
       color: '#2A9D8F',
-      description: 'Fishing, aquaculture and fish processing: marine exports of about 7% of GDP. Owned in Iceland (the law limits foreign ownership). Catches are set by quotas, so revenue moves with world fish prices and the króna.',
+      description: 'Fishing, aquaculture and fish processing: marine exports of about 7% of GDP. Owned in Iceland (the law limits foreign ownership). Catches are mostly quota-bound, so revenue moves with world fish prices and the króna and volume only a little.',
       settlement: 'deposits',
       layout: { x: 0.86, y: 0.62 },
     },
