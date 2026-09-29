@@ -134,7 +134,7 @@ Every variable has a unit and a kind; variables with a `kind` other than `'exoge
       compute: (c) => -c.p('propensityFromIncome') * c.v('expectedInflation') * c.stock('deposits', 'HH') },
     { id: 'wealth', label: 'Spending out of savings', concept: 'stock-flow-consistency',
       compute: (c) => c.p('propensityFromWealth') * c.stock('deposits', 'HH') },
-    { id: 'realRate', label: 'Reward for saving', concept: 'taylor-rule',
+    { id: 'realRate', label: 'Reward for saving', concept: 'interest-rate-channel',
       compute: (c) => -c.p('savingIncentive') * 100 * (c.v('depositRate') - c.v('expectedInflation') - (c.p('neutralRate') - c.p('depositSpread'))) },
   ],
   concepts: ['consumption-function', 'paradox-of-thrift', 'multiplier'],
@@ -214,6 +214,7 @@ A POLICY setting never changes unless the user changes it. A rule that reacts to
   … }
 ```
 
+   If the rule adjusts gradually, let it step from the value actually in force, not from its own shadow: `adjust` always anchors on the variable's last value, which on Manual is a path the rule was never in charge of, so switching to Automatic would jump onto it. The Iceland model's key-rate rule keeps its target (`ruleTarget`) and the rate it was in charge of (`ruleAnchor`: its own rate on Automatic, the held key rate on Manual) as variables of their own, and steps from the anchor (decision 0007).
 3. **The suggestion,** a variable in the lever's own units, so it can be compared with the lever and "Apply" can set it: `keyRateSuggestion = 100 × ruleRate` (%). For a rule that adds to a lever (a tax shift), suggest the whole shift the rule would set, not the rule's addition on top of the user's setting: otherwise each "Apply" would ratchet.
 4. **The declaration,** in the module with the rules:
 
