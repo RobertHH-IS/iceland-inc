@@ -5,8 +5,9 @@
  * rules the term changes sum exactly to the change in the desired value; rules with a
  * `combine` are flagged nonAdditive and show values and the active regime instead.
  * This is a WITHIN-rule decomposition. System-wide questions ("how much is due to the credit
- * channel?") need counterfactual forks, never a waterfall. Baselines are those of the current
- * stabiliser mode, so switching mode with no shock shows no change.
+ * channel?") need counterfactual forks, never a waterfall. Baselines are those of the stabiliser
+ * mode the values on show were computed under (M.evalAutomatic), so a mode switch shows from the
+ * next step, and switching mode with no shock shows no change.
  *
  * ideasAtPlay: weights each concept by how much the terms tagged with it move their rule
  * (and, for rule- and flow-level tags, the change in the rule's desired value or in the flow's
