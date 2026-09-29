@@ -199,7 +199,7 @@ describe('engine client', () => {
     straight.dispose();
   });
 
-  test('a mode switch made back in time drops a later setting of the lever it hides (decision 0004)', () => {
+  test('a mode switch made back in time keeps a later setting of the lever it hides, reset at once (decisions 0001, 0004)', () => {
     const mode = c0.info.stabiliserMode!;
     const def = c0.info.leverById.get('keyRateFixed')!.default;
     const manual = (c: ReturnType<typeof fresh>) => {
@@ -226,7 +226,12 @@ describe('engine client', () => {
     expect(travelled.getFrame().t).toBe(60);
     expect(at(travelled, mode.lever)).toBe(mode.automatic);
     expect(at(travelled, 'keyRateFixed')).toBe(def);
-    expect(travelled.scenario().events).toEqual(straight.scenario().events);
+    // The user's month-50 setting stays in the script (decision 0001), followed by a reset in the
+    // same month, so the numbers are those of the straight run.
+    const set50 = { t: 50, lever: 'keyRateFixed', value: 5 };
+    const events = travelled.scenario().events;
+    expect(events.filter((e) => e.t === 50)).toEqual([set50, { t: 50, lever: 'keyRateFixed', value: def }]);
+    expect(events.filter((e) => e.t !== 50)).toEqual(straight.scenario().events);
     expect(travelled.value('keyRate')).toBe(straight.value('keyRate'));
     expect(travelled.value('output')).toBe(straight.value('output'));
     // Switching back to Manual does not bring 5 back from nowhere.
@@ -246,7 +251,11 @@ describe('engine client', () => {
     const f = c.getFrame();
     expect(f.error).toBeNull();
     expect(f.levers[h.index]).toBe(h.default);
-    expect(f.events).toEqual([]);
+    // The link's setting is kept, with a reset right after it.
+    expect(f.events).toEqual([
+      { t: 0, lever: hidden, value: h.default + 2 * (h.step ?? 0.25) },
+      { t: 0, lever: hidden, value: h.default },
+    ]);
     c.dispose();
   });
 
@@ -257,7 +266,11 @@ describe('engine client', () => {
     const f = c.getFrame();
     expect(f.error).toBeNull();
     expect(f.levers[c.info.leverById.get('keyRateFixed')!.index]).toBe(3);
-    expect(f.events).toContainEqual({ t: 5, lever: 'keyRateFixed', value: 3 });
+    // The reset goes right before the switch, as the panel records it, so the switch leads the month.
+    expect(f.events.filter((e) => e.t === 5)).toEqual([
+      { t: 5, lever: 'keyRateFixed', value: 3 },
+      { t: 5, lever: mode.lever, value: mode.automatic },
+    ]);
     c.dispose();
   });
 

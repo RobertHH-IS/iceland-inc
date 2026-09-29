@@ -190,20 +190,21 @@ export function resetsWhenSetting(levers: readonly ShowWhenLever[], values: read
  * panel keeps this: switching mode first resets the levers the new mode hides, and a hidden lever
  * cannot be set. After time travel, or in a hand-made link, a script can break it: a lever set
  * before a later switch that hides it, or a lever set while a mode hides it (a switch made
- * earlier, or the default mode). Walking the months in order and tracking lever values, at each
- * month that has events:
- *   - a setting that moves a lever off its default while the lever is hidden, both when it
- *     applies and at the end of the month, is dropped: a straight run could not have made it;
- *   - a lever then hidden and still off its default gets a reset to its default at that month,
- *     after the month's events, as the panel adds at a mode switch.
- * The result is what a straight run to the same months would have recorded. Lever values depend
- * only on the events, so the walk needs no simulation. One-offs and events for unknown levers
- * are kept as they are.
+ * earlier, or the default mode). The fix only adds events, never removes one (decision 0001: a
+ * change keeps the later events). Walking the months in order and tracking lever values, each
+ * lever hidden and off its default at the end of a month gets a reset to its default in that
+ * month:
+ *   - right before the month's last event on the lever that hides it (the mode switch), as the
+ *     panel records it, so the switch still leads the chart's mark for that month;
+ *   - or, when the lever was set after that switch or while already hidden, right after its
+ *     last setting of the month, so the setting stays in the script but takes no effect.
+ * The lever values that follow are those of a straight run to the same months. Lever values
+ * depend only on the events, so the walk needs no simulation. One-offs and events for unknown
+ * levers are kept as they are.
  */
 export function keepHiddenAtDefault(levers: readonly ShowWhenLever[], events: readonly ScenarioEvent[]): ScenarioEvent[] | null {
   const byId = new Map(levers.map((l) => [l.id, l]));
   const setting = (e: ScenarioEvent) => (e.fire ? undefined : byId.get(e.lever));
-  const off = (l: ShowWhenLever, v: number) => Math.abs(v - l.default) > 1e-12;
   const values: number[] = [];
   for (const l of levers) values[l.index] = l.default;
   const sorted = [...events].sort((a, b) => a.t - b.t);
@@ -215,30 +216,30 @@ export function keepHiddenAtDefault(levers: readonly ShowWhenLever[], events: re
     while (j < sorted.length && sorted[j].t === t) j++;
     const month = sorted.slice(i, j);
     i = j;
-    // First pass: which settings apply to a hidden lever, and the values at the end of the month.
-    const end = [...values];
-    const hiddenWhenSet = month.map((e) => {
+    for (const e of month) {
       const l = setting(e);
-      if (!l) return false;
-      const hidden = !isShown(l, end, byId);
-      end[l.index] = e.value;
-      return hidden;
-    });
-    month.forEach((e, k) => {
-      const l = setting(e);
-      if (l && hiddenWhenSet[k] && off(l, e.value) && !isShown(l, end, byId)) {
-        changed = true;
-        return;
-      }
-      out.push(e);
       if (l) values[l.index] = e.value;
-    });
-    for (const l of levers)
-      if (l.showWhen && !isShown(l, values, byId) && off(l, values[l.index])) {
-        out.push({ t, lever: l.id, value: l.default });
-        values[l.index] = l.default;
-        changed = true;
-      }
+    }
+    // Resets to put before (or after) the month's event at each position.
+    const before = new Map<number, ScenarioEvent[]>();
+    const after = new Map<number, ScenarioEvent[]>();
+    const add = (at: Map<number, ScenarioEvent[]>, k: number, e: ScenarioEvent) => at.set(k, [...(at.get(k) ?? []), e]);
+    for (const l of levers) {
+      if (!l.showWhen || isShown(l, values, byId) || Math.abs(values[l.index] - l.default) <= 1e-12) continue;
+      const reset = { t, lever: l.id, value: l.default };
+      let lastSet = -1;
+      let lastSwitch = -1;
+      month.forEach((e, k) => {
+        const m = setting(e);
+        if (m === l) lastSet = k;
+        else if (m && m.id === l.showWhen?.lever) lastSwitch = k;
+      });
+      if (lastSwitch > lastSet) add(before, lastSwitch, reset);
+      else add(after, lastSet >= 0 ? lastSet : month.length - 1, reset);
+      values[l.index] = l.default;
+      changed = true;
+    }
+    month.forEach((e, k) => out.push(...(before.get(k) ?? []), e, ...(after.get(k) ?? [])));
   }
   return changed ? out : null;
 }

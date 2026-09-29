@@ -16,8 +16,9 @@
  * A lever hidden by the stabiliser setting stays at its default (decision 0004). The panel adds
  * those resets when the user switches mode. After going back in time, a change can break the rule
  * later in the script (a lever set before a later switch that hides it, or a switch made before a
- * later setting of a lever it hides), and so can a loaded scenario; the client then rewrites the
- * script as a straight run would have recorded it (keepHiddenAtDefault).
+ * later setting of a lever it hides), and so can a loaded scenario; the client then adds the
+ * missing resets to the script (keepHiddenAtDefault). It never removes an event, so a change keeps
+ * the later ones (decision 0001), and the lever values are those of a straight run.
  */
 import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
 import type { BalanceSheet, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent, StabiliserState } from '../core/types.ts';
@@ -357,7 +358,7 @@ class MainThreadClient implements EngineClient {
     });
   }
 
-  /** Keep every hidden lever at its default through the script, replaying it to this month if it changes. */
+  /** Keep every hidden lever at its default through the script by adding resets, replaying it to this month if it changes. */
   private keepHiddenAtDefault(): void {
     const events = keepHiddenAtDefault(this.info.levers, this.engine.events);
     if (!events) return;
