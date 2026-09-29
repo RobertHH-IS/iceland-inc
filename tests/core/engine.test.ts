@@ -170,7 +170,7 @@ describe('influences: exact within each rule', () => {
     expect(inf.regime).toBeNull();
     expect(inf.category).toBe('POLICY');
     expect(inf.params.find((p) => p.id === 'taylorInflation')!.provenance.basis).toBe('assumed');
-    expect(inf.rule!.rule).toContain('1.5 × 12-month inflation'); // {taylorInflation} filled in
+    expect(inf.rule!.rule).toContain('1.5 × inflation above the 0% target'); // {taylorInflation} filled in
   });
 
   test('flows and indicators have influences too', () => {

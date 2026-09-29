@@ -23,6 +23,18 @@ const params: ParamDef[] = [
     provenance: { basis: 'assumed', note: 'The baseline is a steady state with zero inflation (roadmap v2 adds a growing baseline with 2.5% inflation, the Central Bank of Iceland’s target).' },
   },
   { id: 'taylorInflation', value: 1.5, unit: 'fraction', category: 'POLICY', description: 'Points of key rate per point of inflation above target. Above 1, real rates rise when inflation does.', provenance: assumed },
+  {
+    id: 'taylorLookThrough',
+    value: 0.5,
+    unit: 'fraction',
+    category: 'POLICY',
+    description:
+      'How far the central bank looks through a jump in prices: the share of the rule’s inflation term read from expected inflation rather than the last 12 months’ inflation. A one-off jump in costs lifts 12-month inflation for a year, but expected inflation much less.',
+    provenance: {
+      basis: 'assumed',
+      note: 'Teaching value for a rule that reacts partly to forecast inflation (Clarida, Galí & Gertler 2000) and looks through the first round of a one-off cost shock (Blanchard & Bernanke 2023). With it a 10% wage settlement costs about 4.7% of output at the trough, not 6.5% (review REF-realbalance-too-strong). It is kept at 0.5 so the rule still obeys the Taylor principle: with expectations anchored to the target with weight 0.6, the key rate rises 1.5 × (1 − 0.5 × 0.6) = 1.05 points per point of lasting inflation.',
+    },
+  },
   { id: 'taylorOutput', value: 1, unit: 'fraction', category: 'POLICY', description: 'Points of key rate per 1% of output above capacity (Taylor’s 1999 variant; his 1993 rule used 0.5).', provenance: assumed },
   { id: 'policySpeed', value: 1, unit: 'per year', category: 'POLICY', description: 'How fast the key rate moves toward what the rule says (central banks move in steps).', provenance: assumed },
   { id: 'bondSpread', value: 0.005, unit: 'fraction/yr', category: 'CONTRACT', description: 'How far the bond rate sits above the key rate.', provenance: assumed },
@@ -63,14 +75,19 @@ export const centralBank: ModuleDef = {
       target: 'ruleRate',
       category: 'POLICY',
       label: 'Taylor rule',
-      inputs: ['inflation12'],
+      inputs: ['inflation12', 'expectedInflation'],
       lagInputs: ['output'],
-      params: ['neutralRate', 'inflationTarget', 'taylorInflation', 'taylorOutput', 'potentialOutput'],
+      params: ['neutralRate', 'inflationTarget', 'taylorInflation', 'taylorLookThrough', 'taylorOutput', 'potentialOutput'],
       levers: ['stabilisers', 'keyRateAddon'],
       adjust: { speed: 'policySpeed' },
       terms: [
         { id: 'neutral', label: 'Neutral rate', compute: (c) => c.p('neutralRate') },
-        { id: 'inflation', label: 'Inflation above target', concept: 'taylor-rule', compute: (c) => c.p('taylorInflation') * (c.v('inflation12') - c.p('inflationTarget')) },
+        {
+          id: 'inflation',
+          label: 'Inflation above target',
+          concept: 'taylor-rule',
+          compute: (c) => c.p('taylorInflation') * ((1 - c.p('taylorLookThrough')) * c.v('inflation12') + c.p('taylorLookThrough') * c.v('expectedInflation') - c.p('inflationTarget')),
+        },
         { id: 'outputGap', label: 'Output above capacity', concept: 'taylor-rule', compute: (c) => c.p('taylorOutput') * (c.lag('output') / c.p('potentialOutput') - 1) },
         { id: 'addOn', label: 'Your offset (Automatic)', concept: 'policy-lags', compute: (c) => (automatic(c) ? c.lever('keyRateAddon') / 100 : 0) },
       ],
@@ -79,7 +96,7 @@ export const centralBank: ModuleDef = {
       concepts: ['taylor-rule', 'policy-lags'],
       explain: {
         what: 'The key rate the Taylor rule calls for. With stabilisers on Automatic it is the key rate; on Manual it is only a suggestion beside the key-rate lever.',
-        rule: 'Target = {neutralRate%} + {taylorInflation} × 12-month inflation above the {inflationTarget%} target + {taylorOutput} × last month’s output gap, plus your offset on Automatic, never below zero. The rate moves toward the target at speed {policySpeed} a year, in both modes. The other terms react as inflation and output respond, so they pull against your offset: the lower inflation and output it brings pull the target back down.',
+        rule: 'Target = {neutralRate%} + {taylorInflation} × inflation above the {inflationTarget%} target + {taylorOutput} × last month’s output gap, plus your offset on Automatic, never below zero. The inflation it reads is a blend: {taylorLookThrough} of it is expected inflation, the rest the last 12 months’ inflation, so the rule looks partly through a one-off jump in prices. The rate moves toward the target at speed {policySpeed} a year, in both modes. The other terms react as inflation and output respond, so they pull against your offset: the lower inflation and output it brings pull the target back down. At zero the rule can cut no further, and neither can deposit rates. A large lasting cut in demand can then hold the key rate at zero for years: government spending 3% of GDP lower keeps it there for about 15 years, with output still 4% down after ten, because only the debt rule’s slow tax cuts bring demand back (a liquidity trap).',
       },
     },
     {
@@ -228,7 +245,7 @@ export const centralBank: ModuleDef = {
       showWhen: { lever: 'stabilisers', equals: AUTOMATIC },
       description: 'Sets the key-rate target this many points above (or below) what the Taylor rule says. The rule then leans against it, so the key rate itself rises by much less.',
       definition:
-        'Level shift in the key-rate target, in percentage points, persistent while set (stabilisers on Automatic). The key rate moves toward the new target gradually, and output and inflation fall (or rise, if negative). As they do, the rule’s own inflation and output terms cancel part of the offset, so the key rate rises by only about half of it at its peak, after a little over a year. Held for years, the offset works partly like a lower inflation target: inflation settles lower, by about a quarter of the offset. Because expectations stay anchored to the target, output also stays below capacity, by about 0.6% per point of offset, and the rule’s own terms end up cancelling nearly all of the offset, so the key rate ends close to where it started. Setting it back to 0 returns policy to the rule. It has no effect on Manual.',
+        'Level shift in the key-rate target, in percentage points, persistent while set (stabilisers on Automatic). The key rate moves toward the new target gradually, and output and inflation fall (or rise, if negative). As they do, the rule’s own inflation and output terms cancel part of the offset, so the key rate rises by only about half of it at its peak, after a little over a year. Held for years, the offset works partly like a lower inflation target: inflation settles lower, by about a quarter of the offset. Because expectations stay anchored to the target, output also stays below capacity, by about 0.7% per point of offset, and the rule’s own terms end up cancelling nearly all of the offset, so the key rate ends close to where it started. Setting it back to 0 returns policy to the rule. It has no effect on Manual.',
       concepts: ['taylor-rule', 'policy-lags', 'anchored-expectations'],
     },
     {
@@ -267,10 +284,13 @@ export const centralBank: ModuleDef = {
   tests: [
     {
       id: 'taylor-principle',
-      label: 'The rule raises the key rate by more than one point per point of inflation',
+      label: 'The rule raises the key rate by more than one point per point of lasting inflation',
       run: (e) => {
-        const a = e.influences('ruleRate').params.find((p) => p.id === 'taylorInflation')!.value;
-        return { pass: a > 1, detail: `taylorInflation = ${a}` };
+        const p = (rule: string, id: string) => e.influences(rule).params.find((x) => x.id === id)!.value;
+        // Lasting inflation π moves expected inflation by (1 − anchor) × π, so the blend the rule
+        // reads moves by (1 − lookThrough × anchor) × π.
+        const a = p('ruleRate', 'taylorInflation') * (1 - p('ruleRate', 'taylorLookThrough') * p('expectedInflation', 'expectationsAnchor'));
+        return { pass: a > 1, detail: `key rate per point of lasting inflation = ${a.toFixed(3)}` };
       },
     },
     {

@@ -137,6 +137,18 @@ describe('the bank’s lending appetite (review REF-credit-appetite-mechanism)',
     expect(e.valueAt('appetiteLoans', 120)).toBeGreaterThan(10);
   });
 
+  test('output fades from its peak but stays about 1% higher for good: the extra loans leave extra household deposits', () => {
+    const [e, r] = pair(AUTOMATIC, [{ t: 0, lever: 'lendingAppetite', value: 2 }], 240);
+    const gap = (t: number) => 100 * (e.valueAt('output', t) / r.valueAt('output', t) - 1);
+    const peak = Math.max(...Array.from({ length: 36 }, (_, i) => gap(i + 1)));
+    const later = Array.from({ length: 61 }, (_, i) => gap(60 + i));
+    expect(Math.max(...later)).toBeLessThan(0.7 * peak);
+    expect(gap(240)).toBeGreaterThan(0.7);
+    expect(gap(240)).toBeLessThan(1.6);
+    const realDeposits = (x: KernelEngine) => x.stock('deposits', 'HH') / x.valueAt('price', 240);
+    expect(realDeposits(e) - realDeposits(r)).toBeGreaterThan(5);
+  });
+
   test('payback: when the appetite goes, firms repay the extra debt and invest less than they otherwise would', () => {
     const [e, r] = pair(AUTOMATIC, [{ t: 0, lever: 'lendingAppetite', value: 2 }, { t: 60, lever: 'lendingAppetite', value: 0 }], 120);
     const inv = (t: number) => e.valueAt('investmentReal', t) - r.valueAt('investmentReal', t);
@@ -159,10 +171,59 @@ describe('inflation and household saving (review REF-realbalance-too-strong)', (
     expect(Math.abs(term.value / (e.valueAt('expectedInflation', 12) * e.stock('deposits', 'HH')) + k)).toBeLessThan(0.01 * k);
   });
 
-  test('a 10% wage settlement on Automatic costs less than 7% of output at the trough (it cost 7.5%)', () => {
+  test('a 10% wage settlement on Automatic costs 3–5% of output at the trough (it cost 7.5%, then 6.5%)', () => {
     const [e, r] = pair(AUTOMATIC, [{ t: 0, lever: 'wageSettlement', value: 10, fire: true }], 60);
     const trough = Math.min(...Array.from({ length: 60 }, (_, i) => 100 * (e.valueAt('output', i + 1) / r.valueAt('output', i + 1) - 1)));
-    expect(trough).toBeLessThan(-2);
-    expect(trough).toBeGreaterThan(-7);
+    expect(trough).toBeLessThan(-3);
+    expect(trough).toBeGreaterThan(-5);
+    // real consumption falls further than real disposable income only by the inflation loss and the
+    // lower real value of deposits: well under twice as far (it was 1.69×)
+    const real = (x: KernelEngine, id: string, t: number) => x.valueAt(id, t) / x.valueAt('price', t);
+    const fall = (id: string) => Math.min(...Array.from({ length: 60 }, (_, i) => real(e, id, i + 1) / real(r, id, i + 1) - 1));
+    expect(fall('consumption') / fall('disposableIncome')).toBeLessThan(1.6);
+  });
+
+  test('the Taylor rule looks partly through the jump: it reads a blend of 12-month and expected inflation, and still obeys the Taylor principle', () => {
+    const [e, r] = pair(AUTOMATIC, [{ t: 0, lever: 'wageSettlement', value: 10, fire: true }], 12);
+    const inf = e.influences('ruleRate');
+    const p = (id: string) => inf.params.find((x) => x.id === id)!.value;
+    const w = p('taylorLookThrough');
+    expect(w).toBeGreaterThan(0);
+    const term = inf.terms.find((t) => t.id === 'inflation')!.value;
+    expect(term).toBeCloseTo(p('taylorInflation') * ((1 - w) * e.valueAt('inflation12', 12) + w * e.valueAt('expectedInflation', 12)), 12);
+    expect(term).toBeLessThan(0.75 * p('taylorInflation') * e.valueAt('inflation12', 12));
+    // the key rate rises by much less than 1.5 × the 8.5-point jump in 12-month inflation
+    expect(100 * (e.valueAt('keyRate', 12) - r.valueAt('keyRate', 12))).toBeLessThan(3);
+    // per point of lasting inflation the blend moves by 1 − w × anchor, so the key rate still rises by more than a point
+    const anchor = e.influences('expectedInflation').params.find((x) => x.id === 'expectationsAnchor')!.value;
+    expect(p('taylorInflation') * (1 - w * anchor)).toBeGreaterThan(1);
+  });
+});
+
+describe('the zero lower bound (review of the deposit-rate floor)', () => {
+  const zeroMonths = (e: KernelEngine) => Array.from({ length: 240 }, (_, i) => e.valueAt('keyRate', i + 1)).filter((k) => k < 0.001).length;
+  test('a lasting spending cut of 3% of GDP holds the key rate at zero for about 15 years, as the texts say, and output recovers only slowly', () => {
+    const [e, r] = pair(AUTOMATIC, [{ t: 0, lever: 'govSpending', value: -3 }], 240);
+    const n = zeroMonths(e);
+    expect(n).toBeGreaterThan(150);
+    expect(n).toBeLessThan(200);
+    const gap = (t: number) => 100 * (e.valueAt('output', t) / r.valueAt('output', t) - 1);
+    expect(gap(120)).toBeGreaterThan(-4.5);
+    expect(gap(120)).toBeLessThan(-3);
+    expect(gap(240)).toBeGreaterThan(gap(228)); // still recovering
+    expect(e.valueAt('depositRate', 120)).toBe(0);
+    expect(e.valueAt('taxRate', 240)).toBeLessThan(r.valueAt('taxRate', 240) - 0.03); // the debt rule's tax cuts bring demand back
+  });
+
+  test('a lasting 3-point tax rise reaches the zero lower bound for about four years; smaller steps do not', () => {
+    const [e] = pair(AUTOMATIC, [{ t: 0, lever: 'taxRate', value: 3 }], 240);
+    const n = zeroMonths(e);
+    expect(n).toBeGreaterThan(30);
+    expect(n).toBeLessThan(66);
+    for (const [lever, value] of [
+      ['taxRate', 2],
+      ['govSpending', -1],
+    ] as const)
+      expect(zeroMonths(pair(AUTOMATIC, [{ t: 0, lever, value }], 240)[0])).toBe(0);
   });
 });

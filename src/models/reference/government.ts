@@ -292,7 +292,7 @@ export const government: ModuleDef = {
       binds: { param: 'govSpendingReal', mode: 'add' },
       description: 'More (or less) government purchases, at baseline prices.',
       definition:
-        'Level shift in real government purchases, % of baseline GDP a year, persistent while set. Nominal spending also rises with the price level. Setting it back to 0 returns spending to its baseline level; the debt built up meanwhile remains.',
+        'Level shift in real government purchases, % of baseline GDP a year, persistent while set. Nominal spending also rises with the price level. A large lasting cut can push the key rate to zero on Automatic, where the Taylor rule and deposit rates can fall no further (a liquidity trap): at −3 the key rate stays at or just above zero for about 15 years, output is still about 4% lower after ten and 1.4% lower after twenty, and it recovers only as the debt rule cuts taxes. Setting it back to 0 returns spending to its baseline level; the debt built up meanwhile remains.',
       concepts: ['multiplier', 'deficits-and-money'],
     },
     {
@@ -309,7 +309,7 @@ export const government: ModuleDef = {
       binds: { param: 'taxShift', mode: 'add', scale: 0.01 },
       description: 'Raises (or cuts) the tax rate on household income by this many points: on top of the debt rule on Automatic, the whole change on Manual.',
       definition:
-        'Level shift in the income-tax rate, in percentage points, persistent while set. On Automatic the debt rule then gradually offsets it as debt moves away from target; on Manual nothing offsets it and the debt rule only suggests. Setting it back to 0 removes the shift; on Automatic the debt rule unwinds what it did.',
+        'Level shift in the income-tax rate, in percentage points, persistent while set. On Automatic the debt rule then gradually offsets it as debt moves away from target; on Manual nothing offsets it and the debt rule only suggests. A large rise can push the key rate to zero on Automatic: at +3 it stays at or just above zero for about four years, from the fourth year, and output is about 3% lower after five. Setting it back to 0 removes the shift; on Automatic the debt rule unwinds what it did.',
       concepts: ['multiplier', 'debt-feedback'],
     },
   ],

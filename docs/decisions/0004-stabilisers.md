@@ -106,10 +106,10 @@ The same pattern: a `stabilisers` module and setting, `keyRateFixed` (Manual) an
 
 | Shock | Manual, years 1–10 | Manual, years 11–20 | Manual, month 240 | Automatic, years 1–10 | Automatic, month 240 |
 |---|---:|---:|---:|---:|---:|
-| Spending +1% of GDP | 3.8 | 3.4 | 2.7 | 1.6 | 0.4 |
+| Spending +1% of GDP | 3.8 | 3.4 | 2.7 | 1.6 | 0.5 |
 | Tax +1 pp | 3.2 | 3.1 | −2.3 | 1.2 | −0.3 |
-| Wages +10% | 3.4 | 0.8 | −0.2 | 6.5 | 0.1 |
-| Lending +1% of GDP | 2.3 | 0.7 | −0.7 | 1.1 | 0.5 |
+| Wages +10% | 3.4 | 0.8 | −0.2 | 4.7 | 0.1 |
+| Lending +1% of GDP | 2.3 | 0.7 | −0.7 | 1.1 | 0.6 |
 | Key rate held at 4% | 1.5 | 1.6 | 1.6 | – | – |
 
 Everything stays finite and the books balance, but with the key rate held nothing else anchors prices: a lasting shock keeps moving output by 3–4% for twenty years and prices drift for good. Before decision 0007 it was worse: 1% of GDP of spending moved output by 10% for twenty years, and the cycle took some sixty years to die away. Its author added the two rules as its stabilisers, so it starts on Automatic; Manual is one click away and shows why they are there, and its lever texts say that effects beyond two or three years on Manual show an economy without its nominal anchor. The rule for authors is unchanged: automatic policy reactions exist only as declared stabilisers, and act only on Automatic.
