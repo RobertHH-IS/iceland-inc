@@ -11,7 +11,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, FIRM_NAME, gapRate, HH, pickParams, sumTerms, terms, type Age, lastMonth } from '../util.ts';
+import { AGE_LABEL, AGES, automatic, FIRM_NAME, gapRate, HH, pickParams, STABILISERS, sumTerms, terms, type Age, lastMonth } from '../util.ts';
 import { dividendsTo } from './firms.ts';
 import { bondsBanksCanSell, cashToSpend } from './banks.ts';
 
@@ -124,6 +124,9 @@ const hoFromBanks = (c: Ctx) => Math.max(0, bondsBanksCanSell(c) - Math.max(0, c
 /** Bonds they can still sell, after the government's buyback of theirs. */
 const hoBondsToSell = (c: Ctx) => Math.max(0, c.stock('govBonds', 'HO') / c.dt + Math.min(0, c.v('bondIssueHO')));
 
+/** The debt rule's change to the income-tax rate: on Automatic only (government.ts, taxRate). */
+const debtRuleRate = (c: Ctx) => (automatic(c) ? c.v('taxRuleAdjustment') : 0);
+
 const perGroup: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
   const [gross, tax, fam] = [`grossIncome${g}`, `incomeTax${g}`, `familyBenefits${g}`];
   const [mB, mPF] = g === 'O' ? ['', ''] : mortgageInterest(g);
@@ -133,14 +136,17 @@ const perGroup: RuleDef[] = AGES.flatMap((g): RuleDef[] => {
       id: `netLabourIncome${g}`,
       target: `netLabourIncome${g}`,
       category: 'IDENTITY',
-      inputs: [gross, tax, ...mortgageInterest(g), ...(g !== 'O' ? [fam] : [])],
+      inputs: [gross, tax, 'taxRuleAdjustment', ...mortgageInterest(g), ...(g !== 'O' ? [fam] : [])],
       params: ['tau0', ...(g !== 'O' ? ['famTaxableShare'] : [])],
+      levers: [STABILISERS],
       // Tax is split as in the income-tax rule: at the baseline rate it moves with income by itself
-      // (an automatic stabiliser); the rest is a change in the rate (review TAX-4).
+      // (an automatic stabiliser); the rest is your change to the rate and, on Automatic, the debt
+      // rule's (review TAX-4).
       terms: terms(
         ['gross', 'Gross taxable income', undefined, (c) => c.v(gross)],
         ['tax', 'Income tax at the baseline rate', 'automatic-stabilisers', (c) => -c.p('tau0') * c.v(gross)],
-        ['taxChange', 'Income tax: change in the rate', 'multiplier', (c) => -(c.v(tax) - c.p('tau0') * c.v(gross))],
+        ['taxChange', 'Income tax: your change to the rate', 'multiplier', (c) => -(c.v(tax) - (c.p('tau0') + debtRuleRate(c)) * c.v(gross))],
+        ['debtRule', 'Income tax: the debt rule’s change to the rate (Automatic)', 'fiscal-rule', (c) => -debtRuleRate(c) * c.v(gross)],
         ...(g !== 'O' ? ([['familyTaxFree', 'Tax-free child and housing benefits', 'consumption-function', (c: Ctx) => (1 - c.p('famTaxableShare')) * c.v(fam)]] as [string, string, string, (c: Ctx) => number][]) : []),
         ...(g !== 'O' ? ([['mortgage', 'Mortgage interest paid in cash', 'interest-distribution', (c: Ctx) => -(c.v(mB) + c.v(mPF))]] as [string, string, string, (c: Ctx) => number][]) : []),
       ),

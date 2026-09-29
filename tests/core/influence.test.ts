@@ -188,6 +188,37 @@ describe('weights', () => {
     // Unemployment benefits are the stabiliser.
     expect(concepts(at('unemploymentBenefits', 10))[0]).toBe('automatic-stabilisers');
   });
+
+  test('reference: a tax-lever change is the multiplier, not an automatic stabiliser; the split adds up exactly (review TAX-4)', () => {
+    for (const mode of [MANUAL, AUTOMATIC]) {
+      const e = ref();
+      e.setLever('stabilisers', mode);
+      e.setLever('taxRate', 2);
+      e.step(1);
+      expect(weightOf(e, 'multiplier')).toBeGreaterThan(weightOf(e, 'automatic-stabilisers'));
+      const taxes = e.influences('taxes');
+      const term = (id: string) => taxes.terms.find((t) => t.id === id)!.change;
+      expect(Math.abs(term('taxShift'))).toBeGreaterThan(10 * Math.abs(term('normalRate')));
+      expect(term('normalRate') + term('debtRule') + term('taxShift')).toBeCloseTo(e.value('taxes') - e.baseline('taxes'), 12);
+    }
+  });
+
+  test('Iceland: the debt rule’s tax change is the fiscal rule in households’ income too, not your change (review TAX-4)', () => {
+    const e = ice();
+    e.setLever('stabilisers', AUTOMATIC);
+    e.setLever('otherServices', 2);
+    e.step(36);
+    const term = (rule: string, id: string) => e.influences(rule).terms.find((t) => t.id === id)!.change;
+    const gross = e.value('grossIncomeW');
+    expect(Math.abs(term('incomeTaxW', 'debtRule'))).toBeGreaterThan(1e-3); // the rule is acting
+    expect(term('netLabourIncomeW', 'debtRule')).toBeCloseTo(-e.value('taxRuleAdjustment') * gross, 12);
+    expect(term('netLabourIncomeW', 'debtRule')).toBeCloseTo(-term('incomeTaxW', 'debtRule'), 12);
+    // no change of yours: the rate-change term is zero, as in the income-tax rule
+    expect(term('netLabourIncomeW', 'taxChange')).toBeCloseTo(0, 12);
+    expect(term('incomeTaxW', 'rateChange')).toBeCloseTo(0, 12);
+    const net = ['gross', 'tax', 'taxChange', 'debtRule', 'familyTaxFree', 'mortgage'].reduce((s, id) => s + term('netLabourIncomeW', id), 0);
+    expect(net).toBeCloseTo(e.value('netLabourIncomeW') - e.baseline('netLabourIncomeW'), 10);
+  });
 });
 
 describe('what is at play on Manual and Automatic', () => {
