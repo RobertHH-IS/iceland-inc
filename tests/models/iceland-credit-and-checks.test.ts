@@ -238,34 +238,54 @@ describe('Iceland calibration: each check runs the experiment its source describ
     for (const c of calibration) if (/known gap/.test(c.label)) expect(KNOWN_GAPS[c.id]).toBeDefined();
   });
 
-  test('known gap: the rate checks’ takeover. The key rate drops about 1.5 pp when the rule takes over, and the inflation check passes only because of it', () => {
+  test('the rule takes over from the rate held: the key rate moves one smoothed step in month 13, not to the path the rule followed while it was not in charge (lever review MON-2)', () => {
     const r = run('rate-inflation-trough');
-    // if this fails, the rule's takeover is smooth (central-bank.ts): re-run the rate checks, handle any
-    // that fail as known gaps, and drop the notes that blame the drop
-    const rate = r.series('keyRate'); // pp vs baseline
-    expect(rate[12] - rate[13]).toBeGreaterThan(1);
-    expect(rate[13]).toBeLessThan(0);
+    const lamPol = model.params.find((q) => q.id === 'lamPol')!.value;
+    const k = 1 - Math.exp(-lamPol / 12);
+    // month 13: last month's held rate + k × (where the rule was heading − held rate)
+    const held = r.value('keyRate', 12);
+    expect(r.value('keyRate', 13)).toBeCloseTo(held + k * (r.value('ruleTarget', 13) - held), 12);
+    expect(Math.abs(r.value('keyRate', 13) - held)).toBeLessThan(0.0025 + 1e-9); // about 0.2 pp, not 1.5
+    // and it keeps easing gradually: no month moves the key rate by more than k of the gap
+    for (let m = 13; m <= 24; m++) expect(Math.abs(r.value('keyRate', m) - r.value('keyRate', m - 1))).toBeLessThanOrEqual(k * Math.abs(r.value('ruleTarget', m) - r.value('keyRate', m - 1)) + 1e-12);
+    // the rate checks are inside their bands without a drop: the output trough falls in QMM's quarter 5
+    expect(check('rate-output-timing').measure(r)).toBe(5);
+    const v = check('rate-inflation-trough').measure(r);
+    expect(v).toBeGreaterThanOrEqual(check('rate-inflation-trough').range[0]);
+    expect(KNOWN_GAPS['rate-output-timing']).toBeUndefined();
+    expect(check('rate-inflation-trough').source).not.toMatch(/drops about 1\.5 pp in month 13/);
+    // but both troughs are about 40% deeper than QMM's cited figures, and say so (known gaps)
+    expect(KNOWN_GAPS['rate-inflation-trough']!.cited).toEqual([-0.24, -0.24]);
+    expect(KNOWN_GAPS['rate-output-trough']!.cited).toEqual([-0.41, -0.41]);
+    expect(v / -0.24).toBeGreaterThan(1.2);
+    expect(check('rate-output-trough').measure(r) / -0.41).toBeGreaterThan(1.2);
+  });
 
-    // the same hold, but the held rate then closes a quarter of its gap to the rule's suggestion each month
+  test('the rate troughs’ known gaps: the extra depth over QMM comes through the króna and housing, not slack (KNOWN_GAPS)', () => {
+    const trough = (disableTerms: string[]) => {
+      const r = runScenario(fresh().fork({ disableTerms }), check('rate-inflation-trough').scenario, 72);
+      return [check('rate-inflation-trough').measure(r), check('rate-output-trough').measure(r)];
+    };
+    const [pi, y] = trough([]);
+    // the króna's response to the rate held at baseline: both troughs near QMM's −0.24 pp and −0.41%
+    const [piK, yK] = trough(['logExchangeRate.carry', 'logExchangeRate.portfolio']);
+    expect(Math.abs(piK + 0.24)).toBeLessThan(0.03);
+    expect(Math.abs(yK + 0.41)).toBeLessThan(0.05);
+    // housing costs in the CPI carry a large share of the inflation trough; capacity pressure little
+    expect(trough(['cpi.housing'])[0] - pi).toBeGreaterThan(0.1);
+    expect(Math.abs(trough(['domesticPrice.capacity'])[0] - pi)).toBeLessThan(0.05);
+    expect(y).toBeLessThan(yK);
+  });
+
+  test('switching to Automatic after a long hold far from the rule is gradual too: 6% for two years, then the rule', () => {
     const e = fresh();
-    const held = model.levers.find((l) => l.id === 'keyRateFixed')!.default;
-    let lever = held + 1;
-    e.setLever('keyRateFixed', lever);
-    const output = [0];
-    const inflation = [0];
-    for (let m = 1; m <= 48; m++) {
-      if (m > 12) e.setLever('keyRateFixed', (lever += 0.25 * (e.value('keyRateSuggestion') - lever)));
-      e.step(1);
-      output.push(e.indicator('output'));
-      inflation.push(e.indicator('inflation'));
-    }
-    const low = (a: number[]) => a.indexOf(Math.min(...a.slice(1)));
-    expect(inflation[low(inflation)]).toBeLessThan(check('rate-inflation-trough').range[0]); // outside the band
-    // output turns as the hold ends: with a gradual takeover the trough is month 12 or 13 and
-    // the two differ by a few thousandths of a percent, so the quarter is set by the hold
-    expect([12, 13]).toContain(low(output));
-    expect(Math.abs(output[13] - output[12])).toBeLessThan(0.01);
-    expect(check('rate-output-timing').measure(r)).toBe(4);
+    e.setLever('keyRateFixed', 6);
+    e.step(24);
+    e.setLever('stabilisers', 1);
+    e.step(1);
+    // v1's shadow path took it from 6% to about 0.2% in one month
+    expect(e.value('keyRate')).toBeGreaterThan(0.05);
+    expect(e.value('keyRate')).toBeLessThan(0.06);
   });
 
   test('a króna held about 10% weaker passes through to the CPI as CBI WP85 gives within a year, and the pass-through check agrees with it (review E6)', () => {

@@ -52,11 +52,11 @@ export const centralBank: ModuleDef = {
         { id: 'neutral', label: 'Neutral rate', compute: (c) => c.p('neutralRate') },
         { id: 'inflation', label: 'Inflation above target', concept: 'taylor-rule', compute: (c) => c.p('taylorInflation') * c.v('inflation12') },
         { id: 'outputGap', label: 'Output above capacity', concept: 'taylor-rule', compute: (c) => c.p('taylorOutput') * (c.lag('output') / c.p('potentialOutput') - 1) },
-        { id: 'addOn', label: 'Your offset (Automatic)', concept: 'policy-lags', compute: (c) => (automatic(c) ? c.lever('keyRateAddon') / 100 : 0) },
+        { id: 'addOn', label: 'Your offset (Automatic)', concept: 'taylor-rule', compute: (c) => (automatic(c) ? c.lever('keyRateAddon') / 100 : 0) },
       ],
       combine: (t) => Math.max(0, t.neutral + t.inflation + t.outputGap + t.addOn),
       regime: (_c, _v, t) => (t.neutral + t.inflation + t.outputGap + t.addOn < 0 ? 'Zero lower bound binds' : null),
-      concepts: ['taylor-rule', 'policy-lags'],
+      concepts: ['taylor-rule', 'gradual-adjustment'],
       explain: {
         what: 'The key rate the Taylor rule calls for. With stabilisers on Automatic it is the key rate; on Manual it is only a suggestion beside the key-rate lever.',
         rule: 'Target = {neutralRate%} + {taylorInflation} × 12-month inflation + {taylorOutput} × last month’s output gap, plus your offset on Automatic, never below zero. The rate moves toward the target at speed {policySpeed} a year, in both modes.',
@@ -86,7 +86,7 @@ export const centralBank: ModuleDef = {
         { id: 'set', label: 'The rate you set (Manual)', compute: (c) => (automatic(c) ? 0 : c.lever('keyRateFixed') / 100) },
       ],
       regime: (c) => (automatic(c) ? null : 'Held where you set it'),
-      concepts: ['taylor-rule'],
+      concepts: ['interest-rate-channel'],
       explain: {
         what: 'The interest rate the central bank sets. Every other rate in the economy follows it.',
         rule: 'Who sets it depends on the Stabilisers setting. Automatic (the default here): the Taylor rule does, and your offset shifts the rule’s target. Manual: you do; the key rate is the level of the “Key interest rate” lever and stays there until you change it.',
@@ -99,7 +99,7 @@ export const centralBank: ModuleDef = {
       inputs: ['keyRate'],
       params: ['bondSpread'],
       terms: [
-        { id: 'keyRate', label: 'Key rate', concept: 'taylor-rule', compute: (c) => c.v('keyRate') },
+        { id: 'keyRate', label: 'Key rate', concept: 'interest-rate-channel', compute: (c) => c.v('keyRate') },
         { id: 'spread', label: 'Term premium', compute: (c) => c.p('bondSpread') },
       ],
       explain: { what: 'Interest the government pays on its bonds (a floating rate).', rule: 'Bond rate = key rate + {bondSpread pp}.' },

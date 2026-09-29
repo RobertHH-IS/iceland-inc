@@ -96,7 +96,7 @@ const foreignHeld = (c: Ctx) => pos(c.stock('foreignAssets', 'PF') + c.v('revalu
 /** What non-residents can pay for foreign assets the funds sell them this month (a yearly rate):
  *  the share 1 − e^(−liquiditySpeed × dt) of their króna deposits and bonds, after this month's
  *  current account. They raise it by selling bonds to banks (external.ts, bondPurchasesW). */
-const kronurAbroad = (c: Ctx) => gapRate(c.p('liquiditySpeed'), c.dt) * pos(c.stock('deposits', 'W') + c.stock('govBonds', 'W') - c.dt * c.v('currentAccount'));
+const kronurAbroad = (c: Ctx) => gapRate(c.p('liquiditySpeed'), c.dt) * pos(c.stock('deposits', 'W') + c.stock('govBonds', 'W') - c.dt * (c.v('currentAccount') - c.v('reserveIncomeKept')));
 /** Bank-bond purchases toward their usual share, and the lever's shift of that share. */
 const bankBondTarget = (c: Ctx) => gapRate(c.p('lamReb'), c.dt) * (c.p('bbSh0') * c.v('pensionFundAssets') - c.stock('bankBonds', 'PF'));
 const bankBondShift = (c: Ctx) => gapRate(c.p('lamReb'), c.dt) * c.p('bbSh0') * domesticShift(c) * c.v('pensionFundAssets');
@@ -265,7 +265,7 @@ const rules: RuleDef[] = [
     target: 'foreignAssetPurchases',
     category: 'BEHAVIOUR',
     label: 'Foreign allocation',
-    inputs: [...CASH_INPUTS, 'revaluationForeignAssets', 'bondIssuePF', 'currentAccount'],
+    inputs: [...CASH_INPUTS, 'revaluationForeignAssets', 'bondIssuePF', 'currentAccount', 'reserveIncomeKept'],
     params: ['lamFA', ...CASH_PARAMS],
     stocks: [['foreignAssets', 'PF'], ['deposits', 'W'], ['govBonds', 'W'], ...CASH_STOCKS],
     terms: terms(

@@ -45,10 +45,10 @@ Two stabilisers:
 
 | Stabiliser | Lever | Offset | Suggestion | Threshold |
 |---|---|---|---|---|
-| `keyRateRule`, "Central bank's inflation rule" (central-bank.ts) | `keyRateFixed` | `keyRateAddon` | `keyRateSuggestion` = max(0, 100 × `ruleRate`), % | 0.125 pp |
+| `keyRateRule`, "Central bank's inflation rule" (central-bank.ts) | `keyRateFixed` | `keyRateAddon` | `keyRateSuggestion` = max(0, 100 × `ruleTarget`), % (where the rule is heading; decision 0007) | 0.125 pp |
 | `debtRule`, "Debt rule on income tax" (government.ts) | `incomeTax` | `incomeTaxOffset` | `taxRuleSuggestion` = 100 × `taxRuleAdjustment`, pp | 0.25 pp |
 
-Both suggestions are computed every month in both modes: `ruleRate` and `taxRuleAdjustment` keep their smoothing on Manual as shadows of what the rules would do, and are only left out of the key rate and the tax rate. The key rate's regime reads "Held where you set it" on Manual, and its explanation says who sets it in each mode; the debt rule's reads "Suggestion only (Manual)".
+Both suggestions are computed every month in both modes: `ruleRate` and `taxRuleAdjustment` keep their smoothing on Manual as shadows of what the rules would do, and are only left out of the key rate and the tax rate. Since decision 0007 the key-rate rule smooths from the rate actually in force: its own rate on Automatic and the held key rate on Manual (`ruleAnchor`), so switching to Automatic moves the key rate one smoothed step from the rate the user held, not onto a shadow path the rule was never in charge of. Its suggestion is where the rule is heading (`ruleTarget`), unsmoothed, so the lever calls as soon as the rule would lean one way; a one-step suggestion would call only when the gap exceeded 0.125 pp ÷ 11%, over a point. The key rate's regime reads "Held where you set it" on Manual, and its explanation says who sets it in each mode; the debt rule's reads "Suggestion only (Manual)".
 
 **Two choices that differ from the brief.**
 
@@ -134,4 +134,5 @@ Everything stays finite and the books balance, but a teaching model in which 1% 
 
 - On Manual the debt rule reads a hand-set tax change as a departure from the rule (its suggestion is the rule's whole shift), so raising income tax turns that lever red at once. That is consistent with the key rate, but a user who wants a discretionary tax change and the rule's lean on top of it needs Automatic.
 - Switching to Manual resets the key rate to its default rather than holding the rate the rule had reached; to carry the rule's rate over, press "Apply" after switching.
+- The debt rule still smooths from its own shadow path (`taxRuleAdjustment` adjusts on its own lag), so switching to Automatic after a hand-set income-tax change moves the tax rate at once to the rule's shift; the key-rate rule no longer does (decision 0007).
 - The reference economy starts on Automatic, unlike Iceland, for the reasons above.

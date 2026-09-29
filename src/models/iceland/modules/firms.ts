@@ -100,7 +100,7 @@ function investmentRule(j: Firm): RuleDef {
     terms: terms(
       ['normal', 'Normal investment', undefined, (c) => c.p(i0)],
       ['profits', 'Recent profits', 'investment-accelerator', (c) => c.p(i0) * c.p('betaPi') * (lastMonth(c, `profits${j}Smoothed`) / c.p(pi0) - 1)],
-      ['realRate', 'Cost of borrowing', 'policy-lags', (c) => -c.p(i0) * c.p('betaRI') * (c.v('loanRate') - lastMonth(c, 'expectedInflation') - c.p('rl0'))],
+      ['realRate', 'Cost of borrowing', 'interest-rate-channel', (c) => -c.p(i0) * c.p('betaRI') * (c.v('loanRate') - lastMonth(c, 'expectedInflation') - c.p('rl0'))],
       ...(accel ? ([['capacity', 'Busy capacity', 'investment-accelerator', (c: Ctx) => c.p(i0) * c.p('betaU') * (lastMonth(c, 'output') / c.p('potentialOutput') - 1)]] as T[]) : []),
     ),
     // Gross investment cannot be negative: a firm can stop buying machines but cannot sell them
@@ -201,15 +201,15 @@ function valueAddedRule(j: Firm): RuleDef {
       id: 'valueAddedFC',
       target: 'valueAddedFC',
       category: 'IDENTITY',
-      inputs: ['salesFC', 'importsEquipment', 'importsInputsFC', 'importPrice', 'constructionInputs', 'domesticPrice'],
+      inputs: ['salesFC', 'importsEquipment', 'importsInputsFC', 'borderImportPrice', 'constructionInputs', 'domesticPrice'],
       terms: terms(
         ['sales', 'Builders’ real sales', 'investment-accelerator', (c) => c.v('salesFC')],
-        ['imports', 'Imported equipment and inputs', 'import-leakage', (c) => -(c.v('importsEquipment') + c.v('importsInputsFC')) / c.v('importPrice')],
+        ['imports', 'Imported equipment and inputs', 'import-leakage', (c) => -(c.v('importsEquipment') + c.v('importsInputsFC')) / c.v('borderImportPrice')],
         ['inputs', 'Materials and services from retail and service firms', undefined, (c) => -c.v('constructionInputs') / c.v('domesticPrice')],
       ),
       explain: {
         what: 'What builders add to output, at baseline prices.',
-        rule: 'Value added = real sales − imported equipment and inputs (÷ import prices) − materials and services bought from retail and service firms (÷ domestic prices). A stronger króna makes builders use more imports per unit of sales, which cuts their own value added, not that of retail and services.',
+        rule: 'Value added = real sales − imported equipment and inputs (÷ border import prices, what they are paid at) − materials and services bought from retail and service firms (÷ domestic prices). A stronger króna makes builders use more imports per unit of sales, which cuts their own value added, not that of retail and services.',
       },
     };
   if (j === 'FR')
