@@ -47,7 +47,7 @@ Number of runs with each flag (comparisons between runs count once per pair; an 
 | [Foreign demand](#foreign-demand-foreigndemand) (`foreignDemand`) | 8 |  |  |  |  |  |  | 8 |  | 8 | 8 |  | 4 |  |  | 4 |
 | [Tourism](#tourism-tourism) (`tourism`) | 8 |  |  |  |  | 4 |  | 8 |  | 8 | 8 |  | 4 |  |  | 8 |
 | [Króna sentiment shock](#króna-sentiment-shock-kronashock) (`kronaShock`) | 12 |  |  |  |  | 2 |  |  |  | 12 |  |  | 6 |  |  | 4 |
-| [Foreign interest rate](#foreign-interest-rate-foreignrate) (`foreignRate`) | 8 |  |  |  |  | 1 |  |  |  | 8 | 8 |  | 1 |  |  | 2 |
+| [Foreign interest rate](#foreign-interest-rate-foreignrate) (`foreignRate`) | 8 |  |  |  |  | 1 |  |  |  | 8 | 8 |  |  |  |  | 2 |
 | [World prices](#world-prices-importprices) (`importPrices`) | 8 |  |  |  |  | 2 |  |  |  | 8 |  |  | 4 |  |  | 5 |
 | [World fish prices](#world-fish-prices-fishprices) (`fishPrices`) | 8 |  |  |  |  | 4 |  |  |  | 8 | 8 |  |  |  |  | 8 |
 | [World aluminium price](#world-aluminium-price-aluminiumprice) (`aluminiumPrice`) | 8 |  |  |  |  |  |  | 4 |  | 8 | 8 |  |  |  |  | 2 |
@@ -64,7 +64,7 @@ Number of runs with each flag (comparisons between runs count once per pair; an 
 | [Family and housing benefits](#family-and-housing-benefits-familybenefits) (`familyBenefits`) | 8 |  |  |  |  |  |  |  |  | 8 | 4 |  | 4 |  |  |  |
 | [Unemployment-benefit rate](#unemployment-benefit-rate-unemploymentbenefits) (`unemploymentBenefits`) | 8 |  |  |  |  |  |  |  |  | 8 | 4 |  | 4 |  |  |  |
 | [Who buys new government bonds](#who-buys-new-government-bonds-bondbuyers) (`bondBuyers`) | 8 + 8 |  |  |  |  |  |  |  |  | 2 |  |  |  |  | 1 | 7 |
-| [Pension funds’ foreign allocation](#pension-funds-foreign-allocation-pfforeign) (`pfForeign`) | 8 |  |  |  |  | 3 |  |  |  | 8 |  |  | 4 |  |  | 7 |
+| [Pension funds’ foreign allocation](#pension-funds-foreign-allocation-pfforeign) (`pfForeign`) | 8 |  |  |  |  | 4 |  |  |  | 8 |  |  | 4 |  |  | 7 |
 
 The stabiliser setting (`stabilisers`) is not run as a lever: its values are the modes every other lever runs in.
 
@@ -2329,283 +2329,280 @@ Interest rates abroad; a higher rate pulls carry money and pension savings out o
 
 Runs: -3 pp (min); -0.75 pp (down); 1.25 pp (up); 5 pp (max). Each is set before month 1 and held.
 
-Comparisons between runs:
-
-- **Mode sign**: 5 pp (max): Real house prices 0.03 on Manual, -0.48 on Automatic.
-
 ### -3 pp (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.02 | -0.08 | -0.21 | -0.44 | -0.57 | -0.30 | 0.39 | 0.86 | 0.96 | 0.96 | 240 | 0.96 |
-| Inflation (12-month CPI) (pp) | -0.03 | -0.11 | -0.28 | -0.66 | -0.65 | -0.23 | 0.53 | 1.22 | 1.60 | 1.60 | 240 | 1.59 |
-| Consumer price level (%) | -0.03 | -0.11 | -0.28 | -0.66 | -1.30 | -1.53 | -0.82 | 4.31 | 20.6 | 20.6 | 240 | 19.8 |
-| Unemployment rate (pp) | 0 | 0.01 | 0.05 | 0.16 | 0.30 | 0.20 | -0.18 | -0.49 | -0.59 | -0.59 | 240 | -0.58 |
-| Króna value (% (+ stronger)) | 1.05 | 2.15 | 2.97 | 3.65 | 3.00 | 1.29 | -1.90 | -8.24 | -21.7 | -21.7 | 240 | -21.1 |
-| Real wages (%) | 0.03 | 0.11 | 0.24 | 0.44 | 0.41 | 0 | -0.57 | -0.34 | -0.14 | -0.60 | 69 | -0.14 |
-| Household consumption (real) (%) | 0.03 | 0.14 | 0.33 | 0.66 | 0.84 | 0.41 | -0.91 | -2.26 | -3.41 | -3.41 | 240 | -3.37 |
-| Investment (real) (%) | 0 | -0.02 | -0.10 | -0.33 | -0.63 | -0.52 | 0.27 | 1.26 | 1.78 | 1.78 | 240 | 1.76 |
-| Exports (real) (%) | -0.05 | -0.23 | -0.55 | -1.12 | -1.40 | -0.69 | 1.22 | 2.77 | 3.61 | 3.61 | 240 | 3.58 |
-| Imports (real) (%) | 0.03 | 0.14 | 0.32 | 0.63 | 0.75 | 0.31 | -0.75 | -1.58 | -2.15 | -2.15 | 240 | -2.13 |
-| Current account (pp of GDP) | -1.27 | -1.29 | -1.28 | -1.31 | -1.50 | -1.52 | -1.15 | -0.66 | -0.42 | -1.54 | 31 | -0.43 |
-| Real house prices (%) | 0 | 0.01 | 0.02 | -0.02 | -0.15 | -0.27 | -0.35 | -0.08 | -0.32 | -0.35 | 54 | -0.31 |
-| Mortgage debt / GDP (pp of GDP) | 0 | -0.02 | -0.06 | -0.12 | -0.05 | 0.20 | 0.27 | -0.38 | -0.73 | -0.73 | 240 | -0.73 |
-| Broad money (bank deposits) (%) | 0.06 | 0.19 | 0.27 | 0.10 | -0.81 | -1.53 | -1.40 | 3.58 | 19.4 | 19.4 | 240 | 18.6 |
-| Government balance (pp of GDP) | -0.49 | -0.45 | -0.46 | -0.49 | -0.60 | -0.70 | -0.83 | -1.10 | -1.55 | -1.55 | 240 | -1.53 |
-| Government debt / GDP (pp of GDP) | 0.05 | 0.14 | 0.28 | 0.63 | 1.56 | 2.61 | 3.99 | 5.64 | 9.71 | 9.71 | 240 | 9.48 |
-| Bank capital ratio (pp) | 0 | -0.01 | -0.06 | -0.09 | 0 | 0.08 | 0.09 | -0.07 | -0.14 | -0.14 | 240 | -0.14 |
-| Disposable income, all households (real) (%) | 0.04 | 0.14 | 0.23 | 0.32 | 0.13 | -0.20 | -0.56 | -0.95 | -1.76 | -1.76 | 240 | -1.74 |
-| Profits, domestic firms (real) (%) | 0.11 | 0.42 | 0.81 | 1.12 | 0.51 | -0.36 | -1.05 | -1.27 | -1.79 | -1.79 | 240 | -1.77 |
-| Profits, exporters (real) (%) | -2.37 | -4.46 | -5.65 | -6.16 | -3.97 | -0.11 | 5.81 | 10.6 | 16.6 | 16.6 | 240 | 16.3 |
+| Output (real GDP) (%) | -0.02 | -0.08 | -0.20 | -0.42 | -0.54 | -0.26 | 0.43 | 0.89 | 0.98 | 0.98 | 240 | 0.97 |
+| Inflation (12-month CPI) (pp) | -0.03 | -0.11 | -0.28 | -0.64 | -0.62 | -0.21 | 0.55 | 1.23 | 1.61 | 1.61 | 240 | 1.60 |
+| Consumer price level (%) | -0.03 | -0.11 | -0.28 | -0.64 | -1.26 | -1.47 | -0.70 | 4.51 | 21.0 | 21.0 | 240 | 20.1 |
+| Unemployment rate (pp) | 0 | 0.01 | 0.05 | 0.16 | 0.29 | 0.19 | -0.20 | -0.50 | -0.59 | -0.59 | 240 | -0.59 |
+| Króna value (% (+ stronger)) | 1.05 | 2.15 | 2.97 | 3.64 | 2.97 | 1.23 | -2.00 | -8.41 | -22.0 | -22.0 | 240 | -21.4 |
+| Real wages (%) | 0.03 | 0.11 | 0.24 | 0.43 | 0.39 | -0.02 | -0.59 | -0.36 | -0.15 | -0.62 | 69 | -0.15 |
+| Household consumption (real) (%) | 0.04 | 0.16 | 0.36 | 0.71 | 0.92 | 0.50 | -0.82 | -2.20 | -3.38 | -3.38 | 240 | -3.34 |
+| Investment (real) (%) | 0 | -0.02 | -0.09 | -0.32 | -0.61 | -0.48 | 0.31 | 1.28 | 1.80 | 1.80 | 240 | 1.78 |
+| Exports (real) (%) | -0.05 | -0.23 | -0.55 | -1.12 | -1.40 | -0.68 | 1.23 | 2.77 | 3.62 | 3.62 | 240 | 3.59 |
+| Imports (real) (%) | 0.04 | 0.15 | 0.33 | 0.65 | 0.78 | 0.35 | -0.71 | -1.55 | -2.14 | -2.14 | 240 | -2.12 |
+| Current account (pp of GDP) | -1.27 | -1.29 | -1.28 | -1.31 | -1.51 | -1.53 | -1.17 | -0.66 | -0.42 | -1.55 | 31 | -0.43 |
+| Real house prices (%) | 0 | 0.04 | 0.10 | 0.13 | 0.08 | -0.03 | -0.11 | 0.09 | -0.18 | -0.18 | 240 | -0.17 |
+| Mortgage debt / GDP (pp of GDP) | 0 | -0.02 | -0.05 | -0.10 | -0.01 | 0.26 | 0.36 | -0.26 | -0.62 | -0.62 | 240 | -0.61 |
+| Broad money (bank deposits) (%) | 0.06 | 0.17 | 0.24 | 0.06 | -0.84 | -1.53 | -1.33 | 3.76 | 19.8 | 19.8 | 240 | 18.9 |
+| Government balance (pp of GDP) | -0.49 | -0.45 | -0.45 | -0.49 | -0.59 | -0.69 | -0.82 | -1.09 | -1.55 | -1.55 | 240 | -1.53 |
+| Government debt / GDP (pp of GDP) | 0.05 | 0.14 | 0.28 | 0.62 | 1.52 | 2.55 | 3.88 | 5.45 | 9.48 | 9.48 | 240 | 9.25 |
+| Bank capital ratio (pp) | 0 | -0.01 | -0.06 | -0.08 | 0 | 0.08 | 0.09 | -0.07 | -0.14 | -0.14 | 240 | -0.14 |
+| Disposable income, all households (real) (%) | 0.10 | 0.20 | 0.30 | 0.38 | 0.20 | -0.14 | -0.52 | -0.93 | -1.75 | -1.75 | 240 | -1.73 |
+| Profits, domestic firms (real) (%) | 0.12 | 0.43 | 0.84 | 1.15 | 0.55 | -0.32 | -1.01 | -1.25 | -1.78 | -1.78 | 240 | -1.76 |
+| Profits, exporters (real) (%) | -2.37 | -4.46 | -5.64 | -6.15 | -3.96 | -0.10 | 5.81 | 10.6 | 16.6 | 16.6 | 240 | 16.4 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Household consumption (real): moved -0.09 in the last 12 months, -3.41 at month 240; Investment (real): moved 0.04 in the last 12 months, 1.78 at month 240; Real house prices: moved -0.02 in the last 12 months, -0.32 at month 240; Government balance: moved -0.04 in the last 12 months, -1.55 at month 240; and 9 more.
-- **Explosive**: Consumer price level: moved 1.90 in the last 12 months, 20.6 at month 240; Króna value: moved -1.33 in the last 12 months, -21.7 at month 240; Broad money (bank deposits): moved 1.82 in the last 12 months, 19.4 at month 240; Pension-fund assets (real): moved -0.22 in the last 12 months, -5.30 at month 240; and 4 more.
+- **Unsettled**: Household consumption (real): moved -0.09 in the last 12 months, -3.38 at month 240; Investment (real): moved 0.04 in the last 12 months, 1.80 at month 240; Imports (real): moved -0.04 in the last 12 months, -2.14 at month 240; Real house prices: moved -0.02 in the last 12 months, -0.18 at month 240; and 10 more.
+- **Explosive**: Consumer price level: moved 1.92 in the last 12 months, 21.0 at month 240; Króna value: moved -1.34 in the last 12 months, -22.0 at month 240; Broad money (bank deposits): moved 1.84 in the last 12 months, 19.8 at month 240; Pension-fund assets (real): moved -0.22 in the last 12 months, -5.49 at month 240; and 4 more.
 
 ### -0.75 pp (down), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | -0.02 | -0.05 | -0.11 | -0.14 | -0.07 | 0.10 | 0.22 | 0.24 | 0.24 | 240 | 0.24 |
-| Inflation (12-month CPI) (pp) | -0.01 | -0.03 | -0.07 | -0.16 | -0.16 | -0.05 | 0.14 | 0.31 | 0.41 | 0.41 | 240 | 0.40 |
-| Consumer price level (%) | -0.01 | -0.03 | -0.07 | -0.16 | -0.32 | -0.38 | -0.18 | 1.10 | 4.90 | 4.90 | 240 | 4.70 |
-| Unemployment rate (pp) | 0 | 0 | 0.01 | 0.04 | 0.07 | 0.05 | -0.05 | -0.12 | -0.15 | -0.15 | 240 | -0.15 |
-| Króna value (% (+ stronger)) | 0.26 | 0.53 | 0.73 | 0.89 | 0.72 | 0.29 | -0.53 | -2.20 | -6.09 | -6.09 | 240 | -5.91 |
-| Real wages (%) | 0.01 | 0.03 | 0.06 | 0.11 | 0.10 | 0 | -0.14 | -0.08 | -0.02 | -0.15 | 68 | -0.02 |
-| Household consumption (real) (%) | 0.01 | 0.04 | 0.08 | 0.16 | 0.21 | 0.09 | -0.24 | -0.58 | -0.90 | -0.90 | 240 | -0.89 |
-| Investment (real) (%) | 0 | 0 | -0.02 | -0.08 | -0.16 | -0.13 | 0.08 | 0.32 | 0.46 | 0.46 | 240 | 0.45 |
+| Output (real GDP) (%) | 0 | -0.02 | -0.05 | -0.10 | -0.13 | -0.06 | 0.11 | 0.22 | 0.25 | 0.25 | 240 | 0.25 |
+| Inflation (12-month CPI) (pp) | -0.01 | -0.03 | -0.07 | -0.16 | -0.15 | -0.05 | 0.14 | 0.31 | 0.41 | 0.41 | 240 | 0.40 |
+| Consumer price level (%) | -0.01 | -0.03 | -0.07 | -0.16 | -0.31 | -0.36 | -0.15 | 1.15 | 4.98 | 4.98 | 240 | 4.78 |
+| Unemployment rate (pp) | 0 | 0 | 0.01 | 0.04 | 0.07 | 0.05 | -0.05 | -0.13 | -0.15 | -0.15 | 240 | -0.15 |
+| Króna value (% (+ stronger)) | 0.26 | 0.53 | 0.73 | 0.88 | 0.71 | 0.27 | -0.55 | -2.24 | -6.17 | -6.17 | 240 | -5.98 |
+| Real wages (%) | 0.01 | 0.03 | 0.06 | 0.11 | 0.10 | -0.01 | -0.15 | -0.09 | -0.03 | -0.16 | 68 | -0.03 |
+| Household consumption (real) (%) | 0.01 | 0.04 | 0.09 | 0.18 | 0.23 | 0.12 | -0.22 | -0.57 | -0.89 | -0.89 | 240 | -0.88 |
+| Investment (real) (%) | 0 | 0 | -0.02 | -0.08 | -0.15 | -0.12 | 0.08 | 0.32 | 0.46 | 0.46 | 240 | 0.45 |
 | Exports (real) (%) | -0.01 | -0.06 | -0.14 | -0.28 | -0.34 | -0.16 | 0.32 | 0.70 | 0.92 | 0.92 | 240 | 0.91 |
-| Imports (real) (%) | 0.01 | 0.04 | 0.08 | 0.15 | 0.18 | 0.07 | -0.20 | -0.41 | -0.58 | -0.58 | 240 | -0.57 |
-| Current account (pp of GDP) | -0.32 | -0.33 | -0.33 | -0.34 | -0.38 | -0.38 | -0.29 | -0.17 | -0.11 | -0.39 | 30 | -0.11 |
-| Real house prices (%) | 0 | 0 | 0 | 0 | -0.04 | -0.07 | -0.09 | -0.03 | -0.11 | -0.11 | 240 | -0.11 |
-| Mortgage debt / GDP (pp of GDP) | 0 | -0.01 | -0.02 | -0.03 | -0.01 | 0.05 | 0.07 | -0.10 | -0.20 | -0.20 | 240 | -0.20 |
-| Broad money (bank deposits) (%) | 0.02 | 0.05 | 0.07 | 0.02 | -0.21 | -0.38 | -0.33 | 0.93 | 4.61 | 4.61 | 240 | 4.43 |
-| Government balance (pp of GDP) | -0.12 | -0.11 | -0.12 | -0.13 | -0.15 | -0.18 | -0.20 | -0.27 | -0.40 | -0.40 | 240 | -0.39 |
-| Government debt / GDP (pp of GDP) | 0.01 | 0.03 | 0.07 | 0.16 | 0.39 | 0.65 | 0.99 | 1.42 | 2.64 | 2.64 | 240 | 2.57 |
-| Bank capital ratio (pp) | 0 | 0 | -0.02 | -0.02 | 0 | 0.02 | 0.02 | -0.02 | -0.03 | -0.03 | 240 | -0.03 |
-| Disposable income, all households (real) (%) | 0.01 | 0.03 | 0.06 | 0.08 | 0.03 | -0.05 | -0.15 | -0.25 | -0.47 | -0.47 | 240 | -0.46 |
-| Profits, domestic firms (real) (%) | 0.03 | 0.11 | 0.20 | 0.27 | 0.12 | -0.10 | -0.27 | -0.33 | -0.48 | -0.48 | 240 | -0.47 |
-| Profits, exporters (real) (%) | -0.59 | -1.12 | -1.41 | -1.52 | -0.95 | 0.02 | 1.51 | 2.70 | 4.36 | 4.36 | 240 | 4.29 |
+| Imports (real) (%) | 0.01 | 0.04 | 0.08 | 0.16 | 0.19 | 0.08 | -0.19 | -0.41 | -0.58 | -0.58 | 240 | -0.57 |
+| Current account (pp of GDP) | -0.32 | -0.33 | -0.33 | -0.34 | -0.38 | -0.39 | -0.29 | -0.17 | -0.11 | -0.39 | 30 | -0.11 |
+| Real house prices (%) | 0 | 0.01 | 0.02 | 0.03 | 0.02 | -0.01 | -0.03 | 0.02 | -0.08 | -0.08 | 240 | -0.08 |
+| Mortgage debt / GDP (pp of GDP) | 0 | 0 | -0.01 | -0.02 | 0 | 0.06 | 0.09 | -0.07 | -0.17 | -0.17 | 240 | -0.17 |
+| Broad money (bank deposits) (%) | 0.01 | 0.04 | 0.06 | 0.01 | -0.21 | -0.38 | -0.31 | 0.98 | 4.69 | 4.69 | 240 | 4.50 |
+| Government balance (pp of GDP) | -0.12 | -0.11 | -0.12 | -0.13 | -0.15 | -0.17 | -0.20 | -0.27 | -0.40 | -0.40 | 240 | -0.39 |
+| Government debt / GDP (pp of GDP) | 0.01 | 0.03 | 0.07 | 0.16 | 0.38 | 0.64 | 0.96 | 1.38 | 2.58 | 2.58 | 240 | 2.51 |
+| Bank capital ratio (pp) | 0 | 0 | -0.01 | -0.02 | 0 | 0.02 | 0.02 | -0.02 | -0.03 | -0.03 | 240 | -0.03 |
+| Disposable income, all households (real) (%) | 0.03 | 0.05 | 0.07 | 0.09 | 0.05 | -0.04 | -0.13 | -0.24 | -0.47 | -0.47 | 240 | -0.46 |
+| Profits, domestic firms (real) (%) | 0.03 | 0.11 | 0.21 | 0.28 | 0.13 | -0.09 | -0.26 | -0.33 | -0.48 | -0.48 | 240 | -0.47 |
+| Profits, exporters (real) (%) | -0.59 | -1.12 | -1.41 | -1.52 | -0.95 | 0.03 | 1.51 | 2.70 | 4.37 | 4.37 | 240 | 4.30 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Household consumption (real): moved -0.03 in the last 12 months, -0.90 at month 240; Government debt / GDP: moved 0.15 in the last 12 months, 2.64 at month 240; Profits, exporters (real): moved 0.17 in the last 12 months, 4.36 at month 240; Profits, fisheries (real): moved 0.60 in the last 12 months, 13.5 at month 240; and 2 more.
-- **Explosive**: Consumer price level: moved 0.42 in the last 12 months, 4.90 at month 240; Króna value: moved -0.41 in the last 12 months, -6.09 at month 240; Broad money (bank deposits): moved 0.40 in the last 12 months, 4.61 at month 240; Real disposable income, older (67+): moved -0.06 in the last 12 months, -1.56 at month 240; and 5 more.
+- **Unsettled**: Household consumption (real): moved -0.03 in the last 12 months, -0.89 at month 240; Government debt / GDP: moved 0.15 in the last 12 months, 2.58 at month 240; Profits, exporters (real): moved 0.17 in the last 12 months, 4.37 at month 240; Profits, fisheries (real): moved 0.60 in the last 12 months, 13.5 at month 240; and 2 more.
+- **Explosive**: Consumer price level: moved 0.43 in the last 12 months, 4.98 at month 240; Króna value: moved -0.41 in the last 12 months, -6.17 at month 240; Broad money (bank deposits): moved 0.41 in the last 12 months, 4.69 at month 240; Real disposable income, older (67+): moved -0.06 in the last 12 months, -1.60 at month 240; and 5 more.
 
 ### 1.25 pp (up), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.01 | 0.03 | 0.09 | 0.18 | 0.23 | 0.11 | -0.18 | -0.37 | -0.41 | -0.41 | 240 | -0.41 |
-| Inflation (12-month CPI) (pp) | 0.01 | 0.05 | 0.12 | 0.27 | 0.26 | 0.08 | -0.24 | -0.51 | -0.68 | -0.68 | 240 | -0.68 |
-| Consumer price level (%) | 0.01 | 0.05 | 0.12 | 0.27 | 0.54 | 0.62 | 0.27 | -1.86 | -7.78 | -7.78 | 240 | -7.49 |
-| Unemployment rate (pp) | 0 | -0.01 | -0.02 | -0.07 | -0.12 | -0.08 | 0.09 | 0.21 | 0.26 | 0.26 | 240 | 0.26 |
-| Króna value (% (+ stronger)) | -0.43 | -0.88 | -1.20 | -1.44 | -1.16 | -0.43 | 0.96 | 3.87 | 11.3 | 11.3 | 240 | 10.9 |
-| Real wages (%) | -0.01 | -0.05 | -0.10 | -0.18 | -0.16 | 0.01 | 0.25 | 0.13 | 0.02 | 0.25 | 67 | 0.02 |
-| Household consumption (real) (%) | -0.01 | -0.06 | -0.14 | -0.27 | -0.34 | -0.15 | 0.42 | 0.99 | 1.56 | 1.56 | 240 | 1.54 |
-| Investment (real) (%) | 0 | 0.01 | 0.04 | 0.14 | 0.26 | 0.20 | -0.14 | -0.53 | -0.78 | -0.78 | 240 | -0.77 |
-| Exports (real) (%) | 0.02 | 0.10 | 0.23 | 0.46 | 0.57 | 0.25 | -0.56 | -1.17 | -1.55 | -1.55 | 240 | -1.54 |
-| Imports (real) (%) | -0.01 | -0.06 | -0.13 | -0.25 | -0.29 | -0.11 | 0.35 | 0.72 | 1.03 | 1.03 | 240 | 1.02 |
-| Current account (pp of GDP) | 0.53 | 0.55 | 0.55 | 0.58 | 0.65 | 0.64 | 0.48 | 0.28 | 0.18 | 0.66 | 29 | 0.19 |
-| Real house prices (%) | 0 | 0 | -0.01 | 0.01 | 0.06 | 0.12 | 0.14 | 0.05 | 0.24 | 0.24 | 240 | 0.23 |
-| Mortgage debt / GDP (pp of GDP) | 0 | 0.01 | 0.03 | 0.05 | 0.02 | -0.08 | -0.11 | 0.17 | 0.36 | 0.36 | 240 | 0.36 |
-| Broad money (bank deposits) (%) | -0.03 | -0.08 | -0.12 | -0.06 | 0.31 | 0.58 | 0.45 | -1.66 | -7.40 | -7.40 | 240 | -7.13 |
-| Government balance (pp of GDP) | 0.20 | 0.19 | 0.20 | 0.22 | 0.26 | 0.29 | 0.34 | 0.45 | 0.68 | 0.68 | 240 | 0.67 |
-| Government debt / GDP (pp of GDP) | -0.02 | -0.06 | -0.12 | -0.27 | -0.66 | -1.09 | -1.64 | -2.40 | -4.76 | -4.76 | 240 | -4.62 |
-| Bank capital ratio (pp) | 0 | 0.01 | 0.03 | 0.04 | 0 | -0.03 | -0.04 | 0.03 | 0.06 | 0.06 | 216 | 0.06 |
-| Disposable income, all households (real) (%) | -0.02 | -0.06 | -0.10 | -0.13 | -0.05 | 0.09 | 0.25 | 0.42 | 0.82 | 0.82 | 240 | 0.80 |
-| Profits, domestic firms (real) (%) | -0.05 | -0.18 | -0.34 | -0.45 | -0.18 | 0.18 | 0.47 | 0.58 | 0.84 | 0.84 | 240 | 0.83 |
-| Profits, exporters (real) (%) | 0.99 | 1.88 | 2.35 | 2.50 | 1.54 | -0.12 | -2.59 | -4.56 | -7.61 | -7.61 | 240 | -7.46 |
+| Output (real GDP) (%) | 0.01 | 0.03 | 0.08 | 0.17 | 0.21 | 0.10 | -0.20 | -0.38 | -0.42 | -0.42 | 240 | -0.41 |
+| Inflation (12-month CPI) (pp) | 0.01 | 0.05 | 0.12 | 0.27 | 0.25 | 0.07 | -0.25 | -0.52 | -0.68 | -0.68 | 240 | -0.68 |
+| Consumer price level (%) | 0.01 | 0.05 | 0.12 | 0.27 | 0.52 | 0.59 | 0.22 | -1.94 | -7.89 | -7.89 | 240 | -7.59 |
+| Unemployment rate (pp) | 0 | -0.01 | -0.02 | -0.07 | -0.11 | -0.07 | 0.09 | 0.21 | 0.26 | 0.26 | 240 | 0.26 |
+| Króna value (% (+ stronger)) | -0.43 | -0.88 | -1.20 | -1.43 | -1.15 | -0.41 | 1.00 | 3.94 | 11.4 | 11.4 | 240 | 11.0 |
+| Real wages (%) | -0.01 | -0.04 | -0.10 | -0.18 | -0.16 | 0.02 | 0.25 | 0.14 | 0.02 | 0.26 | 67 | 0.03 |
+| Household consumption (real) (%) | -0.02 | -0.07 | -0.15 | -0.29 | -0.37 | -0.18 | 0.38 | 0.97 | 1.55 | 1.55 | 240 | 1.53 |
+| Investment (real) (%) | 0 | 0.01 | 0.04 | 0.13 | 0.25 | 0.19 | -0.15 | -0.54 | -0.78 | -0.78 | 240 | -0.77 |
+| Exports (real) (%) | 0.02 | 0.10 | 0.23 | 0.46 | 0.56 | 0.25 | -0.56 | -1.17 | -1.56 | -1.56 | 240 | -1.54 |
+| Imports (real) (%) | -0.02 | -0.06 | -0.14 | -0.26 | -0.30 | -0.12 | 0.33 | 0.71 | 1.03 | 1.03 | 240 | 1.02 |
+| Current account (pp of GDP) | 0.53 | 0.55 | 0.56 | 0.58 | 0.65 | 0.65 | 0.48 | 0.29 | 0.19 | 0.66 | 30 | 0.19 |
+| Real house prices (%) | 0 | -0.02 | -0.04 | -0.05 | -0.03 | 0.01 | 0.05 | -0.02 | 0.19 | 0.19 | 240 | 0.18 |
+| Mortgage debt / GDP (pp of GDP) | 0 | 0.01 | 0.02 | 0.04 | 0 | -0.11 | -0.15 | 0.12 | 0.31 | 0.31 | 240 | 0.30 |
+| Broad money (bank deposits) (%) | -0.03 | -0.08 | -0.11 | -0.04 | 0.32 | 0.58 | 0.42 | -1.73 | -7.50 | -7.50 | 240 | -7.23 |
+| Government balance (pp of GDP) | 0.20 | 0.19 | 0.20 | 0.21 | 0.26 | 0.29 | 0.33 | 0.45 | 0.68 | 0.68 | 240 | 0.67 |
+| Government debt / GDP (pp of GDP) | -0.02 | -0.06 | -0.12 | -0.26 | -0.65 | -1.06 | -1.59 | -2.32 | -4.66 | -4.66 | 240 | -4.51 |
+| Bank capital ratio (pp) | 0 | 0.01 | 0.02 | 0.03 | 0 | -0.04 | -0.04 | 0.03 | 0.06 | 0.06 | 218 | 0.06 |
+| Disposable income, all households (real) (%) | -0.04 | -0.08 | -0.12 | -0.16 | -0.07 | 0.07 | 0.23 | 0.41 | 0.82 | 0.82 | 240 | 0.80 |
+| Profits, domestic firms (real) (%) | -0.05 | -0.18 | -0.35 | -0.46 | -0.20 | 0.16 | 0.45 | 0.57 | 0.84 | 0.84 | 240 | 0.83 |
+| Profits, exporters (real) (%) | 0.99 | 1.88 | 2.35 | 2.50 | 1.53 | -0.12 | -2.59 | -4.56 | -7.63 | -7.63 | 240 | -7.48 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Household consumption (real): moved 0.05 in the last 12 months, 1.56 at month 240; Investment (real): moved -0.02 in the last 12 months, -0.78 at month 240; Imports (real): moved 0.02 in the last 12 months, 1.03 at month 240; Government balance: moved 0.02 in the last 12 months, 0.68 at month 240; and 7 more.
-- **Explosive**: Consumer price level: moved -0.63 in the last 12 months, -7.78 at month 240; Króna value: moved 0.82 in the last 12 months, 11.3 at month 240; Broad money (bank deposits): moved -0.60 in the last 12 months, -7.40 at month 240; Real disposable income, older (67+): moved 0.11 in the last 12 months, 2.70 at month 240; and 5 more.
+- **Unsettled**: Household consumption (real): moved 0.05 in the last 12 months, 1.55 at month 240; Investment (real): moved -0.02 in the last 12 months, -0.78 at month 240; Imports (real): moved 0.02 in the last 12 months, 1.03 at month 240; Real house prices: moved 0.02 in the last 12 months, 0.19 at month 240; and 7 more.
+- **Explosive**: Consumer price level: moved -0.63 in the last 12 months, -7.89 at month 240; Króna value: moved 0.82 in the last 12 months, 11.4 at month 240; Broad money (bank deposits): moved -0.60 in the last 12 months, -7.50 at month 240; Government debt / GDP: moved -0.31 in the last 12 months, -4.66 at month 240; and 6 more.
 
 ### 5 pp (max), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.03 | 0.14 | 0.35 | 0.72 | 0.88 | 0.41 | -0.79 | -1.50 | -1.68 | -1.68 | 240 | -1.67 |
-| Inflation (12-month CPI) (pp) | 0.04 | 0.19 | 0.48 | 1.10 | 1.01 | 0.26 | -1.02 | -2.06 | -2.76 | -2.76 | 240 | -2.74 |
-| Consumer price level (%) | 0.04 | 0.19 | 0.48 | 1.10 | 2.12 | 2.39 | 0.84 | -7.59 | -28.3 | -28.3 | 240 | -27.3 |
-| Unemployment rate (pp) | 0 | -0.02 | -0.09 | -0.27 | -0.46 | -0.29 | 0.38 | 0.86 | 1.07 | 1.07 | 240 | 1.07 |
-| Króna value (% (+ stronger)) | -1.72 | -3.46 | -4.65 | -5.48 | -4.33 | -1.34 | 4.45 | 17.2 | 55.9 | 55.9 | 240 | 53.8 |
-| Real wages (%) | -0.04 | -0.18 | -0.40 | -0.72 | -0.63 | 0.07 | 1.01 | 0.46 | -0.11 | 1.03 | 65 | -0.09 |
-| Household consumption (real) (%) | -0.06 | -0.24 | -0.55 | -1.07 | -1.29 | -0.50 | 1.80 | 4.15 | 6.81 | 6.81 | 240 | 6.70 |
-| Investment (real) (%) | 0 | 0.03 | 0.16 | 0.55 | 1.02 | 0.77 | -0.62 | -2.10 | -3.24 | -3.24 | 240 | -3.18 |
-| Exports (real) (%) | 0.09 | 0.39 | 0.93 | 1.85 | 2.20 | 0.89 | -2.37 | -4.71 | -6.36 | -6.36 | 240 | -6.30 |
-| Imports (real) (%) | -0.06 | -0.24 | -0.53 | -0.98 | -1.09 | -0.36 | 1.53 | 3.14 | 4.70 | 4.70 | 240 | 4.64 |
-| Current account (pp of GDP) | 2.11 | 2.26 | 2.30 | 2.41 | 2.67 | 2.61 | 1.90 | 1.17 | 0.77 | 2.69 | 28 | 0.78 |
-| Real house prices (%) | 0 | -0.01 | -0.03 | 0.03 | 0.26 | 0.47 | 0.57 | 0.26 | 1.34 | 1.34 | 240 | 1.29 |
-| Mortgage debt / GDP (pp of GDP) | 0.01 | 0.04 | 0.10 | 0.20 | 0.06 | -0.34 | -0.43 | 0.71 | 1.67 | 1.67 | 240 | 1.63 |
-| Broad money (bank deposits) (%) | -0.12 | -0.34 | -0.49 | -0.21 | 1.25 | 2.28 | 1.48 | -6.85 | -26.4 | -26.4 | 240 | -25.5 |
-| Government balance (pp of GDP) | 0.81 | 0.79 | 0.82 | 0.90 | 1.06 | 1.17 | 1.32 | 1.81 | 2.88 | 2.88 | 240 | 2.83 |
-| Government debt / GDP (pp of GDP) | -0.08 | -0.24 | -0.49 | -1.10 | -2.68 | -4.34 | -6.46 | -9.82 | -22.5 | -22.5 | 240 | -21.6 |
-| Bank capital ratio (pp) | 0 | 0.02 | 0.10 | 0.14 | 0 | -0.14 | -0.14 | 0.14 | 0.20 | 0.22 | 187 | 0.20 |
-| Disposable income, all households (real) (%) | -0.07 | -0.23 | -0.39 | -0.50 | -0.15 | 0.42 | 1.03 | 1.79 | 3.62 | 3.62 | 240 | 3.55 |
-| Profits, domestic firms (real) (%) | -0.19 | -0.71 | -1.35 | -1.75 | -0.64 | 0.81 | 1.97 | 2.54 | 3.73 | 3.73 | 240 | 3.69 |
-| Profits, exporters (real) (%) | 4.00 | 7.59 | 9.41 | 9.80 | 5.73 | -1.05 | -10.9 | -18.7 | -33.4 | -33.4 | 240 | -32.6 |
+| Output (real GDP) (%) | 0.03 | 0.13 | 0.33 | 0.69 | 0.83 | 0.34 | -0.86 | -1.54 | -1.69 | -1.69 | 240 | -1.68 |
+| Inflation (12-month CPI) (pp) | 0.04 | 0.19 | 0.47 | 1.08 | 0.97 | 0.22 | -1.06 | -2.08 | -2.77 | -2.77 | 240 | -2.74 |
+| Consumer price level (%) | 0.04 | 0.19 | 0.47 | 1.08 | 2.06 | 2.28 | 0.66 | -7.88 | -28.6 | -28.6 | 240 | -27.6 |
+| Unemployment rate (pp) | 0 | -0.02 | -0.09 | -0.26 | -0.45 | -0.27 | 0.40 | 0.87 | 1.08 | 1.08 | 240 | 1.07 |
+| Króna value (% (+ stronger)) | -1.72 | -3.46 | -4.64 | -5.47 | -4.29 | -1.26 | 4.60 | 17.5 | 56.5 | 56.5 | 240 | 54.3 |
+| Real wages (%) | -0.04 | -0.18 | -0.40 | -0.71 | -0.60 | 0.10 | 1.04 | 0.48 | -0.09 | 1.06 | 65 | -0.07 |
+| Household consumption (real) (%) | -0.07 | -0.27 | -0.60 | -1.15 | -1.42 | -0.65 | 1.65 | 4.05 | 6.78 | 6.78 | 240 | 6.67 |
+| Investment (real) (%) | 0 | 0.03 | 0.16 | 0.54 | 0.98 | 0.72 | -0.68 | -2.14 | -3.25 | -3.25 | 240 | -3.20 |
+| Exports (real) (%) | 0.09 | 0.39 | 0.93 | 1.85 | 2.20 | 0.88 | -2.38 | -4.71 | -6.36 | -6.36 | 240 | -6.30 |
+| Imports (real) (%) | -0.06 | -0.25 | -0.55 | -1.02 | -1.14 | -0.42 | 1.46 | 3.09 | 4.69 | 4.69 | 240 | 4.63 |
+| Current account (pp of GDP) | 2.11 | 2.26 | 2.31 | 2.42 | 2.70 | 2.63 | 1.93 | 1.19 | 0.79 | 2.72 | 28 | 0.80 |
+| Real house prices (%) | 0 | -0.07 | -0.16 | -0.21 | -0.11 | 0.06 | 0.18 | -0.01 | 1.16 | 1.16 | 240 | 1.11 |
+| Mortgage debt / GDP (pp of GDP) | 0.01 | 0.03 | 0.08 | 0.16 | 0 | -0.44 | -0.58 | 0.50 | 1.45 | 1.45 | 240 | 1.42 |
+| Broad money (bank deposits) (%) | -0.11 | -0.31 | -0.44 | -0.14 | 1.31 | 2.29 | 1.38 | -7.10 | -26.4 | -26.4 | 240 | -25.6 |
+| Government balance (pp of GDP) | 0.81 | 0.79 | 0.82 | 0.90 | 1.05 | 1.16 | 1.31 | 1.80 | 2.89 | 2.89 | 240 | 2.84 |
+| Government debt / GDP (pp of GDP) | -0.08 | -0.23 | -0.49 | -1.08 | -2.63 | -4.25 | -6.30 | -9.51 | -22.0 | -22.0 | 240 | -21.2 |
+| Bank capital ratio (pp) | 0 | 0.02 | 0.10 | 0.14 | 0 | -0.14 | -0.15 | 0.13 | 0.20 | 0.22 | 189 | 0.20 |
+| Disposable income, all households (real) (%) | -0.17 | -0.34 | -0.50 | -0.61 | -0.26 | 0.32 | 0.95 | 1.75 | 3.63 | 3.63 | 240 | 3.56 |
+| Profits, domestic firms (real) (%) | -0.19 | -0.73 | -1.38 | -1.80 | -0.71 | 0.74 | 1.90 | 2.50 | 3.72 | 3.72 | 240 | 3.68 |
+| Profits, exporters (real) (%) | 4.00 | 7.59 | 9.40 | 9.78 | 5.72 | -1.06 | -10.9 | -18.7 | -33.4 | -33.4 | 240 | -32.6 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate (effective).
 
 Flags:
 
-- **Extreme**: Króna value 55.9 % (+ stronger) at month 240.
-- **Unsettled**: Real wages: moved -0.04 in the last 12 months, -0.11 at month 240; Household consumption (real): moved 0.23 in the last 12 months, 6.81 at month 240; Investment (real): moved -0.13 in the last 12 months, -3.24 at month 240; Exports (real): moved -0.13 in the last 12 months, -6.36 at month 240; and 15 more.
-- **Explosive**: Consumer price level: moved -2.04 in the last 12 months, -28.3 at month 240; Króna value: moved 4.70 in the last 12 months, 55.9 at month 240; Real house prices: moved 0.11 in the last 12 months, 1.34 at month 240; Mortgage debt / GDP: moved 0.07 in the last 12 months, 1.67 at month 240; and 10 more.
+- **Extreme**: Króna value 56.5 % (+ stronger) at month 240.
+- **Unsettled**: Real wages: moved -0.04 in the last 12 months, -0.09 at month 240; Household consumption (real): moved 0.24 in the last 12 months, 6.78 at month 240; Investment (real): moved -0.13 in the last 12 months, -3.25 at month 240; Exports (real): moved -0.13 in the last 12 months, -6.36 at month 240; and 16 more.
+- **Explosive**: Consumer price level: moved -2.03 in the last 12 months, -28.6 at month 240; Króna value: moved 4.73 in the last 12 months, 56.5 at month 240; Real house prices: moved 0.12 in the last 12 months, 1.16 at month 240; Mortgage debt / GDP: moved 0.07 in the last 12 months, 1.45 at month 240; and 9 more.
 - **Regimes**: retentionXF.
 
 Regimes that differ from the no-change run:
 
-- `retentionXF`: “Keeps all its profit” instead of “–”, months 152–240; its label changed 1 time(s) in the run
+- `retentionXF`: “Keeps all its profit” instead of “–”, months 151–240; its label changed 1 time(s) in the run
 
 ### -3 pp (min), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | -0.02 | -0.08 | -0.19 | -0.32 | -0.22 | -0.02 | 0.08 | -0.10 | -0.36 | -0.36 | 240 | -0.35 |
-| Inflation (12-month CPI) (pp) | -0.03 | -0.11 | -0.28 | -0.62 | -0.47 | -0.08 | 0.34 | 0.63 | 0.70 | 0.71 | 191 | 0.70 |
-| Consumer price level (%) | -0.03 | -0.11 | -0.28 | -0.62 | -1.09 | -1.17 | -0.64 | 2.04 | 9.42 | 9.42 | 240 | 9.08 |
-| Unemployment rate (pp) | 0 | 0.01 | 0.05 | 0.14 | 0.19 | 0.09 | -0.10 | -0.18 | -0.14 | 0.19 | 21 | -0.15 |
-| Key interest rate (pp) | 0 | -0.04 | -0.18 | -0.57 | -0.77 | -0.32 | 0.33 | 0.49 | 0.32 | -0.82 | 20 | 0.33 |
-| Króna value (% (+ stronger)) | 1.05 | 2.13 | 2.90 | 3.42 | 2.70 | 1.06 | -1.85 | -6.17 | -13.3 | -13.3 | 240 | -13.0 |
-| Real wages (%) | 0.03 | 0.11 | 0.24 | 0.41 | 0.34 | 0.02 | -0.38 | -0.13 | 0.25 | 0.45 | 16 | 0.24 |
-| Household consumption (real) (%) | 0.03 | 0.15 | 0.36 | 0.82 | 1.36 | 0.87 | -1.41 | -4.01 | -5.41 | -5.41 | 240 | -5.38 |
-| Investment (real) (%) | 0 | -0.01 | -0.04 | 0 | 0.40 | 0.46 | -0.05 | -0.20 | 0.14 | 0.49 | 31 | 0.12 |
-| Exports (real) (%) | -0.05 | -0.23 | -0.54 | -1.08 | -1.32 | -0.68 | 1.07 | 2.51 | 2.93 | 2.93 | 240 | 2.92 |
-| Imports (real) (%) | 0.03 | 0.14 | 0.34 | 0.74 | 1.13 | 0.69 | -0.93 | -2.39 | -2.94 | -2.94 | 240 | -2.93 |
-| Current account (pp of GDP) | -1.27 | -1.29 | -1.27 | -1.31 | -1.58 | -1.61 | -1.11 | -0.43 | -0.20 | -1.64 | 31 | -0.20 |
-| Real house prices (%) | 0 | 0.01 | 0.05 | 0.29 | 1.00 | 0.85 | -1.13 | -2.84 | -3.55 | -3.55 | 240 | -3.53 |
-| Mortgage debt / GDP (pp of GDP) | 0 | -0.02 | -0.05 | -0.08 | 0.07 | 0.36 | 0.48 | -0.63 | -1.38 | -1.38 | 240 | -1.37 |
-| Broad money (bank deposits) (%) | 0.06 | 0.19 | 0.28 | 0.16 | -0.56 | -1.20 | -1.77 | -0.42 | 6.11 | 6.11 | 240 | 5.83 |
-| Government balance (pp of GDP) | -0.49 | -0.43 | -0.36 | -0.17 | -0.06 | -0.33 | -0.83 | -0.89 | -0.59 | -0.93 | 86 | -0.60 |
-| Government debt / GDP (pp of GDP) | 0.05 | 0.14 | 0.26 | 0.47 | 0.74 | 1.16 | 2.51 | 5.57 | 8.42 | 8.42 | 240 | 8.36 |
-| Bank capital ratio (pp) | 0 | -0.01 | -0.06 | -0.08 | 0 | 0.05 | 0.05 | -0.01 | -0.05 | -0.08 | 10 | -0.05 |
-| Disposable income, all households (real) (%) | 0.04 | 0.14 | 0.24 | 0.37 | 0.20 | -0.34 | -1.32 | -2.42 | -3.82 | -3.82 | 240 | -3.78 |
-| Profits, domestic firms (real) (%) | 0.11 | 0.43 | 0.87 | 1.41 | 1.27 | 0.20 | -1.59 | -2.41 | -2.89 | -2.89 | 240 | -2.88 |
-| Profits, exporters (real) (%) | -2.37 | -4.37 | -5.21 | -4.81 | -2.35 | 0.23 | 4.45 | 9.21 | 13.8 | 13.8 | 240 | 13.7 |
-| Income-tax rate (pp) | 0 | 0 | 0.01 | 0.02 | 0.07 | 0.14 | 0.35 | 1.11 | 2.01 | 2.01 | 240 | 1.99 |
+| Output (real GDP) (%) | -0.02 | -0.07 | -0.18 | -0.31 | -0.20 | 0 | 0.10 | -0.08 | -0.34 | -0.34 | 240 | -0.33 |
+| Inflation (12-month CPI) (pp) | -0.03 | -0.11 | -0.27 | -0.60 | -0.46 | -0.06 | 0.36 | 0.64 | 0.71 | 0.73 | 191 | 0.72 |
+| Consumer price level (%) | -0.03 | -0.11 | -0.27 | -0.60 | -1.06 | -1.12 | -0.56 | 2.19 | 9.72 | 9.72 | 240 | 9.36 |
+| Unemployment rate (pp) | 0 | 0.01 | 0.05 | 0.13 | 0.18 | 0.09 | -0.10 | -0.19 | -0.15 | -0.19 | 128 | -0.15 |
+| Key interest rate (pp) | 0 | -0.03 | -0.17 | -0.56 | -0.73 | -0.28 | 0.37 | 0.52 | 0.35 | -0.79 | 20 | 0.36 |
+| Króna value (% (+ stronger)) | 1.05 | 2.13 | 2.90 | 3.42 | 2.68 | 1.03 | -1.91 | -6.30 | -13.5 | -13.5 | 240 | -13.2 |
+| Real wages (%) | 0.03 | 0.11 | 0.23 | 0.40 | 0.33 | 0 | -0.40 | -0.15 | 0.24 | 0.44 | 16 | 0.23 |
+| Household consumption (real) (%) | 0.04 | 0.16 | 0.38 | 0.87 | 1.42 | 0.93 | -1.35 | -3.96 | -5.38 | -5.38 | 240 | -5.34 |
+| Investment (real) (%) | 0 | -0.01 | -0.04 | 0 | 0.39 | 0.44 | -0.08 | -0.22 | 0.12 | 0.48 | 31 | 0.10 |
+| Exports (real) (%) | -0.05 | -0.23 | -0.54 | -1.08 | -1.32 | -0.67 | 1.08 | 2.52 | 2.94 | 2.94 | 240 | 2.94 |
+| Imports (real) (%) | 0.04 | 0.15 | 0.35 | 0.76 | 1.15 | 0.71 | -0.92 | -2.39 | -2.94 | -2.94 | 240 | -2.93 |
+| Current account (pp of GDP) | -1.27 | -1.29 | -1.27 | -1.32 | -1.58 | -1.62 | -1.11 | -0.44 | -0.20 | -1.64 | 31 | -0.20 |
+| Real house prices (%) | 0 | 0.05 | 0.13 | 0.43 | 1.18 | 1.03 | -0.97 | -2.71 | -3.44 | -3.44 | 240 | -3.42 |
+| Mortgage debt / GDP (pp of GDP) | 0 | -0.02 | -0.04 | -0.06 | 0.11 | 0.41 | 0.55 | -0.55 | -1.30 | -1.30 | 240 | -1.29 |
+| Broad money (bank deposits) (%) | 0.06 | 0.17 | 0.25 | 0.11 | -0.60 | -1.22 | -1.72 | -0.19 | 6.59 | 6.59 | 240 | 6.30 |
+| Government balance (pp of GDP) | -0.49 | -0.43 | -0.36 | -0.17 | -0.08 | -0.35 | -0.84 | -0.90 | -0.60 | -0.95 | 86 | -0.61 |
+| Government debt / GDP (pp of GDP) | 0.05 | 0.14 | 0.26 | 0.46 | 0.73 | 1.17 | 2.53 | 5.62 | 8.50 | 8.50 | 240 | 8.43 |
+| Bank capital ratio (pp) | 0 | -0.01 | -0.06 | -0.08 | 0 | 0.06 | 0.06 | -0.01 | -0.05 | -0.08 | 10 | -0.05 |
+| Disposable income, all households (real) (%) | 0.10 | 0.20 | 0.31 | 0.43 | 0.26 | -0.28 | -1.27 | -2.38 | -3.79 | -3.79 | 240 | -3.75 |
+| Profits, domestic firms (real) (%) | 0.12 | 0.44 | 0.89 | 1.43 | 1.29 | 0.21 | -1.59 | -2.41 | -2.89 | -2.89 | 240 | -2.88 |
+| Profits, exporters (real) (%) | -2.37 | -4.38 | -5.22 | -4.84 | -2.41 | 0.17 | 4.40 | 9.19 | 13.9 | 13.9 | 240 | 13.7 |
+| Income-tax rate (pp) | 0 | 0 | 0.01 | 0.02 | 0.07 | 0.14 | 0.35 | 1.11 | 2.03 | 2.03 | 240 | 2.01 |
 
 Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.02 in the last 12 months, -0.36 at month 240; Key interest rate: moved -0.03 in the last 12 months, 0.32 at month 240; Real wages: moved 0.03 in the last 12 months, 0.25 at month 240; Investment (real): moved 0.04 in the last 12 months, 0.14 at month 240; and 10 more.
-- **Explosive**: Consumer price level: moved 0.76 in the last 12 months, 9.42 at month 240; Króna value: moved -0.64 in the last 12 months, -13.3 at month 240; Broad money (bank deposits): moved 0.62 in the last 12 months, 6.11 at month 240; Export revenue, fisheries: moved 0.85 in the last 12 months, 16.4 at month 240; and 3 more.
+- **Unsettled**: Output (real GDP): moved -0.02 in the last 12 months, -0.34 at month 240; Key interest rate: moved -0.03 in the last 12 months, 0.35 at month 240; Real wages: moved 0.03 in the last 12 months, 0.24 at month 240; Investment (real): moved 0.04 in the last 12 months, 0.12 at month 240; and 10 more.
+- **Explosive**: Consumer price level: moved 0.78 in the last 12 months, 9.72 at month 240; Króna value: moved -0.65 in the last 12 months, -13.5 at month 240; Broad money (bank deposits): moved 0.64 in the last 12 months, 6.59 at month 240; Pension-fund assets (real): moved -0.15 in the last 12 months, -2.79 at month 240; and 4 more.
 
 ### -0.75 pp (down), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | -0.02 | -0.05 | -0.08 | -0.05 | 0 | 0.02 | -0.02 | -0.09 | -0.09 | 240 | -0.09 |
-| Inflation (12-month CPI) (pp) | -0.01 | -0.03 | -0.07 | -0.15 | -0.12 | -0.02 | 0.09 | 0.16 | 0.18 | 0.18 | 192 | 0.18 |
-| Consumer price level (%) | -0.01 | -0.03 | -0.07 | -0.15 | -0.27 | -0.29 | -0.15 | 0.53 | 2.31 | 2.31 | 240 | 2.22 |
-| Unemployment rate (pp) | 0 | 0 | 0.01 | 0.03 | 0.05 | 0.02 | -0.03 | -0.05 | -0.04 | 0.05 | 20 | -0.04 |
-| Key interest rate (pp) | 0 | -0.01 | -0.05 | -0.14 | -0.19 | -0.08 | 0.09 | 0.12 | 0.08 | -0.20 | 20 | 0.08 |
-| Króna value (% (+ stronger)) | 0.26 | 0.53 | 0.71 | 0.83 | 0.65 | 0.24 | -0.51 | -1.62 | -3.56 | -3.56 | 240 | -3.48 |
-| Real wages (%) | 0.01 | 0.03 | 0.06 | 0.10 | 0.08 | 0 | -0.10 | -0.03 | 0.07 | 0.11 | 16 | 0.07 |
-| Household consumption (real) (%) | 0.01 | 0.04 | 0.09 | 0.20 | 0.33 | 0.21 | -0.37 | -1.02 | -1.39 | -1.39 | 240 | -1.38 |
-| Investment (real) (%) | 0 | 0 | -0.01 | 0 | 0.10 | 0.11 | -0.02 | -0.05 | 0.03 | 0.12 | 31 | 0.03 |
+| Output (real GDP) (%) | 0 | -0.02 | -0.04 | -0.08 | -0.05 | 0 | 0.03 | -0.02 | -0.09 | -0.09 | 240 | -0.08 |
+| Inflation (12-month CPI) (pp) | -0.01 | -0.03 | -0.07 | -0.15 | -0.11 | -0.01 | 0.09 | 0.16 | 0.18 | 0.18 | 192 | 0.18 |
+| Consumer price level (%) | -0.01 | -0.03 | -0.07 | -0.15 | -0.26 | -0.28 | -0.13 | 0.56 | 2.37 | 2.37 | 240 | 2.29 |
+| Unemployment rate (pp) | 0 | 0 | 0.01 | 0.03 | 0.04 | 0.02 | -0.03 | -0.05 | -0.04 | -0.05 | 129 | -0.04 |
+| Key interest rate (pp) | 0 | -0.01 | -0.04 | -0.14 | -0.18 | -0.07 | 0.10 | 0.13 | 0.09 | -0.19 | 20 | 0.09 |
+| Króna value (% (+ stronger)) | 0.26 | 0.53 | 0.71 | 0.83 | 0.65 | 0.23 | -0.52 | -1.65 | -3.62 | -3.62 | 240 | -3.54 |
+| Real wages (%) | 0.01 | 0.03 | 0.06 | 0.10 | 0.08 | 0 | -0.10 | -0.03 | 0.07 | 0.11 | 16 | 0.06 |
+| Household consumption (real) (%) | 0.01 | 0.04 | 0.10 | 0.21 | 0.35 | 0.22 | -0.36 | -1.01 | -1.38 | -1.38 | 240 | -1.37 |
+| Investment (real) (%) | 0 | 0 | -0.01 | 0 | 0.10 | 0.11 | -0.02 | -0.06 | 0.03 | 0.12 | 31 | 0.02 |
 | Exports (real) (%) | -0.01 | -0.06 | -0.14 | -0.27 | -0.32 | -0.16 | 0.28 | 0.63 | 0.74 | 0.74 | 240 | 0.74 |
-| Imports (real) (%) | 0.01 | 0.04 | 0.09 | 0.18 | 0.27 | 0.16 | -0.25 | -0.62 | -0.77 | -0.77 | 240 | -0.77 |
-| Current account (pp of GDP) | -0.32 | -0.33 | -0.32 | -0.34 | -0.40 | -0.41 | -0.28 | -0.11 | -0.05 | -0.42 | 31 | -0.05 |
-| Real house prices (%) | 0 | 0 | 0.01 | 0.07 | 0.25 | 0.21 | -0.30 | -0.71 | -0.90 | -0.90 | 240 | -0.90 |
-| Mortgage debt / GDP (pp of GDP) | 0 | -0.01 | -0.01 | -0.02 | 0.02 | 0.09 | 0.12 | -0.16 | -0.34 | -0.34 | 240 | -0.34 |
-| Broad money (bank deposits) (%) | 0.02 | 0.05 | 0.07 | 0.04 | -0.14 | -0.30 | -0.43 | -0.07 | 1.51 | 1.51 | 240 | 1.45 |
-| Government balance (pp of GDP) | -0.12 | -0.11 | -0.09 | -0.05 | -0.02 | -0.09 | -0.21 | -0.21 | -0.14 | -0.23 | 83 | -0.14 |
-| Government debt / GDP (pp of GDP) | 0.01 | 0.03 | 0.07 | 0.12 | 0.19 | 0.30 | 0.64 | 1.39 | 2.11 | 2.11 | 240 | 2.09 |
+| Imports (real) (%) | 0.01 | 0.04 | 0.09 | 0.19 | 0.28 | 0.17 | -0.24 | -0.62 | -0.77 | -0.77 | 240 | -0.77 |
+| Current account (pp of GDP) | -0.32 | -0.33 | -0.33 | -0.34 | -0.40 | -0.41 | -0.28 | -0.11 | -0.05 | -0.42 | 31 | -0.05 |
+| Real house prices (%) | 0 | 0.01 | 0.03 | 0.11 | 0.29 | 0.25 | -0.26 | -0.68 | -0.87 | -0.87 | 240 | -0.87 |
+| Mortgage debt / GDP (pp of GDP) | 0 | 0 | -0.01 | -0.01 | 0.03 | 0.10 | 0.13 | -0.14 | -0.32 | -0.32 | 240 | -0.32 |
+| Broad money (bank deposits) (%) | 0.01 | 0.04 | 0.06 | 0.03 | -0.15 | -0.30 | -0.42 | -0.01 | 1.63 | 1.63 | 240 | 1.56 |
+| Government balance (pp of GDP) | -0.12 | -0.11 | -0.09 | -0.05 | -0.02 | -0.09 | -0.21 | -0.22 | -0.14 | -0.23 | 82 | -0.15 |
+| Government debt / GDP (pp of GDP) | 0.01 | 0.03 | 0.07 | 0.12 | 0.19 | 0.30 | 0.64 | 1.40 | 2.13 | 2.13 | 240 | 2.11 |
 | Bank capital ratio (pp) | 0 | 0 | -0.01 | -0.02 | 0 | 0.01 | 0.01 | 0 | -0.01 | -0.02 | 10 | -0.01 |
-| Disposable income, all households (real) (%) | 0.01 | 0.03 | 0.06 | 0.09 | 0.05 | -0.09 | -0.34 | -0.61 | -0.97 | -0.97 | 240 | -0.96 |
+| Disposable income, all households (real) (%) | 0.03 | 0.05 | 0.08 | 0.11 | 0.06 | -0.08 | -0.32 | -0.60 | -0.97 | -0.97 | 240 | -0.96 |
 | Profits, domestic firms (real) (%) | 0.03 | 0.11 | 0.22 | 0.35 | 0.31 | 0.04 | -0.41 | -0.62 | -0.74 | -0.74 | 240 | -0.74 |
-| Profits, exporters (real) (%) | -0.59 | -1.10 | -1.30 | -1.18 | -0.57 | 0.09 | 1.16 | 2.31 | 3.50 | 3.50 | 240 | 3.45 |
-| Income-tax rate (pp) | 0 | 0 | 0 | 0.01 | 0.02 | 0.04 | 0.09 | 0.28 | 0.50 | 0.50 | 240 | 0.50 |
+| Profits, exporters (real) (%) | -0.59 | -1.10 | -1.30 | -1.19 | -0.59 | 0.07 | 1.14 | 2.30 | 3.50 | 3.50 | 240 | 3.45 |
+| Income-tax rate (pp) | 0 | 0 | 0 | 0.01 | 0.02 | 0.04 | 0.09 | 0.28 | 0.51 | 0.51 | 240 | 0.50 |
 
 Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Disposable income, all households (real): moved -0.03 in the last 12 months, -0.97 at month 240; Profits, exporters (real): moved 0.11 in the last 12 months, 3.50 at month 240; Real disposable income, older (67+): moved -0.06 in the last 12 months, -1.43 at month 240; Pension-fund assets (real): moved -0.04 in the last 12 months, -0.69 at month 240; and 2 more.
-- **Explosive**: Consumer price level: moved 0.18 in the last 12 months, 2.31 at month 240; Króna value: moved -0.18 in the last 12 months, -3.56 at month 240; Broad money (bank deposits): moved 0.14 in the last 12 months, 1.51 at month 240; Export revenue, fisheries: moved 0.19 in the last 12 months, 3.93 at month 240; and 3 more.
+- **Unsettled**: Disposable income, all households (real): moved -0.03 in the last 12 months, -0.97 at month 240; Profits, exporters (real): moved 0.11 in the last 12 months, 3.50 at month 240; Real disposable income, older (67+): moved -0.06 in the last 12 months, -1.44 at month 240; Pension-fund assets (real): moved -0.04 in the last 12 months, -0.72 at month 240; and 2 more.
+- **Explosive**: Consumer price level: moved 0.18 in the last 12 months, 2.37 at month 240; Króna value: moved -0.18 in the last 12 months, -3.62 at month 240; Broad money (bank deposits): moved 0.15 in the last 12 months, 1.63 at month 240; Export revenue, fisheries: moved 0.20 in the last 12 months, 4.00 at month 240; and 3 more.
 
 ### 1.25 pp (up), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.01 | 0.03 | 0.08 | 0.13 | 0.09 | 0.01 | -0.04 | 0.04 | 0.16 | 0.16 | 240 | 0.15 |
-| Inflation (12-month CPI) (pp) | 0.01 | 0.05 | 0.12 | 0.26 | 0.19 | 0.02 | -0.16 | -0.26 | -0.29 | -0.30 | 194 | -0.29 |
-| Consumer price level (%) | 0.01 | 0.05 | 0.12 | 0.26 | 0.45 | 0.47 | 0.22 | -0.90 | -3.76 | -3.76 | 240 | -3.63 |
-| Unemployment rate (pp) | 0 | -0.01 | -0.02 | -0.06 | -0.07 | -0.04 | 0.05 | 0.08 | 0.06 | 0.08 | 131 | 0.06 |
-| Key interest rate (pp) | 0 | 0.02 | 0.08 | 0.24 | 0.31 | 0.12 | -0.16 | -0.21 | -0.13 | 0.33 | 20 | -0.13 |
-| Króna value (% (+ stronger)) | -0.43 | -0.87 | -1.17 | -1.35 | -1.05 | -0.36 | 0.91 | 2.81 | 6.32 | 6.32 | 240 | 6.17 |
-| Real wages (%) | -0.01 | -0.04 | -0.10 | -0.17 | -0.14 | 0 | 0.16 | 0.04 | -0.13 | -0.18 | 16 | -0.13 |
-| Household consumption (real) (%) | -0.01 | -0.06 | -0.15 | -0.34 | -0.54 | -0.33 | 0.64 | 1.72 | 2.37 | 2.37 | 240 | 2.35 |
-| Investment (real) (%) | 0 | 0 | 0.02 | 0 | -0.16 | -0.18 | 0.03 | 0.09 | -0.05 | -0.20 | 31 | -0.04 |
-| Exports (real) (%) | 0.02 | 0.10 | 0.23 | 0.45 | 0.53 | 0.26 | -0.49 | -1.05 | -1.23 | -1.23 | 240 | -1.23 |
-| Imports (real) (%) | -0.01 | -0.06 | -0.14 | -0.30 | -0.44 | -0.26 | 0.44 | 1.07 | 1.34 | 1.34 | 240 | 1.34 |
-| Current account (pp of GDP) | 0.53 | 0.55 | 0.55 | 0.58 | 0.68 | 0.69 | 0.46 | 0.19 | 0.09 | 0.70 | 30 | 0.09 |
-| Real house prices (%) | 0 | 0 | -0.02 | -0.12 | -0.41 | -0.33 | 0.51 | 1.19 | 1.52 | 1.52 | 240 | 1.51 |
-| Mortgage debt / GDP (pp of GDP) | 0 | 0.01 | 0.02 | 0.03 | -0.03 | -0.15 | -0.19 | 0.27 | 0.57 | 0.57 | 240 | 0.57 |
-| Broad money (bank deposits) (%) | -0.03 | -0.08 | -0.13 | -0.08 | 0.22 | 0.47 | 0.65 | 0 | -2.53 | -2.53 | 240 | -2.43 |
-| Government balance (pp of GDP) | 0.20 | 0.18 | 0.16 | 0.08 | 0.04 | 0.15 | 0.34 | 0.35 | 0.23 | 0.37 | 80 | 0.23 |
-| Government debt / GDP (pp of GDP) | -0.02 | -0.06 | -0.11 | -0.20 | -0.33 | -0.51 | -1.07 | -2.30 | -3.53 | -3.53 | 240 | -3.49 |
-| Bank capital ratio (pp) | 0 | 0.01 | 0.03 | 0.03 | 0 | -0.02 | -0.02 | 0.01 | 0.02 | 0.03 | 10 | 0.02 |
-| Disposable income, all households (real) (%) | -0.02 | -0.06 | -0.10 | -0.15 | -0.07 | 0.16 | 0.57 | 1.02 | 1.65 | 1.65 | 240 | 1.63 |
-| Profits, domestic firms (real) (%) | -0.05 | -0.18 | -0.36 | -0.57 | -0.50 | -0.05 | 0.71 | 1.05 | 1.27 | 1.27 | 240 | 1.26 |
-| Profits, exporters (real) (%) | 0.99 | 1.84 | 2.17 | 1.95 | 0.93 | -0.19 | -1.99 | -3.84 | -5.88 | -5.88 | 240 | -5.79 |
+| Output (real GDP) (%) | 0.01 | 0.03 | 0.07 | 0.12 | 0.08 | 0 | -0.05 | 0.03 | 0.15 | 0.15 | 240 | 0.14 |
+| Inflation (12-month CPI) (pp) | 0.01 | 0.05 | 0.11 | 0.25 | 0.18 | 0.02 | -0.16 | -0.27 | -0.30 | -0.30 | 194 | -0.30 |
+| Consumer price level (%) | 0.01 | 0.05 | 0.11 | 0.25 | 0.44 | 0.45 | 0.19 | -0.96 | -3.86 | -3.86 | 240 | -3.73 |
+| Unemployment rate (pp) | 0 | -0.01 | -0.02 | -0.06 | -0.07 | -0.03 | 0.05 | 0.08 | 0.06 | 0.08 | 131 | 0.07 |
+| Key interest rate (pp) | 0 | 0.01 | 0.07 | 0.23 | 0.30 | 0.11 | -0.17 | -0.22 | -0.14 | 0.32 | 19 | -0.15 |
+| Króna value (% (+ stronger)) | -0.43 | -0.87 | -1.17 | -1.35 | -1.05 | -0.35 | 0.93 | 2.86 | 6.43 | 6.43 | 240 | 6.28 |
+| Real wages (%) | -0.01 | -0.04 | -0.10 | -0.17 | -0.13 | 0.01 | 0.17 | 0.05 | -0.12 | -0.18 | 16 | -0.12 |
+| Household consumption (real) (%) | -0.02 | -0.07 | -0.16 | -0.36 | -0.57 | -0.35 | 0.62 | 1.70 | 2.36 | 2.36 | 240 | 2.34 |
+| Investment (real) (%) | 0 | 0 | 0.02 | 0 | -0.16 | -0.18 | 0.04 | 0.10 | -0.04 | -0.19 | 31 | -0.03 |
+| Exports (real) (%) | 0.02 | 0.10 | 0.23 | 0.45 | 0.53 | 0.25 | -0.49 | -1.05 | -1.24 | -1.24 | 240 | -1.24 |
+| Imports (real) (%) | -0.02 | -0.06 | -0.15 | -0.31 | -0.45 | -0.27 | 0.43 | 1.06 | 1.34 | 1.34 | 240 | 1.33 |
+| Current account (pp of GDP) | 0.53 | 0.55 | 0.55 | 0.58 | 0.69 | 0.69 | 0.46 | 0.19 | 0.09 | 0.71 | 30 | 0.09 |
+| Real house prices (%) | 0 | -0.02 | -0.05 | -0.18 | -0.48 | -0.41 | 0.44 | 1.14 | 1.48 | 1.48 | 240 | 1.46 |
+| Mortgage debt / GDP (pp of GDP) | 0 | 0.01 | 0.02 | 0.02 | -0.05 | -0.17 | -0.22 | 0.24 | 0.54 | 0.54 | 240 | 0.54 |
+| Broad money (bank deposits) (%) | -0.03 | -0.08 | -0.11 | -0.06 | 0.24 | 0.48 | 0.62 | -0.09 | -2.71 | -2.71 | 240 | -2.61 |
+| Government balance (pp of GDP) | 0.20 | 0.19 | 0.16 | 0.09 | 0.05 | 0.16 | 0.35 | 0.35 | 0.23 | 0.38 | 79 | 0.23 |
+| Government debt / GDP (pp of GDP) | -0.02 | -0.06 | -0.11 | -0.20 | -0.33 | -0.52 | -1.08 | -2.31 | -3.55 | -3.55 | 240 | -3.52 |
+| Bank capital ratio (pp) | 0 | 0.01 | 0.02 | 0.03 | 0 | -0.02 | -0.02 | 0.01 | 0.02 | 0.03 | 10 | 0.02 |
+| Disposable income, all households (real) (%) | -0.04 | -0.08 | -0.13 | -0.18 | -0.10 | 0.14 | 0.55 | 1.00 | 1.64 | 1.64 | 240 | 1.62 |
+| Profits, domestic firms (real) (%) | -0.05 | -0.19 | -0.37 | -0.58 | -0.50 | -0.05 | 0.71 | 1.04 | 1.27 | 1.27 | 240 | 1.26 |
+| Profits, exporters (real) (%) | 0.99 | 1.84 | 2.17 | 1.96 | 0.96 | -0.17 | -1.97 | -3.83 | -5.88 | -5.88 | 240 | -5.79 |
 | Income-tax rate (pp) | 0 | 0 | 0 | -0.01 | -0.03 | -0.06 | -0.15 | -0.46 | -0.84 | -0.84 | 240 | -0.83 |
 
 Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Investment (real): moved -0.02 in the last 12 months, -0.05 at month 240; Government debt / GDP: moved -0.07 in the last 12 months, -3.53 at month 240; Disposable income, all households (real): moved 0.05 in the last 12 months, 1.65 at month 240; Profits, exporters (real): moved -0.19 in the last 12 months, -5.88 at month 240; and 5 more.
-- **Explosive**: Consumer price level: moved -0.28 in the last 12 months, -3.76 at month 240; Króna value: moved 0.33 in the last 12 months, 6.32 at month 240; Broad money (bank deposits): moved -0.22 in the last 12 months, -2.53 at month 240; Pension-fund assets (real): moved 0.07 in the last 12 months, 1.17 at month 240; and 4 more.
+- **Unsettled**: Investment (real): moved -0.02 in the last 12 months, -0.04 at month 240; Government debt / GDP: moved -0.07 in the last 12 months, -3.55 at month 240; Disposable income, all households (real): moved 0.05 in the last 12 months, 1.64 at month 240; Profits, exporters (real): moved -0.19 in the last 12 months, -5.88 at month 240; and 5 more.
+- **Explosive**: Consumer price level: moved -0.29 in the last 12 months, -3.86 at month 240; Króna value: moved 0.34 in the last 12 months, 6.43 at month 240; Broad money (bank deposits): moved -0.23 in the last 12 months, -2.71 at month 240; Pension-fund assets (real): moved 0.07 in the last 12 months, 1.23 at month 240; and 4 more.
 
 ### 5 pp (max), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.03 | 0.13 | 0.31 | 0.52 | 0.33 | 0.01 | -0.17 | 0.15 | 0.65 | 0.65 | 240 | 0.63 |
-| Inflation (12-month CPI) (pp) | 0.04 | 0.19 | 0.47 | 1.03 | 0.74 | 0.06 | -0.66 | -1.06 | -1.17 | -1.19 | 195 | -1.17 |
-| Consumer price level (%) | 0.04 | 0.19 | 0.47 | 1.03 | 1.77 | 1.84 | 0.73 | -3.72 | -14.4 | -14.4 | 240 | -13.9 |
-| Unemployment rate (pp) | 0 | -0.02 | -0.08 | -0.22 | -0.29 | -0.13 | 0.20 | 0.32 | 0.26 | 0.32 | 132 | 0.26 |
-| Key interest rate (pp) | 0 | 0.06 | 0.30 | 0.95 | 1.20 | 0.44 | -0.69 | -0.84 | -0.48 | 1.31 | 19 | -0.51 |
-| Króna value (% (+ stronger)) | -1.72 | -3.44 | -4.53 | -5.14 | -3.97 | -1.17 | 4.11 | 12.1 | 28.5 | 28.5 | 240 | 27.8 |
-| Real wages (%) | -0.04 | -0.18 | -0.40 | -0.68 | -0.54 | 0.02 | 0.68 | 0.11 | -0.63 | -0.72 | 16 | -0.60 |
-| Household consumption (real) (%) | -0.06 | -0.25 | -0.60 | -1.33 | -2.11 | -1.20 | 2.78 | 7.06 | 9.96 | 9.96 | 240 | 9.86 |
-| Investment (real) (%) | 0 | 0.02 | 0.07 | 0 | -0.64 | -0.71 | 0.17 | 0.41 | -0.19 | -0.77 | 31 | -0.15 |
-| Exports (real) (%) | 0.09 | 0.39 | 0.92 | 1.77 | 2.08 | 0.93 | -2.08 | -4.18 | -4.98 | -4.98 | 240 | -4.96 |
-| Imports (real) (%) | -0.06 | -0.24 | -0.56 | -1.17 | -1.69 | -0.95 | 1.92 | 4.52 | 5.84 | 5.84 | 240 | 5.80 |
-| Current account (pp of GDP) | 2.11 | 2.25 | 2.29 | 2.41 | 2.83 | 2.79 | 1.81 | 0.78 | 0.41 | 2.88 | 29 | 0.42 |
-| Real house prices (%) | 0 | -0.02 | -0.09 | -0.48 | -1.60 | -1.25 | 2.19 | 4.80 | 6.27 | 6.27 | 240 | 6.22 |
-| Mortgage debt / GDP (pp of GDP) | 0.01 | 0.04 | 0.09 | 0.12 | -0.14 | -0.61 | -0.75 | 1.12 | 2.29 | 2.29 | 240 | 2.28 |
-| Broad money (bank deposits) (%) | -0.12 | -0.34 | -0.50 | -0.30 | 0.88 | 1.86 | 2.38 | -0.40 | -9.72 | -9.72 | 240 | -9.39 |
-| Government balance (pp of GDP) | 0.81 | 0.76 | 0.66 | 0.38 | 0.23 | 0.63 | 1.34 | 1.30 | 0.83 | 1.43 | 75 | 0.84 |
-| Government debt / GDP (pp of GDP) | -0.08 | -0.23 | -0.45 | -0.84 | -1.39 | -2.16 | -4.34 | -9.09 | -14.2 | -14.2 | 240 | -14.1 |
-| Bank capital ratio (pp) | 0 | 0.02 | 0.10 | 0.13 | 0 | -0.09 | -0.08 | 0.03 | 0.07 | 0.14 | 10 | 0.07 |
-| Disposable income, all households (real) (%) | -0.07 | -0.23 | -0.41 | -0.59 | -0.25 | 0.70 | 2.33 | 4.11 | 6.89 | 6.89 | 240 | 6.78 |
-| Profits, domestic firms (real) (%) | -0.19 | -0.73 | -1.44 | -2.22 | -1.88 | -0.07 | 3.03 | 4.33 | 5.33 | 5.33 | 240 | 5.30 |
-| Profits, exporters (real) (%) | 4.00 | 7.45 | 8.66 | 7.61 | 3.55 | -1.12 | -8.34 | -15.3 | -23.9 | -23.9 | 240 | -23.5 |
-| Income-tax rate (pp) | 0 | 0 | -0.01 | -0.04 | -0.14 | -0.25 | -0.62 | -1.82 | -3.36 | -3.36 | 240 | -3.31 |
+| Output (real GDP) (%) | 0.03 | 0.12 | 0.29 | 0.49 | 0.30 | -0.03 | -0.21 | 0.12 | 0.62 | 0.62 | 240 | 0.60 |
+| Inflation (12-month CPI) (pp) | 0.04 | 0.19 | 0.46 | 1.01 | 0.71 | 0.03 | -0.68 | -1.07 | -1.18 | -1.21 | 195 | -1.19 |
+| Consumer price level (%) | 0.04 | 0.19 | 0.46 | 1.01 | 1.72 | 1.76 | 0.60 | -3.94 | -14.7 | -14.7 | 240 | -14.3 |
+| Unemployment rate (pp) | 0 | -0.02 | -0.08 | -0.22 | -0.28 | -0.12 | 0.21 | 0.33 | 0.27 | 0.33 | 132 | 0.27 |
+| Key interest rate (pp) | 0 | 0.06 | 0.29 | 0.92 | 1.15 | 0.38 | -0.75 | -0.89 | -0.53 | 1.26 | 19 | -0.56 |
+| Króna value (% (+ stronger)) | -1.72 | -3.44 | -4.53 | -5.14 | -3.95 | -1.11 | 4.22 | 12.4 | 29.0 | 29.0 | 240 | 28.3 |
+| Real wages (%) | -0.04 | -0.18 | -0.39 | -0.66 | -0.52 | 0.05 | 0.71 | 0.14 | -0.60 | 0.72 | 63 | -0.58 |
+| Household consumption (real) (%) | -0.07 | -0.27 | -0.64 | -1.41 | -2.21 | -1.30 | 2.69 | 6.97 | 9.89 | 9.89 | 240 | 9.79 |
+| Investment (real) (%) | 0 | 0.02 | 0.07 | 0 | -0.61 | -0.67 | 0.22 | 0.45 | -0.15 | -0.74 | 31 | -0.11 |
+| Exports (real) (%) | 0.09 | 0.39 | 0.92 | 1.78 | 2.08 | 0.93 | -2.09 | -4.19 | -4.99 | -4.99 | 240 | -4.98 |
+| Imports (real) (%) | -0.06 | -0.25 | -0.58 | -1.20 | -1.72 | -0.98 | 1.90 | 4.50 | 5.83 | 5.83 | 240 | 5.79 |
+| Current account (pp of GDP) | 2.11 | 2.26 | 2.29 | 2.42 | 2.85 | 2.81 | 1.82 | 0.79 | 0.42 | 2.90 | 29 | 0.43 |
+| Real house prices (%) | 0 | -0.08 | -0.22 | -0.71 | -1.90 | -1.55 | 1.92 | 4.57 | 6.08 | 6.08 | 240 | 6.02 |
+| Mortgage debt / GDP (pp of GDP) | 0.01 | 0.03 | 0.07 | 0.09 | -0.20 | -0.70 | -0.86 | 0.98 | 2.14 | 2.14 | 240 | 2.14 |
+| Broad money (bank deposits) (%) | -0.11 | -0.31 | -0.45 | -0.23 | 0.94 | 1.87 | 2.31 | -0.70 | -10.3 | -10.3 | 240 | -9.99 |
+| Government balance (pp of GDP) | 0.81 | 0.76 | 0.66 | 0.39 | 0.25 | 0.66 | 1.36 | 1.32 | 0.84 | 1.45 | 75 | 0.85 |
+| Government debt / GDP (pp of GDP) | -0.08 | -0.23 | -0.45 | -0.83 | -1.38 | -2.16 | -4.37 | -9.15 | -14.3 | -14.3 | 240 | -14.1 |
+| Bank capital ratio (pp) | 0 | 0.02 | 0.10 | 0.13 | -0.01 | -0.10 | -0.09 | 0.02 | 0.07 | 0.14 | 10 | 0.07 |
+| Disposable income, all households (real) (%) | -0.17 | -0.34 | -0.51 | -0.69 | -0.35 | 0.61 | 2.25 | 4.04 | 6.84 | 6.84 | 240 | 6.74 |
+| Profits, domestic firms (real) (%) | -0.19 | -0.75 | -1.48 | -2.26 | -1.91 | -0.08 | 3.03 | 4.32 | 5.32 | 5.32 | 240 | 5.29 |
+| Profits, exporters (real) (%) | 4.00 | 7.45 | 8.68 | 7.67 | 3.65 | -1.03 | -8.26 | -15.2 | -23.8 | -23.8 | 240 | -23.4 |
+| Income-tax rate (pp) | 0 | 0 | -0.01 | -0.04 | -0.13 | -0.25 | -0.62 | -1.83 | -3.38 | -3.38 | 240 | -3.33 |
 
 Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.05 in the last 12 months, 0.65 at month 240; Key interest rate: moved 0.06 in the last 12 months, -0.48 at month 240; Real wages: moved -0.05 in the last 12 months, -0.63 at month 240; Household consumption (real): moved 0.21 in the last 12 months, 9.96 at month 240; and 14 more.
-- **Explosive**: Consumer price level: moved -1.01 in the last 12 months, -14.4 at month 240; Króna value: moved 1.63 in the last 12 months, 28.5 at month 240; Broad money (bank deposits): moved -0.74 in the last 12 months, -9.72 at month 240; Pension-fund assets (real): moved 0.30 in the last 12 months, 4.84 at month 240; and 3 more.
-- **Regimes**: retentionXF.
+- **Unsettled**: Output (real GDP): moved 0.05 in the last 12 months, 0.62 at month 240; Key interest rate: moved 0.06 in the last 12 months, -0.53 at month 240; Real wages: moved -0.06 in the last 12 months, -0.60 at month 240; Household consumption (real): moved 0.21 in the last 12 months, 9.89 at month 240; and 15 more.
+- **Explosive**: Consumer price level: moved -1.02 in the last 12 months, -14.7 at month 240; Króna value: moved 1.66 in the last 12 months, 29.0 at month 240; Broad money (bank deposits): moved -0.77 in the last 12 months, -10.3 at month 240; Pension-fund assets (real): moved 0.30 in the last 12 months, 5.07 at month 240; and 3 more.
+- **Regimes**: stressTestPayment; retentionXF.
 
 Regimes that differ from the no-change run:
 
+- `stressTestPayment`: “Non-indexed floor applies” instead of “Both stress-test floors apply”, months 15–28; its label changed 2 time(s) in the run
 - `retentionXF`: “Keeps all its profit” instead of “–”, months 180–240; its label changed 1 time(s) in the run
 
 ## World prices (`importPrices`)
@@ -7218,90 +7215,89 @@ Regimes that differ from the no-change run:
 
 *Setting, unit pp of assets, default 0, range -20 to 20 in steps of 1.*
 
-Shifts the target foreign share of pension assets; funds move toward it through new flows, selling krónur.
+Shifts the target foreign share of pension assets; funds move toward it through new flows, limited by their cash, selling krónur, and the weaker króna revalues what they hold. They also want fewer domestic assets: they lend less of new mortgages, and covered bonds and mortgages cost a little more.
 
-**Definition.** Level shift in the target foreign share, in percentage points of assets, persistent while set. Funds close the gap at 0.5 a year, so most of the buying happens over two to three years. Setting it back to 0 makes them sell foreign assets back toward the old share.
+**Definition.** Level shift in the target foreign share, in percentage points of assets, persistent while set. Funds close the gap at up to 0.5 a year, but they buy only with cash above their buffer: new contributions, income, and the bank bonds, deposits and mortgage lending they give up. Shifts of a few points move at about that pace (+5: about 3.5 points higher after a year and 4.4 after two). Larger ones are cash-limited for years: at +20 the share is about 10 points higher after a year, 12–13 after two and 14–17 after five (less on Automatic, where the higher key rate slows the króna’s fall). Part of the rise is the weaker króna raising the value of the foreign assets they already hold. While set, the funds want proportionally less of every domestic asset: they lend a smaller share of new mortgages (banks lend the rest), and covered bonds and indexed mortgages carry a funding premium of about 0.1 pp per 5 points (half of it on non-indexed mortgages). Setting it back to 0 makes them sell foreign assets back toward the old share, and the premium goes.
 
 Runs: -20 pp of assets (min); -5 pp of assets (down); 5 pp of assets (up); 20 pp of assets (max). Each is set before month 1 and held.
 
 Comparisons between runs:
 
-- **Mode sign**: -20 pp of assets (min): Government debt / GDP 0.58 on Manual, -0.34 on Automatic.
-- **Mode sign**: -5 pp of assets (down): Government debt / GDP 0.13 on Manual, -0.11 on Automatic.
-- **Mode sign**: 5 pp of assets (up): Government debt / GDP -0.12 on Manual, 0.09 on Automatic.
-- **Mode sign**: 20 pp of assets (max): Real house prices 0.03 on Manual, -1.40 on Automatic; Government debt / GDP -0.41 on Manual, 0.27 on Automatic.
+- **Mode sign**: -20 pp of assets (min): Government debt / GDP 0.50 on Manual, -0.40 on Automatic.
+- **Mode sign**: -5 pp of assets (down): Government debt / GDP 0.11 on Manual, -0.11 on Automatic.
+- **Mode sign**: 5 pp of assets (up): Government debt / GDP -0.11 on Manual, 0.10 on Automatic.
+- **Mode sign**: 20 pp of assets (max): Government debt / GDP -0.35 on Manual, 0.31 on Automatic.
 
 ### -20 pp of assets (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | -0.25 | -1.49 | -6.05 | -11.1 | -8.16 | -1.86 | 0.87 | 1.11 | -11.1 | 24 | 1.13 |
-| Inflation (12-month CPI) (pp) | 0 | -0.36 | -1.98 | -7.47 | -11.0 | -7.72 | -3.13 | 0.12 | 1.02 | -11.5 | 20 | 1.02 |
-| Consumer price level (%) | 0 | -0.36 | -1.98 | -7.47 | -17.7 | -24.0 | -29.9 | -33.0 | -27.0 | -33.1 | 110 | -27.4 |
-| Unemployment rate (pp) | 0 | 0.04 | 0.31 | 1.93 | 5.51 | 5.08 | 1.38 | -0.29 | -0.45 | 5.80 | 28 | -0.46 |
-| Króna value (% (+ stronger)) | 0 | 11.6 | 44.0 | 104 | 89.3 | 63.8 | 51.2 | 49.1 | 34.0 | 107 | 15 | 34.7 |
-| Real wages (%) | 0 | 0.36 | 1.84 | 5.97 | 7.30 | 2.10 | -3.32 | -1.57 | -0.43 | 8.03 | 19 | -0.45 |
-| Household consumption (real) (%) | 0 | 0.47 | 2.50 | 8.91 | 17.0 | 15.7 | 6.66 | 1.91 | 0.38 | 17.4 | 28 | 0.45 |
-| Investment (real) (%) | 0 | -0.02 | -0.46 | -3.46 | -9.06 | -9.53 | -4.84 | -0.47 | 0.06 | -9.88 | 31 | 0.07 |
-| Exports (real) (%) | 0 | -0.73 | -3.98 | -14.0 | -23.4 | -19.2 | -6.32 | 0.36 | 1.68 | -23.4 | 25 | 1.66 |
-| Imports (real) (%) | 0 | 0.47 | 2.58 | 10.3 | 20.6 | 15.7 | 4.23 | 0.40 | -0.54 | 20.6 | 25 | -0.50 |
-| Current account (pp of GDP) | 0 | -0.54 | -1.18 | -0.89 | -3.53 | -5.84 | -3.42 | -0.85 | -0.40 | -5.86 | 38 | -0.41 |
-| Real house prices (%) | 0 | 0.01 | 0.14 | 0.17 | -0.40 | -0.97 | -1.50 | 1.75 | 1.49 | 2.22 | 157 | 1.55 |
-| Mortgage debt / GDP (pp of GDP) | 0 | -0.07 | -0.41 | -1.68 | -2.04 | 2.01 | 4.82 | 1.14 | -0.36 | 4.94 | 55 | -0.35 |
-| Broad money (bank deposits) (%) | 1.75 | 3.94 | 5.09 | 2.84 | -7.85 | -17.1 | -26.0 | -29.4 | -21.4 | -29.8 | 104 | -21.8 |
-| Government balance (pp of GDP) | 0 | 0.50 | 1.16 | 1.13 | 0.25 | 0.05 | 0.27 | 0.01 | -0.38 | 1.37 | 9 | -0.36 |
-| Government debt / GDP (pp of GDP) | 0 | 0.01 | 0.07 | 0.58 | 5.05 | 14.0 | 23.5 | 25.1 | 19.8 | 25.4 | 99 | 20.0 |
-| Bank capital ratio (pp) | 0 | 0 | -0.33 | -1.27 | -0.20 | 1.00 | 1.09 | 0.13 | -0.22 | -1.31 | 13 | -0.22 |
-| Disposable income, all households (real) (%) | 0 | 0.53 | 2.20 | 5.73 | 6.21 | 3.03 | 1.61 | 2.54 | 0.79 | 6.97 | 18 | 0.86 |
-| Profits, domestic firms (real) (%) | 0 | 1.49 | 7.18 | 20.8 | 20.4 | 7.30 | 0.18 | 0.59 | -0.23 | 24.5 | 17 | -0.20 |
-| Profits, exporters (real) (%) | 0 | -23.1 | -65.0 | -104 | -90.0 | -54.0 | -20.0 | -11.5 | -10.2 | -105 | 15 | -10.3 |
+| Output (real GDP) (%) | 0.01 | -0.21 | -1.41 | -5.90 | -10.8 | -7.82 | -1.54 | 1.01 | 1.18 | -10.8 | 24 | 1.20 |
+| Inflation (12-month CPI) (pp) | 0 | -0.35 | -1.94 | -7.37 | -10.9 | -7.51 | -2.94 | 0.20 | 1.09 | -11.3 | 20 | 1.08 |
+| Consumer price level (%) | 0 | -0.35 | -1.94 | -7.37 | -17.4 | -23.6 | -29.3 | -31.9 | -25.4 | -32.1 | 107 | -25.8 |
+| Unemployment rate (pp) | 0 | 0.03 | 0.30 | 1.90 | 5.43 | 4.97 | 1.27 | -0.33 | -0.48 | 5.70 | 28 | -0.49 |
+| Króna value (% (+ stronger)) | 0 | 11.6 | 43.9 | 103 | 88.6 | 62.9 | 49.8 | 46.9 | 31.0 | 107 | 15 | 31.7 |
+| Real wages (%) | 0 | 0.35 | 1.81 | 5.90 | 7.16 | 1.95 | -3.43 | -1.64 | -0.50 | 7.91 | 19 | -0.52 |
+| Household consumption (real) (%) | 0.04 | 0.57 | 2.70 | 9.28 | 17.6 | 16.3 | 7.26 | 2.19 | 0.41 | 18.1 | 28 | 0.48 |
+| Investment (real) (%) | 0 | -0.02 | -0.45 | -3.39 | -8.85 | -9.22 | -4.51 | -0.32 | 0.18 | -9.60 | 31 | 0.19 |
+| Exports (real) (%) | 0 | -0.73 | -3.98 | -14.0 | -23.3 | -19.1 | -6.21 | 0.39 | 1.76 | -23.4 | 25 | 1.74 |
+| Imports (real) (%) | 0.01 | 0.50 | 2.65 | 10.4 | 20.8 | 16.0 | 4.47 | 0.52 | -0.53 | 20.9 | 25 | -0.50 |
+| Current account (pp of GDP) | -0.01 | -0.56 | -1.20 | -0.93 | -3.60 | -5.91 | -3.48 | -0.89 | -0.41 | -5.94 | 38 | -0.42 |
+| Real house prices (%) | 0 | 0.25 | 0.68 | 1.19 | 1.15 | 0.71 | -0.02 | 2.70 | 2.25 | 3.05 | 153 | 2.31 |
+| Mortgage debt / GDP (pp of GDP) | 0.01 | -0.03 | -0.34 | -1.54 | -1.76 | 2.44 | 5.46 | 1.94 | 0.42 | 5.54 | 56 | 0.43 |
+| Broad money (bank deposits) (%) | 1.70 | 3.82 | 4.89 | 2.62 | -7.85 | -16.8 | -25.3 | -28.3 | -20.0 | -28.6 | 103 | -20.4 |
+| Government balance (pp of GDP) | 0.01 | 0.50 | 1.17 | 1.17 | 0.33 | 0.16 | 0.36 | 0.03 | -0.41 | 1.39 | 9 | -0.39 |
+| Government debt / GDP (pp of GDP) | 0 | 0.01 | 0.05 | 0.50 | 4.76 | 13.4 | 22.2 | 23.1 | 17.6 | 23.6 | 92 | 17.8 |
+| Bank capital ratio (pp) | 0 | 0 | -0.32 | -1.24 | -0.14 | 1.05 | 1.11 | 0.14 | -0.22 | 1.28 | 46 | -0.22 |
+| Disposable income, all households (real) (%) | 0.43 | 0.96 | 2.64 | 6.21 | 6.70 | 3.48 | 1.92 | 2.60 | 0.74 | 7.47 | 18 | 0.81 |
+| Profits, domestic firms (real) (%) | 0.03 | 1.57 | 7.33 | 21.0 | 20.7 | 7.59 | 0.43 | 0.68 | -0.24 | 24.8 | 17 | -0.20 |
+| Profits, exporters (real) (%) | 0 | -23.1 | -64.9 | -104 | -89.5 | -53.6 | -19.7 | -11.2 | -9.29 | -105 | 14 | -9.34 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate (effective).
 
 Flags:
 
-- **Extreme**: Króna value 107 % (+ stronger) at month 15; Government debt / GDP 25.4 pp of GDP at month 99; Profits, exporters (real) -105 % at month 15.
-- **Unsettled**: Consumer price level: moved 0.74 in the last 12 months, -27.0 at month 240; Real house prices: moved -0.14 in the last 12 months, 1.49 at month 240; Broad money (bank deposits): moved 0.81 in the last 12 months, -21.4 at month 240; Government balance: moved -0.04 in the last 12 months, -0.38 at month 240; and 3 more.
-- **Regimes**: loanPremium; stressTestPayment; bondPurchasesW; retentionXF; investmentXA.
+- **Extreme**: Króna value 107 % (+ stronger) at month 15; Profits, exporters (real) -105 % at month 14.
+- **Unsettled**: Consumer price level: moved 0.80 in the last 12 months, -25.4 at month 240; Real house prices: moved -0.14 in the last 12 months, 2.25 at month 240; Broad money (bank deposits): moved 0.85 in the last 12 months, -20.0 at month 240; Government balance: moved -0.04 in the last 12 months, -0.41 at month 240; and 4 more.
+- **Regimes**: loanPremium; bondPurchasesW; retentionXF; investmentXA.
 
 Regimes that differ from the no-change run:
 
 - `loanPremium`: “Capital below target: loans cost more” instead of “–”, months 10–17; its label changed 2 time(s) in the run
-- `stressTestPayment`: “Non-indexed floor applies” instead of “Both stress-test floors apply”, months 10–17; its label changed 2 time(s) in the run
 - `bondPurchasesW`: “Selling bonds to keep enough króna cash” / “Purchases limited by cash in hand” instead of “–”, months 2–40; its label changed 3 time(s) in the run
 - `retentionXF`: “Keeps all its profit” instead of “–”, months 19–240; its label changed 1 time(s) in the run
-- `investmentXA`: “No new investment: capital only wears out” instead of “–”, months 11–30; its label changed 2 time(s) in the run
+- `investmentXA`: “No new investment: capital only wears out” instead of “–”, months 11–29; its label changed 2 time(s) in the run
 
 ### -5 pp of assets (down), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | -0.06 | -0.29 | -1.04 | -2.08 | -1.97 | -0.75 | 0.09 | 0.23 | -2.15 | 28 | 0.23 |
-| Inflation (12-month CPI) (pp) | 0 | -0.08 | -0.40 | -1.45 | -2.53 | -2.10 | -0.91 | -0.07 | 0.20 | -2.53 | 24 | 0.19 |
-| Consumer price level (%) | 0 | -0.08 | -0.40 | -1.45 | -3.95 | -5.96 | -8.14 | -9.52 | -8.33 | -9.53 | 126 | -8.41 |
-| Unemployment rate (pp) | 0 | 0.01 | 0.06 | 0.34 | 0.98 | 1.10 | 0.48 | -0.02 | -0.09 | 1.12 | 32 | -0.09 |
-| Króna value (% (+ stronger)) | 0 | 2.36 | 6.30 | 11.5 | 14.4 | 13.0 | 10.7 | 10.7 | 8.63 | 14.4 | 23 | 8.75 |
-| Real wages (%) | 0 | 0.08 | 0.37 | 1.09 | 1.70 | 1.04 | -0.44 | -0.32 | -0.11 | 1.71 | 23 | -0.11 |
-| Household consumption (real) (%) | 0 | 0.11 | 0.50 | 1.58 | 3.23 | 3.34 | 1.62 | 0.38 | 0.12 | 3.47 | 31 | 0.13 |
-| Investment (real) (%) | 0 | -0.01 | -0.10 | -0.66 | -1.98 | -2.43 | -1.51 | -0.19 | 0.01 | -2.43 | 36 | 0 |
-| Exports (real) (%) | 0 | -0.16 | -0.81 | -2.64 | -5.13 | -4.95 | -2.04 | -0.06 | 0.31 | -5.33 | 29 | 0.31 |
-| Imports (real) (%) | 0 | 0.10 | 0.49 | 1.56 | 3.05 | 2.90 | 1.10 | 0.11 | -0.09 | 3.16 | 28 | -0.08 |
-| Current account (pp of GDP) | 0 | -0.12 | -0.23 | -0.30 | -0.85 | -1.26 | -0.88 | -0.21 | -0.11 | -1.28 | 40 | -0.12 |
-| Real house prices (%) | 0 | 0 | 0.03 | 0.01 | -0.22 | -0.47 | -0.66 | 0.19 | 0.34 | -0.67 | 55 | 0.35 |
-| Mortgage debt / GDP (pp of GDP) | 0 | -0.01 | -0.08 | -0.30 | -0.38 | 0.26 | 1.01 | 0.30 | -0.04 | 1.01 | 60 | -0.04 |
-| Broad money (bank deposits) (%) | 0.44 | 1.03 | 1.52 | 1.45 | -1.05 | -3.99 | -7.42 | -8.97 | -7.08 | -8.99 | 113 | -7.18 |
-| Government balance (pp of GDP) | 0 | 0.11 | 0.21 | 0.23 | 0.10 | 0.01 | 0 | -0.02 | -0.10 | 0.24 | 9 | -0.09 |
-| Government debt / GDP (pp of GDP) | 0 | 0 | 0.02 | 0.13 | 1.04 | 2.69 | 4.89 | 5.68 | 5.37 | 5.69 | 129 | 5.39 |
-| Bank capital ratio (pp) | 0 | 0 | -0.07 | -0.24 | -0.13 | 0.11 | 0.26 | 0.06 | -0.04 | 0.26 | 57 | -0.04 |
-| Disposable income, all households (real) (%) | 0 | 0.12 | 0.42 | 0.96 | 1.16 | 0.67 | 0.22 | 0.50 | 0.21 | 1.22 | 20 | 0.22 |
-| Profits, domestic firms (real) (%) | 0 | 0.33 | 1.37 | 3.24 | 3.39 | 1.55 | -0.06 | 0.12 | -0.06 | 3.82 | 18 | -0.05 |
-| Profits, exporters (real) (%) | 0 | -5.11 | -12.3 | -19.3 | -20.6 | -15.2 | -5.80 | -2.58 | -2.01 | -21.4 | 19 | -2.03 |
+| Output (real GDP) (%) | 0 | -0.05 | -0.28 | -1.00 | -2.02 | -1.90 | -0.68 | 0.13 | 0.25 | -2.09 | 28 | 0.25 |
+| Inflation (12-month CPI) (pp) | 0 | -0.08 | -0.39 | -1.43 | -2.49 | -2.05 | -0.87 | -0.05 | 0.21 | -2.49 | 24 | 0.21 |
+| Consumer price level (%) | 0 | -0.08 | -0.39 | -1.43 | -3.88 | -5.86 | -7.96 | -9.22 | -7.87 | -9.22 | 122 | -7.96 |
+| Unemployment rate (pp) | 0 | 0.01 | 0.06 | 0.33 | 0.96 | 1.08 | 0.46 | -0.03 | -0.10 | 1.10 | 32 | -0.10 |
+| Króna value (% (+ stronger)) | 0 | 2.36 | 6.29 | 11.4 | 14.3 | 12.9 | 10.5 | 10.4 | 8.09 | 14.3 | 23 | 8.22 |
+| Real wages (%) | 0 | 0.08 | 0.36 | 1.08 | 1.67 | 1.00 | -0.47 | -0.35 | -0.13 | 1.68 | 23 | -0.13 |
+| Household consumption (real) (%) | 0.01 | 0.13 | 0.55 | 1.67 | 3.37 | 3.50 | 1.78 | 0.47 | 0.15 | 3.62 | 31 | 0.16 |
+| Investment (real) (%) | 0 | 0 | -0.10 | -0.65 | -1.94 | -2.36 | -1.44 | -0.15 | 0.03 | -2.36 | 35 | 0.03 |
+| Exports (real) (%) | 0 | -0.16 | -0.81 | -2.64 | -5.13 | -4.94 | -2.03 | -0.06 | 0.33 | -5.32 | 29 | 0.32 |
+| Imports (real) (%) | 0 | 0.11 | 0.51 | 1.60 | 3.11 | 2.96 | 1.17 | 0.15 | -0.08 | 3.22 | 28 | -0.07 |
+| Current account (pp of GDP) | 0 | -0.13 | -0.24 | -0.31 | -0.86 | -1.28 | -0.91 | -0.23 | -0.12 | -1.31 | 40 | -0.12 |
+| Real house prices (%) | 0 | 0.06 | 0.16 | 0.26 | 0.16 | -0.06 | -0.27 | 0.45 | 0.55 | 0.64 | 172 | 0.56 |
+| Mortgage debt / GDP (pp of GDP) | 0 | -0.01 | -0.07 | -0.26 | -0.32 | 0.36 | 1.16 | 0.50 | 0.16 | 1.16 | 61 | 0.16 |
+| Broad money (bank deposits) (%) | 0.43 | 1.00 | 1.47 | 1.38 | -1.09 | -3.96 | -7.27 | -8.66 | -6.64 | -8.69 | 111 | -6.75 |
+| Government balance (pp of GDP) | 0 | 0.11 | 0.22 | 0.23 | 0.12 | 0.03 | 0.02 | -0.01 | -0.10 | 0.24 | 9 | -0.10 |
+| Government debt / GDP (pp of GDP) | 0 | 0 | 0.01 | 0.11 | 0.98 | 2.58 | 4.68 | 5.33 | 4.93 | 5.33 | 121 | 4.95 |
+| Bank capital ratio (pp) | 0 | 0 | -0.07 | -0.23 | -0.12 | 0.12 | 0.27 | 0.07 | -0.04 | 0.27 | 56 | -0.04 |
+| Disposable income, all households (real) (%) | 0.11 | 0.22 | 0.53 | 1.07 | 1.27 | 0.78 | 0.30 | 0.54 | 0.21 | 1.33 | 20 | 0.23 |
+| Profits, domestic firms (real) (%) | 0.01 | 0.35 | 1.40 | 3.30 | 3.47 | 1.63 | 0 | 0.16 | -0.05 | 3.90 | 18 | -0.04 |
+| Profits, exporters (real) (%) | 0 | -5.11 | -12.3 | -19.3 | -20.6 | -15.1 | -5.79 | -2.58 | -1.91 | -21.4 | 19 | -1.93 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Broad money (bank deposits): moved 0.21 in the last 12 months, -7.08 at month 240; Disposable income, all households (real): moved -0.03 in the last 12 months, 0.21 at month 240; Real disposable income, older (67+): moved -0.09 in the last 12 months, 0.87 at month 240; Pension-fund assets (real): moved -0.09 in the last 12 months, 1.21 at month 240.
+- **Unsettled**: Consumer price level: moved 0.20 in the last 12 months, -7.87 at month 240; Real house prices: moved -0.02 in the last 12 months, 0.55 at month 240; Broad money (bank deposits): moved 0.22 in the last 12 months, -6.64 at month 240; Disposable income, all households (real): moved -0.03 in the last 12 months, 0.21 at month 240; and 2 more.
 - **Regimes**: bondPurchasesW.
 
 Regimes that differ from the no-change run:
@@ -7312,115 +7308,117 @@ Regimes that differ from the no-change run:
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | 0.05 | 0.27 | 0.88 | 1.77 | 1.85 | 0.93 | -0.02 | -0.20 | 1.90 | 31 | -0.20 |
-| Inflation (12-month CPI) (pp) | 0 | 0.08 | 0.37 | 1.30 | 2.32 | 2.13 | 1.05 | 0.12 | -0.18 | 2.34 | 27 | -0.17 |
-| Consumer price level (%) | 0 | 0.08 | 0.37 | 1.30 | 3.65 | 5.86 | 8.66 | 10.6 | 9.54 | 10.7 | 136 | 9.63 |
-| Unemployment rate (pp) | 0 | -0.01 | -0.06 | -0.29 | -0.82 | -0.99 | -0.56 | 0 | 0.08 | -0.99 | 35 | 0.08 |
-| Króna value (% (+ stronger)) | 0 | -2.11 | -5.05 | -8.39 | -11.0 | -11.2 | -9.84 | -9.82 | -8.35 | -11.3 | 31 | -8.45 |
-| Real wages (%) | 0 | -0.08 | -0.33 | -0.95 | -1.54 | -1.16 | 0.18 | 0.29 | 0.10 | -1.54 | 24 | 0.11 |
-| Household consumption (real) (%) | 0 | -0.10 | -0.45 | -1.36 | -2.75 | -3.01 | -1.67 | -0.33 | -0.10 | -3.04 | 33 | -0.11 |
-| Investment (real) (%) | 0 | 0 | 0.09 | 0.59 | 1.78 | 2.32 | 1.68 | 0.22 | -0.01 | 2.34 | 39 | -0.01 |
-| Exports (real) (%) | 0 | 0.15 | 0.73 | 2.33 | 4.63 | 4.85 | 2.40 | 0.13 | -0.29 | 4.98 | 31 | -0.28 |
-| Imports (real) (%) | 0 | -0.10 | -0.44 | -1.26 | -2.29 | -2.34 | -1.15 | -0.12 | 0.09 | -2.42 | 30 | 0.08 |
-| Current account (pp of GDP) | 0 | 0.11 | 0.21 | 0.29 | 0.80 | 1.15 | 0.90 | 0.22 | 0.11 | 1.18 | 41 | 0.11 |
-| Real house prices (%) | 0 | 0 | -0.03 | -0.01 | 0.23 | 0.53 | 0.81 | -0.03 | -0.32 | 0.81 | 59 | -0.33 |
-| Mortgage debt / GDP (pp of GDP) | 0 | 0.01 | 0.08 | 0.26 | 0.32 | -0.18 | -0.87 | -0.29 | 0.03 | -0.88 | 64 | 0.02 |
-| Broad money (bank deposits) (%) | -0.44 | -1.05 | -1.63 | -1.80 | 0.36 | 3.49 | 7.91 | 10.2 | 8.26 | 10.2 | 120 | 8.37 |
-| Government balance (pp of GDP) | 0 | -0.10 | -0.19 | -0.20 | -0.11 | -0.02 | 0.03 | 0.04 | 0.10 | -0.20 | 9 | 0.10 |
-| Government debt / GDP (pp of GDP) | 0 | 0 | -0.01 | -0.12 | -0.92 | -2.31 | -4.36 | -5.34 | -5.48 | -5.48 | 240 | -5.48 |
-| Bank capital ratio (pp) | 0 | 0 | 0.07 | 0.21 | 0.14 | -0.05 | -0.24 | -0.08 | 0.04 | -0.24 | 63 | 0.04 |
-| Disposable income, all households (real) (%) | 0 | -0.11 | -0.37 | -0.80 | -0.96 | -0.63 | -0.17 | -0.43 | -0.20 | -1.00 | 20 | -0.21 |
-| Profits, domestic firms (real) (%) | 0 | -0.31 | -1.21 | -2.63 | -2.64 | -1.39 | 0.04 | -0.12 | 0.07 | -2.98 | 17 | 0.06 |
-| Profits, exporters (real) (%) | 0 | 4.79 | 10.9 | 16.4 | 18.6 | 15.4 | 6.66 | 2.44 | 1.68 | 18.7 | 22 | 1.70 |
+| Output (real GDP) (%) | 0 | 0.04 | 0.25 | 0.85 | 1.72 | 1.79 | 0.86 | -0.07 | -0.23 | 1.84 | 31 | -0.23 |
+| Inflation (12-month CPI) (pp) | 0 | 0.07 | 0.36 | 1.27 | 2.28 | 2.09 | 1.01 | 0.10 | -0.19 | 2.30 | 27 | -0.19 |
+| Consumer price level (%) | 0 | 0.07 | 0.36 | 1.27 | 3.58 | 5.75 | 8.47 | 10.3 | 9.00 | 10.3 | 132 | 9.10 |
+| Unemployment rate (pp) | 0 | -0.01 | -0.05 | -0.28 | -0.80 | -0.97 | -0.54 | 0.01 | 0.09 | -0.97 | 35 | 0.09 |
+| Króna value (% (+ stronger)) | 0 | -2.11 | -5.05 | -8.38 | -11.0 | -11.1 | -9.71 | -9.56 | -7.91 | -11.3 | 31 | -8.01 |
+| Real wages (%) | 0 | -0.07 | -0.33 | -0.94 | -1.51 | -1.13 | 0.21 | 0.32 | 0.13 | -1.51 | 24 | 0.13 |
+| Household consumption (real) (%) | -0.01 | -0.13 | -0.50 | -1.44 | -2.88 | -3.15 | -1.82 | -0.43 | -0.14 | -3.18 | 33 | -0.16 |
+| Investment (real) (%) | 0 | 0 | 0.09 | 0.57 | 1.74 | 2.27 | 1.62 | 0.18 | -0.03 | 2.28 | 39 | -0.03 |
+| Exports (real) (%) | 0 | 0.15 | 0.73 | 2.33 | 4.63 | 4.85 | 2.39 | 0.13 | -0.30 | 4.98 | 31 | -0.29 |
+| Imports (real) (%) | 0 | -0.11 | -0.45 | -1.29 | -2.34 | -2.40 | -1.21 | -0.16 | 0.07 | -2.47 | 30 | 0.06 |
+| Current account (pp of GDP) | 0 | 0.12 | 0.22 | 0.31 | 0.82 | 1.17 | 0.93 | 0.23 | 0.12 | 1.21 | 41 | 0.12 |
+| Real house prices (%) | 0 | -0.06 | -0.16 | -0.25 | -0.13 | 0.12 | 0.42 | -0.32 | -0.54 | -0.58 | 186 | -0.55 |
+| Mortgage debt / GDP (pp of GDP) | 0 | 0.01 | 0.06 | 0.22 | 0.26 | -0.27 | -1.01 | -0.49 | -0.18 | -1.03 | 65 | -0.18 |
+| Broad money (bank deposits) (%) | -0.43 | -1.02 | -1.58 | -1.73 | 0.43 | 3.52 | 7.82 | 9.84 | 7.73 | 9.85 | 116 | 7.85 |
+| Government balance (pp of GDP) | 0 | -0.10 | -0.19 | -0.20 | -0.12 | -0.04 | 0.01 | 0.03 | 0.11 | -0.21 | 9 | 0.10 |
+| Government debt / GDP (pp of GDP) | 0 | 0 | -0.01 | -0.11 | -0.87 | -2.23 | -4.20 | -5.07 | -5.10 | -5.13 | 159 | -5.10 |
+| Bank capital ratio (pp) | 0 | 0 | 0.07 | 0.20 | 0.14 | -0.05 | -0.25 | -0.08 | 0.04 | -0.25 | 63 | 0.03 |
+| Disposable income, all households (real) (%) | -0.11 | -0.22 | -0.48 | -0.91 | -1.07 | -0.72 | -0.25 | -0.48 | -0.21 | -1.11 | 20 | -0.22 |
+| Profits, domestic firms (real) (%) | -0.01 | -0.33 | -1.25 | -2.69 | -2.71 | -1.46 | -0.02 | -0.16 | 0.05 | -3.04 | 17 | 0.05 |
+| Profits, exporters (real) (%) | 0 | 4.78 | 10.9 | 16.4 | 18.6 | 15.4 | 6.67 | 2.45 | 1.64 | 18.7 | 22 | 1.66 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Broad money (bank deposits): moved -0.24 in the last 12 months, 8.26 at month 240; Disposable income, all households (real): moved 0.02 in the last 12 months, -0.20 at month 240; Real disposable income, older (67+): moved 0.07 in the last 12 months, -0.87 at month 240; Pension-fund assets (real): moved 0.06 in the last 12 months, -1.28 at month 240.
+- **Unsettled**: Consumer price level: moved -0.21 in the last 12 months, 9.00 at month 240; Broad money (bank deposits): moved -0.26 in the last 12 months, 7.73 at month 240; Disposable income, all households (real): moved 0.02 in the last 12 months, -0.21 at month 240; Real disposable income, older (67+): moved 0.08 in the last 12 months, -0.59 at month 240; and 1 more.
 
 ### 20 pp of assets (max), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | 0.20 | 0.92 | 2.51 | 4.50 | 5.13 | 4.11 | 0.97 | -1.00 | 5.13 | 37 | -0.95 |
-| Inflation (12-month CPI) (pp) | 0 | 0.28 | 1.29 | 3.85 | 6.07 | 6.33 | 4.78 | 1.53 | -0.98 | 6.37 | 33 | -0.92 |
-| Consumer price level (%) | 0 | 0.28 | 1.29 | 3.85 | 10.2 | 17.1 | 29.7 | 48.0 | 42.4 | 49.5 | 143 | 43.0 |
-| Unemployment rate (pp) | 0 | -0.03 | -0.20 | -0.87 | -2.01 | -2.33 | -2.11 | -0.56 | 0.43 | -2.35 | 41 | 0.40 |
-| Króna value (% (+ stronger)) | 0 | -7.37 | -15.0 | -19.7 | -25.8 | -29.2 | -31.8 | -34.3 | -27.8 | -34.7 | 113 | -28.3 |
-| Real wages (%) | 0 | -0.28 | -1.15 | -2.68 | -3.99 | -3.73 | -1.46 | 0.80 | 0.53 | -4.03 | 27 | 0.52 |
-| Household consumption (real) (%) | 0 | -0.37 | -1.55 | -3.84 | -6.95 | -8.03 | -6.47 | -2.22 | 0.17 | -8.05 | 38 | 0.09 |
-| Investment (real) (%) | 0 | 0.02 | 0.33 | 1.82 | 4.76 | 6.48 | 6.36 | 2.15 | -0.49 | 6.91 | 46 | -0.44 |
-| Exports (real) (%) | 0 | 0.57 | 2.56 | 6.75 | 12.2 | 13.9 | 10.7 | 2.75 | -1.73 | 13.9 | 37 | -1.61 |
-| Imports (real) (%) | 0 | -0.36 | -1.47 | -3.35 | -5.27 | -5.66 | -4.39 | -1.36 | 0.69 | -5.67 | 34 | 0.62 |
-| Current account (pp of GDP) | 0 | 0.42 | 0.70 | 0.82 | 2.23 | 3.13 | 3.10 | 1.41 | 0.25 | 3.33 | 46 | 0.27 |
-| Real house prices (%) | 0 | -0.01 | -0.09 | 0.03 | 0.74 | 1.67 | 2.90 | 1.43 | -1.42 | 3.00 | 70 | -1.41 |
-| Mortgage debt / GDP (pp of GDP) | 0 | 0.05 | 0.26 | 0.73 | 0.72 | -0.37 | -1.98 | -1.45 | 0.07 | -2.21 | 75 | 0.05 |
-| Broad money (bank deposits) (%) | -1.75 | -4.32 | -5.38 | -4.43 | 0.76 | 8.30 | 24.1 | 45.4 | 35.0 | 46.5 | 136 | 35.8 |
-| Government balance (pp of GDP) | 0 | -0.37 | -0.59 | -0.45 | -0.31 | -0.17 | 0.07 | 0.23 | 0.45 | -0.59 | 6 | 0.44 |
-| Government debt / GDP (pp of GDP) | 0 | -0.01 | -0.05 | -0.41 | -2.62 | -6.07 | -11.9 | -18.5 | -20.4 | -20.4 | 240 | -20.3 |
-| Bank capital ratio (pp) | 0 | 0 | 0.24 | 0.59 | 0.37 | 0.01 | -0.51 | -0.54 | 0.12 | -0.62 | 90 | 0.11 |
-| Disposable income, all households (real) (%) | 0 | -0.41 | -1.26 | -2.10 | -2.28 | -1.78 | -1.02 | -1.25 | -0.58 | -2.37 | 19 | -0.62 |
-| Profits, domestic firms (real) (%) | 0 | -1.15 | -4.07 | -6.72 | -5.88 | -3.81 | -1.30 | -0.57 | 0.64 | -6.89 | 15 | 0.58 |
-| Profits, exporters (real) (%) | 0 | 17.6 | 35.5 | 41.3 | 48.2 | 47.6 | 34.3 | 12.2 | 0.99 | 48.8 | 29 | 1.40 |
+| Output (real GDP) (%) | -0.01 | 0.16 | 0.85 | 2.46 | 4.55 | 5.29 | 4.47 | 0.27 | -0.88 | 5.32 | 39 | -0.86 |
+| Inflation (12-month CPI) (pp) | 0 | 0.27 | 1.27 | 3.88 | 6.31 | 6.74 | 5.39 | 0.89 | -0.74 | 6.75 | 34 | -0.71 |
+| Consumer price level (%) | 0 | 0.27 | 1.27 | 3.88 | 10.4 | 17.9 | 32.0 | 47.8 | 44.2 | 49.2 | 153 | 44.7 |
+| Unemployment rate (pp) | 0 | -0.02 | -0.19 | -0.86 | -2.04 | -2.39 | -2.25 | -0.22 | 0.35 | -2.42 | 43 | 0.34 |
+| Króna value (% (+ stronger)) | 0 | -7.37 | -15.3 | -20.4 | -27.1 | -31.0 | -34.3 | -33.6 | -29.6 | -34.4 | 64 | -29.9 |
+| Real wages (%) | 0 | -0.27 | -1.13 | -2.72 | -4.15 | -4.01 | -1.88 | 1.27 | 0.54 | -4.23 | 28 | 0.55 |
+| Household consumption (real) (%) | -0.04 | -0.47 | -1.76 | -4.29 | -7.81 | -9.15 | -7.84 | -1.84 | -0.45 | -9.21 | 39 | -0.50 |
+| Investment (real) (%) | 0 | 0.02 | 0.32 | 1.81 | 4.86 | 6.76 | 6.99 | 1.35 | -0.32 | 7.37 | 49 | -0.30 |
+| Exports (real) (%) | 0 | 0.57 | 2.59 | 6.98 | 12.9 | 15.0 | 12.3 | 1.42 | -1.17 | 15.0 | 38 | -1.11 |
+| Imports (real) (%) | -0.01 | -0.39 | -1.55 | -3.56 | -5.69 | -6.20 | -5.11 | -0.90 | 0.27 | -6.20 | 36 | 0.23 |
+| Current account (pp of GDP) | 0.01 | 0.43 | 0.75 | 0.91 | 2.43 | 3.43 | 3.53 | 1.19 | 0.48 | 3.72 | 48 | 0.49 |
+| Real house prices (%) | 0 | -0.25 | -0.63 | -0.95 | -0.65 | 0.21 | 1.66 | 0.03 | -2.19 | -2.19 | 240 | -2.18 |
+| Mortgage debt / GDP (pp of GDP) | -0.01 | 0.02 | 0.20 | 0.62 | 0.54 | -0.68 | -2.55 | -2.27 | -0.85 | -3.12 | 83 | -0.87 |
+| Broad money (bank deposits) (%) | -1.71 | -4.21 | -5.50 | -4.74 | 0.36 | 8.20 | 25.6 | 48.1 | 41.0 | 49.1 | 145 | 41.6 |
+| Government balance (pp of GDP) | -0.01 | -0.37 | -0.62 | -0.50 | -0.38 | -0.24 | 0.04 | 0.21 | 0.48 | -0.62 | 6 | 0.47 |
+| Government debt / GDP (pp of GDP) | 0 | -0.01 | -0.04 | -0.35 | -2.53 | -6.07 | -12.3 | -18.4 | -20.8 | -20.8 | 240 | -20.7 |
+| Bank capital ratio (pp) | 0 | 0 | 0.24 | 0.61 | 0.40 | 0.05 | -0.51 | -0.52 | 0.07 | -0.80 | 84 | 0.06 |
+| Disposable income, all households (real) (%) | -0.43 | -0.84 | -1.71 | -2.61 | -2.83 | -2.29 | -1.46 | -1.44 | -0.84 | -2.91 | 19 | -0.87 |
+| Profits, domestic firms (real) (%) | -0.03 | -1.23 | -4.26 | -7.19 | -6.54 | -4.44 | -1.78 | -0.52 | 0.23 | -7.45 | 15 | 0.20 |
+| Profits, exporters (real) (%) | 0 | 17.6 | 36.3 | 43.3 | 51.6 | 52.2 | 39.7 | 9.56 | 3.47 | 52.8 | 31 | 3.64 |
 
 Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -1.41 in the last 12 months, 42.4 at month 240; Unemployment rate: moved 0.05 in the last 12 months, 0.43 at month 240; Króna value: moved 1.02 in the last 12 months, -27.8 at month 240; Household consumption (real): moved 0.17 in the last 12 months, 0.17 at month 240; and 18 more.
-- **Regimes**: borrowingXF; unemployedY; unemployedW; unemployedO; foreignAssetPurchases; bankBondPurchases; bondPurchasesPF.
+- **Extreme**: Profits, exporters (real) 52.8 % at month 31.
+- **Unsettled**: Consumer price level: moved -1.08 in the last 12 months, 44.2 at month 240; Broad money (bank deposits): moved -1.36 in the last 12 months, 41.0 at month 240; Government balance: moved 0.03 in the last 12 months, 0.48 at month 240; Bank capital ratio: moved 0.02 in the last 12 months, 0.07 at month 240; and 7 more.
+- **Regimes**: stressTestPayment; borrowingXF; unemployedY; unemployedW; unemployedO; foreignAssetPurchases; bankBondPurchases; bondPurchasesPF.
 
 Regimes that differ from the no-change run:
 
-- `borrowingXF`: “Loans repaid in full: spare cash stays in deposits” instead of “–”, months 85–240; its label changed 1 time(s) in the run
-- `unemployedY`: “Few unemployed left: extra jobs go to people arriving from abroad” instead of “–”, months 18–79; its label changed 2 time(s) in the run
-- `unemployedW`: “Few unemployed left: extra jobs go to people arriving from abroad” instead of “–”, months 24–64; its label changed 2 time(s) in the run
-- `unemployedO`: “Few unemployed left: extra jobs go to people arriving from abroad” instead of “–”, months 15–91; its label changed 2 time(s) in the run
-- `foreignAssetPurchases`: “Purchases limited by cash in hand” instead of “–”, months 4–90, 113–240; its label changed 3 time(s) in the run
-- `bankBondPurchases`: “Purchases limited by cash in hand” instead of “–”, months 41–240; its label changed 1 time(s) in the run
-- `bondPurchasesPF`: “Sales limited by holdings” instead of “–”, months 111–240; its label changed 1 time(s) in the run
+- `stressTestPayment`: “Non-indexed floor applies” instead of “Both stress-test floors apply”, months 42–178; its label changed 2 time(s) in the run
+- `borrowingXF`: “Loans repaid in full: spare cash stays in deposits” instead of “–”, months 68–240; its label changed 1 time(s) in the run
+- `unemployedY`: “Few unemployed left: extra jobs go to people arriving from abroad” instead of “–”, months 18–81; its label changed 2 time(s) in the run
+- `unemployedW`: “Few unemployed left: extra jobs go to people arriving from abroad” instead of “–”, months 24–69; its label changed 2 time(s) in the run
+- `unemployedO`: “Few unemployed left: extra jobs go to people arriving from abroad” instead of “–”, months 15–89; its label changed 2 time(s) in the run
+- `foreignAssetPurchases`: “Purchases limited by cash in hand” instead of “–”, months 4–49; its label changed 2 time(s) in the run
+- `bankBondPurchases`: “Purchases limited by cash in hand” instead of “–”, months 38–55; its label changed 2 time(s) in the run
+- `bondPurchasesPF`: “Sales limited by holdings” instead of “–”, months 147–240; its label changed 1 time(s) in the run
 
 ### -20 pp of assets (min), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | -0.25 | -1.41 | -5.35 | -9.48 | -6.17 | -0.66 | -0.65 | -0.42 | -9.50 | 23 | -0.43 |
-| Inflation (12-month CPI) (pp) | 0 | -0.36 | -1.97 | -7.29 | -10.2 | -6.62 | -2.46 | -0.83 | 0.10 | -10.8 | 19 | 0.08 |
-| Consumer price level (%) | 0 | -0.36 | -1.97 | -7.29 | -16.7 | -22.3 | -27.0 | -31.9 | -33.0 | -33.2 | 202 | -33.1 |
-| Unemployment rate (pp) | 0 | 0.04 | 0.30 | 1.78 | 4.97 | 4.32 | 0.85 | 0.22 | 0.03 | 5.16 | 27 | 0.03 |
-| Key interest rate (pp) | 0 | -0.05 | -0.88 | -3.00 | -3.00 | -3.00 | -3.00 | -1.57 | -0.35 | -3.00 | 9 | -0.37 |
-| Króna value (% (+ stronger)) | 0 | 11.6 | 43.6 | 102 | 83.7 | 57.5 | 44.5 | 48.2 | 46.4 | 104 | 14 | 46.5 |
-| Real wages (%) | 0 | 0.36 | 1.83 | 5.82 | 6.90 | 1.84 | -2.84 | -0.58 | -0.19 | 7.68 | 19 | -0.20 |
-| Household consumption (real) (%) | 0 | 0.47 | 2.62 | 10.1 | 19.5 | 18.2 | 7.38 | -0.85 | -2.71 | 20.1 | 28 | -2.69 |
-| Investment (real) (%) | 0 | -0.02 | -0.25 | -1.48 | -4.73 | -4.00 | 0.91 | 1.05 | -0.60 | -4.91 | 28 | -0.56 |
-| Exports (real) (%) | 0 | -0.73 | -3.96 | -13.9 | -22.9 | -18.4 | -5.74 | -0.77 | 1.14 | -22.9 | 24 | 1.11 |
-| Imports (real) (%) | 0 | 0.47 | 2.66 | 11.2 | 22.4 | 17.5 | 5.57 | 0.27 | -1.52 | 22.5 | 25 | -1.50 |
-| Current account (pp of GDP) | 0 | -0.54 | -1.18 | -1.14 | -4.02 | -6.31 | -3.64 | -0.82 | -0.13 | -6.32 | 37 | -0.14 |
-| Real house prices (%) | 0 | 0.01 | 0.25 | 2.31 | 4.62 | 4.67 | 2.24 | -0.24 | -1.25 | 4.89 | 30 | -1.22 |
-| Mortgage debt / GDP (pp of GDP) | 0 | -0.07 | -0.38 | -1.42 | -1.52 | 2.89 | 6.48 | 3.91 | 0.85 | 6.49 | 59 | 0.93 |
-| Broad money (bank deposits) (%) | 1.75 | 3.94 | 5.12 | 3.19 | -6.87 | -15.8 | -25.3 | -35.5 | -37.8 | -38.5 | 193 | -37.9 |
-| Government balance (pp of GDP) | 0 | 0.52 | 1.62 | 2.73 | 2.20 | 2.50 | 3.22 | 1.16 | -0.26 | 3.22 | 59 | -0.26 |
-| Government debt / GDP (pp of GDP) | 0 | 0.01 | 0 | -0.34 | 1.37 | 6.55 | 7.94 | 1.22 | 0.85 | 8.87 | 49 | 0.76 |
-| Bank capital ratio (pp) | 0 | 0 | -0.33 | -1.49 | -0.54 | 0.69 | 0.84 | 0.28 | -0.06 | -1.59 | 14 | -0.05 |
-| Disposable income, all households (real) (%) | 0 | 0.53 | 2.28 | 6.76 | 6.89 | 2.87 | -0.61 | -1.01 | -1.40 | 7.85 | 18 | -1.38 |
-| Profits, domestic firms (real) (%) | 0 | 1.50 | 7.46 | 23.6 | 23.9 | 10.4 | 2.67 | -0.09 | -1.72 | 28.0 | 18 | -1.70 |
-| Profits, exporters (real) (%) | 0 | -23.0 | -63.1 | -96.4 | -78.0 | -40.4 | -7.46 | -6.54 | -8.63 | -96.7 | 13 | -8.52 |
-| Income-tax rate (pp) | 0 | 0 | 0 | -0.01 | 0.01 | 0.40 | 1.47 | 0.77 | 0.14 | 1.58 | 70 | 0.12 |
+| Output (real GDP) (%) | 0.01 | -0.21 | -1.34 | -5.21 | -9.21 | -5.82 | -0.27 | -0.51 | -0.32 | -9.24 | 23 | -0.32 |
+| Inflation (12-month CPI) (pp) | 0 | -0.35 | -1.93 | -7.19 | -10.0 | -6.40 | -2.22 | -0.74 | 0.18 | -10.6 | 19 | 0.16 |
+| Consumer price level (%) | 0 | -0.35 | -1.93 | -7.19 | -16.5 | -21.8 | -26.3 | -30.8 | -31.3 | -31.7 | 183 | -31.4 |
+| Unemployment rate (pp) | 0 | 0.03 | 0.29 | 1.75 | 4.89 | 4.21 | 0.72 | 0.17 | 0 | 5.07 | 27 | 0 |
+| Key interest rate (pp) | 0 | -0.04 | -0.84 | -3.00 | -3.00 | -3.00 | -3.00 | -1.33 | -0.17 | -3.00 | 9 | -0.19 |
+| Króna value (% (+ stronger)) | 0 | 11.6 | 43.5 | 101 | 83.0 | 56.6 | 43.0 | 45.8 | 42.7 | 103 | 14 | 42.9 |
+| Real wages (%) | 0 | 0.35 | 1.80 | 5.75 | 6.75 | 1.68 | -2.98 | -0.71 | -0.28 | 7.56 | 19 | -0.29 |
+| Household consumption (real) (%) | 0.04 | 0.58 | 2.81 | 10.5 | 20.1 | 18.9 | 8.10 | -0.56 | -2.55 | 20.7 | 28 | -2.53 |
+| Investment (real) (%) | 0 | -0.02 | -0.25 | -1.43 | -4.53 | -3.70 | 1.27 | 0.81 | -0.74 | -4.68 | 27 | -0.71 |
+| Exports (real) (%) | 0 | -0.73 | -3.96 | -13.8 | -22.8 | -18.3 | -5.60 | -0.66 | 1.24 | -22.8 | 24 | 1.21 |
+| Imports (real) (%) | 0.01 | 0.51 | 2.73 | 11.3 | 22.7 | 17.8 | 5.85 | 0.27 | -1.54 | 22.8 | 25 | -1.52 |
+| Current account (pp of GDP) | -0.01 | -0.56 | -1.20 | -1.17 | -4.08 | -6.38 | -3.71 | -0.84 | -0.14 | -6.40 | 37 | -0.15 |
+| Real house prices (%) | 0 | 0.25 | 0.78 | 3.29 | 6.20 | 6.44 | 3.95 | 0.51 | -0.58 | 6.61 | 31 | -0.55 |
+| Mortgage debt / GDP (pp of GDP) | 0.01 | -0.03 | -0.32 | -1.30 | -1.27 | 3.28 | 7.03 | 4.48 | 1.38 | 7.04 | 59 | 1.46 |
+| Broad money (bank deposits) (%) | 1.70 | 3.82 | 4.91 | 2.90 | -7.00 | -15.7 | -24.7 | -34.3 | -35.5 | -36.5 | 180 | -35.6 |
+| Government balance (pp of GDP) | 0.01 | 0.51 | 1.60 | 2.76 | 2.26 | 2.56 | 3.19 | 0.96 | -0.32 | 3.19 | 58 | -0.32 |
+| Government debt / GDP (pp of GDP) | 0 | 0.01 | -0.01 | -0.40 | 1.13 | 6.04 | 7.00 | 1.13 | 1.38 | 8.10 | 48 | 1.28 |
+| Bank capital ratio (pp) | 0 | 0 | -0.32 | -1.45 | -0.49 | 0.74 | 0.86 | 0.27 | -0.06 | -1.55 | 14 | -0.06 |
+| Disposable income, all households (real) (%) | 0.43 | 0.96 | 2.73 | 7.24 | 7.39 | 3.38 | -0.11 | -0.75 | -1.31 | 8.35 | 18 | -1.29 |
+| Profits, domestic firms (real) (%) | 0.03 | 1.58 | 7.59 | 23.8 | 24.2 | 10.7 | 2.97 | -0.13 | -1.74 | 28.2 | 18 | -1.72 |
+| Profits, exporters (real) (%) | 0 | -23.1 | -63.1 | -96.1 | -77.6 | -40.0 | -7.06 | -7.02 | -8.71 | -96.4 | 13 | -8.61 |
+| Income-tax rate (pp) | 0 | 0 | 0 | -0.01 | -0.01 | 0.35 | 1.33 | 0.68 | 0.25 | 1.41 | 69 | 0.23 |
 
 Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Extreme**: Króna value 104 % (+ stronger) at month 14; Profits, exporters (real) -96.7 % at month 13.
-- **Unsettled**: Mortgage debt / GDP: moved -0.18 in the last 12 months, 0.85 at month 240; Government debt / GDP: moved 0.20 in the last 12 months, 0.85 at month 240; Income-tax rate: moved 0.03 in the last 12 months, 0.14 at month 240; Net new mortgage lending: moved 0.03 in the last 12 months, -0.14 at month 240.
+- **Extreme**: Króna value 103 % (+ stronger) at month 14; Profits, exporters (real) -96.4 % at month 13.
+- **Unsettled**: Mortgage debt / GDP: moved -0.18 in the last 12 months, 1.38 at month 240; Government debt / GDP: moved 0.21 in the last 12 months, 1.38 at month 240; Income-tax rate: moved 0.04 in the last 12 months, 0.25 at month 240; Net new mortgage lending: moved 0.03 in the last 12 months, -0.12 at month 240.
 - **Regimes**: keyRate; loanPremium; depositRate; bondPurchasesW; retentionXF; investmentXA.
 
 Regimes that differ from the no-change run:
 
-- `keyRate`: “Zero lower bound binds” instead of “–”, months 9–66; its label changed 3 time(s) in the run
+- `keyRate`: “Zero lower bound binds” instead of “–”, months 9–63; its label changed 3 time(s) in the run
 - `loanPremium`: “Capital below target: loans cost more” instead of “–”, months 10–20; its label changed 2 time(s) in the run
-- `depositRate`: “Deposit rate at its floor: bank margin squeezed” instead of “–”, months 8–95; its label changed 2 time(s) in the run
+- `depositRate`: “Deposit rate at its floor: bank margin squeezed” instead of “–”, months 8–70; its label changed 2 time(s) in the run
 - `bondPurchasesW`: “Selling bonds to keep enough króna cash” / “Purchases limited by cash in hand” instead of “–”, months 2–35; its label changed 3 time(s) in the run
 - `retentionXF`: “Keeps all its profit” instead of “–”, months 21–240; its label changed 1 time(s) in the run
 - `investmentXA`: “No new investment: capital only wears out” instead of “–”, months 12–28; its label changed 2 time(s) in the run
@@ -7429,120 +7427,119 @@ Regimes that differ from the no-change run:
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | -0.06 | -0.28 | -0.83 | -1.03 | -0.54 | -0.07 | -0.18 | -0.19 | -1.10 | 19 | -0.18 |
-| Inflation (12-month CPI) (pp) | 0 | -0.08 | -0.40 | -1.39 | -2.04 | -1.32 | -0.52 | -0.24 | -0.02 | -2.12 | 20 | -0.03 |
-| Consumer price level (%) | 0 | -0.08 | -0.40 | -1.39 | -3.40 | -4.67 | -5.90 | -7.57 | -8.28 | -8.28 | 240 | -8.27 |
-| Unemployment rate (pp) | 0 | 0.01 | 0.06 | 0.30 | 0.68 | 0.61 | 0.22 | 0.07 | 0.03 | 0.69 | 27 | 0.03 |
-| Key interest rate (pp) | 0 | -0.01 | -0.19 | -1.18 | -2.76 | -2.21 | -0.71 | -0.44 | -0.21 | -2.78 | 25 | -0.21 |
-| Króna value (% (+ stronger)) | 0 | 2.35 | 6.22 | 11.0 | 13.1 | 11.4 | 8.57 | 8.51 | 8.49 | 13.2 | 22 | 8.49 |
-| Real wages (%) | 0 | 0.08 | 0.36 | 1.05 | 1.46 | 0.83 | -0.22 | -0.16 | -0.02 | 1.50 | 21 | -0.02 |
-| Household consumption (real) (%) | 0 | 0.11 | 0.52 | 1.88 | 4.86 | 5.67 | 2.86 | -0.18 | -0.90 | 5.71 | 34 | -0.89 |
-| Investment (real) (%) | 0 | 0 | -0.05 | -0.10 | 0.95 | 1.72 | 0.90 | 0.24 | -0.01 | 1.74 | 38 | -0.01 |
-| Exports (real) (%) | 0 | -0.16 | -0.80 | -2.57 | -4.87 | -4.68 | -2.08 | -0.25 | 0.26 | -5.04 | 28 | 0.26 |
-| Imports (real) (%) | 0 | 0.10 | 0.51 | 1.77 | 4.21 | 4.59 | 2.12 | 0.10 | -0.42 | 4.71 | 32 | -0.41 |
-| Current account (pp of GDP) | 0 | -0.12 | -0.23 | -0.32 | -1.13 | -1.69 | -1.15 | -0.23 | -0.02 | -1.71 | 40 | -0.02 |
-| Real house prices (%) | 0 | 0 | 0.05 | 0.50 | 3.14 | 4.46 | 2.07 | -0.22 | -0.42 | 4.46 | 36 | -0.42 |
-| Mortgage debt / GDP (pp of GDP) | 0 | -0.01 | -0.08 | -0.23 | -0.05 | 0.77 | 1.99 | 1.31 | 0.35 | 2.06 | 68 | 0.37 |
-| Broad money (bank deposits) (%) | 0.44 | 1.03 | 1.53 | 1.53 | -0.35 | -2.71 | -5.89 | -10.5 | -11.4 | -11.5 | 195 | -11.4 |
-| Government balance (pp of GDP) | 0 | 0.11 | 0.31 | 0.85 | 1.64 | 1.34 | 0.40 | -0.04 | -0.05 | 1.64 | 25 | -0.06 |
-| Government debt / GDP (pp of GDP) | 0 | 0 | 0 | -0.11 | -0.88 | -1.51 | -1.69 | -0.92 | 0.36 | -1.75 | 51 | 0.33 |
-| Bank capital ratio (pp) | 0 | 0 | -0.07 | -0.23 | -0.31 | -0.06 | 0.20 | 0.06 | 0 | -0.31 | 26 | 0 |
-| Disposable income, all households (real) (%) | 0 | 0.12 | 0.44 | 1.12 | 2.11 | 1.17 | 0.08 | -0.16 | -0.55 | 2.12 | 23 | -0.54 |
-| Profits, domestic firms (real) (%) | 0 | 0.33 | 1.42 | 3.78 | 6.30 | 4.44 | 0.93 | -0.07 | -0.47 | 6.30 | 24 | -0.47 |
-| Profits, exporters (real) (%) | 0 | -5.09 | -11.8 | -16.5 | -13.7 | -10.1 | -5.11 | -1.87 | -1.29 | -16.6 | 14 | -1.29 |
-| Income-tax rate (pp) | 0 | 0 | 0 | 0 | -0.05 | -0.15 | -0.32 | -0.29 | 0.05 | -0.36 | 79 | 0.03 |
+| Output (real GDP) (%) | 0 | -0.05 | -0.26 | -0.80 | -0.99 | -0.50 | -0.03 | -0.15 | -0.15 | -1.07 | 19 | -0.15 |
+| Inflation (12-month CPI) (pp) | 0 | -0.08 | -0.39 | -1.37 | -2.01 | -1.29 | -0.50 | -0.22 | 0 | -2.10 | 20 | -0.01 |
+| Consumer price level (%) | 0 | -0.08 | -0.39 | -1.37 | -3.35 | -4.60 | -5.77 | -7.35 | -7.87 | -7.87 | 240 | -7.87 |
+| Unemployment rate (pp) | 0 | 0.01 | 0.06 | 0.29 | 0.67 | 0.60 | 0.21 | 0.06 | 0.02 | 0.68 | 27 | 0.02 |
+| Key interest rate (pp) | 0 | -0.01 | -0.18 | -1.15 | -2.71 | -2.14 | -0.65 | -0.39 | -0.16 | -2.72 | 25 | -0.16 |
+| Króna value (% (+ stronger)) | 0 | 2.35 | 6.22 | 11.0 | 13.1 | 11.3 | 8.45 | 8.26 | 8.01 | 13.1 | 22 | 8.02 |
+| Real wages (%) | 0 | 0.08 | 0.36 | 1.03 | 1.44 | 0.81 | -0.26 | -0.19 | -0.04 | 1.48 | 21 | -0.05 |
+| Household consumption (real) (%) | 0.01 | 0.13 | 0.57 | 1.95 | 4.96 | 5.78 | 2.95 | -0.09 | -0.84 | 5.82 | 34 | -0.83 |
+| Investment (real) (%) | 0 | 0 | -0.05 | -0.10 | 0.93 | 1.69 | 0.85 | 0.20 | -0.05 | 1.70 | 38 | -0.04 |
+| Exports (real) (%) | 0 | -0.16 | -0.80 | -2.58 | -4.87 | -4.68 | -2.07 | -0.23 | 0.28 | -5.04 | 28 | 0.28 |
+| Imports (real) (%) | 0 | 0.11 | 0.52 | 1.79 | 4.24 | 4.62 | 2.13 | 0.11 | -0.41 | 4.74 | 32 | -0.41 |
+| Current account (pp of GDP) | 0 | -0.12 | -0.23 | -0.33 | -1.14 | -1.70 | -1.16 | -0.24 | -0.03 | -1.73 | 40 | -0.03 |
+| Real house prices (%) | 0 | 0.06 | 0.18 | 0.73 | 3.44 | 4.77 | 2.33 | 0 | -0.23 | 4.77 | 36 | -0.23 |
+| Mortgage debt / GDP (pp of GDP) | 0 | -0.01 | -0.06 | -0.20 | 0 | 0.85 | 2.10 | 1.44 | 0.48 | 2.17 | 68 | 0.50 |
+| Broad money (bank deposits) (%) | 0.43 | 1.00 | 1.48 | 1.46 | -0.44 | -2.77 | -5.84 | -10.1 | -10.7 | -10.9 | 182 | -10.7 |
+| Government balance (pp of GDP) | 0 | 0.11 | 0.30 | 0.84 | 1.63 | 1.33 | 0.38 | -0.06 | -0.07 | 1.63 | 25 | -0.07 |
+| Government debt / GDP (pp of GDP) | 0 | 0 | 0 | -0.11 | -0.90 | -1.52 | -1.69 | -0.87 | 0.46 | -1.75 | 51 | 0.43 |
+| Bank capital ratio (pp) | 0 | 0 | -0.07 | -0.22 | -0.28 | -0.03 | 0.20 | 0.07 | 0 | -0.29 | 25 | 0 |
+| Disposable income, all households (real) (%) | 0.11 | 0.23 | 0.55 | 1.22 | 2.19 | 1.25 | 0.16 | -0.09 | -0.51 | 2.20 | 23 | -0.50 |
+| Profits, domestic firms (real) (%) | 0.01 | 0.35 | 1.46 | 3.82 | 6.29 | 4.41 | 0.92 | -0.07 | -0.47 | 6.29 | 24 | -0.47 |
+| Profits, exporters (real) (%) | 0 | -5.09 | -11.8 | -16.5 | -13.8 | -10.2 | -5.22 | -1.94 | -1.31 | -16.7 | 14 | -1.31 |
+| Income-tax rate (pp) | 0 | 0 | 0 | 0 | -0.05 | -0.15 | -0.33 | -0.29 | 0.07 | -0.36 | 78 | 0.06 |
 
 Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Mortgage debt / GDP: moved -0.04 in the last 12 months, 0.35 at month 240; Government debt / GDP: moved 0.07 in the last 12 months, 0.36 at month 240; Income-tax rate: moved 0.02 in the last 12 months, 0.05 at month 240.
+- **Unsettled**: Mortgage debt / GDP: moved -0.04 in the last 12 months, 0.48 at month 240; Government debt / GDP: moved 0.07 in the last 12 months, 0.46 at month 240; Income-tax rate: moved 0.02 in the last 12 months, 0.07 at month 240.
 - **Regimes**: depositRate; bondPurchasesW.
 
 Regimes that differ from the no-change run:
 
-- `depositRate`: “Deposit rate at its floor: bank margin squeezed” instead of “–”, months 17–38; its label changed 2 time(s) in the run
-- `bondPurchasesW`: “Selling bonds to keep enough króna cash” instead of “–”, months 9–16; its label changed 2 time(s) in the run
+- `depositRate`: “Deposit rate at its floor: bank margin squeezed” instead of “–”, months 17–37; its label changed 2 time(s) in the run
+- `bondPurchasesW`: “Selling bonds to keep enough króna cash” instead of “–”, months 9–17; its label changed 2 time(s) in the run
 
 ### 5 pp of assets (up), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | 0.05 | 0.25 | 0.70 | 0.85 | 0.58 | 0.21 | 0.21 | 0.18 | 0.89 | 19 | 0.18 |
-| Inflation (12-month CPI) (pp) | 0 | 0.08 | 0.36 | 1.23 | 1.87 | 1.48 | 0.72 | 0.29 | 0.04 | 1.89 | 22 | 0.04 |
-| Consumer price level (%) | 0 | 0.08 | 0.36 | 1.23 | 3.13 | 4.66 | 6.50 | 8.74 | 9.88 | 9.88 | 240 | 9.86 |
-| Unemployment rate (pp) | 0 | -0.01 | -0.06 | -0.26 | -0.56 | -0.56 | -0.31 | -0.08 | -0.03 | -0.58 | 30 | -0.03 |
-| Key interest rate (pp) | 0 | 0.01 | 0.17 | 1.03 | 2.38 | 2.19 | 1.08 | 0.51 | 0.22 | 2.43 | 27 | 0.23 |
-| Króna value (% (+ stronger)) | 0 | -2.11 | -4.99 | -8.00 | -10.2 | -10.4 | -8.75 | -8.47 | -8.62 | -10.5 | 31 | -8.62 |
-| Real wages (%) | 0 | -0.07 | -0.33 | -0.90 | -1.34 | -1.03 | -0.06 | 0.14 | 0.03 | -1.34 | 23 | 0.03 |
-| Household consumption (real) (%) | 0 | -0.10 | -0.47 | -1.60 | -4.06 | -5.10 | -3.29 | 0.05 | 0.81 | -5.10 | 37 | 0.80 |
-| Investment (real) (%) | 0 | 0 | 0.05 | 0.09 | -0.76 | -1.39 | -0.93 | -0.24 | 0.03 | -1.42 | 40 | 0.03 |
-| Exports (real) (%) | 0 | 0.15 | 0.73 | 2.26 | 4.37 | 4.71 | 2.71 | 0.37 | -0.21 | 4.77 | 33 | -0.20 |
-| Imports (real) (%) | 0 | -0.10 | -0.45 | -1.42 | -3.20 | -3.79 | -2.39 | -0.19 | 0.38 | -3.79 | 36 | 0.37 |
-| Current account (pp of GDP) | 0 | 0.11 | 0.20 | 0.26 | 0.93 | 1.49 | 1.26 | 0.26 | 0.03 | 1.58 | 43 | 0.04 |
-| Real house prices (%) | 0 | 0 | -0.05 | -0.44 | -2.62 | -4.05 | -2.40 | 0.32 | 0.38 | -4.10 | 39 | 0.38 |
-| Mortgage debt / GDP (pp of GDP) | 0 | 0.01 | 0.07 | 0.19 | -0.01 | -0.76 | -1.96 | -1.42 | -0.41 | -2.10 | 72 | -0.43 |
-| Broad money (bank deposits) (%) | -0.44 | -1.05 | -1.64 | -1.90 | -0.41 | 1.88 | 6.15 | 12.4 | 14.0 | 14.1 | 207 | 14.0 |
-| Government balance (pp of GDP) | 0 | -0.11 | -0.27 | -0.73 | -1.50 | -1.45 | -0.64 | 0 | 0.05 | -1.55 | 29 | 0.06 |
-| Government debt / GDP (pp of GDP) | 0 | 0 | 0 | 0.09 | 0.73 | 1.39 | 1.82 | 1.20 | -0.12 | 1.82 | 58 | -0.08 |
-| Bank capital ratio (pp) | 0 | 0 | 0.07 | 0.20 | 0.12 | -0.01 | -0.11 | -0.06 | 0 | 0.21 | 14 | 0 |
-| Disposable income, all households (real) (%) | 0 | -0.11 | -0.39 | -0.94 | -1.49 | -1.21 | -0.15 | 0.13 | 0.47 | -1.49 | 25 | 0.46 |
-| Profits, domestic firms (real) (%) | 0 | -0.31 | -1.26 | -3.08 | -4.63 | -4.09 | -1.35 | -0.01 | 0.45 | -4.66 | 26 | 0.45 |
-| Profits, exporters (real) (%) | 0 | 4.76 | 10.5 | 14.0 | 13.8 | 12.4 | 7.10 | 2.69 | 1.89 | 14.2 | 15 | 1.89 |
-| Income-tax rate (pp) | 0 | 0 | 0 | 0 | 0.04 | 0.13 | 0.32 | 0.35 | 0.02 | 0.39 | 90 | 0.03 |
+| Output (real GDP) (%) | 0 | 0.04 | 0.23 | 0.67 | 0.82 | 0.54 | 0.17 | 0.17 | 0.15 | 0.86 | 19 | 0.15 |
+| Inflation (12-month CPI) (pp) | 0 | 0.07 | 0.36 | 1.21 | 1.85 | 1.45 | 0.69 | 0.27 | 0.02 | 1.87 | 22 | 0.02 |
+| Consumer price level (%) | 0 | 0.07 | 0.36 | 1.21 | 3.08 | 4.58 | 6.36 | 8.49 | 9.41 | 9.41 | 240 | 9.40 |
+| Unemployment rate (pp) | 0 | -0.01 | -0.05 | -0.25 | -0.55 | -0.55 | -0.30 | -0.07 | -0.02 | -0.58 | 30 | -0.02 |
+| Key interest rate (pp) | 0 | 0.01 | 0.16 | 1.00 | 2.33 | 2.13 | 1.02 | 0.46 | 0.18 | 2.37 | 27 | 0.18 |
+| Króna value (% (+ stronger)) | 0 | -2.11 | -4.99 | -8.00 | -10.2 | -10.4 | -8.66 | -8.27 | -8.24 | -10.5 | 31 | -8.24 |
+| Real wages (%) | 0 | -0.07 | -0.32 | -0.89 | -1.32 | -1.00 | -0.03 | 0.17 | 0.06 | -1.32 | 23 | 0.06 |
+| Household consumption (real) (%) | -0.01 | -0.13 | -0.52 | -1.68 | -4.16 | -5.20 | -3.38 | -0.03 | 0.75 | -5.20 | 37 | 0.74 |
+| Investment (real) (%) | 0 | 0 | 0.05 | 0.09 | -0.74 | -1.35 | -0.88 | -0.20 | 0.07 | -1.38 | 40 | 0.06 |
+| Exports (real) (%) | 0 | 0.15 | 0.73 | 2.26 | 4.37 | 4.71 | 2.70 | 0.36 | -0.23 | 4.77 | 32 | -0.22 |
+| Imports (real) (%) | 0 | -0.11 | -0.47 | -1.45 | -3.23 | -3.82 | -2.41 | -0.21 | 0.37 | -3.82 | 36 | 0.36 |
+| Current account (pp of GDP) | 0 | 0.12 | 0.21 | 0.27 | 0.95 | 1.51 | 1.27 | 0.27 | 0.04 | 1.59 | 43 | 0.04 |
+| Real house prices (%) | 0 | -0.06 | -0.18 | -0.67 | -2.92 | -4.34 | -2.67 | 0.10 | 0.19 | -4.39 | 39 | 0.18 |
+| Mortgage debt / GDP (pp of GDP) | 0 | 0.01 | 0.05 | 0.16 | -0.07 | -0.85 | -2.09 | -1.56 | -0.55 | -2.23 | 72 | -0.57 |
+| Broad money (bank deposits) (%) | -0.43 | -1.02 | -1.59 | -1.83 | -0.35 | 1.90 | 6.05 | 12.0 | 13.2 | 13.4 | 192 | 13.2 |
+| Government balance (pp of GDP) | 0 | -0.11 | -0.27 | -0.72 | -1.48 | -1.43 | -0.62 | 0.02 | 0.07 | -1.53 | 29 | 0.07 |
+| Government debt / GDP (pp of GDP) | 0 | 0 | 0 | 0.10 | 0.74 | 1.39 | 1.79 | 1.13 | -0.23 | 1.79 | 57 | -0.20 |
+| Bank capital ratio (pp) | 0 | 0 | 0.07 | 0.20 | 0.12 | -0.02 | -0.11 | -0.07 | 0 | 0.20 | 14 | 0 |
+| Disposable income, all households (real) (%) | -0.11 | -0.22 | -0.50 | -1.05 | -1.59 | -1.30 | -0.23 | 0.06 | 0.43 | -1.59 | 25 | 0.41 |
+| Profits, domestic firms (real) (%) | -0.01 | -0.33 | -1.29 | -3.12 | -4.66 | -4.11 | -1.35 | -0.02 | 0.45 | -4.69 | 26 | 0.45 |
+| Profits, exporters (real) (%) | 0 | 4.77 | 10.5 | 14.0 | 13.9 | 12.4 | 7.16 | 2.72 | 1.85 | 14.2 | 15 | 1.85 |
+| Income-tax rate (pp) | 0 | 0 | 0 | 0 | 0.04 | 0.13 | 0.32 | 0.34 | -0.01 | 0.38 | 88 | 0 |
 
 Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Mortgage debt / GDP: moved 0.05 in the last 12 months, -0.41 at month 240; Government debt / GDP: moved -0.08 in the last 12 months, -0.12 at month 240; Income-tax rate: moved -0.03 in the last 12 months, 0.02 at month 240.
+- **Unsettled**: Mortgage debt / GDP: moved 0.05 in the last 12 months, -0.55 at month 240; Government debt / GDP: moved -0.08 in the last 12 months, -0.23 at month 240; Income-tax rate: moved -0.03 in the last 12 months, -0.01 at month 240.
 - **Regimes**: stressTestPayment.
 
 Regimes that differ from the no-change run:
 
-- `stressTestPayment`: “Non-indexed floor applies” / “–” instead of “Both stress-test floors apply”, months 15–58; its label changed 4 time(s) in the run
+- `stressTestPayment`: “Non-indexed floor applies” / “–” instead of “Both stress-test floors apply”, months 14–66; its label changed 4 time(s) in the run
 
 ### 20 pp of assets (max), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0 | 0.19 | 0.86 | 1.90 | 2.02 | 1.73 | 1.03 | 0.88 | 0.80 | 2.12 | 18 | 0.79 |
-| Inflation (12-month CPI) (pp) | 0 | 0.28 | 1.27 | 3.62 | 4.75 | 4.51 | 2.94 | 1.27 | 0.56 | 4.75 | 22 | 0.60 |
-| Consumer price level (%) | 0 | 0.28 | 1.27 | 3.62 | 8.54 | 13.4 | 21.3 | 28.8 | 46.8 | 46.8 | 240 | 46.4 |
-| Unemployment rate (pp) | 0 | -0.03 | -0.19 | -0.75 | -1.37 | -1.49 | -1.15 | -0.29 | -0.23 | -1.49 | 36 | -0.24 |
-| Key interest rate (pp) | 0 | 0.04 | 0.62 | 3.13 | 5.98 | 6.06 | 4.32 | 1.82 | 1.37 | 6.15 | 30 | 1.41 |
-| Króna value (% (+ stronger)) | 0 | -7.36 | -14.8 | -18.6 | -24.0 | -27.0 | -26.2 | -25.0 | -31.7 | -32.4 | 172 | -31.6 |
-| Real wages (%) | 0 | -0.28 | -1.13 | -2.52 | -3.42 | -3.15 | -1.12 | 0.06 | 0.18 | -3.44 | 26 | 0.21 |
-| Household consumption (real) (%) | 0 | -0.37 | -1.62 | -4.59 | -10.3 | -13.1 | -10.8 | 0.31 | 2.04 | -13.4 | 41 | 1.82 |
-| Investment (real) (%) | 0 | 0.01 | 0.18 | 0.21 | -2.01 | -3.24 | -2.81 | -0.40 | -0.34 | -3.36 | 42 | -0.38 |
-| Exports (real) (%) | 0 | 0.57 | 2.53 | 6.47 | 11.4 | 13.3 | 9.97 | 1.40 | 0.13 | 13.3 | 38 | 0.27 |
-| Imports (real) (%) | 0 | -0.36 | -1.51 | -3.85 | -7.51 | -9.07 | -7.46 | -0.55 | 0.57 | -9.17 | 40 | 0.43 |
-| Current account (pp of GDP) | 0 | 0.42 | 0.63 | 0.58 | 2.26 | 3.65 | 3.86 | 0.58 | 0.50 | 4.14 | 49 | 0.56 |
-| Real house prices (%) | 0 | -0.01 | -0.17 | -1.40 | -7.00 | -10.3 | -8.07 | 2.15 | 1.92 | -10.6 | 42 | 1.83 |
-| Mortgage debt / GDP (pp of GDP) | 0 | 0.05 | 0.24 | 0.51 | -0.26 | -2.12 | -5.54 | -4.21 | -3.17 | -6.45 | 79 | -3.35 |
-| Broad money (bank deposits) (%) | -1.75 | -4.32 | -5.40 | -4.84 | -2.00 | 3.41 | 18.9 | 39.6 | 74.1 | 74.1 | 240 | 73.6 |
-| Government balance (pp of GDP) | 0 | -0.39 | -0.89 | -2.05 | -3.81 | -4.03 | -2.66 | -0.25 | 0.07 | -4.06 | 33 | 0.05 |
-| Government debt / GDP (pp of GDP) | 0 | -0.01 | 0 | 0.27 | 1.89 | 3.48 | 5.18 | 3.61 | 1.49 | 5.31 | 69 | 1.67 |
-| Bank capital ratio (pp) | 0 | 0 | 0.24 | 0.56 | 0.32 | 0.11 | -0.22 | -0.09 | -0.16 | 0.56 | 12 | -0.17 |
-| Disposable income, all households (real) (%) | 0 | -0.41 | -1.31 | -2.52 | -3.63 | -3.14 | -0.58 | 0.34 | 1.53 | -3.64 | 25 | 1.51 |
-| Profits, domestic firms (real) (%) | 0 | -1.16 | -4.24 | -8.07 | -11.0 | -10.7 | -5.51 | -0.80 | 1.09 | -11.2 | 28 | 1.03 |
-| Profits, exporters (real) (%) | 0 | 17.5 | 33.9 | 33.8 | 37.7 | 39.8 | 28.4 | 13.5 | 8.76 | 39.9 | 34 | 9.08 |
-| Income-tax rate (pp) | 0 | 0 | 0 | 0 | 0.10 | 0.33 | 0.85 | 1.05 | 0.56 | 1.16 | 94 | 0.60 |
+| Output (real GDP) (%) | -0.01 | 0.16 | 0.80 | 1.85 | 2.02 | 1.74 | 1.10 | 0.89 | 0.66 | 2.11 | 18 | 0.67 |
+| Inflation (12-month CPI) (pp) | 0 | 0.27 | 1.25 | 3.65 | 4.94 | 4.75 | 3.34 | 1.58 | 0.31 | 4.94 | 24 | 0.35 |
+| Consumer price level (%) | 0 | 0.27 | 1.25 | 3.65 | 8.77 | 13.9 | 22.7 | 33.0 | 46.2 | 46.2 | 240 | 46.0 |
+| Unemployment rate (pp) | 0 | -0.02 | -0.18 | -0.74 | -1.41 | -1.55 | -1.26 | -0.39 | -0.15 | -1.55 | 37 | -0.16 |
+| Key interest rate (pp) | 0 | 0.03 | 0.58 | 3.09 | 6.08 | 6.26 | 4.71 | 2.17 | 1.00 | 6.32 | 31 | 1.03 |
+| Króna value (% (+ stronger)) | 0 | -7.36 | -15.1 | -19.3 | -25.1 | -28.3 | -28.5 | -28.4 | -31.1 | -31.9 | 149 | -31.1 |
+| Real wages (%) | 0 | -0.27 | -1.12 | -2.56 | -3.55 | -3.31 | -1.31 | 0.12 | 0.22 | -3.57 | 26 | 0.24 |
+| Household consumption (real) (%) | -0.04 | -0.47 | -1.82 | -5.02 | -11.2 | -14.3 | -12.2 | -1.18 | 2.32 | -14.6 | 42 | 2.23 |
+| Investment (real) (%) | 0 | 0.01 | 0.18 | 0.24 | -1.97 | -3.25 | -2.88 | -0.66 | -0.10 | -3.39 | 43 | -0.12 |
+| Exports (real) (%) | 0 | 0.57 | 2.56 | 6.70 | 12.1 | 14.2 | 11.2 | 2.46 | -0.32 | 14.3 | 39 | -0.26 |
+| Imports (real) (%) | -0.01 | -0.40 | -1.59 | -4.05 | -7.92 | -9.60 | -8.25 | -1.53 | 0.91 | -9.74 | 41 | 0.85 |
+| Current account (pp of GDP) | 0.01 | 0.43 | 0.68 | 0.66 | 2.40 | 3.88 | 4.24 | 1.09 | 0.36 | 4.46 | 50 | 0.38 |
+| Real house prices (%) | 0 | -0.25 | -0.70 | -2.35 | -8.41 | -11.9 | -9.90 | 0.42 | 1.02 | -12.3 | 42 | 1.05 |
+| Mortgage debt / GDP (pp of GDP) | -0.01 | 0.02 | 0.18 | 0.40 | -0.50 | -2.56 | -6.33 | -5.85 | -3.20 | -7.54 | 83 | -3.34 |
+| Broad money (bank deposits) (%) | -1.71 | -4.21 | -5.52 | -5.17 | -2.56 | 2.89 | 19.3 | 46.4 | 75.1 | 75.1 | 240 | 74.7 |
+| Government balance (pp of GDP) | -0.01 | -0.38 | -0.90 | -2.08 | -3.93 | -4.22 | -2.96 | -0.46 | 0.22 | -4.23 | 34 | 0.22 |
+| Government debt / GDP (pp of GDP) | 0 | 0 | 0.01 | 0.31 | 1.99 | 3.62 | 5.42 | 4.19 | 0.48 | 5.62 | 72 | 0.66 |
+| Bank capital ratio (pp) | 0 | 0 | 0.24 | 0.57 | 0.34 | 0.12 | -0.22 | -0.24 | -0.13 | 0.57 | 12 | -0.14 |
+| Disposable income, all households (real) (%) | -0.43 | -0.84 | -1.76 | -3.04 | -4.22 | -3.71 | -1.07 | 0.07 | 1.31 | -4.23 | 25 | 1.28 |
+| Profits, domestic firms (real) (%) | -0.03 | -1.23 | -4.42 | -8.51 | -11.7 | -11.4 | -6.47 | -1.55 | 1.30 | -11.9 | 29 | 1.25 |
+| Profits, exporters (real) (%) | 0 | 17.5 | 34.8 | 35.8 | 40.4 | 43.2 | 33.5 | 17.1 | 7.50 | 43.2 | 35 | 7.67 |
+| Income-tax rate (pp) | 0 | 0 | 0 | 0.01 | 0.11 | 0.35 | 0.89 | 1.17 | 0.34 | 1.25 | 98 | 0.39 |
 
 Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Extreme**: Broad money (bank deposits) 74.1 % at month 240.
-- **Unsettled**: Unemployment rate: moved 0.03 in the last 12 months, -0.23 at month 240; Household consumption (real): moved 0.52 in the last 12 months, 2.04 at month 240; Investment (real): moved 0.09 in the last 12 months, -0.34 at month 240; Exports (real): moved -0.34 in the last 12 months, 0.13 at month 240; and 21 more.
-- **Regimes**: stressTestPayment; borrowingXF; unemployedY; unemployedO; foreignAssetPurchases; bankBondPurchases; bondPurchasesPF.
+- **Extreme**: Broad money (bank deposits) 75.1 % at month 240.
+- **Unsettled**: Mortgage debt / GDP: moved 0.33 in the last 12 months, -3.20 at month 240; Government debt / GDP: moved -0.40 in the last 12 months, 0.48 at month 240; Income-tax rate: moved -0.11 in the last 12 months, 0.34 at month 240; Net new mortgage lending: moved -0.06 in the last 12 months, 0.36 at month 240; and 1 more.
+- **Regimes**: stressTestPayment; borrowingXF; unemployedY; unemployedO; foreignAssetPurchases; bankBondPurchases.
 
 Regimes that differ from the no-change run:
 
-- `stressTestPayment`: “Indexed floor applies” / “–” / “Non-indexed floor applies” instead of “Both stress-test floors apply”, months 9–240; its label changed 5 time(s) in the run
-- `borrowingXF`: “Loans repaid in full: spare cash stays in deposits” instead of “–”, months 121–240; its label changed 1 time(s) in the run
-- `unemployedY`: “Few unemployed left: extra jobs go to people arriving from abroad” instead of “–”, months 29–45; its label changed 2 time(s) in the run
-- `unemployedO`: “Few unemployed left: extra jobs go to people arriving from abroad” instead of “–”, months 18–60; its label changed 2 time(s) in the run
-- `foreignAssetPurchases`: “Purchases limited by cash in hand” instead of “–”, months 4–161; its label changed 2 time(s) in the run
-- `bankBondPurchases`: “Purchases limited by cash in hand” instead of “–”, months 40–214; its label changed 2 time(s) in the run
-- `bondPurchasesPF`: “Sales limited by holdings” instead of “–”, months 237–240; its label changed 1 time(s) in the run
+- `stressTestPayment`: “Non-indexed floor applies” / “–” instead of “Both stress-test floors apply”, months 5–240; its label changed 3 time(s) in the run
+- `borrowingXF`: “Loans repaid in full: spare cash stays in deposits” instead of “–”, months 77–240; its label changed 1 time(s) in the run
+- `unemployedY`: “Few unemployed left: extra jobs go to people arriving from abroad” instead of “–”, months 27–51; its label changed 2 time(s) in the run
+- `unemployedO`: “Few unemployed left: extra jobs go to people arriving from abroad” instead of “–”, months 18–65; its label changed 2 time(s) in the run
+- `foreignAssetPurchases`: “Purchases limited by cash in hand” instead of “–”, months 4–129; its label changed 2 time(s) in the run
+- `bankBondPurchases`: “Purchases limited by cash in hand” instead of “–”, months 38–146; its label changed 2 time(s) in the run

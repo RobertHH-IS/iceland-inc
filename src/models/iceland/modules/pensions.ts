@@ -121,6 +121,8 @@ const vars: VarDef[] = [
   { id: 'foreignAssetPurchases', label: 'Pension funds’ foreign purchases', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'bankBondPurchases', label: 'Pension funds’ bank-bond purchases', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'bondPurchasesPF', label: 'Pension funds’ government-bond purchases', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  { id: 'pfDomesticShift', label: 'Pension funds’ domestic tilt', unit: 'fraction', kind: 'ratio', scale: 'none', initial: 0, description: 'Relative change in the funds’ wish to hold domestic assets: negative when they move savings abroad.' },
+  { id: 'domesticFundingPremium', label: 'Domestic funding premium', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: 0, description: 'Extra yield domestic borrowers pay when the pension funds, the largest domestic buyers of bonds and lenders on mortgages, want less of them.' },
 ];
 
 const rules: RuleDef[] = [
@@ -348,6 +350,33 @@ const rules: RuleDef[] = [
       rule: 'They close the gap between their deposits and {dPF0%} of assets (less in proportion when the lever or higher rates abroad raise the foreign target) at speed {lamReb} a year, by trading bonds with banks. They buy only with the cash above their buffer that their other purchases left, and only bonds banks hold. They sell only bonds they hold.',
     },
   },
+  {
+    id: 'pfDomesticShift',
+    target: 'pfDomesticShift',
+    category: 'BEHAVIOUR',
+    inputs: SHIFT_INPUTS,
+    params: SHIFT_PARAMS,
+    terms: terms(
+      ['lever', 'Foreign-allocation lever', 'funded-pensions', (c) => -c.p('pfForeignShift') / (1 - c.p('pfForeignTarget'))],
+      ['returns', 'Higher (or lower) interest rates abroad', 'carry-trade', (c) => -returnsShift(c) / (1 - c.p('pfForeignTarget'))],
+    ),
+    explain: {
+      what: 'How much less (negative) or more the funds want of every domestic asset, relative to their usual holdings.',
+      rule: 'Domestic tilt = −(the shift of the foreign target: the lever, plus {psiPF} points per point the foreign rate is above its normal {iF0%}) ÷ (1 − the usual foreign share {pfForeignTarget%}). The funds make room for more foreign assets by wanting proportionally less of everything domestic: deposits, bank bonds and new mortgages to members.',
+    },
+  },
+  {
+    id: 'domesticFundingPremium',
+    target: 'domesticFundingPremium',
+    category: 'BEHAVIOUR',
+    inputs: ['pfDomesticShift'],
+    params: ['kapPFdom'],
+    terms: terms(['tilt', 'Pension funds’ demand for domestic bonds and loans', 'bond-buyers', (c) => -c.p('kapPFdom') * c.v('pfDomesticShift')]),
+    explain: {
+      what: 'The extra yield on covered bonds and mortgages when the pension funds want fewer domestic assets (negative: when they want more).',
+      rule: 'Premium = {kapPFdom pp} × the funds’ fall in demand for domestic assets (−domestic tilt). The funds hold most of the covered bonds banks issue and a third of the indexed mortgages; when they want less of them, banks and other buyers must be paid more to take their place (portfolio balance: the price of an asset falls, and its yield rises, when its natural buyers want less of it). Zero at baseline.',
+    },
+  },
 ];
 
 export const pensions: ModuleDef = {
@@ -355,7 +384,7 @@ export const pensions: ModuleDef = {
   label: 'Pension funds',
   description: 'Contributions, pension rights, payouts, credited returns and retirement; the funds’ portfolio, foreign assets and the foreign-allocation lever.',
   requires: ['structure', 'labour-and-wages', 'banks', 'government', 'firms', 'mortgages', 'external'],
-  params: pickParams(ALL_PARAMS, ['payout', 'ageing', 'lamPFnw', 'lamPFinc', 'lamFA', 'lamReb', 'nwPF0', 'pfForeignTarget', 'pfForeignShift', 'pfForeignRatePass', 'psiPF', 'bbSh0', 'dPF0', 'pfLiquidityFloorShare', 'conTarget', 'pfAssets', 'pfForeignShare', 'pfDepShare', 'pfNWshare', 'eShareW', 'pfGovShare']),
+  params: pickParams(ALL_PARAMS, ['payout', 'ageing', 'lamPFnw', 'lamPFinc', 'lamFA', 'lamReb', 'nwPF0', 'pfForeignTarget', 'pfForeignShift', 'pfForeignRatePass', 'psiPF', 'kapPFdom', 'psiPFdomN', 'bbSh0', 'dPF0', 'pfLiquidityFloorShare', 'conTarget', 'pfAssets', 'pfForeignShare', 'pfDepShare', 'pfNWshare', 'eShareW', 'pfGovShare']),
   vars,
   rules,
   flows: [
@@ -465,9 +494,9 @@ export const pensions: ModuleDef = {
       max: 20,
       step: 1,
       binds: { param: 'pfForeignShift', mode: 'add', scale: 0.01 },
-      description: 'Shifts the target foreign share of pension assets; funds move toward it through new flows, selling krónur.',
+      description: 'Shifts the target foreign share of pension assets; funds move toward it through new flows, limited by their cash, selling krónur, and the weaker króna revalues what they hold. They also want fewer domestic assets: they lend less of new mortgages, and covered bonds and mortgages cost a little more.',
       definition:
-        'Level shift in the target foreign share, in percentage points of assets, persistent while set. Funds close the gap at 0.5 a year, so most of the buying happens over two to three years. Setting it back to 0 makes them sell foreign assets back toward the old share.',
+        'Level shift in the target foreign share, in percentage points of assets, persistent while set. Funds close the gap at up to 0.5 a year, but they buy only with cash above their buffer: new contributions, income, and the bank bonds, deposits and mortgage lending they give up. Shifts of a few points move at about that pace (+5: about 3.5 points higher after a year and 4.4 after two). Larger ones are cash-limited for years: at +20 the share is about 10 points higher after a year, 12–13 after two and 14–17 after five (less on Automatic, where the higher key rate slows the króna’s fall). Part of the rise is the weaker króna raising the value of the foreign assets they already hold. While set, the funds want proportionally less of every domestic asset: they lend a smaller share of new mortgages (banks lend the rest), and covered bonds and indexed mortgages carry a funding premium of about 0.1 pp per 5 points (half of it on non-indexed mortgages). Setting it back to 0 makes them sell foreign assets back toward the old share, and the premium goes.',
       concepts: ['funded-pensions', 'floating-exchange-rate'],
     },
   ],
@@ -478,6 +507,59 @@ export const pensions: ModuleDef = {
       run: (e) => {
         const gap = e.baseline('pensionPayouts') - e.baseline('pensionContributions') - e.baseline('pfIncome');
         return { pass: Math.abs(gap) < 1e-9, detail: `payouts − contributions − income = ${gap.toExponential(2)}` };
+      },
+    },
+    {
+      id: 'tilt-abroad-reprices-domestic-funding',
+      label: 'When the funds move 5 points of assets abroad (Manual), covered bonds and indexed mortgages carry a funding premium of 0.05–0.4 pp and the funds lend a smaller share of new mortgages, banks the rest; at 20 points real house prices stay below no change for 30 months',
+      run: (e) => {
+        const path = (shift: number) => {
+          const f = e.fork();
+          if (shift) f.setLever('pfForeign', shift);
+          const out: { premium: number; bb: number; key: number; shareI: number; tilt: number; rhp: number }[] = [];
+          for (let m = 1; m <= 60; m++) {
+            f.step(1);
+            out.push({ premium: f.value('domesticFundingPremium'), bb: f.value('bankBondRate'), key: f.value('keyRate'), shareI: f.value('pfMortgageShareI'), tilt: f.value('pfDomesticShift'), rhp: f.value('realHousePrice') });
+          }
+          return out;
+        };
+        const [calm, five, twenty] = [path(0), path(5), path(20)];
+        const m24 = five[23];
+        const pfShI = e.influences('pfMortgageShareI').params.find((p) => p.id === 'pfShI')!.value;
+        const below = twenty.slice(0, 30).every((x, k) => x.rhp <= calm[k].rhp + 1e-12);
+        const ok =
+          m24.premium > 0.0005 && m24.premium < 0.004 &&
+          Math.abs(m24.bb - calm[23].bb - m24.premium) < 1e-12 && m24.key === calm[23].key &&
+          m24.tilt < 0 && Math.abs(m24.shareI - pfShI * (1 + m24.tilt)) < 1e-12 && m24.shareI < calm[23].shareI &&
+          below && twenty[59].rhp / calm[59].rhp - 1 < 0.028;
+        return {
+          pass: ok,
+          detail: `+5: premium ${(100 * m24.premium).toFixed(3)} pp at month 24, funds’ share of new indexed mortgages ${(100 * m24.shareI).toFixed(1)}% (usually ${(100 * pfShI).toFixed(1)}%); +20: real house prices below no change in months 1–30: ${below}, ${(100 * (twenty[59].rhp / calm[59].rhp - 1)).toFixed(2)}% at month 60`,
+        };
+      },
+    },
+    {
+      id: 'foreign-allocation-pace-as-defined',
+      label: 'The foreign-allocation lever moves the foreign share at the pace its definition gives: +5 about 3.5 points in a year and 4.4 in two; +20 about 10 in a year, 12–13 in two and 14–17 in five, limited by cash',
+      run: (e) => {
+        const gap = (mode: number, shift: number) => {
+          const [f, g] = [e.fork(), e.fork()];
+          for (const x of [f, g]) x.setLever('stabilisers', mode);
+          f.setLever('pfForeign', shift);
+          const out: number[] = [0];
+          for (let m = 1; m <= 60; m++) {
+            f.step(1);
+            g.step(1);
+            out.push(f.indicator('pfForeignShare') - g.indicator('pfForeignShare'));
+          }
+          return out;
+        };
+        const within = (x: number, lo: number, hi: number) => x >= lo && x <= hi;
+        const [m5, m20, a20] = [gap(0, 5), gap(0, 20), gap(1, 20)];
+        const ok =
+          within(m5[12], 3, 4) && within(m5[24], 4, 5) &&
+          [m20, a20].every((x) => within(x[12], 9, 11) && within(x[24], 11.5, 13.5) && within(x[60], 13.5, 17.5));
+        return { pass: ok, detail: `+5 Manual: ${m5[12].toFixed(1)} at month 12, ${m5[24].toFixed(1)} at 24; +20 Manual: ${m20[12].toFixed(1)}, ${m20[24].toFixed(1)}, ${m20[60].toFixed(1)} at 60; Automatic: ${a20[12].toFixed(1)}, ${a20[24].toFixed(1)}, ${a20[60].toFixed(1)} (points of assets)` };
       },
     },
     {

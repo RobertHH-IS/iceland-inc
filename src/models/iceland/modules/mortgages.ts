@@ -11,7 +11,8 @@
  * those who want most, smoothly (borrowers.ts).
  * 65% of loans are CPI-indexed: their borrowers pay a low real rate in cash, and inflation is
  * added to the loan instead (an accrual, so no money moves). Banks and pension funds lend in
- * their historical proportions: a bank loan creates a deposit, a pension-fund loan moves one.
+ * their historical proportions, the funds less when they move savings abroad: a bank loan creates a
+ * deposit, a pension-fund loan moves one.
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
@@ -189,22 +190,22 @@ function legRules(): RuleDef[] {
   for (const g of BORROWERS) {
     const pl = HH[g];
     for (const [l, lender] of LENDERS) {
-      for (const [ins, kind, shareN, thetaW] of [
-        ['mortgagesN', 'non-indexed', 'pfShN', (c: Ctx) => 1 - c.p('theta')],
-        ['mortgagesI', 'indexed', 'pfShI', (c: Ctx) => c.p('theta')],
+      for (const [ins, kind, thetaW] of [
+        ['mortgagesN', 'non-indexed', (c: Ctx) => 1 - c.p('theta')],
+        ['mortgagesI', 'indexed', (c: Ctx) => c.p('theta')],
       ] as const) {
         const suffix = ins === 'mortgagesN' ? 'N' : 'I';
         out.push({
           id: `newMortgages${suffix}_${l}_${pl}`,
           target: `newMortgages${suffix}_${l}_${pl}`,
           category: 'CONTRACT',
-          inputs: [`mortgageLending${g}`],
-          params: ['theta', shareN],
-          compute: (c) => thetaW(c) * c.v(`mortgageLending${g}`) * (l === 'PF' ? c.p(shareN) : 1 - c.p(shareN)),
+          inputs: [`mortgageLending${g}`, `pfMortgageShare${suffix}`],
+          params: ['theta'],
+          compute: (c) => thetaW(c) * c.v(`mortgageLending${g}`) * (l === 'PF' ? c.v(`pfMortgageShare${suffix}`) : 1 - c.v(`pfMortgageShare${suffix}`)),
           concepts: [l === 'B' ? 'endogenous-money' : 'funded-pensions'],
           explain: {
             what: `New ${kind} mortgages ${lender} lend to the ${AGE_LABEL[g]}. ${l === 'B' ? 'A bank loan creates a new deposit.' : 'A pension-fund loan moves the fund’s existing deposits to the borrower.'}`,
-            rule: `${kind === 'indexed' ? '{theta%}' : '(1 − {theta%})'} of new lending, × ${l === 'PF' ? `pension funds’ share {${shareN}%}` : `banks’ share (1 − {${shareN}%})`}.`,
+            rule: `${kind === 'indexed' ? '{theta%}' : '(1 − {theta%})'} of new lending, × ${l === 'PF' ? 'pension funds’ share of new ' + kind + ' mortgages' : 'banks’ share (1 − pension funds’ share of new ' + kind + ' mortgages)'}.`,
           },
         });
         out.push({
@@ -283,6 +284,7 @@ const vars: VarDef[] = [
   { id: 'creditImpulse', label: 'Credit impulse (mortgages)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0 },
   { id: 'netCreditTotal', label: 'Net new credit (households and firms)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0 },
   { id: 'creditImpulseTotal', label: 'Credit impulse (households and firms)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0 },
+  ...(['N', 'I'] as const).map((s): VarDef => ({ id: `pfMortgageShare${s}`, label: `Pension funds’ share of new ${s === 'N' ? 'non-indexed' : 'indexed'} mortgages`, unit: 'fraction', kind: 'ratio', scale: 'none', initial: ALL_PARAMS[`pfSh${s}`].value })),
   ...legVars,
 ];
 
@@ -379,6 +381,25 @@ export const mortgages: ModuleDef = {
       concepts: ['credit-impulse'],
       explain: { what: 'The credit impulse including firms’ borrowing, which is noisier.', rule: 'Net new credit now − net new credit 12 months ago.' },
     },
+    ...(['N', 'I'] as const).map(
+      (s): RuleDef => ({
+        id: `pfMortgageShare${s}`,
+        target: `pfMortgageShare${s}`,
+        category: 'BEHAVIOUR',
+        inputs: ['pfDomesticShift'],
+        params: [`pfSh${s}`],
+        terms: terms(
+          ['usual', 'Their usual share', 'funded-pensions', (c) => c.p(`pfSh${s}`)],
+          ['tilt', 'Pension funds tilting abroad (or home)', 'funded-pensions', (c) => c.p(`pfSh${s}`) * c.v('pfDomesticShift')],
+        ),
+        combine: (t) => Math.min(1, Math.max(0, t.usual + t.tilt)),
+        regime: (_c, _v, t) => (t.usual + t.tilt >= 1 ? 'Pension funds lend all of them' : t.usual + t.tilt <= 0 ? 'Pension funds lend none of them' : null),
+        explain: {
+          what: `Pension funds’ share of new ${s === 'N' ? 'non-indexed' : 'CPI-indexed'} mortgages; banks lend the rest.`,
+          rule: `Share = their usual share {pfSh${s}%} × (1 + their domestic tilt), between 0 and 1. When the funds move savings abroad they lend less to members, in proportion to the rest of their domestic assets, and banks take over the loans, which creates deposits; when they come home they lend more.`,
+        },
+      }),
+    ),
     ...legRules(),
   ],
   flows: [
