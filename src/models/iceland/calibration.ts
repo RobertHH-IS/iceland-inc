@@ -91,7 +91,7 @@ const QMM_RATE =
 const SRC = {
   rate: `${QMM_RATE} The ranges are v1’s bands around the QMM figures (v1 SPEC §7.3). ${QMM_URL}`,
   rateTiming: `${QMM_RATE} The range is v1’s band around QMM’s quarter 5 (v1 SPEC §7.3). KNOWN GAP: the model’s output trough is month 12, the last month of the hold (quarter 4, the band’s lower edge), a quarter before QMM’s. Output starts to recover the month the hold ends. When the rule takes over gradually instead, the trough is one month later and barely deeper (month 13, about 0.001 below month 12; tests/models, iceland-credit-and-checks): the path is flat there, so the quarter is set by the length of the hold rather than by the model’s own lags. ${QMM_URL}`,
-  rateInflation: `${QMM_RATE} The range is v1’s band around QMM’s −0.24 pp (v1 SPEC §7.3). KNOWN GAP: the model’s trough, about −0.33 pp in month 13, is inside the band only because of that one-month drop in the key rate. If the held rate instead closes a quarter of its gap to the rule’s suggestion each month, the trough is about −0.36 pp in month 15, outside the band (tests/models, iceland-credit-and-checks). ${QMM_URL}`,
+  rateInflation: `${QMM_RATE} The range is v1’s band around QMM’s −0.24 pp (v1 SPEC §7.3). The model’s trough is about −0.22 pp in month 13; if the held rate instead closes a quarter of its gap to the rule’s suggestion each month, it is about −0.23 pp in month 14 (tests/models, iceland-credit-and-checks), so the drop in the key rate does not decide it. Most of the disinflation in the first year comes from the stronger króna and from slack, not from housing: the housing part of the CPI is a market-rent index that follows house prices only partly and slowly (housing.ts). While it followed house prices one for one, the trough was about −0.33 pp, inside the band only because of the drop (lever review MON-4, 29 September 2026). ${QMM_URL}`,
   rateKrona: `CBI QMM v2.1 (Monetary Bulletin): the króna rises 0.67% on impact per 1 pp of interest-rate differential, with its real peak in quarter 4 (research report, "Policy rate +1 pp" and the dial table; the "+0.7–1%" once quoted here belongs to the wage experiment). QMM is quarterly, so its impact is the first quarter; the check measures the model’s first-quarter average. The range is v1’s band of 0.3–1.5 (v1 SPEC §7.3), which no source gives. KNOWN GAP: the model’s first-quarter rise is about 0.41%, about 0.35% in month 1, and it peaks in month 3 rather than quarter 4, so the model’s króna is less sensitive to the rate gap than QMM’s (KNOWN_GAPS). ${QMM_URL}`,
   wage: 'Research report, "Wages +10%": CPI about +2% in year 1 rising toward about +4% as pass-through completes (CBI MB 2026/2 Box 2); the ranges are v1’s bands around those figures (v1 SPEC §7.3). https://cb.is/library?itemid=391735d2-e7f9-4974-942a-debafc264a6e&type=pdf',
   wageLevel:
@@ -209,7 +209,7 @@ export const calibration: CalibrationCheck[] = [
   },
   {
     id: 'rate-inflation-trough',
-    label: 'Key rate held +1 pp for 4 quarters, then the rule: 12-month inflation trough, pp vs baseline (known gap: inside the band only because the key rate drops when the rule takes over)',
+    label: 'Key rate held +1 pp for 4 quarters, then the rule: 12-month inflation trough, pp vs baseline',
     scenario: RATE,
     months: 72,
     measure: (run) => {
@@ -499,9 +499,6 @@ export const KNOWN_GAPS: Record<string, { cited?: [number, number]; why: string 
   'rate-output-timing': {
     cited: [5, 5],
     why: 'The output trough is month 12, the last month of the key-rate hold (quarter 4); QMM’s is quarter 5. With a gradual takeover it moves only to month 13, about 0.001 deeper: the trough is flat at the end of the hold, so the hold’s length sets the quarter. Tripwire: the generic test, and "the rate checks’ takeover" test in tests/models.',
-  },
-  'rate-inflation-trough': {
-    why: 'The trough, about −0.33 pp, is inside v1’s band only because the key rate drops about 1.5 pp when the rule takes over (central-bank.ts: ruleRate eases from its own past value, not from the key rate set). With a gradual takeover it is about −0.36 pp, outside the band. Tripwire: "the rate checks’ takeover" test in tests/models fails once the drop is gone; then re-run the rate checks.',
   },
   'rate-krona': {
     cited: [0.67, 0.67],

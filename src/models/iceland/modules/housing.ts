@@ -2,11 +2,11 @@
  * Iceland Inc.: housing (v1 equation E11, and the housing parts of E12 and E35).
  *
  * Real house prices move toward a level set by households' real income, the flow of net mortgage
- * credit and the real mortgage rate. The housing component of the CPI follows house prices with
- * a lag: house prices stand in for market rents, which Statistics Iceland has used for
- * owner-occupied housing (rental equivalence, from the HMS rental register) since June 2024, so
- * the link is stronger and faster here than in the published index; a rent block is planned for
- * v3. Household spending is deflated without this component (prices.ts). Homes are a real asset: young and working-age households buy homes from older ones each
+ * credit and the real mortgage rate. The housing component of the CPI is a market-rent index:
+ * Statistics Iceland has measured owner-occupied housing by rental equivalence (market rents from
+ * the HMS rental register) since June 2024. Rents follow other consumer prices one for one, and
+ * real house prices and real income only partly and slowly. Household spending is deflated
+ * without this component (prices.ts). Homes are a real asset: young and working-age households buy homes from older ones each
  * year, homes are revalued when prices move, and they move up an age group with their owners.
  * The housing stock itself is fixed.
  */
@@ -43,7 +43,7 @@ export const housing: ModuleDef = {
   label: 'Housing',
   description: 'House prices, the housing component of the CPI, home purchases between generations and the value of homes.',
   requires: ['structure', 'households', 'mortgages', 'prices'],
-  params: pickParams(ALL_PARAMS, ['Y0', 'lamH', 'betaHY', 'betaHC', 'betaHR', 'lamHC', 'purY', 'purW', 'ydH0', 'homeAgeingRateY', 'homeAgeingRateW', 'house0', 'hshY', 'hshW']),
+  params: pickParams(ALL_PARAMS, ['Y0', 'lamH', 'betaHY', 'betaHC', 'betaHR', 'lamRent', 'betaRentH', 'betaRentY', 'purY', 'purW', 'ydH0', 'homeAgeingRateY', 'homeAgeingRateW', 'house0', 'hshY', 'hshW']),
   vars,
   rules: [
     {
@@ -86,12 +86,21 @@ export const housing: ModuleDef = {
       id: 'housingCost',
       target: 'housingCost',
       category: 'BEHAVIOUR',
-      inputs: ['housePrice'],
-      adjust: { speed: 'lamHC', form: 'exponential' },
-      terms: terms(['housePrice', 'House prices', 'credit-and-house-prices', (c) => c.v('housePrice')]),
+      label: 'Market rents',
+      lagInputs: ['consumptionDeflator', 'logRealHousePrice', 'realDisposableIncome'],
+      params: ['betaRentH', 'betaRentY', 'ydH0'],
+      adjust: { speed: 'lamRent', form: 'exponential' },
+      terms: terms(
+        ['prices', 'Prices of other goods and services', 'markup-pricing', (c) => Math.log(lastMonth(c, 'consumptionDeflator'))],
+        ['housePrice', 'Real house prices', 'credit-and-house-prices', (c) => c.p('betaRentH') * lastMonth(c, 'logRealHousePrice')],
+        ['income', 'Households’ real income', 'credit-and-house-prices', (c) => c.p('betaRentY') * Math.log(Math.max(1e-6, lastMonth(c, 'realDisposableIncome') / c.p('ydH0')))],
+      ),
+      // the terms are log points; the target is the rent level they give
+      combine: (t) => Math.exp(t.prices + t.housePrice + t.income),
+      concepts: ['credit-and-house-prices'],
       explain: {
-        what: 'The housing component of the CPI: owner-occupiers’ imputed rent and actual rents.',
-        rule: 'Follows house prices at speed {lamHC} a year. Since June 2024 Statistics Iceland has measured owner-occupied housing by rental equivalence, from market rents in the HMS rental register. Here house prices stand in for those rents, so the link from house prices to the CPI is stronger and faster than in the published index. A rent block is planned for v3.',
+        what: 'The housing component of the CPI: market rents, which since June 2024 Statistics Iceland also uses for owner-occupiers’ imputed rent (rental equivalence, from the HMS rental register).',
+        rule: 'Rents move toward a level set by last month’s prices of other goods and services (one for one, so a general rise in prices raises rents as much), real house prices to the power {betaRentH} and households’ real income to the power {betaRentY}, at speed {lamRent} a year. Rents follow house prices only partly and slowly: a buyer who is priced out rents instead, and leases are reset about once a year. So a key-rate rise that lowers house prices lowers the CPI mostly through the króna and slack in the economy, not through housing.',
       },
     },
     {

@@ -238,10 +238,10 @@ describe('Iceland calibration: each check runs the experiment its source describ
     for (const c of calibration) if (/known gap/.test(c.label)) expect(KNOWN_GAPS[c.id]).toBeDefined();
   });
 
-  test('known gap: the rate checks’ takeover. The key rate drops about 1.5 pp when the rule takes over, and the inflation check passes only because of it', () => {
+  test('the rate checks’ takeover: the key rate drops about 1.5 pp when the rule takes over, and the inflation check passes with a gradual takeover too (lever review MON-4)', () => {
     const r = run('rate-inflation-trough');
     // if this fails, the rule's takeover is smooth (central-bank.ts): re-run the rate checks, handle any
-    // that fail as known gaps, and drop the notes that blame the drop
+    // that fail as known gaps, and drop the notes that mention the drop
     const rate = r.series('keyRate'); // pp vs baseline
     expect(rate[12] - rate[13]).toBeGreaterThan(1);
     expect(rate[13]).toBeLessThan(0);
@@ -260,7 +260,11 @@ describe('Iceland calibration: each check runs the experiment its source describ
       inflation.push(e.indicator('inflation'));
     }
     const low = (a: number[]) => a.indexOf(Math.min(...a.slice(1)));
-    expect(inflation[low(inflation)]).toBeLessThan(check('rate-inflation-trough').range[0]); // outside the band
+    // inside the band and near the check's own trough: the drop in the key rate does not decide it
+    const c = check('rate-inflation-trough');
+    expect(inflation[low(inflation)]).toBeGreaterThanOrEqual(c.range[0]);
+    expect(inflation[low(inflation)]).toBeLessThanOrEqual(c.range[1]);
+    expect(Math.abs(inflation[low(inflation)] - c.measure(r))).toBeLessThan(0.03);
     // output turns as the hold ends: with a gradual takeover the trough is month 12 or 13 and
     // the two differ by a few thousandths of a percent, so the quarter is set by the hold
     expect([12, 13]).toContain(low(output));

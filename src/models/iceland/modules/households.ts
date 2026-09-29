@@ -216,7 +216,7 @@ export const households: ModuleDef = {
       compute: (c) => c.v('consumption') / c.v('consumptionDeflator'),
       explain: {
         what: 'Household spending at baseline prices.',
-        rule: 'Real consumption = consumption ÷ the consumption deflator (the CPI without housing). Housing in the CPI follows house prices and is mostly imputed rent that is never paid, so dividing by the full CPI would turn every rise in house prices into a fall in what households buy.',
+        rule: 'Real consumption = consumption ÷ the consumption deflator (the CPI without housing). Housing in the CPI follows market rents, which rise with house prices, and is mostly imputed rent that is never paid, so dividing by the full CPI would turn every rise in house prices into a fall in what households buy.',
       },
     },
     {

@@ -328,11 +328,17 @@ P('lamM', 0.25, 'per year', 'BEHAVIOUR', 'How fast households move their mortgag
 P('betaMH', 0.5, 'elasticity', 'BEHAVIOUR', 'Desired mortgage debt versus real house prices.', assumed());
 
 /* --------------------------------------------------------------- housing */
+const RENT: Provenance = {
+  basis: 'calibrated',
+  note: 'Since June 2024 Statistics Iceland measures owner-occupied housing in the CPI by rental equivalence, from market rents in the HMS rental register, so the housing component is a rent index (lever review MON-4, 29 September 2026). Market rents respond to house prices partly and slowly, and may even rise after a rate rise as buyers turn to renting (Dias and Duarte 2019, "Monetary policy, housing rents, and inflation dynamics", Journal of Applied Econometrics). Tuned so the key-rate experiment’s inflation trough comes nearer QMM’s −0.24 pp (rate-inflation-trough) with every other calibration check in range; to be re-estimated against the HMS rent index (leiguvísitala) and Statistics Iceland’s post-June-2024 imputed-rent series.',
+};
 P('lamH', 1, 'per year', 'BEHAVIOUR', 'How fast real house prices adjust.', assumed());
 P('betaHY', 1, 'elasticity', 'BEHAVIOUR', 'Real house prices versus real household disposable income.', assumed());
 P('betaHC', 3, 'fraction', 'BEHAVIOUR', 'Real house prices versus the flow of net mortgage credit (×100: % per % of GDP).', assumed());
 P('betaHR', 2, 'fraction', 'BEHAVIOUR', 'Real house prices versus the real mortgage rate (share lost per unit of rate).', assumed());
-P('lamHC', 1, 'per year', 'BEHAVIOUR', 'How fast the housing component of the CPI follows house prices.', assumed('House prices stand in for market rents: since June 2024 Statistics Iceland measures owner-occupied housing by rental equivalence (HMS rental register), which follows house prices more loosely and slowly. Not yet re-estimated against the post-2024 CPI housing series; a rent block is planned for v3.'));
+P('lamRent', 0.5, 'per year', 'BEHAVIOUR', 'How fast market rents, the housing component of the CPI, move toward their target: at 0.5 a year about 40% of a gap closes in a year, as leases are reset.', RENT);
+P('betaRentH', 0.5, 'elasticity', 'BEHAVIOUR', 'Market rents versus real house prices: rents rise 0.5% for each 1% rise in house prices relative to other prices, in the long run.', RENT);
+P('betaRentY', 1, 'elasticity', 'BEHAVIOUR', 'Market rents versus households’ real disposable income, in the long run: one for one, so rents keep their share of income.', RENT);
 
 /* ------------------------------------------------------------------ firms */
 P('betaPi', 0.3, 'elasticity', 'BEHAVIOUR', 'Investment versus real profits.', assumed());
@@ -344,7 +350,7 @@ P('rhoL', 1, 'fraction', 'BEHAVIOUR', 'Firms retain more profit when their debt 
 P('firmCashSpeed', 12, 'per year', 'BEHAVIOUR', 'How fast firms borrow or repay to bring their deposits back to target (12: within about a month, as in v1).', assumed('v1 closed the gap every month.'));
 
 /* ---------------------------------------------- prices, wages, expectations */
-P('omH', pct('cpi_weights.housing'), 'fraction', 'IDENTITY', 'CPI weight of housing: owner-occupiers’ imputed rent (20.9) and actual rents (3.6).', dataProv('cpi_weights.housing', 'Imputed rent has been measured by rental equivalence (HMS market rents) since June 2024; the model’s housing component follows house prices as a stand-in.'));
+P('omH', pct('cpi_weights.housing'), 'fraction', 'IDENTITY', 'CPI weight of housing: owner-occupiers’ imputed rent (20.9) and actual rents (3.6).', dataProv('cpi_weights.housing', 'Imputed rent has been measured by rental equivalence (HMS market rents) since June 2024; the model’s housing component is a market-rent index (housing.ts).'));
 P('omM', pct('cpi_weights.imported_goods'), 'fraction', 'IDENTITY', 'CPI weight of imported goods.', dataProv('cpi_weights.imported_goods'));
 P('omD', pct('cpi_weights.domestic_goods_and_services'), 'fraction', 'IDENTITY', 'CPI weight of domestic goods and services.', dataProv('cpi_weights.domestic_goods_and_services'));
 P('aLab', 0.55, 'fraction', 'BEHAVIOUR', 'Labour’s share of domestic unit cost (the rest is imported inputs).', tuned('the wage-shock price level'));
