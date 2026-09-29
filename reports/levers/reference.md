@@ -39,12 +39,12 @@ Number of runs with each flag (comparisons between runs count once per pair; an 
 
 | Lever | Runs | Non-finite | Residual | Sign | Implausible | Extreme | Policy moved | Month-1 jump | Sawtooth | Unsettled | Explosive | Asymmetry | Mode sign | Flicker | Inert | Regimes | Expectations ✓/✗ |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| [Wage settlement](#wage-settlement-wagesettlement) (`wageSettlement`) | 8 |  |  |  |  | 2 |  |  |  | 8 |  |  | 4 |  |  |  | 1/0 |
-| [Bank lending appetite](#bank-lending-appetite-lendingappetite) (`lendingAppetite`) | 8 |  |  |  |  |  |  |  |  | 8 | 2 |  | 2 |  |  | 3 | 3/0 |
-| [Key rate: your offset to the rule](#key-rate-your-offset-to-the-rule-keyrateaddon) (`keyRateAddon`) | 4 |  |  |  |  |  |  |  |  | 2 | 4 |  |  |  |  |  | 2/0 |
-| [Key interest rate](#key-interest-rate-keyratefixed) (`keyRateFixed`) | 4 |  |  |  |  | 1 |  |  |  | 4 | 4 |  |  |  |  | 3 | 1/0 |
-| [Government spending](#government-spending-govspending) (`govSpending`) | 8 |  |  |  |  | 1 |  |  |  | 6 | 3 |  | 3 |  |  | 5 | 4/0 |
-| [Income-tax rate](#income-tax-rate-taxrate) (`taxRate`) | 8 |  |  |  |  | 1 |  |  |  | 7 | 4 |  | 4 |  |  | 4 | 1/0 |
+| [Wage settlement](#wage-settlement-wagesettlement) (`wageSettlement`) | 8 |  |  |  |  | 2 |  |  |  | 8 |  |  | 4 |  |  |  | 9/0 |
+| [Bank lending appetite](#bank-lending-appetite-lendingappetite) (`lendingAppetite`) | 8 |  |  |  |  |  |  |  |  | 8 | 2 |  | 2 |  |  | 3 | 11/0 |
+| [Key rate: your offset to the rule](#key-rate-your-offset-to-the-rule-keyrateaddon) (`keyRateAddon`) | 4 |  |  |  |  |  |  |  |  | 2 | 4 |  |  |  |  |  | 9/0 |
+| [Key interest rate](#key-interest-rate-keyratefixed) (`keyRateFixed`) | 4 |  |  |  |  | 1 |  |  |  | 4 | 4 |  |  |  |  | 3 | 8/0 |
+| [Government spending](#government-spending-govspending) (`govSpending`) | 8 |  |  |  |  | 1 |  |  |  | 6 | 3 |  | 3 |  |  | 5 | 11/0 |
+| [Income-tax rate](#income-tax-rate-taxrate) (`taxRate`) | 8 |  |  |  |  | 1 |  |  |  | 7 | 4 |  | 4 |  |  | 4 | 8/0 |
 
 The stabiliser setting (`stabilisers`) is not run as a lever: its values are the modes every other lever runs in.
 
@@ -82,7 +82,7 @@ Policy instruments checked on Manual: the key rate (`keyRate`, moved only by `ke
 
 ## Expectations
 
-12 of 12 expectations hold (src/models/reference/expectations.ts). Each lever's section lists its own.
+56 of 56 expectations hold (src/models/reference/expectations.ts). Each lever's section lists its own; the harness fails when one does not hold.
 
 ## Wage settlement (`wageSettlement`)
 
@@ -104,6 +104,14 @@ Comparisons between runs:
 Expectations:
 
 - ✓ priceLevel rises over months 229–240 (default, Automatic): 10, Automatic: 13.9. An inflation-targeting central bank lets bygones be bygones: it does not bring the price level back down after a one-off cost shock. (Woodford (2003))
+- ✓ priceLevel rises over months 1–240 (max, any): 15, Manual: 14.5; 15, Automatic: 18.9. Markup pricing and cost pass-through: higher unit labour costs raise prices, and a one-off level shift is not reversed. (Kalecki (1954); Blanchard (1986) QJE)
+- ✓ priceLevel falls over months 3–60 (min, any): -5, Manual: -5.24; -5, Automatic: -5.16. Cost pass-through in reverse: lower unit labour costs lower prices. (Kalecki (1954); Blanchard (1986))
+- ✓ inflation rises over months 1–12 (max, any): 15, Manual: 8.32; 15, Automatic: 8.32. Pass-through of the cost jump raises measured inflation over the following year. (Bernanke & Blanchard (2023))
+- ✓ realWage rises over months 1–12 (max, any): 15, Manual: 7.00; 15, Automatic: 6.98. Nominal wages jump before prices adjust, so real wages rise at first. (Blanchard (1986))
+- ✓ realProfit falls over months 1–12 (max, any): 15, Manual: -46.0; 15, Automatic: -49.9. Profit squeeze: wage costs rise before prices catch up. (Glyn & Sutcliffe (1972); Goodwin (1967))
+- ✓ keyRate rises over months 3–24 (max, Automatic): 15, Automatic: 2.00. Taylor rule: the central bank reacts to higher inflation. (Taylor (1993))
+- ✓ output falls over months 12–36 (max, Automatic): 15, Automatic: -5.13. Cost-push shock plus a policy response gives stagflation: output falls as real rates and real incomes adjust. (Blanchard, Macroeconomics (AS–AD); Galí (2015), ch. 5)
+- ✓ unemployment rises over months 12–36 (max, Automatic): 15, Automatic: 2.55. Okun’s law following the policy-induced slowdown. (Okun (1962))
 
 ### -5 % (min, -half), Manual
 
@@ -327,6 +335,14 @@ Expectations:
 - ✓ investment rises over months 1–24 (max, Automatic): 2, Automatic: 9.36. More credit supply finances more investment while net credit is flowing. (Bank of England (McLeay, Radia & Thomas 2014))
 - ✓ creditImpulse falls over months 24–48 (max, Automatic): 2, Automatic: -0.20. Credit impulse: once the extra lending is flowing, repayments on the extra debt slow net credit, so the impulse turns negative and the boost to demand fades. (Biggs, Mayer & Pick (2010))
 - ✓ output rises over months 229–240 (max, Automatic): 2, Automatic: 1.19. Intended: the boost fades from its peak (about 2.1% after a year and a half; a module test checks it falls by more than a third) but output stays about 1% higher for good. The extra loans stay in the economy as household deposits, and the interest on the extra debt and on a higher key rate reaches households as income, which they spend (the stock-flow view of credit: a lasting rise in lending leaves a lasting rise in money). (Godley & Lavoie (2007, ch. 7); Keen (2011))
+- ✓ broadMoney rises over months 1–60 (max, any): 2, Manual: 3.00; 2, Automatic: 4.27. Endogenous money: new bank loans create deposits. (McLeay, Radia & Thomas (2014) BoE Quarterly Bulletin)
+- ✓ broadMoney falls over months 1–60 (min, any): -2, Manual: -2.99; -2, Automatic: -4.26. Money destruction: less new lending while repayments continue shrinks deposits. (McLeay, Radia & Thomas (2014))
+- ✓ investment rises over months 1–24 (max, any): 2, Manual: 11.5; 2, Automatic: 9.36. Credit-supply expansion finances extra investment. (Gilchrist & Zakrajšek (2012) AER; Bernanke & Gertler (1995))
+- ✓ output rises over months 1–24 (max, any): 2, Manual: 2.37; 2, Automatic: 1.72. Credit impulse: accelerating credit adds to demand. (Biggs, Mayer & Pick (2010); Mian, Sufi & Verner (2017) QJE)
+- ✓ output falls over months 1–24 (min, any): -2, Manual: -2.38; -2, Automatic: -1.72. A negative credit impulse subtracts from demand. (Biggs, Mayer & Pick (2010); Gilchrist & Zakrajšek (2012))
+- ✓ privateDebt rises over months 12–60 (max, any): 2, Manual: 2.03; 2, Automatic: 2.83. More lending raises the stock of private debt relative to GDP. (Jordà, Schularick & Taylor (2013))
+- ✓ unemployment falls over months 3–24 (max, any): 2, Manual: -1.06; 2, Automatic: -0.79. Okun’s law following the credit-driven boom. (Okun (1962))
+- ✓ keyRate rises over months 6–36 (max, Automatic): 2, Automatic: 1.50. Taylor rule leans against the boom. (Taylor (1993))
 
 ### -2 % of GDP/yr (min), Manual
 
@@ -561,6 +577,13 @@ Expectations:
 
 - ✓ output falls over months 6–60 (max, Automatic): 3, Automatic: -1.74. A tighter policy rate lowers demand and output. (Christiano, Eichenbaum & Evans (1999))
 - ✓ inflation falls over months 12–240 (max, Automatic): 3, Automatic: -0.71. A lasting offset works partly like a lower inflation target: inflation settles lower. (Taylor (1993); Woodford (2003, ch. 4))
+- ✓ keyRate rises over months 1–12 (up, Automatic): 0.75, Automatic: 0.27. A positive offset raises the rule’s target, so the key rate rises in the short run. (Taylor (1993))
+- ✓ output falls over months 6–36 (up, Automatic): 0.75, Automatic: -0.42. Monetary transmission: higher real rates reduce investment and consumption, with lags. (Christiano, Eichenbaum & Evans (1999); Ramey (2016))
+- ✓ output rises over months 6–36 (down, Automatic): -0.5, Automatic: 0.28. Monetary easing: lower real rates raise interest-sensitive demand. (Christiano, Eichenbaum & Evans (1999))
+- ✓ inflation falls over months 12–60 (up, Automatic): 0.75, Automatic: -0.10. Tighter policy lowers inflation after a lag, through the output gap and the Phillips curve. (Havranek & Rusnak (2013) IJCB)
+- ✓ unemployment rises over months 6–36 (up, Automatic): 0.75, Automatic: 0.18. Okun’s law following the monetary contraction. (Okun (1962); Ramey (2016))
+- ✓ investment falls over months 6–36 (up, Automatic): 0.75, Automatic: -1.24. User cost of capital: a higher real loan rate lowers investment. (Jorgenson (1963); Chirinko (1993))
+- ✓ priceLevel falls over months 24–120 (max, Automatic): 3, Automatic: -2.68. Persistent tightening (a lower implied inflation target) lowers the path of the price level. (Taylor (1993); Woodford (2003))
 
 ### -2 pp (min), Automatic
 
@@ -679,6 +702,13 @@ Not run on Automatic: the lever is shown only on Manual (showWhen).
 Expectations:
 
 - ✓ inflation rises over months 24–120 (min, Manual): 0, Manual: 0.69. A key rate held below neutral with no other anchor lets inflation rise (Wicksell’s cumulative process). (Wicksell (1898); Friedman (1968))
+- ✓ keyRate rises over months 1–240 (up, Manual): 4.75, Manual: 1.75. On Manual the key rate is held where the user sets it. (Decision 0004 (policy held on Manual))
+- ✓ output falls over months 3–24 (up, Manual): 4.75, Manual: -1.80. Interest-rate channel: a higher held rate reduces demand. (Christiano, Eichenbaum & Evans (1999); Bernanke & Gertler (1995))
+- ✓ output rises over months 3–24 (down, Manual): 2.25, Manual: 0.78. Interest-rate channel: a lower held rate raises demand. (Christiano, Eichenbaum & Evans (1999))
+- ✓ inflation falls over months 12–36 (up, Manual): 4.75, Manual: -0.35. A contraction lowers inflation through the Phillips curve, with lags. (Havranek & Rusnak (2013))
+- ✓ unemployment rises over months 3–24 (up, Manual): 4.75, Manual: 0.76. Okun’s law. (Okun (1962))
+- ✓ investment falls over months 3–24 (up, Manual): 4.75, Manual: -5.73. User cost of capital. (Jorgenson (1963); Chirinko (1993))
+- ✓ realConsumption falls over months 3–24 (up, Manual): 4.75, Manual: -1.37. Intertemporal substitution plus the fall in income that follows. (Hall (1988); Ramey (2016))
 
 ### 0 % (min), Manual
 
@@ -829,6 +859,13 @@ Expectations:
 - ✓ inflation rises over months 229–240 (max, Automatic): 3, Automatic: 0.61. Output above capacity keeps inflation above target. (Phillips (1958); Blanchard (2016))
 - ✓ keyRate falls over months 48–180 (min, Automatic): -3, Automatic: -3.00. Intended: a large lasting cut in spending pushes the key rate to zero, where neither it nor deposit rates can fall further, so monetary policy cannot offset the cut (a liquidity trap). The key rate stays at or just above zero for about 15 years, until the debt rule’s tax cuts have brought demand back; output is still about 4% lower after ten years and 1.4% lower after twenty, and still recovering. With a zero inflation target and a 3% neutral rate the central bank has only 3 points to cut. (Eggertsson & Krugman (2012); DeLong & Summers (2012); Eggertsson, Juelsrud, Summers & Wold (2019))
 - ✓ output falls over months 229–240 (min, Automatic): -3, Automatic: -1.46. Intended: after a liquidity trap output recovers only as fast as fiscal policy brings demand back, here the debt rule cutting taxes as debt falls, so twenty years on it is still below where it would have been. (DeLong & Summers (2012))
+- ✓ output rises over months 1–12 (up, any): 1, Manual: 1.67; 1, Automatic: 1.44. Keynesian spending multiplier: government purchases are output at once and raise incomes and consumption. (Blanchard & Perotti (2002) QJE; Ramey (2019) JEP)
+- ✓ output falls over months 1–12 (min, any): -3, Manual: -5.02; -3, Automatic: -4.48. The multiplier in reverse: lower purchases cut output and incomes. (Ramey (2019) JEP)
+- ✓ deficit rises over months 1–6 (up, any): 1, Manual: 0.78; 1, Automatic: 0.86. Budget accounting: extra spending widens the deficit before higher tax revenue offsets part of it. (Godley & Lavoie (2007), Monetary Economics, ch. 3)
+- ✓ unemployment falls over months 3–24 (up, any): 1, Manual: -0.98; 1, Automatic: -0.68. Okun’s law: more output needs more work. (Okun (1962); Ball, Leigh & Loungani (2017))
+- ✓ inflation rises over months 12–36 (up, any): 1, Manual: 0.46; 1, Automatic: 0.31. Phillips curve: a tighter labour market raises wage growth, which passes into prices. (Phillips (1958); Galí (2011))
+- ✓ keyRate rises over months 6–36 (up, Automatic): 1, Automatic: 1.23. Taylor rule: the central bank raises its rate against a positive output gap and rising inflation. (Taylor (1993))
+- ✓ investment falls over months 24–120 (up, Automatic): 1, Automatic: -2.27. Crowding out: under a Taylor rule, higher real rates reduce private investment once the initial accelerator boost fades. (Blanchard, Macroeconomics (IS–LM/IS–MP); Woodford (2011) AEJ Macro)
 
 ### -3 % of GDP/yr (min), Manual
 
@@ -1080,6 +1117,13 @@ Comparisons between runs:
 Expectations:
 
 - ✓ realDisposableIncome falls over months 1–12 (max, any): 3, Manual: -5.85; 3, Automatic: -5.99. A higher income-tax rate lowers disposable income at once. (national accounts identity)
+- ✓ output falls over months 1–12 (up, any): 1, Manual: -0.77; 1, Automatic: -0.69. Tax multiplier: a higher income-tax rate lowers disposable income and consumption. (Romer & Romer (2010) AER; Mertens & Ravn (2013) AER)
+- ✓ output rises over months 1–12 (down, any): -1, Manual: 0.78; -1, Automatic: 0.70. Tax multiplier in reverse: a tax cut raises disposable income and spending. (Romer & Romer (2010) AER)
+- ✓ realDisposableIncome falls over months 1–12 (up, any): 1, Manual: -1.97; 1, Automatic: -2.03. Disposable income is income after tax, so a higher tax rate lowers it at once. (National accounts identity (SNA 2008))
+- ✓ realConsumption falls over months 1–12 (up, any): 1, Manual: -1.06; 1, Automatic: -1.00. Consumption function: spending follows disposable income. (Keynes (1936); Jappelli & Pistaferri (2010))
+- ✓ deficit falls over months 1–6 (up, any): 1, Manual: -0.81; 1, Automatic: -0.82. Budget accounting: higher tax revenue narrows the deficit. (Godley & Lavoie (2007), ch. 3)
+- ✓ unemployment rises over months 3–24 (up, any): 1, Manual: 0.58; 1, Automatic: 0.42. Okun’s law: lower output needs less work. (Okun (1962))
+- ✓ keyRate falls over months 6–36 (up, Automatic): 1, Automatic: -0.79. Taylor rule: the central bank cuts its rate against the negative output gap and lower inflation. (Taylor (1993))
 
 ### -3 pp (min), Manual
 

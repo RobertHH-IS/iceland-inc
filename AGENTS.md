@@ -15,16 +15,18 @@ These rules apply to everyone who changes this repository, people and coding age
 9. **Counterfactuals compare shocked and unshocked runs within the same variant,** and are never shown as an additive waterfall.
 10. **Positions keep the sign their role gives them.** A holder's asset never goes below zero and a liability never turns into a claim. A position that may take either sign by design (an overdraft facility, a net position) is declared with `InstrumentDef.mayGoNegative` and a reason, and needs a row in [decision 0005](docs/decisions/0005-position-signs.md); otherwise add a floor (rule 2).
 11. **POLICY settings never change unless the user changes them;** automatic policy reactions exist only as declared stabilisers (`StabiliserDef`), which act only in Automatic mode and appear as suggestions in Manual mode. Compute each stabiliser's suggestion in both modes ([decision 0004](docs/decisions/0004-stabilisers.md)).
+12. **Every lever has expectations and a clean lever report.** Declare what theory predicts for it in `src/models/<id>/expectations.ts`: signs any sound model should show, each with its theory and source, over months the model can resolve. A new or changed lever must leave `bun run levers` clean: every expectation ✓, no broken run (Non-finite, Residual, Sign, Implausible), and every new flag explained. Never weaken an expectation to make it pass; when one fails, fix the model or record why the expectation is wrong or out of reach in [docs/audit/lever-vetting.md](docs/audit/lever-vetting.md) ([docs/authoring.md](docs/authoring.md) §12).
 
 ## Before you push
 
 ```bash
 bun test          # kernel and module unit tests
 bun run typecheck # TypeScript
-bun run harness   # accounting, drift, calibration and robustness report
+bun run harness   # accounting, drift, calibration, robustness and lever-expectation report
+bun run levers    # lever-response report; commit it when behaviour changes
 ```
 
-The harness must pass: accounting residuals and 240-month baseline drift below 1e-9, and every calibration check inside its range. The property runs, the lever-extremes sweep and the golden scenarios also fail on a value that is not finite (variables, stocks and charts), an implausible value (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate) or a position with the wrong sign (model rule 10). If a change moves calibration results, say so in the pull request and update the golden scenarios deliberately.
+The harness must pass: accounting residuals and 240-month baseline drift below 1e-9, every calibration check inside its range, and every lever expectation holding. The property runs, the lever-extremes sweep and the golden scenarios also fail on a value that is not finite (variables, stocks and charts), an implausible value (an unemployment rate outside [0, 50%], unemployed people below zero, a price index at or below zero, a negative key rate) or a position with the wrong sign (model rule 10). If a change moves calibration results, say so in the pull request and update the golden scenarios deliberately.
 
 ## Packages
 

@@ -171,7 +171,8 @@ The engine is ready for a **balanced-growth baseline**. Variables carry a `scale
    - **lever extremes:** every lever alone at its min and at its max for 240 months, in each stabiliser mode that shows it (a lever `showWhen` hides in a mode is never moved there, as in the panel), with the same requirements;
    - **numerics:** half-step and tolerance sensitivity (a timing measure may move by one quarter, any other by 10%);
    - **determinism:** the same scenario gives identical results;
-   - **golden scenarios:** stored outputs, so any change in results is visible in review. A golden run must also meet the plausibility and sign requirements, so no stored path is one a real economy could not take.
+   - **golden scenarios:** stored outputs, so any change in results is visible in review. A golden run must also meet the plausibility and sign requirements, so no stored path is one a real economy could not take;
+   - **lever expectations:** the signs theory predicts for each lever (`src/models/<id>/expectations.ts`), measured as the lever report measures them (`docs/authoring.md` §12). Every expectation must hold, every lever but the stabiliser setting must have at least one, and no run may be broken. Only the runs an expectation needs are made, and those the lever extremes already made are reused.
 
 `bun test` runs the kernel's own unit tests and every module's tests. GitHub Actions runs both on each push.
 

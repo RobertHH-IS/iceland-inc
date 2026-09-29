@@ -16,6 +16,13 @@
  *   flags      each with a threshold in LEVER_THRESHOLDS, explained in the report
  *   companions a lever that can act only on top of another shock (lever-headlines.ts) is also
  *              run with that shock and measured against the run with the shock alone
+ *   expectations  what theory predicts (src/models/<id>/expectations.ts), marked ✓ or ✗; an
+ *              expectation on the stabiliser setting itself is checked on the switch: the
+ *              no-change run of the other mode, measured against the no-change run of its own
+ *
+ * The harness runs the same measurement as a regression gate (layers.ts, robustness layer): with
+ * `onlyExpected` it makes only the runs some expectation needs, through its own `run`, so it can
+ * reuse the runs it has already made.
  *
  * `bun run levers` (lever-cli.ts) writes reports/levers/<model>.md and .json; lever-render.ts
  * renders them. The headline variables per model are declared in lever-headlines.ts.
@@ -120,6 +127,9 @@ export const FLAG_KINDS: { kind: FlagKind; title: string; meaning: string }[] = 
   { kind: 'inert', title: 'Inert', meaning: `No run of the lever moves any headline or indicator by ${LEVER_THRESHOLDS.unmoved} or more in any month. Either the lever needs another shock to act on (then the report also runs it with a declared companion shock), or it is not wired to anything.` },
   { kind: 'regime', title: 'Regimes', meaning: 'At least one rule ran in a different regime (a floor, cap or limit binding or released) from the no-change run in the same month. Informational: it shows what drives the result.' },
 ];
+
+/** The flags that mean a run is broken (the first row of the table in docs/authoring.md §12). */
+export const BROKEN_FLAGS: FlagKind[] = ['nonFinite', 'residual', 'sign', 'implausible'];
 
 export interface Flag {
   kind: FlagKind;
@@ -294,6 +304,14 @@ export interface LeverReportOptions {
   expectations?: LeverExpectation[] | null;
   /** Replace a model's declared spec (tests). */
   spec?: LeverReportSpec;
+  /** Make only the runs an expectation needs (the harness gate): levers without expectations are
+   *  left out, and so are the settings, modes and companion runs no expectation matches. */
+  onlyExpected?: boolean;
+  /** The engine at the baseline that every run starts from (default: a fresh one). */
+  engine?: KernelEngine;
+  /** How to run a scenario from the baseline engine (default: runScenario). The harness passes one
+   *  that reuses the runs it has already made and tracks the accounting of the rest. */
+  run?: (events: ScenarioEvent[], months: number) => KernelEngine;
 }
 
 /** An effect for a table or a flag: 0 below the unmoved threshold, else 2 decimals (1 from 10,
@@ -654,14 +672,15 @@ interface Setup {
   bounds: ReturnType<typeof plausibilityBounds>;
   horizons: number[];
   policySeries(e: KernelEngine): Float64Array[];
+  run(events: ScenarioEvent[], months: number): KernelEngine;
 }
 
-function setup(def: ModelDef | KModel, months: number, specOverride?: LeverReportSpec): Setup {
+function setup(def: ModelDef | KModel, months: number, specOverride?: LeverReportSpec, given?: Pick<LeverReportOptions, 'engine' | 'run'>): Setup {
   const m = 'crules' in def ? def : compile(def);
   const spec = specOverride ?? leverReportSpecs[m.def.id];
   if (!spec) throw new Error(`lever report: no headline list for model '${m.def.id}' in src/harness/lever-headlines.ts`);
   for (const p of spec.policy) if (!m.varIndex.has(p.variable)) throw new Error(`lever report: policy instrument '${p.variable}' is not a variable of model '${m.def.id}'`);
-  const base = createEngine(m);
+  const base = given?.engine ?? createEngine(m);
   const { headlines, indicators } = trackedSeries(m, base, spec);
   return {
     m,
@@ -678,12 +697,13 @@ function setup(def: ModelDef | KModel, months: number, specOverride?: LeverRepor
         for (let t = 0; t <= e.t; t++) out[t] = e.valueAt(p.variable, t);
         return out;
       }),
+    run: given?.run ?? ((events, n) => runScenario(base, events, n).engine),
   };
 }
 
 /** The no-change run of one stabiliser mode, or the run with a companion shock alone. */
 function reference(S: Setup, mode: { label: string; event?: ScenarioEvent }, months: number, extra?: ScenarioEvent): Reference {
-  const e = runScenario(S.base, [...(mode.event ? [mode.event] : []), ...(extra ? [extra] : [])], months).engine;
+  const e = S.run([...(mode.event ? [mode.event] : []), ...(extra ? [extra] : [])], months);
   return {
     mode: mode.label,
     modeValue: mode.event?.value,
@@ -700,7 +720,7 @@ function reference(S: Setup, mode: { label: string; event?: ScenarioEvent }, mon
 /** Run the whole lever-response report for one model. Deterministic: no clock, no randomness. */
 export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {}): LeverReport {
   const months = Math.max(1, Math.round(opts.months ?? DEFAULT_MONTHS));
-  const S = setup(def, months, opts.spec);
+  const S = setup(def, months, opts.spec, opts);
   const { m, base, spec, headlines, indicators, horizons } = S;
   const expectations = opts.expectations !== undefined ? opts.expectations : readExpectations(m.def.id);
   const expResults: ExpectationResult[] | null = expectations
@@ -720,7 +740,13 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
   });
 
   const modeLever = m.def.stabiliserMode?.lever;
-  const levers = m.levers.filter((l) => l.id !== modeLever && (!opts.levers || opts.levers.includes(l.id)));
+  for (const x of expResults ?? []) if (!m.levers.some((l) => l.id === x.lever)) throw new Error(`expectation names lever '${x.lever}', which model '${m.def.id}' does not have`);
+  // With onlyExpected, the expectations a run could match (by lever, companion, mode and setting).
+  const wanted = (l: LeverDef, s: LeverSetting, mode: string, companion: boolean) =>
+    !opts.onlyExpected || (expResults ?? []).some((x) => x.lever === l.id && x.withCompanion === companion && (x.mode === 'any' || x.mode === mode) && matchesSetting(x.setting, s));
+  const levers = m.levers.filter(
+    (l) => l.id !== modeLever && (!opts.levers || opts.levers.includes(l.id)) && (!opts.onlyExpected || (expResults ?? []).some((x) => x.lever === l.id)),
+  );
   let runCount = 0;
   const eventOf = (l: LeverDef, value: number): ScenarioEvent => (l.kind === 'oneoff' ? { t: 0, lever: l.id, value, fire: true } : { t: 0, lever: l.id, value });
   const sections: LeverSection[] = levers.map((l) => {
@@ -740,15 +766,17 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
       }
       const before = ref.modeEvent ? [ref.modeEvent] : [];
       for (const s of settings) {
-        const e = runScenario(base, [...before, eventOf(l, s.value)], months).engine;
+        if (!wanted(l, s, ref.mode, false)) continue;
+        const e = S.run([...before, eventOf(l, s.value)], months);
         runCount++;
         runs.push(measureRun(S, e, ref, { lever: l, setting: s, paths: !!opts.paths, expResults }));
       }
-      if (comp && compLever) {
+      if (comp && compLever && settings.some((s) => wanted(l, s, ref.mode, true))) {
         const extra = eventOf(compLever, comp.value);
         const compRef = reference(S, { label: ref.mode, event: ref.modeEvent }, months, extra);
         for (const s of settings) {
-          const e = runScenario(base, [...before, extra, eventOf(l, s.value)], months).engine;
+          if (!wanted(l, s, ref.mode, true)) continue;
+          const e = S.run([...before, extra, eventOf(l, s.value)], months);
           runCount++;
           companionRuns.push(measureRun(S, e, compRef, { lever: l, setting: s, paths: !!opts.paths, expResults }));
         }
@@ -775,6 +803,16 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
       crossFlags: cross,
     };
   });
+  // The stabiliser setting is not run as a lever: an expectation on it is checked on the switch
+  // from one mode to the other with no shock, which is the other mode's no-change run.
+  const modeDef = m.levers.find((l) => l.id === modeLever);
+  if (expResults && modeDef && expResults.some((x) => x.lever === modeLever))
+    for (const target of refs)
+      for (const ref of refs) {
+        if (ref === target || target.modeValue === undefined) continue;
+        const setting: LeverSetting = { value: target.modeValue, roles: ['option'], label: `switch to ${target.mode}` };
+        measureRun(S, target.engine, ref, { lever: modeDef, setting, paths: false, expResults });
+      }
   if (expResults) for (const x of expResults) x.pass = x.checks.length > 0 && x.checks.every((c) => c.pass);
 
   return {
@@ -806,6 +844,9 @@ interface MeasureCtx {
   paths: boolean;
   expResults: ExpectationResult[] | null;
 }
+
+/** Whether an expectation's setting (a value or a role) names a run's setting. */
+export const matchesSetting = (x: number | string, s: LeverSetting) => (typeof x === 'number' ? Math.abs(x - s.value) < 1e-9 : s.roles.includes(x));
 
 /** Measure one finished run against its no-change reference. */
 function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): LeverRun {
@@ -871,7 +912,7 @@ function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): L
   if (c.expResults && c.lever)
     for (const x of c.expResults) {
       if (x.lever !== c.lever.id || x.withCompanion !== !!ref.extra) continue;
-      if (typeof x.setting === 'number' ? x.setting !== c.setting.value : !c.setting.roles.includes(x.setting)) continue;
+      if (!matchesSetting(x.setting, c.setting)) continue;
       if (x.mode !== 'any' && x.mode !== ref.mode) continue;
       const path = effects.get(x.variable);
       if (!path) throw new Error(`expectation for '${x.lever}' names '${x.variable}', which is neither a headline nor an indicator`);
@@ -957,6 +998,6 @@ export function measureNoEvent(def: ModelDef | KModel, months = 60): LeverRun {
   const S = setup(def, months);
   const [mode] = stabiliserModes(S.m);
   const ref = reference(S, mode, months);
-  const e = runScenario(S.base, mode.event ? [mode.event] : [], months).engine;
+  const e = S.run(mode.event ? [mode.event] : [], months);
   return measureRun(S, e, ref, { lever: null, setting: { value: 0, roles: [], label: 'no event' }, paths: true, expResults: null });
 }

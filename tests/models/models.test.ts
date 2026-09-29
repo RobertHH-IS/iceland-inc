@@ -9,6 +9,7 @@ import { runScenario } from '../../src/core/scenario.ts';
 import { compile } from '../../src/core/compile.ts';
 import type { ModelDef } from '../../src/core/types.ts';
 import { conceptLibrary, models } from '../../src/models/index.ts';
+import { readExpectations } from '../../src/harness/lever-report.ts';
 
 /** Decision 0005 lists every position a model lets take either sign, one row per exemption. */
 const DECISION_0005 = readFileSync(join(import.meta.dir, '..', '..', 'docs', 'decisions', '0005-position-signs.md'), 'utf8');
@@ -48,6 +49,22 @@ for (const def of models) {
           if (!r.pass) console.log(r.detail);
           expect(r.pass).toBe(true);
         });
+
+    test('declares what theory predicts for every lever but the stabiliser setting, each with its theory and source (docs/authoring.md §12)', () => {
+      const ex = readExpectations(def.id);
+      expect(ex).not.toBeNull();
+      const levers = def.modules.flatMap((m) => m.levers ?? []);
+      const without = levers.filter((l) => l.id !== def.stabiliserMode?.lever && !ex!.some((x) => x.lever === l.id)).map((l) => l.id);
+      expect(without).toEqual([]);
+      for (const x of ex!) {
+        expect(levers.some((l) => l.id === x.lever)).toBe(true);
+        expect(x.theory.trim().length).toBeGreaterThan(10);
+        expect(x.source.trim().length).toBeGreaterThan(3);
+        expect(x.fromMonth).toBeGreaterThanOrEqual(1);
+        expect(x.toMonth).toBeGreaterThanOrEqual(x.fromMonth);
+        expect([-1, 0, 1]).toContain(x.sign);
+      }
+    });
 
     for (const c of def.calibration ?? [])
       test(`calibration: ${c.label}`, () => {

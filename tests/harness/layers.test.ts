@@ -118,6 +118,21 @@ describe('runHarness on the reference model', () => {
     expect(l6.body.find((x) => x.startsWith('| calibration-late |'))).toContain('1 event(s) at or after month 60 would never apply');
   });
 
+  test('the lever expectations gate: all hold on the model as declared; a wrong one, or a lever without any, fails', () => {
+    const ok = layer(runHarness(reference, opts), 6);
+    expect(ok.summary).toMatch(/expectations (\d+)\/\1(,|$)/);
+    expect(ok.body).toContain('### Lever expectations');
+    const wrong = layer(runHarness(reference, { ...opts, expectations: [{ lever: 'govSpending', setting: 'max', variable: 'output', fromMonth: 1, toMonth: 12, sign: -1, theory: 'Deliberately wrong.', source: 'test' }] }), 6);
+    expect(wrong.pass).toBe(false);
+    expect(wrong.summary).toContain('expectations 0/1');
+    expect(wrong.body.find((x) => x.startsWith('- govSpending (max, any)'))).toContain('should fall');
+    expect(wrong.body.find((x) => x.startsWith('Levers without expectations'))).toContain('`taxRate`');
+    // a fixture model that declares none is not checked
+    const none = layer(runHarness(reference, { ...opts, expectations: null }), 6);
+    expect(none.pass).toBe(true);
+    expect(none.body.some((x) => x.startsWith('The model declares no expectations'))).toBe(true);
+  });
+
   test('M22: a lever setting that pushes a variable out of its plausible bounds fails the sweep', () => {
     // A key rate held at −1% on Manual breaks the bound 'keyRate ≥ 0'.
     const wild: ModelDef = {

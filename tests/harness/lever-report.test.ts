@@ -273,6 +273,53 @@ describe('flags', () => {
     expect(md).toContain('no matching run');
   });
 
+  test('with onlyExpected, only the runs an expectation needs are made, through the given runner, with the same results', () => {
+    const expectations = [
+      { lever: 'keyRateAddon', setting: 'max', mode: 'Automatic', variable: 'output', fromMonth: 6, toMonth: 36, sign: -1, theory: 'A higher key rate cools demand.', source: 'test' },
+      { lever: 'govSpending', setting: 'up', variable: 'deficit', fromMonth: 1, toMonth: 6, sign: 1, theory: 'Spending widens the deficit.', source: 'test' },
+    ] as const;
+    const made: string[] = [];
+    const base = createEngine(ref);
+    const r = leverReport(ref, {
+      months: 60,
+      onlyExpected: true,
+      expectations: [...expectations],
+      engine: base,
+      run: (events, months) => {
+        made.push(events.map((e) => `${e.lever}=${e.value}`).join(' '));
+        return runScenario(base, events, months).engine;
+      },
+    });
+    const full = leverReport(ref, { months: 60, levers: ['keyRateAddon', 'govSpending'], expectations: [...expectations] });
+    // two no-change runs, keyRateAddon at its max on Automatic, govSpending up in both modes
+    expect(made).toEqual(['stabilisers=0', 'stabilisers=1', 'stabilisers=1 keyRateAddon=3', 'stabilisers=0 govSpending=1', 'stabilisers=1 govSpending=1']);
+    expect(r.runs).toBe(3);
+    expect(r.levers.map((s) => s.id)).toEqual(['keyRateAddon', 'govSpending']);
+    expect(r.expectations).toEqual(full.expectations);
+    expect(r.expectations!.every((x) => x.pass)).toBe(true);
+  });
+
+  test('an expectation on the stabiliser setting is checked on the switch between the no-change runs', () => {
+    const r = leverReport(ref, {
+      months: 60,
+      onlyExpected: true,
+      expectations: [
+        { lever: 'stabilisers', setting: 0, mode: 'Automatic', variable: 'output', fromMonth: 1, toMonth: 60, sign: 0, theory: 'At the steady state, switching mode changes nothing.', source: 'test' },
+        { lever: 'stabilisers', setting: 1, mode: 'Manual', variable: 'keyRate', fromMonth: 1, toMonth: 60, sign: 1, theory: 'Deliberately wrong.', source: 'test' },
+      ],
+    });
+    expect(r.runs).toBe(0);
+    expect(r.expectations!.map((x) => x.checks.length)).toEqual([1, 1]);
+    expect(r.expectations!.map((x) => x.pass)).toEqual([true, false]);
+    const md = renderLeverMarkdown(r);
+    expect(md).toContain('is checked on the switch from one mode to the other');
+    expect(md).toContain('Expectations that do not hold:');
+  });
+
+  test('an expectation naming a lever the model does not have stops the report', () => {
+    expect(() => leverReport(ref, { months: 12, onlyExpected: true, expectations: [{ lever: 'noSuchLever', setting: 'max', variable: 'output', fromMonth: 1, toMonth: 12, sign: 1, theory: 't', source: 's' }] })).toThrow(/noSuchLever/);
+  });
+
   test('expectations are read from <model>/expectations.ts when the model has one', () => {
     const dir = mkdtempSync(join(tmpdir(), 'lever-exp-'));
     try {

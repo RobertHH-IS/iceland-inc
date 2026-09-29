@@ -7,7 +7,7 @@
  *   4. baseline         240 months without a shock: drift of every variable and stock
  *   5. calibration      the model's CalibrationChecks, PASS/FAIL against their ranges
  *   6. robustness       property tests, lever extremes, half-step and tolerance sensitivity,
- *                       determinism, golden scenarios
+ *                       determinism, golden scenarios, lever expectations
  */
 import type { CalibrationCheck, ModelDef, RunResult, ScenarioEvent } from '../core/types.ts';
 import { compile, CompileError, type KModel } from '../core/compile.ts';
@@ -17,7 +17,8 @@ import { CHECKS, DEFAULT_TOLERANCE } from '../core/checks.ts';
 import { baselineReport, type BaselineReport } from '../core/steady.ts';
 import { compareGolden, nonFiniteValues, readGolden, writeGolden, GOLDEN_ABS, GOLDEN_REL, type GoldenFile } from './golden.ts';
 import { firstNonFinite, plausibilityBounds, plausibilityBreaches, type Breach } from './plausibility.ts';
-import { allLeversScenarios, leverExtremeRuns, timingShock, type HarnessScenario } from './scenarios.ts';
+import { allLeversScenarios, leverExtremeRuns, timingShock, type ExtremeRun, type HarnessScenario } from './scenarios.ts';
+import { BROKEN_FLAGS, leverReport, leverSettings, matchesSetting, readExpectations, type LeverExpectation, type LeverReport } from './lever-report.ts';
 import { rng } from './rng.ts';
 
 export interface HarnessOptions {
@@ -28,6 +29,8 @@ export interface HarnessOptions {
   seed: number;
   /** Months of each lever-extremes run. */
   extremeMonths: number;
+  /** Replace the expectations the model declares (tests); null: as if it declared none. */
+  expectations?: LeverExpectation[] | null;
 }
 
 export interface LayerResult {
@@ -278,13 +281,13 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   // accounting checks, plausible values and positions with the right sign (decision 0005).
   const bounds = plausibilityBounds(m);
   let worstRes = 0;
-  const inspect = (name: string, events: ScenarioEvent[], months: number): { why: string; breaches: Breach[] } => {
+  const inspect = (name: string, events: ScenarioEvent[], months: number): { why: string; breaches: Breach[]; engine?: KernelEngine } => {
     try {
       const e = run(name, events, months).engine;
       for (const x of e.maxResiduals()) worstRes = Math.max(worstRes, x.residual);
       const fails = e.checks().failures!.length;
       const why = firstNonFinite(m, e) || (fails ? `${fails} accounting failure(s)` : '');
-      return { why, breaches: plausibilityBreaches(m, e, bounds) };
+      return { why, breaches: plausibilityBreaches(m, e, bounds), engine: e };
     } catch (err) {
       return { why: `threw: ${(err as Error).message}`, breaches: [] };
     }
@@ -293,6 +296,18 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
   const signTol = engine.checks().signTolerance ?? 0;
   const exempt = m.instruments.flatMap((ins) => (ins.mayGoNegative ? [`\`${ins.id}\`${ins.mayGoNegative.players ? ` (${ins.mayGoNegative.players.join(', ')})` : ''}`] : []));
   const plausibleNote = `Plausibility: ${bounds.length} bounds on variables (${[...new Set(bounds.map((b) => b.rule))].map((r) => `${bounds.filter((b) => b.rule === r).map((b) => `\`${b.id}\``).join(', ')} ${r}`).join('; ')}), and the kernel's position-sign diagnostic: a holder's asset and an issuer's liability at least −${e2(signTol)} (exempt, decision 0005: ${exempt.join(', ') || 'none'}). Any breach fails the run`;
+  // The lever expectations (6g) reuse the lever-extremes runs they need: a lever at its min or max
+  // from month 0, held, in one mode, is the same run in both.
+  const declared = opts.expectations !== undefined ? opts.expectations : readExpectations(def.id);
+  const expectations = declared ?? [];
+  const gateMonths = Math.max(opts.extremeMonths, ...expectations.map((x) => x.toMonth));
+  const runKey = (events: ScenarioEvent[], months: number) => `${months}:${events.map((e) => `${e.t}|${e.lever}|${e.value}|${e.fire ? 1 : 0}`).join(';')}`;
+  const kept = new Map<string, KernelEngine>();
+  const expected = (x: ExtremeRun) => {
+    const l = levers.find((y) => y.id === x.lever);
+    const s = l && leverSettings(l).find((y) => Math.abs(y.value - x.value) < 1e-9);
+    return !!s && expectations.some((e) => e.lever === x.lever && !e.withCompanion && ((e.mode ?? 'any') === 'any' || e.mode === x.mode) && matchesSetting(e.setting, s));
+  };
   // 6a. property tests
   {
     const rand = rng(opts.seed);
@@ -336,9 +351,10 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
     const affected = new Set<string>();
     for (const x of runs) {
       const setting = `${x.lever} = ${x.value}${x.mode ? `, ${x.mode}` : ''}`;
-      const { why, breaches } = inspect(`lever extreme ${setting}`, x.events, opts.extremeMonths);
+      const { why, breaches, engine: e } = inspect(`lever extreme ${setting}`, x.events, opts.extremeMonths);
       if (why || breaches.length) bad.push(`- ${setting}: ${why || failNote(breaches)}`);
       else ok++;
+      if (e && opts.extremeMonths === gateMonths && expected(x)) kept.set(runKey(x.events, gateMonths), e);
       nBreach += breaches.length;
       for (const b of breaches) {
         affected.add(`${b.kind}:${b.what}`);
@@ -528,6 +544,65 @@ export function runHarness(def: ModelDef, opts: HarnessOptions): HarnessResult {
       '|---|---|---|---|',
       ...rows,
       '',
+    );
+  }
+  // 6g. lever expectations: what theory predicts for each lever (src/models/<id>/expectations.ts)
+  {
+    let reused = 0;
+    const gateRun = (events: ScenarioEvent[], months: number) => {
+      const k = runKey(events, months);
+      const e = kept.get(k);
+      if (e) {
+        reused++;
+        kept.delete(k);
+        return e;
+      }
+      return run(`lever expectation ${events.map((x) => `${x.lever} = ${x.value}`).join(', ')}`, events, months).engine;
+    };
+    let rep: LeverReport | null = null;
+    let crash = '';
+    if (expectations.length)
+      try {
+        rep = leverReport(m, { onlyExpected: true, months: gateMonths, engine, run: gateRun, expectations });
+      } catch (err) {
+        crash = (err as Error).message;
+      }
+    kept.clear();
+    const results = rep?.expectations ?? [];
+    const held = results.filter((x) => x.pass).length;
+    // Once a model declares expectations, every lever the user can move needs some (the
+    // stabiliser setting is checked through the switch between modes, when it has any). Every model
+    // in src/models must declare them (tests/models/models.test.ts); a test fixture need not.
+    const uncovered = !declared ? [] : levers.filter((l) => l.id !== def.stabiliserMode?.lever && !expectations.some((x) => x.lever === l.id)).map((l) => l.id);
+    const runs = rep ? rep.levers.flatMap((s) => [...s.runs, ...s.companionRuns]) : [];
+    const broken = [
+      ...(rep?.noChange ?? []).filter((n) => n.flags.some((g) => BROKEN_FLAGS.includes(g.kind))).map((n) => `the no-change run${n.mode ? ` on ${n.mode}` : ''}`),
+      ...runs.filter((r) => r.flags.some((g) => BROKEN_FLAGS.includes(g.kind))).map((r) => `${r.lever} ${r.label}${r.mode ? `, ${r.mode}` : ''}${r.companion ? ', with its companion' : ''}`),
+    ];
+    const pass = !crash && held === results.length && !uncovered.length && !broken.length;
+    pass6 &&= pass;
+    sum6.push(`expectations ${held}/${results.length}${uncovered.length ? `, ${uncovered.length} lever(s) without` : ''}`);
+    const byLever = [...new Set(results.map((x) => x.lever))].map((id) => {
+      const xs = results.filter((x) => x.lever === id);
+      return `| ${id} | ${xs.length} | ${xs.filter((x) => x.pass).length} | ${verdict(xs.every((x) => x.pass))} |`;
+    });
+    const failing = results
+      .filter((x) => !x.pass)
+      .map((x) => {
+        const got = x.checks.length ? x.checks.map((c) => `${c.value}${c.mode ? ` ${c.mode}` : ''}: ${f(c.mean, 4)}`).join('; ') : 'no matching run';
+        return `- ${x.lever} (${x.setting}, ${x.mode}${x.withCompanion ? ', with the companion shock' : ''}): ${x.variable} over months ${x.fromMonth}–${x.toMonth} should ${x.sign > 0 ? 'rise' : x.sign < 0 ? 'fall' : 'not move'}; mean effect ${got}. ${x.theory}`;
+      });
+    body6.push(
+      '### Lever expectations',
+      '',
+      `The signs theory predicts for each lever, declared in \`src/models/${m.def.id}/expectations.ts\` and measured as \`bun run levers\` measures them: the mean effect over the months named, against the no-change run in the same mode, must have the expected sign and be at least ${rep?.thresholds.floor ?? 0.01}, or stay below it for “does not move”. Only the runs an expectation needs are made (${gateMonths} months each): ${rep?.runs ?? 0} lever runs, ${reused} of them reused from the lever extremes. Every lever other than the stabiliser setting must have at least one expectation, and no run may be broken (a value that is not finite, an accounting residual, a wrong-signed position or an implausible value). ${held}/${results.length} hold: ${verdict(pass)}.`,
+      '',
+      ...(declared ? [] : [`The model declares no expectations (\`src/models/${m.def.id}/expectations.ts\` does not exist), so there is nothing to check.`, '']),
+      ...(crash ? [`The report could not run: ${crash}.`, ''] : []),
+      ...(uncovered.length ? [`Levers without expectations: ${uncovered.map((x) => `\`${x}\``).join(', ')}.`, ''] : []),
+      ...(broken.length ? [`Broken runs: ${broken.join('; ')}.`, ''] : []),
+      ...(failing.length ? ['Expectations that do not hold:', '', ...failing, ''] : []),
+      ...(byLever.length ? ['| Lever | Expectations | Hold | Verdict |', '|---|---:|---:|---|', ...byLever, ''] : []),
     );
   }
   const layer6: LayerResult = { n: 6, title: 'Robustness', pass: pass6, summary: sum6.join(', '), body: body6 };

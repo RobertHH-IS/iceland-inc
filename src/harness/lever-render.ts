@@ -3,7 +3,7 @@
  * agents and tools, and the optional full paths. Nothing here depends on the clock, so the same
  * model always renders the same files.
  */
-import { DEFAULT_MONTHS, FLAG_KINDS, LEVER_THRESHOLDS, LONG_RUN_MONTHS, fmtEffect, type Flag, type LeverReport, type LeverRun, type LeverSection } from './lever-report.ts';
+import { DEFAULT_MONTHS, FLAG_KINDS, LEVER_THRESHOLDS, LONG_RUN_MONTHS, fmtEffect, type ExpectationResult, type Flag, type LeverReport, type LeverRun, type LeverSection } from './lever-report.ts';
 
 /** File name (without extension) of a model's report: `<model>` at the default horizon, which is
  *  committed, and `<model>-<n>m` at any other, which is git-ignored. */
@@ -49,6 +49,14 @@ function runTable(r: LeverReport, run: LeverRun): string[] {
   return L;
 }
 
+/** One line per expectation: ✓ or ✗, what theory predicts, and the mean effect in each run. */
+function expectationLines(ex: ExpectationResult[]): string[] {
+  return ex.map((x) => {
+    const got = x.checks.length ? x.checks.map((c) => `${c.value}${modeText(c.mode)}: ${fmt(c.mean)}`).join('; ') : 'no matching run';
+    return `- ${x.pass ? '✓' : '✗'} ${x.variable} ${x.sign > 0 ? 'rises' : x.sign < 0 ? 'falls' : 'does not move'} over months ${x.fromMonth}–${x.toMonth} (${x.setting}, ${x.mode}${x.withCompanion ? ', with the companion shock' : ''}): ${got}. ${esc(x.theory)} (${esc(x.source)})`;
+  });
+}
+
 function leverSection(r: LeverReport, s: LeverSection): string[] {
   const L: string[] = [];
   const range = s.kind === 'choice' ? '' : `, range ${s.min ?? '–'} to ${s.max ?? '–'}${s.step ? ` in steps of ${s.step}` : ''}`;
@@ -69,14 +77,7 @@ function leverSection(r: LeverReport, s: LeverSection): string[] {
     L.push('');
   }
   const ex = r.expectations?.filter((x) => x.lever === s.id) ?? [];
-  if (ex.length) {
-    L.push('Expectations:', '');
-    for (const x of ex) {
-      const got = x.checks.length ? x.checks.map((c) => `${c.value}${modeText(c.mode)}: ${fmt(c.mean)}`).join('; ') : 'no matching run';
-      L.push(`- ${x.pass ? '✓' : '✗'} ${x.variable} ${x.sign > 0 ? 'rises' : x.sign < 0 ? 'falls' : 'does not move'} over months ${x.fromMonth}–${x.toMonth} (${x.setting}, ${x.mode}${x.withCompanion ? ', with the companion shock' : ''}): ${got}. ${esc(x.theory)} (${esc(x.source)})`);
-    }
-    L.push('');
-  }
+  if (ex.length) L.push('Expectations:', '', ...expectationLines(ex), '');
   for (const run of s.runs) {
     L.push(`### ${esc(run.label)}${modeText(run.mode)}`, '');
     L.push(...runTable(r, run));
@@ -144,7 +145,17 @@ export function renderLeverMarkdown(r: LeverReport): string {
 
   if (r.expectations) {
     const pass = r.expectations.filter((x) => x.pass).length;
-    L.push('## Expectations', '', `${pass} of ${r.expectations.length} expectations hold (src/models/${r.modelId}/expectations.ts). Each lever's section lists its own.`, '');
+    L.push('## Expectations', '', `${pass} of ${r.expectations.length} expectations hold (src/models/${r.modelId}/expectations.ts). Each lever's section lists its own; the harness fails when one does not hold.`, '');
+    const failing = r.expectations.filter((x) => !x.pass);
+    if (failing.length) L.push('Expectations that do not hold:', '', ...expectationLines(failing), '');
+    const sw = r.expectations.filter((x) => x.lever === r.stabiliserLever);
+    if (sw.length)
+      L.push(
+        `The stabiliser setting (\`${r.stabiliserLever}\`) is checked on the switch from one mode to the other with no shock: the no-change run of the mode switched to (the setting's value), measured against the no-change run of the mode switched from (the expectation's mode).`,
+        '',
+        ...expectationLines(sw),
+        '',
+      );
   }
 
   for (const s of r.levers) L.push(...leverSection(r, s));

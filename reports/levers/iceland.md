@@ -39,33 +39,33 @@ Number of runs with each flag (comparisons between runs count once per pair; an 
 
 | Lever | Runs | Non-finite | Residual | Sign | Implausible | Extreme | Policy moved | Month-1 jump | Sawtooth | Unsettled | Explosive | Asymmetry | Mode sign | Flicker | Inert | Regimes | Expectations ✓/✗ |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| [Key interest rate](#key-interest-rate-keyratefixed) (`keyRateFixed`) | 4 |  |  |  |  | 2 |  |  |  | 4 | 4 |  |  |  |  | 3 | 2/0 |
-| [Key rate: your offset to the rule](#key-rate-your-offset-to-the-rule-keyrateaddon) (`keyRateAddon`) | 4 |  |  |  |  |  |  |  |  | 4 | 4 |  |  |  |  | 3 |  |
-| [Bank lending appetite](#bank-lending-appetite-lendingappetite) (`lendingAppetite`) | 8 |  |  |  |  |  |  |  |  | 8 |  |  |  |  |  | 8 |  |
-| [Debt-service cap](#debt-service-cap-dsticap) (`dstiCap`) | 8 |  |  |  |  |  |  |  |  | 2 |  |  |  |  |  | 8 |  |
-| [Loan-to-value cap](#loan-to-value-cap-ltvcap) (`ltvCap`) | 8 |  |  |  |  |  |  |  |  | 3 | 1 |  |  |  |  | 8 |  |
-| [Foreign demand](#foreign-demand-foreigndemand) (`foreignDemand`) | 8 |  |  |  |  |  |  |  |  | 8 | 3 |  | 2 |  |  | 8 | 2/0 |
-| [Tourism](#tourism-tourism) (`tourism`) | 8 |  |  |  |  | 2 |  | 4 |  | 8 | 6 |  | 4 |  |  | 8 | 3/0 |
-| [Króna sentiment shock](#króna-sentiment-shock-kronashock) (`kronaShock`) | 12 |  |  |  |  |  |  |  |  | 12 |  |  | 6 |  |  | 12 |  |
-| [Foreign interest rate](#foreign-interest-rate-foreignrate) (`foreignRate`) | 8 |  |  |  |  | 1 |  |  |  | 8 | 6 |  | 3 |  |  | 8 |  |
-| [World prices](#world-prices-importprices) (`importPrices`) | 8 |  |  |  |  | 1 |  |  |  | 8 |  |  | 4 |  |  | 7 |  |
-| [World fish prices](#world-fish-prices-fishprices) (`fishPrices`) | 8 |  |  |  |  |  |  |  |  | 8 | 5 |  |  |  |  | 6 | 4/0 |
-| [World aluminium price](#world-aluminium-price-aluminiumprice) (`aluminiumPrice`) | 8 |  |  |  |  |  |  |  |  | 6 | 4 |  |  |  |  | 6 |  |
-| [Wage settlement](#wage-settlement-wagesettlement) (`wageSettlement`) | 8 |  |  |  |  |  |  |  |  | 4 |  |  | 2 |  |  | 7 | 2/0 |
+| [Key interest rate](#key-interest-rate-keyratefixed) (`keyRateFixed`) | 4 |  |  |  |  | 2 |  |  |  | 4 | 4 |  |  |  |  | 3 | 10/0 |
+| [Key rate: your offset to the rule](#key-rate-your-offset-to-the-rule-keyrateaddon) (`keyRateAddon`) | 4 |  |  |  |  |  |  |  |  | 4 | 4 |  |  |  |  | 3 | 7/0 |
+| [Bank lending appetite](#bank-lending-appetite-lendingappetite) (`lendingAppetite`) | 8 |  |  |  |  |  |  |  |  | 8 |  |  |  |  |  | 8 | 8/0 |
+| [Debt-service cap](#debt-service-cap-dsticap) (`dstiCap`) | 8 |  |  |  |  |  |  |  |  | 2 |  |  |  |  |  | 8 | 5/0 |
+| [Loan-to-value cap](#loan-to-value-cap-ltvcap) (`ltvCap`) | 8 |  |  |  |  |  |  |  |  | 3 | 1 |  |  |  |  | 8 | 5/0 |
+| [Foreign demand](#foreign-demand-foreigndemand) (`foreignDemand`) | 8 |  |  |  |  |  |  |  |  | 8 | 3 |  | 2 |  |  | 8 | 8/0 |
+| [Tourism](#tourism-tourism) (`tourism`) | 8 |  |  |  |  | 2 |  | 4 |  | 8 | 6 |  | 4 |  |  | 8 | 10/0 |
+| [Króna sentiment shock](#króna-sentiment-shock-kronashock) (`kronaShock`) | 12 |  |  |  |  |  |  |  |  | 12 |  |  | 6 |  |  | 12 | 8/0 |
+| [Foreign interest rate](#foreign-interest-rate-foreignrate) (`foreignRate`) | 8 |  |  |  |  | 1 |  |  |  | 8 | 6 |  | 3 |  |  | 8 | 7/0 |
+| [World prices](#world-prices-importprices) (`importPrices`) | 8 |  |  |  |  | 1 |  |  |  | 8 |  |  | 4 |  |  | 7 | 8/0 |
+| [World fish prices](#world-fish-prices-fishprices) (`fishPrices`) | 8 |  |  |  |  |  |  |  |  | 8 | 5 |  |  |  |  | 6 | 12/0 |
+| [World aluminium price](#world-aluminium-price-aluminiumprice) (`aluminiumPrice`) | 8 |  |  |  |  |  |  |  |  | 6 | 4 |  |  |  |  | 6 | 7/0 |
+| [Wage settlement](#wage-settlement-wagesettlement) (`wageSettlement`) | 8 |  |  |  |  |  |  |  |  | 4 |  |  | 2 |  |  | 7 | 10/0 |
 | [Net immigration](#net-immigration-netimmigration) (`netImmigration`) | 10 |  |  |  |  |  |  | 10 |  | 2 |  |  |  |  |  | 4 | 2/0 |
-| [Migration buffer](#migration-buffer-migration) (`migration`) | 8 + 8 |  |  |  |  |  |  |  |  | 5 |  |  |  |  | 1 | 8 |  |
-| [Income-tax rate](#income-tax-rate-incometax) (`incomeTax`) | 4 |  |  |  |  | 2 |  |  |  | 4 | 4 |  |  |  |  | 4 | 1/0 |
-| [Income tax: your offset to the rule](#income-tax-your-offset-to-the-rule-incometaxoffset) (`incomeTaxOffset`) | 4 |  |  |  |  | 2 |  |  |  | 4 |  |  |  |  |  | 4 |  |
-| [VAT rate](#vat-rate-vat) (`vat`) | 8 |  |  |  |  | 4 |  |  |  | 8 | 4 |  |  |  |  | 6 | 2/0 |
-| [Health spending](#health-spending-health) (`health`) | 8 |  |  |  |  | 3 |  | 8 |  | 8 | 5 |  | 4 |  |  | 7 |  |
-| [Education spending](#education-spending-education) (`education`) | 8 |  |  |  |  | 3 |  | 8 |  | 8 | 6 |  | 4 |  |  | 7 |  |
-| [Other public services](#other-public-services-otherservices) (`otherServices`) | 8 |  |  |  |  | 4 |  | 8 |  | 8 | 4 |  | 4 |  |  | 8 |  |
-| [Public investment](#public-investment-publicinvestment) (`publicInvestment`) | 8 |  |  |  |  | 4 |  | 8 |  | 8 | 4 | 1 | 4 |  |  | 7 |  |
-| [Old-age and disability transfers](#old-age-and-disability-transfers-oldagetransfers) (`oldAgeTransfers`) | 8 |  |  |  |  |  |  |  |  | 8 | 4 |  | 2 |  |  | 8 |  |
-| [Family and housing benefits](#family-and-housing-benefits-familybenefits) (`familyBenefits`) | 8 |  |  |  |  |  |  |  |  | 8 | 4 |  | 2 |  |  | 8 |  |
+| [Migration buffer](#migration-buffer-migration) (`migration`) | 8 + 8 |  |  |  |  |  |  |  |  | 5 |  |  |  |  | 1 | 8 | 7/0 |
+| [Income-tax rate](#income-tax-rate-incometax) (`incomeTax`) | 4 |  |  |  |  | 2 |  |  |  | 4 | 4 |  |  |  |  | 4 | 9/0 |
+| [Income tax: your offset to the rule](#income-tax-your-offset-to-the-rule-incometaxoffset) (`incomeTaxOffset`) | 4 |  |  |  |  | 2 |  |  |  | 4 |  |  |  |  |  | 4 | 7/0 |
+| [VAT rate](#vat-rate-vat) (`vat`) | 8 |  |  |  |  | 4 |  |  |  | 8 | 4 |  |  |  |  | 6 | 8/0 |
+| [Health spending](#health-spending-health) (`health`) | 8 |  |  |  |  | 3 |  | 8 |  | 8 | 5 |  | 4 |  |  | 7 | 8/0 |
+| [Education spending](#education-spending-education) (`education`) | 8 |  |  |  |  | 3 |  | 8 |  | 8 | 6 |  | 4 |  |  | 7 | 6/0 |
+| [Other public services](#other-public-services-otherservices) (`otherServices`) | 8 |  |  |  |  | 4 |  | 8 |  | 8 | 4 |  | 4 |  |  | 8 | 6/0 |
+| [Public investment](#public-investment-publicinvestment) (`publicInvestment`) | 8 |  |  |  |  | 4 |  | 8 |  | 8 | 4 | 1 | 4 |  |  | 7 | 8/0 |
+| [Old-age and disability transfers](#old-age-and-disability-transfers-oldagetransfers) (`oldAgeTransfers`) | 8 |  |  |  |  |  |  |  |  | 8 | 4 |  | 2 |  |  | 8 | 7/0 |
+| [Family and housing benefits](#family-and-housing-benefits-familybenefits) (`familyBenefits`) | 8 |  |  |  |  |  |  |  |  | 8 | 4 |  | 2 |  |  | 8 | 7/0 |
 | [Unemployment-benefit rate](#unemployment-benefit-rate-unemploymentbenefits) (`unemploymentBenefits`) | 8 |  |  |  |  |  |  |  |  | 8 | 4 |  |  |  |  | 6 | 3/0 |
-| [Who buys new government bonds](#who-buys-new-government-bonds-bondbuyers) (`bondBuyers`) | 8 + 8 |  |  |  |  |  |  |  |  | 5 |  |  |  |  | 1 | 7 |  |
-| [Pension funds’ foreign allocation](#pension-funds-foreign-allocation-pfforeign) (`pfForeign`) | 8 |  |  |  |  | 2 |  |  |  | 8 | 1 |  | 3 |  |  | 8 |  |
+| [Who buys new government bonds](#who-buys-new-government-bonds-bondbuyers) (`bondBuyers`) | 8 + 8 |  |  |  |  |  |  |  |  | 5 |  |  |  |  | 1 | 7 | 6/0 |
+| [Pension funds’ foreign allocation](#pension-funds-foreign-allocation-pfforeign) (`pfForeign`) | 8 |  |  |  |  | 2 |  |  |  | 8 | 1 |  | 3 |  |  | 8 | 8/0 |
 
 The stabiliser setting (`stabilisers`) is not run as a lever: its values are the modes every other lever runs in.
 
@@ -108,7 +108,13 @@ Policy instruments checked on Manual: the key rate (`keyRate`, moved only by `ke
 
 ## Expectations
 
-21 of 21 expectations hold (src/models/iceland/expectations.ts). Each lever's section lists its own.
+200 of 200 expectations hold (src/models/iceland/expectations.ts). Each lever's section lists its own; the harness fails when one does not hold.
+
+The stabiliser setting (`stabilisers`) is checked on the switch from one mode to the other with no shock: the no-change run of the mode switched to (the setting's value), measured against the no-change run of the mode switched from (the expectation's mode).
+
+- ✓ output does not move over months 1–240 (1, Manual): 1, Manual: 0. At the steady state the rule’s target equals the neutral rate. Handing the key rate to the rule with no shock changes nothing (decision 0004: same baseline in both modes). (Decision 0004; Taylor (1993): the rule’s rate equals the neutral nominal rate at target inflation and zero gap)
+- ✓ keyRate does not move over months 1–240 (1, Manual): 1, Manual: 0. With no shock, the rule’s suggestion equals the held neutral rate, so switching moves no policy instrument. (Decision 0004; Taylor (1993))
+- ✓ inflation does not move over months 1–240 (1, Manual): 1, Manual: 0. No shock means no policy reaction, so inflation stays at target in either mode. (Decision 0004)
 
 ## Key interest rate (`keyRateFixed`)
 
@@ -124,6 +130,14 @@ Not run on Automatic: the lever is shown only on Manual (showWhen).
 
 Expectations:
 
+- ✓ output falls over months 6–36 (up, Manual): 6, Manual: -2.04. Interest-rate channel: a higher real rate lowers consumption and investment, so output falls with a lag of quarters. (Christiano, Eichenbaum and Evans (2005); CBI QMM v2.1 Monetary Bulletin rate experiment)
+- ✓ inflation falls over months 12–36 (up, Manual): 6, Manual: -0.76. Slack, a stronger krona and lower asset prices reduce inflation after a lag. (Havranek and Rusnak (2013); CBI QMM v2.1)
+- ✓ krona rises over months 1–12 (up, Manual): 6, Manual: 1.94. Uncovered interest parity: a higher domestic rate attracts carry flows and strengthens the currency on impact. (Dornbusch (1976); CBI QMM v2.1 (0.67% per pp on impact))
+- ✓ unemployment rises over months 12–36 (up, Manual): 6, Manual: 0.63. Okun’s law: lower output after tightening raises unemployment. (Okun (1962); CBI QMM v2.1)
+- ✓ realHousePrice falls over months 6–36 (max, Manual): 15, Manual: -20.1. Asset-price channel: higher mortgage rates lower what buyers can pay for homes. (Jarocinski and Smets (2008); Williams (2015), FRBSF)
+- ✓ investment falls over months 6–36 (up, Manual): 6, Manual: -3.82. User cost of capital: a higher real loan rate lowers desired investment. (Jorgenson (1963); Christiano, Eichenbaum and Evans (2005))
+- ✓ inflation rises over months 12–36 (min, Manual): 0, Manual: 0.78. The mirror of tightening: a lower real rate stimulates demand and weakens the krona, raising inflation after a lag. (CBI QMM v2.1; Havranek and Rusnak (2013))
+- ✓ mortgageDebt falls over months 12–60 (up, Manual): 6, Manual: -1.52. Credit/bank-lending channel: dearer credit slows new borrowing, so the debt ratio falls over years. (Bernanke and Gertler (1995); Bank of England Quarterly Bulletin 2014 Q1)
 - ✓ investment falls over months 1–24 (up, Manual): 6, Manual: -2.45. A higher real borrowing cost lowers investment, with a lag. (Christiano, Eichenbaum and Evans (2005), Journal of Political Economy 113)
 - ✓ output falls over months 1–24 (up, Manual): 6, Manual: -1.51. Monetary tightening lowers output within two years. (Christiano, Eichenbaum and Evans (2005), Journal of Political Economy 113)
 
@@ -305,6 +319,16 @@ Runs: -3 pp (min); -0.75 pp (down); 1.25 pp (up); 5 pp (max). Each is set before
 
 Not run on Manual: the lever is shown only on Automatic (showWhen).
 
+Expectations:
+
+- ✓ output falls over months 6–36 (up, Automatic): 1.25, Automatic: -0.56. A contractionary deviation from the policy rule lowers demand through the interest-rate channel. (Gali (2015), ch. 3 monetary policy shock; CBI QMM v2.1)
+- ✓ inflation falls over months 12–36 (up, Automatic): 1.25, Automatic: -0.20. A tighter stance lowers inflation through slack and the exchange rate. (Gali (2015); CBI QMM v2.1)
+- ✓ keyRate rises over months 1–6 (up, Automatic): 1.25, Automatic: 1.20. The offset raises the key rate on impact. The rule offsets only part of it at first because of smoothing. (Woodford (2003) on interest-rate inertia)
+- ✓ krona rises over months 1–12 (up, Automatic): 1.25, Automatic: 0.70. Uncovered interest parity: a wider rate gap strengthens the krona. (Dornbusch (1976); CBI QMM v2.1)
+- ✓ unemployment rises over months 12–36 (up, Automatic): 1.25, Automatic: 0.17. Okun’s law: tighter policy lowers output and raises unemployment in the medium run. (Okun (1962); CBI QMM v2.1)
+- ✓ realHousePrice falls over months 6–36 (max, Automatic): 5, Automatic: -6.24. Asset-price channel: higher mortgage rates lower house prices. (Jarocinski and Smets (2008))
+- ✓ output rises over months 6–36 (down, Automatic): -0.75, Automatic: 0.33. An expansionary deviation from the rule raises demand in the medium run. (Gali (2015); CBI QMM v2.1)
+
 ### -3 pp (min), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
@@ -468,6 +492,17 @@ Extra (or less) mortgage lending banks are willing to push each year.
 **Definition.** Level shift in households’ desired new mortgage borrowing, % of baseline GDP a year, split between the young and working age by their share of mortgage debt; persistent while set and still subject to the debt-service and loan-to-value caps. Setting it back to 0 ends the push; loans already made are repaid over their term.
 
 Runs: -3 % of GDP per yr (min); -0.75 % of GDP per yr (down); 0.75 % of GDP per yr (up); 3 % of GDP per yr (max). Each is set before month 1 and held.
+
+Expectations:
+
+- ✓ mortgageDebt rises over months 3–240 (up, any): 0.75, Manual: 2.01; 0.75, Automatic: 1.88. Endogenous money: more mortgage lending raises the stock of household mortgage debt relative to GDP. (McLeay, Radia and Thomas (2014), Bank of England Quarterly Bulletin Q1)
+- ✓ broadMoney rises over months 3–120 (up, any): 0.75, Manual: 1.46; 0.75, Automatic: 1.44. Loans create deposits: extra bank lending expands broad money. (McLeay, Radia and Thomas (2014); Keen (2011) Debunking Economics)
+- ✓ realHousePrice rises over months 3–36 (up, any): 0.75, Manual: 0.98; 0.75, Automatic: 0.85. A larger flow of mortgage credit bids up house prices. (Favara and Imbs (2015), American Economic Review; Keen’s credit accelerator)
+- ✓ consumption rises over months 1–24 (up, any): 0.75, Manual: 0.30; 0.75, Automatic: 0.28. Debt-financed demand: part of new borrowing and housing-wealth gains is spent. (Mian and Sufi (2011), American Economic Review; Biggs, Mayer and Pick (2010))
+- ✓ creditImpulse rises over months 1–12 (up, any): 0.75, Manual: 0.49; 0.75, Automatic: 0.49. A step up in the flow of net new credit is, by definition, a positive credit impulse on impact. (Biggs, Mayer and Pick (2010), ‘Credit and economic recovery’, DNB WP 218)
+- ✓ output rises over months 3–36 (up, any): 0.75, Manual: 0.17; 0.75, Automatic: 0.12. Credit-financed spending raises aggregate demand during the credit expansion. (Mian, Sufi and Verner (2017), Quarterly Journal of Economics)
+- ✓ currentAccount falls over months 3–36 (up, any): 0.75, Manual: -0.06; 0.75, Automatic: -0.05. Part of credit-financed demand leaks into imports, so the current account worsens during a credit boom. (Mendoza and Terrones (2008), NBER WP 14049)
+- ✓ realHousePrice falls over months 3–36 (down, any): -0.75, Manual: -1.20; -0.75, Automatic: -1.01. Less mortgage credit flowing into housing lowers house prices. (Favara and Imbs (2015), American Economic Review)
 
 ### -3 % of GDP per yr (min), Manual
 
@@ -783,6 +818,14 @@ Shifts the payment-to-income caps on new mortgages (40% for first-time buyers, 3
 
 Runs: -15 pp (min); -4 pp (down); 4 pp (up); 15 pp (max). Each is set before month 1 and held.
 
+Expectations:
+
+- ✓ mortgageDebt falls over months 6–240 (min, any): -15, Manual: -4.30; -15, Automatic: -4.26. A tighter debt-service-to-income cap limits new mortgage lending, so mortgage debt falls relative to baseline. (Kuttner and Shim (2016), Journal of Financial Stability)
+- ✓ realHousePrice falls over months 3–36 (min, any): -15, Manual: -1.63; -15, Automatic: -1.45. Borrower-based limits reduce credit-financed housing demand and house-price growth. (Kuttner and Shim (2016); Alam et al. (2019), IMF WP/19/66)
+- ✓ broadMoney falls over months 6–120 (min, any): -15, Manual: -2.81; -15, Automatic: -2.89. Less bank lending means fewer deposits are created. (McLeay, Radia and Thomas (2014), Bank of England Quarterly Bulletin)
+- ✓ consumption falls over months 3–36 (min, any): -15, Manual: -0.64; -15, Automatic: -0.55. Less credit-financed spending and lower housing wealth reduce consumption. (Mian and Sufi (2011); Richter, Schularick and Shim (2019), Journal of International Economics)
+- ✓ mortgageDebt falls over months 12–60 (down, any): -4, Manual: -0.19; -4, Automatic: -0.18. A moderate tightening binds for the tail of borrowers near the limit (first-time buyers), so lending and debt fall modestly. This failed at the vetting, before the cap was made distributional. (Kuttner and Shim (2016); Central Bank of Iceland Financial Stability reports on DSTI rules)
+
 ### -15 pp (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
@@ -1078,6 +1121,14 @@ Today 80% (first-time buyers 10 points more). New mortgages may pay for at most 
 **Definition.** Level of the loan-to-value cap in percent, persistent while set, applied at once to every new loan as it is made (the loans of people buying from older households and from each other); first-time buyers (the young) get 10 points more. Buyers who want to borrow more than the cap allows borrow up to it; the rest are unaffected, so a small change trims the buyers who borrow most and a large cut trims many. Loans already made are never tested. 80 is the rule in force (Rules 1131/2025); setting it back to 80 restores it.
 
 Runs: 50 % (min); 70 % (down); 85 % (up); 100 % (max). Each is set before month 1 and held.
+
+Expectations:
+
+- ✓ mortgageDebt falls over months 6–240 (min, any): 50, Manual: -6.56; 50, Automatic: -6.53. A tight loan-to-value cap severely limits new purchase loans, so mortgage debt falls. This failed at the vetting, until the cap applied to gross lending. (Richter, Schularick and Shim (2019), Journal of International Economics; Cerutti, Claessens and Laeven (2017))
+- ✓ realHousePrice falls over months 3–36 (min, any): 50, Manual: -2.24; 50, Automatic: -2.01. Tighter LTV limits reduce house-price growth by constraining leveraged demand. (Kuttner and Shim (2016); Alam et al. (2019), IMF WP/19/66)
+- ✓ broadMoney falls over months 6–120 (min, any): 50, Manual: -4.11; 50, Automatic: -4.24. Less mortgage origination by banks creates fewer deposits. (McLeay, Radia and Thomas (2014), Bank of England Quarterly Bulletin)
+- ✓ creditImpulse falls over months 1–12 (min, any): 50, Manual: -1.10; 50, Automatic: -1.10. Imposing a binding cap cuts the flow of net new credit on impact: a negative credit impulse. (Biggs, Mayer and Pick (2010), DNB WP 218)
+- ✓ consumption falls over months 3–24 (min, any): 50, Manual: -0.73; 50, Automatic: -0.68. Less credit-financed spending and lower housing wealth reduce consumption after a sharp LTV tightening. (Richter, Schularick and Shim (2019), Journal of International Economics)
 
 ### 50 % (min), Manual
 
@@ -1382,8 +1433,14 @@ Comparisons between runs:
 
 Expectations:
 
-- ✓ output rises over months 1–24 (max, any): 20, Manual: 1.53; 20, Automatic: 1.20. Open-economy multiplier: more foreign demand raises output over the following quarters. (Justiniano and Preston (2010), Journal of International Economics 81)
-- ✓ exports rises over months 1–24 (max, any): 20, Manual: 5.89; 20, Automatic: 5.69. More foreign demand raises export volumes. (Justiniano and Preston (2010), Journal of International Economics 81)
+- ✓ exports rises over months 1–24 (max, any): 20, Manual: 5.89; 20, Automatic: 5.69. Export volumes rise with foreign demand (income elasticity of export demand). (Houthakker and Magee (1969), Review of Economics and Statistics)
+- ✓ output rises over months 1–24 (max, any): 20, Manual: 1.53; 20, Automatic: 1.20. Open-economy Keynesian multiplier: more export demand raises GDP before appreciation crowds it out. (Mundell (1963); Fleming (1962); Justiniano and Preston (2010), Journal of International Economics 81)
+- ✓ unemployment falls over months 3–24 (max, any): 20, Manual: -0.66; 20, Automatic: -0.58. Okun’s law: higher output lowers unemployment. (Okun (1962); Ball, Leigh and Loungani (2017))
+- ✓ krona rises over months 6–36 (max, any): 20, Manual: 3.51; 20, Automatic: 4.11. Higher export earnings and a current-account surplus strengthen a floating currency (flow and portfolio-balance demand for krónur). (Kouri (1976); Obstfeld and Rogoff (1996), ch. 9)
+- ✓ currentAccount rises over months 1–24 (max, any): 20, Manual: 1.68; 20, Automatic: 1.77. Exports rise faster than the imports they induce, so the current account improves. (BPM6 current-account identity; Obstfeld and Rogoff (1996))
+- ✓ jobsXT falls over months 12–60 (max, any): 20, Manual: -2.19; 20, Automatic: -2.34. Dutch disease: a boom in one export sector appreciates the real exchange rate and crowds out other tradables such as tourism. (Corden and Neary (1982), Economic Journal)
+- ✓ output falls over months 1–24 (min, any): -20, Manual: -1.60; -20, Automatic: -1.27. A fall in export demand lowers GDP through the multiplier. (Mundell (1963); Fleming (1962))
+- ✓ keyRate rises over months 3–12 (up, Automatic): 5, Automatic: 0.15. A Taylor rule raises the policy rate when output rises above capacity. (Taylor (1993))
 
 ### -20 % (min), Manual
 
@@ -1712,6 +1769,13 @@ Comparisons between runs:
 
 Expectations:
 
+- ✓ output falls over months 1–36 (min, any): -60, Manual: -6.04; -60, Automatic: -4.57. Tourism is an export; losing it lowers GDP (Iceland 2020: tourism about −75%, GDP about −7%). (Hagstofa national accounts 2020; CBI Monetary Bulletin 2020/4)
+- ✓ unemployment rises over months 3–36 (min, any): -60, Manual: 3.09; -60, Automatic: 2.68. Tourism is labour-intensive, so a collapse raises unemployment quickly. (Hagstofa labour force survey 2020; Okun (1962))
+- ✓ krona falls over months 3–36 (min, any): -60, Manual: -8.24; -60, Automatic: -10.1. Lost export earnings weaken a floating currency (the króna fell about 10% in trade-weighted terms in 2020). (Landsbankinn, 8 January 2021; CBI Monetary Bulletin 2020/4)
+- ✓ currentAccount falls over months 1–36 (min, any): -60, Manual: -6.00; -60, Automatic: -6.26. Lower service exports worsen the current account. (BPM6; CBI balance of payments 2020)
+- ✓ keyRate falls over months 3–24 (min, Automatic): -60, Automatic: -2.83. A Taylor rule cuts the rate in a demand collapse (the CBI cut from 3% to 0.75% in 2020). (Taylor (1993); CBI rate decisions 2020)
+- ✓ krona rises over months 6–36 (max, any): 30, Manual: 5.60; 30, Automatic: 6.52. A tourism boom brings in foreign currency and appreciates the króna (as in 2013–17). (CBI Monetary Bulletin 2016–2017; Obstfeld and Rogoff (1996))
+- ✓ profitsXF falls over months 12–60 (max, any): 30, Manual: -51.7; 30, Automatic: -58.6. Dutch disease: the appreciation from a tourism boom cuts króna revenue of exporters priced in foreign currency (fisheries’ margins fell in 2016–17). (Corden and Neary (1982); Deloitte Sjávarútvegsgagnagrunnur 2016–2017)
 - ✓ output rises over months 1–24 (max, any): 30, Manual: 2.33; 30, Automatic: 1.81. More visitors raise output over the following quarters. (CBI QMM simulations)
 - ✓ output falls over months 1–24 (min, any): -60, Manual: -6.06; -60, Automatic: -4.95. A collapse in visitors lowers output at once (2010, 2020). (Statistics Iceland national accounts, 2020)
 - ✓ krona rises over months 12–240 (max, any): 30, Manual: 13.6; 30, Automatic: 11.6. A lasting export gain strengthens the currency in real and nominal terms (Dutch disease). (Corden and Neary (1982), Economic Journal 92)
@@ -2064,6 +2128,17 @@ Comparisons between runs:
 - **Mode sign**: 5 % (-half): Investment (real) -0.16 on Manual, 0.10 on Automatic; Bank capital ratio -0.02 on Manual, 0.04 on Automatic.
 - **Mode sign**: 10 % (-default): Investment (real) -0.31 on Manual, 0.19 on Automatic; Bank capital ratio -0.05 on Manual, 0.08 on Automatic.
 - **Mode sign**: 25 % (max): Investment (real) -0.68 on Manual, 0.42 on Automatic.
+
+Expectations:
+
+- ✓ krona falls over months 1–12 (min, any): -25, Manual: -21.8; -25, Automatic: -20.5. A sentiment (risk-premium) shock that raises the króna’s target weakens it at once and for most of a year, as in UIP with a risk-premium shock. (Dornbusch (1976); Central Bank of Iceland QMM risk-premium shock)
+- ✓ priceLevel rises over months 3–24 (min, any): -25, Manual: 5.33; -25, Automatic: 4.44. Exchange-rate pass-through: a weaker króna makes imports dearer in krónur and the CPI rises. (Campa and Goldberg (2005); Edwards and Cabezas (2021, Central Bank of Iceland))
+- ✓ priceLevel falls over months 3–24 (max, any): 25, Manual: -3.69; 25, Automatic: -3.26. Pass-through works in reverse: a stronger króna lowers import prices and the CPI. (Campa and Goldberg (2005); Edwards and Cabezas (2021))
+- ✓ realWage falls over months 3–12 (min, any): -25, Manual: -3.41; -25, Automatic: -3.23. Prices react before wages, so a depreciation squeezes real wages in the first year. (Blanchard, Macroeconomics (real-wage effect of depreciation); Central Bank of Iceland Monetary Bulletin)
+- ✓ exports rises over months 3–12 (min, any): -25, Manual: 10.1; -25, Automatic: 9.61. Expenditure switching: a real depreciation makes Icelandic goods and tourism cheaper abroad. (Obstfeld and Rogoff (1996))
+- ✓ imports falls over months 3–12 (min, any): -25, Manual: -7.06; -25, Automatic: -7.16. Expenditure switching: dearer imports lower import volumes. (Obstfeld and Rogoff (1996))
+- ✓ currentAccount rises over months 12–36 (min, any): -25, Manual: 3.32; -25, Automatic: 4.08. Once volumes have responded, the Marshall-Lerner condition makes the current account improve after a real depreciation (after any initial J-curve dip). (Magee (1973); Bahmani-Oskooee and Ratha (2004))
+- ✓ keyRate rises over months 3–24 (min, Automatic): -25, Automatic: 4.47. An inflation-targeting rule raises the key rate when depreciation-driven inflation rises. (Taylor (1993); Svensson (1997))
 
 ### -25 % (min), Manual
 
@@ -2551,6 +2626,16 @@ Comparisons between runs:
 - **Mode sign**: 1.25 pp (up): Investment (real) 0.04 on Manual, -0.02 on Automatic.
 - **Mode sign**: 5 pp (max): Investment (real) 0.15 on Manual, -0.09 on Automatic.
 
+Expectations:
+
+- ✓ krona falls over months 1–24 (max, any): 5, Manual: -5.71; 5, Automatic: -5.13. Uncovered interest parity and the carry trade: a higher foreign rate makes króna assets less attractive, so the króna weakens. (Dornbusch (1976); Brunnermeier, Nagel and Pedersen (2008))
+- ✓ krona rises over months 1–24 (min, any): -3, Manual: 3.67; -3, Automatic: 3.28. UIP in reverse: lower foreign rates draw carry money into krónur and the króna strengthens. (Dornbusch (1976))
+- ✓ inflation rises over months 3–12 (max, any): 5, Manual: 0.63; 5, Automatic: 0.60. The depreciation that follows a foreign rate rise passes through to import prices and the CPI. (Campa and Goldberg (2005))
+- ✓ exports rises over months 6–24 (max, any): 5, Manual: 2.82; 5, Automatic: 2.55. The real depreciation switches foreign demand toward Icelandic goods (Mundell-Fleming). (Mundell (1963); Fleming (1962))
+- ✓ imports falls over months 6–24 (max, any): 5, Manual: -2.26; 5, Automatic: -2.39. The real depreciation makes imports dearer, so import volumes fall. (Obstfeld and Rogoff (1996))
+- ✓ keyRate rises over months 6–24 (max, Automatic): 5, Automatic: 1.18. An inflation-targeting central bank tightens against imported inflation from the weaker króna. (Taylor (1993))
+- ✓ keyRate falls over months 6–24 (min, Automatic): -3, Automatic: -0.71. An appreciation lowers inflation and the rule eases. (Taylor (1993))
+
 ### -3 pp (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
@@ -2884,6 +2969,17 @@ Comparisons between runs:
 - **Mode sign**: 10 % (up): Króna value -0.21 on Manual, 1.15 on Automatic; Investment (real) 0.39 on Manual, -0.24 on Automatic; Bank capital ratio 0.07 on Manual, -0.07 on Automatic.
 - **Mode sign**: 40 % (max): Króna value -0.86 on Manual, 4.22 on Automatic; Investment (real) 1.60 on Manual, -0.81 on Automatic; Bank capital ratio 0.33 on Manual, -0.21 on Automatic.
 
+Expectations:
+
+- ✓ priceLevel rises over months 1–24 (max, any): 40, Manual: 8.03; 40, Automatic: 6.72. Higher foreign-currency prices pass through to import prices in krónur and to the CPI. (Campa and Goldberg (2005); Edwards and Cabezas (2021))
+- ✓ inflation rises over months 1–12 (up, any): 10, Manual: 1.23; 10, Automatic: 1.16. Imported inflation: dearer imports raise 12-month CPI inflation. (Campa and Goldberg (2005))
+- ✓ inflation falls over months 1–12 (down, any): -5, Manual: -0.61; -5, Automatic: -0.58. Imported disinflation: cheaper imports lower CPI inflation. (Campa and Goldberg (2005))
+- ✓ realWage falls over months 3–12 (up, any): 10, Manual: -1.24; 10, Automatic: -1.17. Consumer prices rise before wages catch up, so real wages fall. (Blanchard, Macroeconomics)
+- ✓ profitsFX rises over months 1–12 (up, any): 10, Manual: 13.5; 10, Automatic: 11.3. Fish and aluminium are priced in foreign currency, so higher world prices raise exporters’ króna revenue against mostly domestic costs. (Central Bank of Iceland Monetary Bulletin (export sectors); standard export-price income effect)
+- ✓ keyRate rises over months 3–24 (up, Automatic): 10, Automatic: 1.86. The inflation rule raises the key rate against imported inflation. (Taylor (1993))
+- ✓ krona rises over months 60–240 (up, any): 10, Manual: 4.97; 10, Automatic: 6.43. Purchasing-power parity: higher foreign prices lead, over years, to a stronger nominal króna. (Rogoff (1996); Sarno and Taylor (2002))
+- ✓ krona falls over months 60–240 (min, any): -20, Manual: -8.61; -20, Automatic: -11.8. PPP in reverse: lower foreign prices lead, over years, to a weaker nominal króna. (Rogoff (1996); Sarno and Taylor (2002))
+
 ### -20 % (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
@@ -3202,6 +3298,14 @@ Runs: -30 % (min); -8 % (down); 8 % (up); 30 % (max). Each is set before month 1
 
 Expectations:
 
+- ✓ currentAccount rises over months 1–24 (max, any): 30, Manual: 2.30; 30, Automatic: 2.28. A higher world price for a quota-bound export raises export earnings one for one on impact (a terms-of-trade gain). (Obstfeld and Rogoff (1996), ch. 1; BPM6)
+- ✓ profitsXF rises over months 1–60 (max, any): 30, Manual: 127; 30, Automatic: 131. With catches fixed by quotas, a price rise accrues to fisheries as resource rent. (Arnason (2008), on the Icelandic ITQ system)
+- ✓ krona rises over months 3–36 (max, any): 30, Manual: 5.17; 30, Automatic: 4.88. Commodity currencies appreciate when the real price of their commodity exports rises. (Cashin, Céspedes and Sahay (2004), Journal of Development Economics)
+- ✓ govBalance rises over months 1–36 (max, any): 30, Manual: 0.55; 30, Automatic: 0.55. Higher fisheries’ profits raise corporate tax (and the fishing fee). (Lög um veiðigjald nr. 145/2018; Hagstofa government finance)
+- ✓ realDisposableIncome rises over months 6–36 (max, any): 30, Manual: 2.38; 30, Automatic: 2.75. A terms-of-trade gain raises real national income, through cheaper imports after appreciation and through owners’ income. (Kohli (2004), Review of Income and Wealth; Corden and Neary (1982))
+- ✓ jobsXT falls over months 12–60 (max, any): 30, Manual: -2.60; 30, Automatic: -2.47. Dutch disease: a commodity boom appreciates the currency and shrinks other tradables. (Corden and Neary (1982))
+- ✓ currentAccount falls over months 1–24 (min, any): -30, Manual: -2.44; -30, Automatic: -2.43. A terms-of-trade loss on a quota-bound export lowers export earnings. (Obstfeld and Rogoff (1996); BPM6)
+- ✓ output rises over months 1–12 (max, any): 30, Manual: 0.05; 30, Automatic: 0.05. The income (spending) effect of a domestically owned commodity windfall comes before the slower expenditure switching from appreciation, so short-run output rises. This holds after fixing trade-fish-windfall-hoarded; it was about 0 at the vetting (−0.02). (IMF World Economic Outlook, October 2012, ch. 4; Corden and Neary (1982))
 - ✓ profitsFX rises over months 1–60 (max, any): 30, Manual: 23.8; 30, Automatic: 25.0. Quotas cap the catch, so a higher price goes mainly into fisheries’ profit (resource rent). (Arnason (2008) on Iceland’s ITQ fisheries)
 - ✓ govBalance rises over months 24–60 (max, Manual): 30, Manual: 0.92. The state takes a share of resource rent through the fishing fee and corporate tax. (Lög um veiðigjald nr. 145/2018)
 - ✓ profitsFX falls over months 1–60 (min, any): -30, Manual: -33.8; -30, Automatic: -34.5. A lower price cuts fisheries’ profit, since volume is quota-bound. (Arnason (2008) on Iceland’s ITQ fisheries)
@@ -3514,6 +3618,16 @@ The aluminium price on world markets, in dollars.
 
 Runs: -40 % (min); -10 % (down); 10 % (up); 40 % (max). Each is set before month 1 and held.
 
+Expectations:
+
+- ✓ profitsXA rises over months 1–60 (max, any): 40, Manual: 609; 40, Automatic: 609. The smelters run at capacity and sell at the world price, so a price rise raises their profit. (Hagstofa THJ08420; Landsvirkjun annual reports)
+- ✓ dividendsAbroad rises over months 1–24 (max, any): 40, Manual: 2.19; 40, Automatic: 2.19. Foreign-owned firms remit windfall profits to their parents as primary income paid abroad. (Eurostat bop_c6_a (Iceland inward FDI income); BPM6 ch. 11)
+- ✓ currentAccount rises over months 1–24 (max, any): 40, Manual: 0.34; 40, Automatic: 0.33. Exports rise by more than the extra income paid abroad, because taxes and domestic inputs stay in Iceland; the effect is small. (BPM6; CBI balance of payments commentary on aluminium)
+- ✓ govBalance rises over months 1–24 (max, any): 40, Manual: 0.24; 40, Automatic: 0.19. Higher smelter profits raise corporate tax. (Hagstofa THJ05132 (corporate tax))
+- ✓ unemployment does not move over months 1–12 (max, any): 40, Manual: -0.01; 40, Automatic: -0.01. Capital-intensive smelters at capacity do not hire on a price change, and the windfall leaves the country, so jobs barely move. (Hagstofa THJ08420 (basic metals: small labour share); Eurostat bop_c6_a)
+- ✓ dividendsAbroad falls over months 1–24 (min, any): -40, Manual: -2.29; -40, Automatic: -2.29. Foreign owners absorb the smelters’ losses when the aluminium price falls. (Eurostat bop_c6_a; BPM6 ch. 11)
+- ✓ currentAccount falls over months 1–24 (min, any): -40, Manual: -0.34; -40, Automatic: -0.34. Lower export earnings, only partly offset by lower dividends abroad, worsen the current account a little. (BPM6; CBI balance of payments)
+
 ### -40 % (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
@@ -3820,6 +3934,14 @@ Comparisons between runs:
 
 Expectations:
 
+- ✓ realWage rises over months 1–12 (max, any): 20, Manual: 15.2; 20, Automatic: 15.2. A nominal settlement raises the real wage on impact because prices are set as a markup on smoothed costs and catch up only with a lag (battle of markups). (Blanchard (1986), ‘The wage price spiral’, QJE; CBI Monetary Bulletin 2026/2 Box 2, ‘Wages +10%’)
+- ✓ profitsFD falls over months 1–6 (max, any): 20, Manual: -12.7; 20, Automatic: -12.7. Profit squeeze: labour costs rise before prices, so margins compress first; profits are a residual and fall more than proportionally. (Goodwin (1967); first-round arithmetic on Hagstofa THJ08420 (2025) used in calibration.ts SRC.squeeze)
+- ✓ profitsFX falls over months 1–12 (max, any): 20, Manual: -25.8; 20, Automatic: -27.9. Exporters are price-takers in world markets (main-course model), so higher wages cut their margins directly. (Aukrust (1977), the Norwegian main-course model; Carlin & Soskice (2015), Macroeconomics, ch. 11)
+- ✓ inflation rises over months 3–18 (max, any): 20, Manual: 4.03; 20, Automatic: 3.87. Cost pass-through: higher unit labour costs raise domestic prices and CPI inflation within quarters. (CBI Monetary Bulletin 2026/2 Box 2; Bobeica, Ciccarelli & Vansteenkiste (2019), ECB WP 2235)
+- ✓ priceLevel falls over months 12–60 (min, any): -5, Manual: -2.05; -5, Automatic: -1.86. Pass-through works both ways: a nominal wage cut lowers unit costs and, over time, the price level. (Daníelsson (2021), CBI research on CPI and unit labour costs moving together; Blanchard (1986))
+- ✓ unemployment rises over months 3–24 (max, any): 20, Manual: 1.27; 20, Automatic: 1.42. Labour demand falls when the real product wage rises; the labour market then does part of the work of restoring the wage share. (CBI DYNIMO results in MB 2026/2; Lichter, Peichl & Siegloch (2015), European Economic Review, meta-analysis of labour-demand elasticities)
+- ✓ keyRate rises over months 6–24 (max, Automatic): 20, Automatic: 2.10. An inflation-targeting central bank raises the policy rate in response to higher inflation and expectations (Taylor rule). (Taylor (1993); CBI MB 2026/2 ‘Wages +10%’: policy rate +1 to +1.5 pp at the peak)
+- ✓ exports falls over months 12–48 (max, any): 20, Manual: -1.20; 20, Automatic: -1.56. Higher domestic costs appreciate the real exchange rate and erode export competitiveness. (Aukrust (1977); Carlin & Soskice (2015), open-economy wage-setting/price-setting model)
 - ✓ priceLevel rises over months 1–72 (default, any): 10, Manual: 3.65; 10, Automatic: 3.34. A general pay rise is passed on to prices (battle of markups). (Blanchard (1986), Journal of Political Economy 94; CBI Monetary Bulletin 2026/2, Box 2)
 - ✓ realWage rises over months 1–12 (default, any): 10, Manual: 7.69; 10, Automatic: 7.72. Nominal pay is set for the contract; prices catch up only gradually. (Bårdsen et al. (2005), The Econometrics of Macroeconomic Modelling)
 
@@ -4493,6 +4615,16 @@ Comparisons between runs:
 
 - **Inert**: none of its 8 runs moves a headline or an indicator by 0.005 or more in any month.
 
+Expectations:
+
+- ✓ unemployment does not move over months 1–240 (max, any): 80, Manual: 0; 80, Automatic: 0. Plain runs (no companion). The buffer acts only on job changes from baseline; with no shock there is nothing to buffer and nothing should move. (Lever definition (labour-and-wages.ts); Blanchard & Katz (1992))
+- ✓ unemployment falls over months 3–36 (max, any, with the companion shock): 80, Manual: -0.47; 80, Automatic: -0.39. On top of a 20% fall in foreign demand: when more of a job loss is met by workers leaving, unemployment rises less (migration as regional/national labour-market adjustment). (Blanchard & Katz (1992), BPEA; IMF (2026) Iceland Article IV on the flattened Beveridge curve)
+- ✓ unemployment rises over months 3–36 (min, any, with the companion shock): 0, Manual: 0.24; 0, Automatic: 0.20. On top of a 20% fall in foreign demand: with no migration response, every lost job adds to unemployment, so unemployment rises more than with the baseline buffer. (Blanchard & Katz (1992); Jauer, Liebig, Martin & Puhani (2019), Regional Studies)
+- ✓ realWage rises over months 12–60 (max, any, with the companion shock): 80, Manual: 0.77; 80, Automatic: 0.63. On top of a 20% fall in foreign demand: a smaller rise in unemployment means less slack in the wage Phillips curve, so real wages fall less. (Phillips (1958) and Blanchard & Katz (1999) wage curves; IMF (2026) Iceland Article IV)
+- ✓ realWage falls over months 12–60 (min, any, with the companion shock): 0, Manual: -0.38; 0, Automatic: -0.31. On top of a 20% fall in foreign demand: without a migration buffer the whole job loss becomes slack, so wage moderation is stronger. (Blanchard & Katz (1999), AER P&P, wage curves)
+- ✓ govBalance rises over months 1–12 (max, any, with the companion shock): 80, Manual: 0.03; 80, Automatic: 0.03. On top of a 20% fall in foreign demand: fewer residents are unemployed, so fewer benefits are paid (a smaller automatic-stabiliser outflow). (Horton & El-Ganainy (2009), IMF F&D ‘Automatic stabilizers’)
+- ✓ realHousePrice falls over months 12–60 (max, any, with the companion shock): 80, Manual: -0.19; 80, Automatic: -0.21. On top of a 20% fall in foreign demand: more emigration in a bust removes housing demand, so real house prices fall more. This failed at the vetting (LAB-4), before migrants carried housing demand. (Saiz (2007), Journal of Urban Economics; CBI Financial Stability reports on population growth and housing demand)
+
 ### 0 % (min), Manual
 
 Unmoved (every effect below 0.005): Output (real GDP), Inflation (12-month CPI), Consumer price level, Unemployment rate, Key interest rate, Króna value, Real wages, Household consumption (real), Investment (real), Exports (real), Imports (real), Current account, Real house prices, Mortgage debt / GDP, Broad money (bank deposits), Government balance, Government debt / GDP, Bank capital ratio, Disposable income, all households (real), Profits, domestic firms (real), Profits, exporters (real), Income-tax rate, VAT rate (effective).
@@ -4853,6 +4985,14 @@ Not run on Automatic: the lever is shown only on Manual (showWhen).
 
 Expectations:
 
+- ✓ output falls over months 6–60 (up, Manual): 2.5, Manual: -1.57. Tax multiplier: a higher income-tax rate cuts disposable income and consumption, and output follows through the multiplier. (Romer and Romer (2010, AER); Mertens and Ravn (2013, AER); IMF WEO Oct 2010 ch. 3)
+- ✓ output rises over months 6–60 (down, Manual): -2.5, Manual: 1.56. Tax multiplier, symmetric: a tax cut raises disposable income, consumption and output. (Romer and Romer (2010, AER); Guajardo, Leigh and Pescatori (2014, JEEA))
+- ✓ consumption falls over months 1–60 (up, Manual): 2.5, Manual: -2.71. Consumption function: spending falls with after-tax income, gradually because of habit. (Parker, Souleles, Johnson and McClelland (2013, AER); Cloyne (2013, AER))
+- ✓ realDisposableIncome falls over months 1–60 (up, Manual): 2.5, Manual: -3.24. Arithmetic: disposable income is gross income minus tax. (SNA 2008 household income account)
+- ✓ govBalance rises over months 1–60 (up, Manual): 2.5, Manual: 1.25. Budget arithmetic: automatic stabilisers win back only part of a tax rise (budget semi-elasticity about 0.4–0.5). (Price, Dang and Botev (2015), OECD Economics Department WP 1275)
+- ✓ govDebt falls over months 12–60 (up, Manual): 2.5, Manual: -2.86. Government budget constraint: surpluses repay debt. (Bohn (1998, QJE); Godley and Lavoie (2007) ch. 3)
+- ✓ currentAccount rises over months 3–36 (up, Manual): 2.5, Manual: 0.41. Sectoral balances and twin deficits: fiscal tightening lowers import demand and improves the current account. (Godley (1999, Levy Institute); Abbas, Bouhga-Hagbe, Fatás, Mauro and Velloso (2011, IMF Economic Review))
+- ✓ keyRate does not move over months 1–240 (max, Manual): 10, Manual: 0. On Manual, POLICY settings never move unless the user moves them. The Taylor rule only suggests. (docs/decisions/0004-stabilisers.md (model rule 11))
 - ✓ consumption falls over months 1–24 (up, Manual): 2.5, Manual: -1.78. A higher income tax cuts disposable income and so spending (with a cash buffer, gradually). (Godley and Lavoie (2007), Monetary Economics, ch. 3)
 
 ### -10 pp (min), Manual
@@ -5040,6 +5180,16 @@ Runs: -10 pp (min); -2.5 pp (down); 2.5 pp (up); 10 pp (max). Each is set before
 
 Not run on Manual: the lever is shown only on Automatic (showWhen).
 
+Expectations:
+
+- ✓ output falls over months 3–36 (up, Automatic): 2.5, Automatic: -0.68. Tax multiplier, damped by the central bank easing in response. (IMF WEO Oct 2010 ch. 3; Batini, Eyraud, Forni and Weber (2014, IMF TNM/14/04))
+- ✓ output rises over months 3–36 (down, Automatic): -2.5, Automatic: 0.67. Tax multiplier, symmetric, damped by monetary tightening. (IMF WEO Oct 2010 ch. 3)
+- ✓ keyRate falls over months 6–36 (up, Automatic): 2.5, Automatic: -0.80. Taylor rule: fiscal tightening lowers inflation and the output gap, so the rule cuts the key rate. (Taylor (1993, Carnegie-Rochester))
+- ✓ keyRate rises over months 6–36 (down, Automatic): -2.5, Automatic: 0.79. Taylor rule leans against a fiscal stimulus. (Taylor (1993); Leeper (1991, JME), policy interaction)
+- ✓ govBalance rises over months 1–36 (up, Automatic): 2.5, Automatic: 1.46. Budget arithmetic: a higher tax rate raises revenue, and stabilisers only partly offset it. (Price, Dang and Botev (2015), OECD WP 1275)
+- ✓ govDebt falls over months 12–120 (up, Automatic): 2.5, Automatic: -6.48. Government budget constraint: surpluses reduce debt; the debt rule then slowly gives the tax rise back. (Bohn (1998, QJE))
+- ✓ realDisposableIncome falls over months 1–36 (up, Automatic): 2.5, Automatic: -2.79. Arithmetic: higher tax means lower disposable income. (SNA 2008 household income account)
+
 ### -10 pp (min), Automatic
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
@@ -5223,8 +5373,14 @@ Runs: -10 pp (min); -2.5 pp (down); 2.5 pp (up); 10 pp (max). Each is set before
 
 Expectations:
 
-- ✓ priceLevel rises over months 1–12 (up, any): 2.5, Manual: 1.28; 2.5, Automatic: 1.27. VAT is passed on to consumer prices: a lasting rise moves the price level once. (Benedek, De Mooij, Keen and Wingender (2020), International Tax and Public Finance 27)
-- ✓ priceLevel falls over months 1–12 (down, any): -2.5, Manual: -1.28; -2.5, Automatic: -1.27. VAT is passed on to consumer prices: a lasting cut lowers the price level once. (Benedek, De Mooij, Keen and Wingender (2020), International Tax and Public Finance 27)
+- ✓ priceLevel rises over months 1–12 (up, any): 2.5, Manual: 1.28; 2.5, Automatic: 1.27. VAT pass-through: a higher consumption tax raises consumer prices, almost fully for standard-rate changes; a lasting rise moves the price level once. (Benedek, De Mooij, Keen and Wingender (2020), International Tax and Public Finance 27)
+- ✓ priceLevel falls over months 1–12 (down, any): -2.5, Manual: -1.28; -2.5, Automatic: -1.27. VAT pass-through of a cut, which may be slower than for a rise. (Benedek et al. (2020); Benzarti, Carloni, Harju and Kosonen (2020, JPE))
+- ✓ realWage falls over months 1–36 (up, any): 2.5, Manual: -1.19; 2.5, Automatic: -1.21. Incidence: a broad consumption tax lowers the real consumer wage (W ÷ CPI). Its burden falls on real factor incomes. (Atkinson and Stiglitz (1980), Lectures on Public Economics ch. 6; Fullerton and Metcalf (2002), Handbook of Public Economics)
+- ✓ consumption falls over months 1–36 (up, any): 2.5, Manual: -1.52; 2.5, Automatic: -1.42. Higher consumer prices cut real purchasing power and real consumption. (Crossley, Low and Wakefield (2009, Fiscal Studies), UK VAT cut; Cashin and Unayama (2016, REStat), Japan)
+- ✓ govBalance rises over months 6–36 (up, any): 2.5, Manual: 0.68; 2.5, Automatic: 0.67. Budget arithmetic: more VAT revenue, only partly offset by a smaller base. From m6 so the one-off indexation accrual has passed. (Keen and Lockwood (2010, JDE); ESA 2010 §4.47)
+- ✓ mortgageDebt rises over months 1–6 (up, any): 2.5, Manual: 0.40; 2.5, Automatic: 0.40. CPI indexation: most Icelandic mortgages are indexed, so a price-level rise adds to their principal. (Central Bank of Iceland, Financial Stability (2024); Act 38/2001 on interest and indexation)
+- ✓ keyRate does not move over months 1–240 (up, Manual): 2.5, Manual: 0. On Manual, POLICY settings never move unless the user moves them. (docs/decisions/0004-stabilisers.md (model rule 11))
+- ✓ output falls over months 1–36 (up, any): 2.5, Manual: -0.68; 2.5, Automatic: -0.61. A tax increase lowers real disposable income and demand (tax multiplier). (IMF WEO Oct 2010 ch. 3; Coenen et al. (2012, AEJ: Macro))
 
 ### -10 pp (min), Manual
 
@@ -5556,6 +5712,17 @@ Comparisons between runs:
 - **Mode sign**: -0.8 % of GDP (down): Investment (real) -0.18 on Manual, 0.03 on Automatic; Exports (real) -0.05 on Manual, 0.06 on Automatic.
 - **Mode sign**: 0.8 % of GDP (up): Investment (real) 0.18 on Manual, -0.03 on Automatic; Exports (real) 0.05 on Manual, -0.06 on Automatic.
 - **Mode sign**: 3 % of GDP (max): Household consumption (real) 0.76 on Manual, -0.06 on Automatic; Investment (real) 0.67 on Manual, -0.13 on Automatic; Exports (real) 0.20 on Manual, -0.21 on Automatic.
+
+Expectations:
+
+- ✓ output rises over months 1–24 (max, any): 3, Manual: 2.99; 3, Automatic: 2.23. Government purchases add directly to demand and output (Keynesian multiplier). (Blanchard and Perotti (2002, QJE); Ramey (2019, JEP))
+- ✓ output falls over months 1–24 (min, any): -3, Manual: -2.98; -3, Automatic: -2.23. Cutting government purchases lowers demand and output. (Blanchard and Perotti (2002); Guajardo, Leigh and Pescatori (2014, JEEA))
+- ✓ unemployment falls over months 1–24 (up, any): 0.8, Manual: -0.63; 0.8, Automatic: -0.59. More public staff and higher output raise employment (Okun’s law). (Okun (1962))
+- ✓ govBalance falls over months 1–24 (max, any): 3, Manual: -2.17; 3, Automatic: -2.70. Higher spending worsens the budget balance, only partly offset by extra tax revenue. (Government budget identity; Girouard and André (2005, OECD WP 434))
+- ✓ imports rises over months 1–24 (max, any): 3, Manual: 1.53; 3, Automatic: 1.25. Import leakage: part of public purchases and of the extra income is spent on imports. (Batini et al. (2014, IMF TNM); Statistics Iceland (imports about 43% of GDP))
+- ✓ keyRate rises over months 3–36 (max, Automatic): 3, Automatic: 2.28. An inflation-targeting central bank leans against a demand expansion (Taylor rule). (Taylor (1993))
+- ✓ govDebt rises over months 12–60 (max, any): 3, Manual: 2.52; 3, Automatic: 6.24. Persistent deficits accumulate into debt (government budget constraint). (Blanchard, Macroeconomics, ch. 22)
+- ✓ inflation rises over months 6–36 (max, Manual): 3, Manual: 1.38. With the policy rate held, a tighter labour market raises wage and price inflation (Phillips curve). (Phillips (1958); Blanchard, Cerutti and Summers (2015))
 
 ### -3 % of GDP (min), Manual
 
@@ -5896,6 +6063,15 @@ Comparisons between runs:
 - **Mode sign**: 0.8 % of GDP (up): Króna value -0.32 on Manual, 0.04 on Automatic; Investment (real) 0.17 on Manual, -0.06 on Automatic; Exports (real) 0.03 on Manual, -0.09 on Automatic; Profits, domestic firms (real) 0.03 on Manual, -0.15 on Automatic.
 - **Mode sign**: 3 % of GDP (max): Króna value -1.16 on Manual, 0.20 on Automatic; Investment (real) 0.64 on Manual, -0.23 on Automatic; Exports (real) 0.13 on Manual, -0.32 on Automatic; Profits, domestic firms (real) 0.38 on Manual, -0.33 on Automatic.
 
+Expectations:
+
+- ✓ output rises over months 1–24 (max, any): 3, Manual: 3.18; 3, Automatic: 2.37. Government purchases add directly to demand and output. (Blanchard and Perotti (2002); Ramey (2019))
+- ✓ output falls over months 1–24 (min, any): -3, Manual: -3.14; -3, Automatic: -2.34. Cutting government purchases lowers demand and output. (Guajardo, Leigh and Pescatori (2014))
+- ✓ unemployment falls over months 1–24 (up, any): 0.8, Manual: -0.76; 0.8, Automatic: -0.72. Labour-intensive public services hire staff directly; higher output raises jobs (Okun’s law). (Okun (1962))
+- ✓ govBalance falls over months 1–24 (max, any): 3, Manual: -2.01; 3, Automatic: -2.58. Higher spending worsens the budget balance. (Government budget identity)
+- ✓ keyRate rises over months 3–36 (max, Automatic): 3, Automatic: 2.41. The Taylor rule leans against a demand expansion. (Taylor (1993))
+- ✓ inflation rises over months 6–36 (max, Manual): 3, Manual: 1.47. With the policy rate held, a tighter labour market raises inflation (Phillips curve). (Phillips (1958))
+
 ### -3 % of GDP (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
@@ -6235,6 +6411,15 @@ Comparisons between runs:
 - **Mode sign**: -0.8 % of GDP (down): Household consumption (real) -0.13 on Manual, 0.06 on Automatic.
 - **Mode sign**: 0.8 % of GDP (up): Household consumption (real) 0.13 on Manual, -0.06 on Automatic.
 - **Mode sign**: 3 % of GDP (max): Household consumption (real) 0.50 on Manual, -0.24 on Automatic; Exports (real) 0.32 on Manual, -0.06 on Automatic; Bank capital ratio 0.03 on Manual, -0.10 on Automatic.
+
+Expectations:
+
+- ✓ output rises over months 1–24 (max, any): 3, Manual: 2.74; 3, Automatic: 2.05. Government purchases add directly to demand and output. (Blanchard and Perotti (2002); Ramey (2019))
+- ✓ output falls over months 1–24 (min, any): -3, Manual: -2.74; -3, Automatic: -2.06. Cutting government purchases lowers demand and output. (Guajardo, Leigh and Pescatori (2014))
+- ✓ unemployment falls over months 1–24 (up, any): 0.8, Manual: -0.45; 0.8, Automatic: -0.41. Higher public spending raises employment (Okun’s law). (Okun (1962))
+- ✓ govBalance falls over months 1–24 (max, any): 3, Manual: -2.39; 3, Automatic: -2.86. Higher spending worsens the budget balance. (Government budget identity)
+- ✓ imports rises over months 1–24 (max, any): 3, Manual: 1.96; 3, Automatic: 1.71. Import leakage from purchases and from the extra income. (Batini et al. (2014))
+- ✓ keyRate rises over months 3–36 (max, Automatic): 3, Automatic: 2.07. The Taylor rule leans against a demand expansion. (Taylor (1993))
 
 ### -3 % of GDP (min), Manual
 
@@ -6581,6 +6766,17 @@ Comparisons between runs:
 - **Mode sign**: 0.8 % of GDP (up): Real house prices 0.25 on Manual, -0.04 on Automatic; Profits, exporters (real) 0.48 on Manual, -0.39 on Automatic.
 - **Mode sign**: 3 % of GDP (max): Household consumption (real) 0.06 on Manual, -0.49 on Automatic; Real house prices 0.95 on Manual, -0.14 on Automatic; Profits, exporters (real) 1.78 on Manual, -1.49 on Automatic.
 
+Expectations:
+
+- ✓ output rises over months 1–24 (max, any): 3, Manual: 2.16; 3, Automatic: 1.63. Public investment raises demand; its domestic content raises output at once. (IMF WEO Oct 2014, ch. 3 (Abiad et al. 2016))
+- ✓ output falls over months 1–24 (min, any): -3, Manual: -2.17; -3, Automatic: -1.65. Cutting public investment lowers demand and output. (IMF WEO Oct 2014, ch. 3)
+- ✓ investment rises over months 1–60 (max, any): 3, Manual: 16.8; 3, Automatic: 14.3. Public investment is part of gross fixed capital formation. (SNA 2008 national-accounts identity)
+- ✓ imports rises over months 1–12 (max, any): 3, Manual: 3.30; 3, Automatic: 3.27. Investment goods have high import content in a small open economy. (OECD TiVA (import content of investment))
+- ✓ currentAccount falls over months 1–12 (max, any): 3, Manual: -1.57; 3, Automatic: -1.50. Sectoral balances: a larger public deficit with extra imports worsens the current account (twin deficits). (Godley and Lavoie (2007); Abbas et al. (2011, IMF Econ Review))
+- ✓ govBalance falls over months 1–24 (max, any): 3, Manual: -2.78; 3, Automatic: -3.10. Higher spending worsens the budget balance. (Government budget identity)
+- ✓ keyRate rises over months 3–36 (max, Automatic): 3, Automatic: 1.65. The Taylor rule leans against a demand expansion. (Taylor (1993))
+- ✓ unemployment falls over months 3–36 (up, any): 0.8, Manual: -0.22; 0.8, Automatic: -0.16. Construction output raises employment with a lag (Okun’s law). (Okun (1962); IMF WEO Oct 2014, ch. 3)
+
 ### -3 % of GDP (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
@@ -6925,6 +7121,16 @@ Comparisons between runs:
 - **Mode sign**: -2 % of GDP (min): Króna value 0.20 on Manual, -0.03 on Automatic; Exports (real) -0.04 on Manual, 0.02 on Automatic.
 - **Mode sign**: 2 % of GDP (max): Króna value -0.20 on Manual, 0.03 on Automatic; Exports (real) 0.04 on Manual, -0.02 on Automatic.
 
+Expectations:
+
+- ✓ consumption rises over months 1–24 (max, any): 2, Manual: 1.43; 2, Automatic: 1.23. Transfers raise recipients’ disposable income, and they spend part of it (MPC). (Parker, Souleles, Johnson and McClelland (2013, AER); Wilcox (1989, JPE))
+- ✓ consumption falls over months 1–24 (min, any): -2, Manual: -1.43; -2, Automatic: -1.24. Cutting transfers lowers recipients’ income and spending. (Parker et al. (2013))
+- ✓ realDisposableIncome rises over months 1–12 (max, any): 2, Manual: 2.48; 2, Automatic: 2.43. A transfer is household income: disposable income rises by the after-tax amount. (SNA 2008 household income account)
+- ✓ output rises over months 3–24 (max, any): 2, Manual: 0.65; 2, Automatic: 0.48. The transfer multiplier: extra spending by recipients raises output, by less than purchases do. (Coenen et al. (2012, AEJ Macro))
+- ✓ govBalance falls over months 1–24 (max, any): 2, Manual: -1.08; 2, Automatic: -1.15. Higher transfers worsen the budget balance. (Government budget identity)
+- ✓ govDebt rises over months 12–60 (max, any): 2, Manual: 2.14; 2, Automatic: 2.95. Persistent deficits accumulate into debt. (Government budget constraint)
+- ✓ keyRate rises over months 6–36 (max, Automatic): 2, Automatic: 0.64. The Taylor rule leans against the rise in demand. (Taylor (1993))
+
 ### -2 % of GDP (min), Manual
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
@@ -7244,6 +7450,16 @@ Comparisons between runs:
 
 - **Mode sign**: -2 % of GDP (min): Króna value 0.30 on Manual, -0.04 on Automatic; Exports (real) -0.06 on Manual, 0.03 on Automatic.
 - **Mode sign**: 2 % of GDP (max): Króna value -0.30 on Manual, 0.04 on Automatic; Exports (real) 0.06 on Manual, -0.03 on Automatic.
+
+Expectations:
+
+- ✓ consumption rises over months 1–24 (max, any): 2, Manual: 2.15; 2, Automatic: 1.86. Benefits to young families (high MPC, often liquidity-constrained) raise their spending. (Parker et al. (2013); Kaplan and Violante (2014, Econometrica))
+- ✓ consumption falls over months 1–24 (min, any): -2, Manual: -2.15; -2, Automatic: -1.87. Cutting benefits lowers recipients’ income and spending. (Parker et al. (2013))
+- ✓ realDisposableIncome rises over months 1–12 (max, any): 2, Manual: 3.49; 2, Automatic: 3.42. A transfer is household income. (SNA 2008 household income account)
+- ✓ output rises over months 3–24 (max, any): 2, Manual: 0.97; 2, Automatic: 0.73. Transfer multiplier through recipients’ spending. (Coenen et al. (2012))
+- ✓ govBalance falls over months 1–24 (max, any): 2, Manual: -1.49; 2, Automatic: -1.60. Higher transfers worsen the budget balance. (Government budget identity)
+- ✓ govDebt rises over months 12–60 (max, any): 2, Manual: 2.80; 2, Automatic: 4.08. Persistent deficits accumulate into debt. (Government budget constraint)
+- ✓ keyRate rises over months 6–36 (max, Automatic): 2, Automatic: 0.95. The Taylor rule leans against the rise in demand. (Taylor (1993))
 
 ### -2 % of GDP (min), Manual
 
@@ -7876,6 +8092,15 @@ Comparisons between runs:
 
 - **Inert**: none of its 8 runs moves a headline or an indicator by 0.005 or more in any month.
 
+Expectations:
+
+- ✓ broadMoney rises over months 1–60 (1, any, with the companion shock): 1, Manual: 1.97; 1, Automatic: 2.45. When banks buy the new bonds, the deposits the government spends are not drained, so broad money rises compared with the 40/60 mix. (McLeay, Radia and Thomas (2014, BoE Quarterly Bulletin Q1); Godley and Lavoie (2007))
+- ✓ broadMoney rises over months 1–60 (2, any, with the companion shock): 2, Manual: 1.95; 2, Automatic: 2.48. Central-bank purchases create reserves, and the spent deposits stay in the economy, as under QE. (McLeay, Radia and Thomas (2014))
+- ✓ broadMoney falls over months 1–60 (3, any, with the companion shock): 3, Manual: -1.32; 3, Automatic: -1.64. Non-bank buyers pay with existing deposits, which drains the money the deficit adds. Broad money is lower than under the mix, where banks take 40%. (McLeay, Radia and Thomas (2014); Godley and Lavoie (2007))
+- ✓ broadMoney falls over months 1–60 (4, any, with the companion shock): 4, Manual: -1.28; 4, Automatic: -1.62. Households pay with existing deposits: money moves rather than being created. (McLeay, Radia and Thomas (2014))
+- ✓ govDebt falls over months 24–240 (2, any, with the companion shock): 2, Manual: -0.34; 2, Automatic: -0.26. Interest on central-bank-held bonds returns to the Treasury as central-bank profit (consolidation), so deficits and debt are lower. (Buiter (2007, ‘Seigniorage’, Economics e-journal))
+- ✓ output does not move over months 1–24 (1, any, with the companion shock): 1, Manual: 0; 1, Automatic: 0. When the central bank sets the interest rate, who holds the bonds changes money but not the cost of credit, so demand is essentially unchanged in the short run. (McLeay, Radia and Thomas (2014); Borio and Disyatat (2010, BIS WP 292))
+
 ### Banks, Manual
 
 Unmoved (every effect below 0.005): Output (real GDP), Inflation (12-month CPI), Consumer price level, Unemployment rate, Key interest rate, Króna value, Real wages, Household consumption (real), Investment (real), Exports (real), Imports (real), Current account, Real house prices, Mortgage debt / GDP, Broad money (bank deposits), Government balance, Government debt / GDP, Bank capital ratio, Disposable income, all households (real), Profits, domestic firms (real), Profits, exporters (real), Income-tax rate, VAT rate (effective).
@@ -8201,6 +8426,17 @@ Comparisons between runs:
 - **Mode sign**: -20 pp of assets (min): Investment (real) -0.19 on Manual, 0.10 on Automatic; Current account 0.03 on Manual, -0.23 on Automatic.
 - **Mode sign**: -5 pp of assets (down): Investment (real) -0.05 on Manual, 0.02 on Automatic.
 - **Mode sign**: 20 pp of assets (max): Investment (real) 0.14 on Manual, -0.07 on Automatic.
+
+Expectations:
+
+- ✓ krona falls over months 3–36 (up, any): 5, Manual: -5.45; 5, Automatic: -4.88. Portfolio balance: pension funds sell krónur to buy foreign assets, so the króna weakens. (Kouri (1976); Branson (1977); CBI and pension funds’ March 2020 pause of FX purchases to support the króna)
+- ✓ krona rises over months 3–36 (down, any): -5, Manual: 6.86; -5, Automatic: 6.00. Repatriation means buying krónur, so the króna strengthens. (Kouri (1976); Branson (1977))
+- ✓ inflation rises over months 3–24 (up, any): 5, Manual: 0.61; 5, Automatic: 0.54. Exchange-rate pass-through: a weaker króna raises import and consumer prices. (Central Bank of Iceland QMM documentation; Campa and Goldberg (2005), Review of Economics and Statistics)
+- ✓ currentAccount rises over months 3–60 (up, any): 5, Manual: 0.62; 5, Automatic: 0.76. Balance-of-payments identity: a private financial outflow is matched by a current-account surplus, through expenditure switching. (Godley and Lavoie (2007), Monetary Economics, ch. 12)
+- ✓ exports rises over months 3–36 (up, any): 5, Manual: 2.37; 5, Automatic: 2.13. A weaker real króna makes exports more competitive. (Marshall-Lerner and expenditure switching; Dornbusch (1976))
+- ✓ imports falls over months 3–36 (up, any): 5, Manual: -1.90; 5, Automatic: -2.10. A weaker real króna makes imports dearer, so volumes fall. (Expenditure switching; Dornbusch (1976))
+- ✓ pfForeignShare rises over months 6–240 (up, any): 5, Manual: 4.63; 5, Automatic: 4.54. Raising the target foreign share raises the actual foreign share as the funds rebalance. (Stock-flow portfolio adjustment (Tobin 1969))
+- ✓ keyRate rises over months 6–36 (up, Automatic): 5, Automatic: 1.04. An inflation-targeting central bank raises its rate against depreciation-driven inflation. (Taylor (1993); Central Bank of Iceland inflation-targeting framework)
 
 ### -20 pp of assets (min), Manual
 

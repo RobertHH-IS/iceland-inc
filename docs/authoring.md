@@ -374,7 +374,7 @@ The Regimes and Flicker flags see only rules with a regime label. A rule that co
 5. *Does it settle?* After a persistent setting, ratios should reach a new level; after a one-off, most effects should fade.
 6. *What drives it?* The regimes list names the binding floors and caps; the interface's inspector shows the terms behind any variable in any month.
 
-**Expectations.** A model may declare what theory predicts in `src/models/<id>/expectations.ts`, and the report marks each one ✓ or ✗ (and counts them in the summary):
+**Expectations.** Every model declares what theory predicts in `src/models/<id>/expectations.ts`, and the report marks each one ✓ or ✗ (and counts them in the summary). They are a regression gate: the harness's robustness layer runs them all and fails when one does not hold, when a lever other than the stabiliser setting has none, or when a run it makes is broken; `bun run levers` exits with code 1 on the same failures, after writing its reports. An expectation is a sign that any sound model should show, backed by a theory and a source, over a span of months the model can resolve:
 
 ```ts
 import type { LeverExpectation } from '../../harness/lever-report.ts';
@@ -388,7 +388,16 @@ export const expectations: LeverExpectation[] = [
 ];
 ```
 
-`setting` is a lever value or a role (`min`, `max`, `up`, `down`, `default`, `half`, `-default`, `-half`); `mode` is `Manual`, `Automatic` or `any`; `variable` is a headline or an indicator id; `sign` is +1, −1 or 0 for the mean effect over the months (0: smaller than the report's floor of 0.01). Set `withCompanion: true` to check the runs on top of the lever's companion shock instead. An expectation that matches no run fails, so a renamed lever cannot pass silently.
+`setting` is a lever value or a role (`min`, `max`, `up`, `down`, `default`, `half`, `-default`, `-half`); `mode` is `Manual`, `Automatic` or `any`; `variable` is a headline or an indicator id; `sign` is +1, −1 or 0 for the mean effect over the months (0: smaller than the report's floor of 0.01). Set `withCompanion: true` to check the runs on top of the lever's companion shock instead. An expectation that matches no run fails, so a renamed lever cannot pass silently, and one that names a lever the model does not have stops the report. The stabiliser setting is not run as a lever; an expectation on it (`setting` the mode's value, `mode` the mode switched from) is checked on the switch with no shock, the other mode's no-change run measured against its own.
+
+How to write them:
+
+- **Every lever needs some.** Cover what the lever is for (its main channel, with the timing theory gives), the policy reaction on Automatic where there is one, and anything the model must not do (a policy instrument that must hold still on Manual: sign 0).
+- **Name a theory and a source** a reader can look up, in plain English. A sign without a reason is only a snapshot of today's model.
+- **Choose windows the model can resolve.** A sign over months 1–3 of a variable that builds up over quarters, or a 0 over twenty years where the model is known to leave a small gap, is too strong for a simplified model; say so rather than write it.
+- **Do not weaken an expectation to make it pass.** When one fails, decide whether the model or the expectation is wrong. Fix a small, safe model error with a test. A larger one stays out of the file and goes to the open problems in [the lever-vetting record](audit/lever-vetting.md), with the numbers; an expectation that is wrong or too strong is dropped there with the reason.
+
+**A clean lever report** is what a lever change must leave behind: every expectation ✓, no run with a Non-finite, Residual, Sign or Implausible flag, and every other flag the change adds explained (in the lever's definition, a decision record or the lever-vetting record). Regenerate the report with the change and commit it; a reviewer reads its diff like a golden scenario. How the levers were last vetted, and what is still open, is in [docs/audit/lever-vetting.md](audit/lever-vetting.md).
 
 ## 13. How to …
 
@@ -398,7 +407,7 @@ export const expectations: LeverExpectation[] = [
 
 **Add a behaviour.** Add a variable and a rule written as terms, with concepts on the terms. To refine an existing rule, put the new rule in a new module with `replaces: '<old rule id>'` and the same `target`; the old module stays for comparison, and removing the new module restores the old behaviour. Two rules for one variable without `replaces` is a compile error.
 
-**Add a lever.** Add a `LeverDef` with a precise `definition`. Bind a setting to a parameter or exogenous variable (with `scale` if the units differ), or let a rule read it through `levers`. For a one-off, write `fire` using only `ShockApi.get` and `setLagged`. Give it a range the model survives: the harness pulls random combinations within it. Then run `bun run levers --model <id>` and vet its section of the report (section 12).
+**Add a lever.** Add a `LeverDef` with a precise `definition`. Bind a setting to a parameter or exogenous variable (with `scale` if the units differ), or let a rule read it through `levers`. For a one-off, write `fire` using only `ShockApi.get` and `setLagged`. Give it a range the model survives: the harness pulls random combinations within it. Add its expectations to `src/models/<id>/expectations.ts` (the harness fails on a lever without any), then run `bun run levers --model <id>`, vet its section of the report and leave the report clean (section 12).
 
 **Add a policy reaction.** Declare it as a stabiliser (section 7): a shadow value computed in both modes, a suggestion in the lever's units, a `StabiliserDef`, and rules that apply it only on Automatic. Check the model in Manual too: the harness's property tests draw the mode like any other lever.
 

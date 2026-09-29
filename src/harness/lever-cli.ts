@@ -6,12 +6,13 @@
  * writes reports/levers/<model>-<n>m.md and .json instead, which are git-ignored, so the committed
  * 240-month reports stay as they are. With --paths it also writes <dir>/<model>.json, the full
  * monthly effect path of every headline in every run; those files are large, so
- * reports/levers/paths/ is git-ignored. Prints the runtime.
+ * reports/levers/paths/ is git-ignored. Prints the runtime, and exits with code 1 when a run is
+ * broken (a Non-finite, Residual, Sign or Implausible flag) or an expectation does not hold.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { models } from '../models/index.ts';
-import { DEFAULT_MONTHS, leverReport } from './lever-report.ts';
+import { BROKEN_FLAGS, DEFAULT_MONTHS, leverReport } from './lever-report.ts';
 import { renderLeverJson, renderLeverMarkdown, renderLeverPaths, reportName } from './lever-render.ts';
 
 const root = resolve(import.meta.dir, '..', '..');
@@ -45,6 +46,7 @@ const outDir = join(root, 'reports', 'levers');
 mkdirSync(outDir, { recursive: true });
 if (pathsDir) mkdirSync(pathsDir, { recursive: true });
 console.log('Iceland Inc. lever responses');
+let failed = false;
 const shown = (p: string) => relative(process.cwd(), p) || p;
 for (const def of selected) {
   const t0 = performance.now();
@@ -61,7 +63,17 @@ for (const def of selected) {
     written.push(p);
   }
   const flagged = r.levers.reduce((a, s) => a + s.runs.filter((x) => x.flags.some((f) => f.kind !== 'regime')).length, 0);
+  const broken = r.levers.reduce((a, s) => a + [...s.runs, ...s.companionRuns].filter((x) => x.flags.some((f) => BROKEN_FLAGS.includes(f.kind))).length, 0);
+  const failing = r.expectations?.filter((x) => !x.pass) ?? [];
+  if (broken || failing.length) failed = true;
   console.log(`\n${def.id}  ${def.label}`);
-  console.log(`  ${r.levers.length} levers, ${r.runs} runs of ${months} months, ${flagged} run(s) with a flag other than Regimes`);
+  console.log(`  ${r.levers.length} levers, ${r.runs} runs of ${months} months, ${flagged} run(s) with a flag other than Regimes, ${broken} broken`);
+  if (r.expectations) console.log(`  expectations: ${r.expectations.length - failing.length}/${r.expectations.length} hold${failing.length ? `; not: ${failing.map((x) => `${x.lever} ${x.setting} ${x.variable}`).join(', ')}` : ''}`);
   console.log(`  ${((performance.now() - t0) / 1000).toFixed(1)} s; wrote ${written.map(shown).join(', ')}`);
+}
+// A broken run or an expectation that does not hold fails the command, after the reports are
+// written so they can be read.
+if (failed) {
+  console.log('\nFAILURES: a broken run or an expectation that does not hold (see the reports)');
+  process.exit(1);
 }

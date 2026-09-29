@@ -17,3 +17,6 @@ jobs:
       - name: Harness
         run: |
           if [ -f src/harness/cli.ts ]; then bun run harness; else echo "harness not yet present"; fi
+      - name: Lever report
+        # fails on a broken run or an expectation that does not hold (docs/authoring.md §12)
+        run: bun run levers
