@@ -230,7 +230,7 @@ describe('Iceland model: portfolio balance is bounded and nets out the carry tra
       // Known gap (lever-vetting open item 4, decision 0012): until the labour-market gap the rule
       // raised its rate early enough that the real króna was also stronger than without the boom
       // (at most 1e-6 weaker in months 1–18). It now reads slack from unemployment, which moves
-      // after output, so it raises the rate later (0.02 pp by month 6, was 0.10 after the tax cut)
+      // after output, so it raises the rate later (0.04 pp by month 6, was 0.10 after the tax cut)
       // and the króna is up to 0.03% weaker in real terms by month 18 (exports 0.02% higher).
       // Tripwire: it must not grow; the króna stage-1 fix of item 4 brings it back under 1e-6.
       for (const [r, x] of acting) {
