@@ -11,7 +11,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, FIRM_NAME, gapRate, HH, pickParams, terms, type Age, lastMonth } from '../util.ts';
+import { AGE_LABEL, AGES, FIRM_NAME, gapRate, HH, pickParams, sumTerms, terms, type Age, lastMonth } from '../util.ts';
 import { dividendsTo } from './firms.ts';
 import { bondsBanksCanSell, cashToSpend } from './banks.ts';
 
@@ -40,7 +40,6 @@ function grossIncomeRule(g: Age): RuleDef {
   };
 }
 
-const sumTerms = (t: Record<Id, number>) => Object.values(t).reduce((a, b) => a + b, 0);
 const mortgageInterest = (g: Age): Id[] => (g === 'O' ? [] : [`mortgageInterest_${HH[g]}_B`, `mortgageInterest_${HH[g]}_PF`]);
 
 function propertyIncomeIds(g: Age): Id[] {

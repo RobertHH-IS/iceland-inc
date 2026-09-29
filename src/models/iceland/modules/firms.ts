@@ -17,7 +17,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { EXPORT_OF, FIRMS, FIRM_NAME, isExporter, lastMonth, pickParams, stepsIn, sum, terms, type Firm } from '../util.ts';
+import { EXPORT_OF, FIRMS, FIRM_NAME, isExporter, lastMonth, pickParams, stepsIn, sum, sumTerms, terms, type Firm } from '../util.ts';
 
 /** Labour cost of a sector: wage × employment × (1 + employer contribution + payroll tax). Ids are
  *  built once per sector, not on every evaluation: several of these rules sit in the income–spending
@@ -83,7 +83,6 @@ const dividendLegs: RuleDef[] = FIRMS.flatMap((j) =>
 /* ------------------------------------------------------------- behaviour */
 
 type T = [string, string, string | undefined, (c: Ctx) => number];
-const sumTerms = (t: Record<Id, number>) => Object.values(t).reduce((a, b) => a + b, 0);
 
 function investmentRule(j: Firm): RuleDef {
   const i0 = `i${j}0`;
@@ -501,7 +500,7 @@ export const firms: ModuleDef = {
       concepts: ['sectoral-balances'],
       explain: {
         what: 'Everything produced in a year at today’s prices (nominal GDP); 100 at baseline, the unit of the model.',
-        rule: 'GDP = consumption + public services (staff pay with employer contributions, plus purchases) + investment + exports − imports. It is not imposed at 100: the baseline gets there because every income matches a spending.',
+        rule: 'GDP = consumption + public services (what public staff cost: gross pay plus the employer pension contribution {cEr%} and the payroll tax {css%}, plus purchases) + investment + exports − imports. It is not imposed at 100: the baseline gets there because every income matches a spending.',
       },
     },
     {

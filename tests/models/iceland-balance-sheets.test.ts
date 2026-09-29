@@ -126,6 +126,26 @@ describe('Iceland model: balance sheets stay possible', () => {
     expect(e.stock('treasuryAccount', 'G')).toBeGreaterThan(20);
   });
 
+  test('once the surplus has bought back every bond it can, the debt ratio nets off treasury cash above its target', () => {
+    // incomeTax +10 on Manual: the treasury account rises above its target after about 13 years
+    // (above), and the debt rule must see that cash, or it would keep calling for tax cuts on a
+    // debt that is no longer there.
+    const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    e.setLever('incomeTax', 10);
+    e.step(239);
+    const tga = e.influences('debtRatio').params.find((p) => p.id === 'tga')!.value;
+    const bonds = e.stock('govBonds', 'G') + e.stock('indexedBonds', 'G');
+    const cash = e.stock('treasuryAccount', 'G');
+    const gdp = e.value('gdpTrailing12');
+    expect(cash - tga).toBeGreaterThan(10);
+    e.step(1);
+    // stocks at the start of the month, and GDP over the 12 months to last month
+    expect(e.value('debtRatio')).toBeCloseTo((bonds - (cash - tga)) / gdp, 12);
+    expect(e.value('debtRatio')).toBeLessThan(0); // a net asset: more cash than debt
+    // at the baseline the treasury account is at its target, so nothing is netted
+    expect(base.baseline('debtRatio')).toBeCloseTo((base.stock('govBonds', 'G') + base.stock('indexedBonds', 'G')) / base.baseline('gdpTrailing12'), 12);
+  });
+
   test('pension funds let bank bonds run off once foreign sales cannot raise the cash: no overdraft', () => {
     // Each of these used to overdraw the funds' deposits by 0.9–4.2% of GDP with bank bonds left.
     expect(wrongSigns([['incomeTax', 10], ['aluminiumPrice', -40], ['pfForeign', 20]], false)).toEqual([]);

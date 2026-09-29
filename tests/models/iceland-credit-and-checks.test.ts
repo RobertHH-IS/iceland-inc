@@ -26,14 +26,27 @@ describe('Iceland feed: messages name only what their chart shows (audit L14)', 
     expect(rule('oldGain').message).not.toMatch(/interest/i);
   });
 
-  test('tourism’s profit fall is worded so it is true for a demand slump as well as a wage rise', () => {
-    const e = fresh();
-    e.setLever('tourism', -30);
-    e.step(12);
-    const fired = e.feed().filter((f) => f.indicator === 'profitsXT');
-    expect(fired.length).toBeGreaterThan(0);
-    expect(fired[0].message).toBe(rule('squeeze').message);
-    expect(rule('squeeze').message).toMatch(/do not fall with sales/);
+  test('tourism’s profit squeeze names no cause, since its chart cannot tell a sales slump from a wage rise', () => {
+    // a slump in tourism: sales fall
+    const slump = fresh();
+    slump.setLever('tourism', -30);
+    slump.step(12);
+    const bySales = slump.feed().filter((f) => f.indicator === 'profitsXT');
+    expect(bySales.length).toBeGreaterThan(0);
+    expect(bySales[0].message).toBe(rule('squeeze').message);
+    // a wage settlement: when the message fires, wages are 10% up and tourism's sales barely moved,
+    // so higher wages are the cause
+    const wages = fresh();
+    wages.fire('wageSettlement', 10);
+    wages.step(12);
+    const byWages = wages.feed().filter((f) => f.indicator === 'profitsXT');
+    expect(byWages.length).toBeGreaterThan(0);
+    expect(byWages[0].message).toBe(rule('squeeze').message);
+    const t = byWages[0].t;
+    expect(wages.valueAt('wage', t) / wages.baseline('wage')).toBeGreaterThan(1.05);
+    expect(Math.abs(wages.valueAt('exportVolumeTourism', t) / wages.baseline('exportVolumeTourism') - 1)).toBeLessThan(0.001);
+    // so the message is true in both
+    expect(rule('squeeze').message).not.toMatch(/wage|sales|demand/i);
   });
 });
 

@@ -1,7 +1,9 @@
 /**
  * Iceland Inc.: the narration feed, ported from engine v1's feedRules, plus six rules on the firm
  * sectors. Each rule fires when a chart's displayed deviation crosses its threshold. The feed only
- * narrates; it never changes the model. With stabilisers on Manual, the kernel also narrates a
+ * narrates; it never changes the model. A message says only what its chart shows: the chart of
+ * tourism's profits cannot tell a slump in sales from a rise in wages, so its message names
+ * neither (audit L14). With stabilisers on Manual, the kernel also narrates a
  * stabiliser that starts calling for action, from the `feed` messages declared with it
  * (central-bank.ts, government.ts).
  */
@@ -37,6 +39,6 @@ export const feed: ModuleDef = {
     { id: 'buildersDown', indicator: 'jobsFC', below: -2, message: 'Builders lay off workers as investment falls', concept: 'investment-accelerator' },
     { id: 'fishRevenue', indicator: 'exportsXF', above: 5, message: 'Fisheries earn more krónur for the same catch', concept: 'exchange-rate-pass-through' },
     { id: 'profitsAbroad', indicator: 'dividendsAbroad', above: 0.1, message: 'More profit flows abroad to the smelters’ foreign owners', concept: 'current-account' },
-    { id: 'squeeze', indicator: 'profitsXT', below: -10, message: 'Tourism’s profits fall: wages, most of its costs, do not fall with sales', concept: 'profit-squeeze' },
+    { id: 'squeeze', indicator: 'profitsXT', below: -10, message: 'Tourism’s profits are squeezed', concept: 'profit-squeeze' },
   ],
 };

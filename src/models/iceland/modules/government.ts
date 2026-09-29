@@ -175,7 +175,7 @@ const vars: VarDef[] = [
   { id: 'vat', label: 'VAT and taxes on goods', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('vat') },
   { id: 'vatFR', label: 'VAT passed on by retail and service firms', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'vatFC', label: 'VAT passed on by builders (home repairs)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
-  { id: 'debtRatio', label: 'Government debt ratio', unit: 'ratio', kind: 'ratio', scale: 'none', initial: base('debtRatio'), description: 'Government bonds (nominal and indexed) ÷ GDP over the 12 months to last month.' },
+  { id: 'debtRatio', label: 'Government debt ratio', unit: 'ratio', kind: 'ratio', scale: 'none', initial: base('debtRatio'), description: 'Government bonds (nominal and indexed), less any treasury cash above its target balance, ÷ GDP over the 12 months to last month.' },
   { id: 'taxRuleAdjustment', label: 'Debt-rule tax adjustment', unit: 'fraction', kind: 'rate', scale: 'none', initial: 0, description: 'How far the debt rule would move the income-tax rate. Computed in both stabiliser modes; added to the rate only on Automatic.' },
   { id: 'taxRuleSuggestion', label: 'Income-tax shift the debt rule suggests', unit: 'pp', kind: 'rate', scale: 'none', description: 'The debt rule’s adjustment in percentage points: comparable with the income-tax lever.' },
   { id: 'taxRate', label: 'Income-tax rate', unit: 'fraction', kind: 'rate', scale: 'none', initial: base('taxRate') },
