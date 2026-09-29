@@ -23,6 +23,7 @@ These rules apply to everyone who changes this repository, people and coding age
 bun test          # kernel and module unit tests
 bun run typecheck # TypeScript
 bun run harness   # accounting, drift, calibration, robustness and lever-expectation report
+                  # (CI runs it with --full, which adds the half-step test's order of convergence)
 bun run levers    # lever-response report; commit it when behaviour changes
 ```
 

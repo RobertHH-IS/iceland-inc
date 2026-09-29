@@ -146,9 +146,10 @@ Every variable has a unit and a kind; variables with a `kind` other than `'exoge
 - **Categories:** `IDENTITY` (accounting), `CONTRACT` (institutional rule), `BEHAVIOUR` (an assumption), `POLICY` (an authority's decision rule).
 - **Declarations:** `c.v(id)` needs `inputs`, `c.lag(id, k)` needs `lagInputs`, `c.p(id)` needs `params`, `c.stock(ins, player)` needs `stocks`, `c.lever(id)` needs `levers`. The compiler dry-runs every rule, so an undeclared read is a compile error, and in dev mode the engine also throws on one at run time.
 - **Terms:** the desired value is the sum of the terms, so the inspector can show exactly which term moved. Write rules as terms whenever they add up.
-- **Adjust:** with `adjust`, value = last month's value + speed × dt × (desired − last month's value). Speeds are per year. The target's own lag is read automatically. With `adjust: { speed, form: 'exponential' }` the share closed each step is 1 − e^(−speed × dt) instead: the exact first-order lag, which never overshoots and changes less when the step is halved (the Iceland model uses it throughout, as engine v1 did).
+- **Adjust:** with `adjust`, value = the previous step's value + speed × dt × (desired − the previous step's value). Speeds are per year. The target's own lag is read automatically. With `adjust: { speed, form: 'exponential' }` the share closed each step is 1 − e^(−speed × dt) instead: the exact first-order lag, which never overshoots and changes less when the step is halved (the Iceland model uses it throughout, as engine v1 did).
 - **Explain:** `{paramId}`, `{paramId%}` and `{paramId pp}` in `explain.rule` are filled with live parameter values.
-- **Lags:** `c.lag(id)` is last month; for "a year ago" write `c.lag(id, Math.round(1 / c.dt))` so the rule survives the half-step test.
+- **Lags:** `c.lag(id)` is the previous kernel step, which is last month only at one step a month; for "a year ago" write `c.lag(id, Math.round(1 / c.dt))`, and for "last month" `c.lag(id, Math.round(1 / (12 * c.dt)))` (the Iceland model's `lastMonth`), so the rule means the same whatever the step. A state's own previous value and an accounting change over the step (indexation, a revaluation) are the previous step; news people react to is last month's.
+- **Steps a month:** `ModelDef.substeps` takes each month in N kernel steps (the Iceland model takes 2, [decision 0011](decisions/0011-sub-steps.md)); rules see dt ÷ N in `c.dt`, so write every rule in `c.dt` and speeds per year, and it runs at any N. A month shows variables and stocks at its end and legs as its total ÷ dt. A term that is a change per step (a month's growth, one step toward a target) sets `month: 'sum'`, and the term that carries the level in (last month's wage) `month: 'first'`, so the inspector shows "this month" whatever N is and the two add up to the month-end value; other terms show the month's last step. A rule that must say what happens over a whole month (a suggestion shown on Manual) uses the month itself, not `c.dt`.
 
 When a rule is **not** additive, set `combine` and name the branch with `regime`. The Taylor rule cannot set a negative key rate:
 
@@ -326,7 +327,7 @@ Module tests check a module's own arithmetic on a fresh engine at the baseline:
 }
 ```
 
-`bun test` runs every module test and calibration check; `bun run harness` runs them too, with the accounting, drift and robustness layers, and writes `reports/harness-<model>.md`.
+`bun test` runs every module test and calibration check; `bun run harness` runs them too, with the accounting, drift and robustness layers, and writes `reports/harness-<model>.md`. Its half-step test reruns every check at twice the kernel steps a month and asks whether the answer as the step goes to zero lies in the check's range; `bun run harness --full` (which CI runs) adds a run at four times the steps to measure each measure's order of convergence. A measure whose order is outside 0.5–2 (a peak that does not move with the step, rounding error) must say why in `limitIndicative`; its limit is then reported, not gated ([decision 0011](decisions/0011-sub-steps.md)).
 
 ## 12. Vetting levers
 
