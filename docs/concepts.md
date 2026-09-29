@@ -47,6 +47,7 @@ The 60 economic ideas that Iceland Inc. can show as "at play" when you click a f
 | `exchange-rate-pass-through` | Exchange-rate pass-through | When the króna falls, imports cost more in krónur. Pass-through measures how much of that reaches consumer prices, and how fast. | empirical |
 | `wage-bargaining` | Wage bargaining in Iceland | Collective agreements cover about 90% of Icelandic workers or more, with pattern-setting private deals and inflation review clauses. | institutional |
 | `wage-phillips-curve` | Wage Phillips curve | Wages tend to rise faster when unemployment is low and more slowly when it is high. | keynesian |
+| `reservation-wage` | Reservation wage | The lowest pay a job-seeker will accept. More generous unemployment benefits raise it, so people search longer and pay demands firm up. | new-keynesian |
 | `adaptive-expectations` | Adaptive expectations | People expect future inflation to look like recent inflation, revising their forecast gradually as prices surprise them. | monetarist |
 | `anchored-expectations` | Anchored expectations | When people trust the inflation target, they expect inflation to return to it, so shocks fade instead of feeding on themselves. | new-keynesian |
 | `profit-squeeze` | Profit squeeze | Profits are what is left after costs, so a pay rise not matched by prices cuts profits proportionally more than wages rise. | post-keynesian |

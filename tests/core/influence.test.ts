@@ -159,8 +159,11 @@ describe('weights', () => {
     const src = (e as unknown as { src: InfluenceSource }).src;
     const effects = termEffects(src, iceland.ruleOfVar[iceland.varIndex.get('exportVolumeTourism')!]);
     const demand = inf.terms.findIndex((t) => t.id === 'demand');
-    expect(term('demand').change).toBeCloseTo(-0.3, 12); // the factor moves by 0.3 …
-    expect(effects[demand]).toBeCloseTo(-0.3 * term('normal').baseline * term('competitiveness').baseline, 9); // … exports by about 3.9 pp of GDP
+    // a fall in visitors reaches bookings within about a month (external.ts, tourismFelt): 98% of it in month 1
+    const felt = e.value('tourismFelt');
+    expect(felt).toBeLessThan(-0.29);
+    expect(term('demand').change).toBeCloseTo(felt, 12); // the factor moves by about 0.3 …
+    expect(effects[demand]).toBeCloseTo(felt * term('normal').baseline * term('competitiveness').baseline, 9); // … exports by about 3.9 pp of GDP
     expect(Math.abs(effects[demand])).toBeGreaterThan(3.5);
   });
 

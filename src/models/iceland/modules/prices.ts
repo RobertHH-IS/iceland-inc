@@ -1,13 +1,14 @@
 /**
  * Iceland Inc.: prices and expectations (v1 equations E9, E10, E12 and E47).
  *
- * Firms price at a markup on a smoothed unit cost, made of labour and imported inputs, and
- * capacity pressure pushes prices a little above it. Imports are invoiced in foreign currency, so
- * what Iceland pays abroad (border import prices) moves with world prices × the exchange rate at
- * once; importers pass it on to the prices they charge in Iceland (wholesale import prices) with a
- * lag, and their margins take the difference meanwhile. Buyers in Iceland pay more: the domestic
- * cost of getting the goods to them (unloading, wholesale, transport and retail) is part of what
- * shops and firms pay, so only part of a weaker króna reaches the CPI and unit cost (review E6). The CPI weights domestic goods, imported goods and housing as in the
+ * Firms price at a markup on a smoothed unit cost, made of labour and imported inputs (pay rises
+ * are priced in faster than moves in import costs), and capacity pressure pushes prices a little
+ * above it. Imports are invoiced in foreign currency, so what Iceland pays abroad (border import
+ * prices) moves with world prices × the exchange rate at once; importers pass it on to the prices
+ * they charge in Iceland (wholesale import prices) with a lag, and their margins take the difference
+ * meanwhile. Buyers in Iceland pay more: the domestic cost of getting the goods to them (unloading,
+ * wholesale, transport and retail) is part of what shops and firms pay, so only part of a weaker
+ * króna reaches the CPI and unit cost (review E6). The CPI weights domestic goods, imported goods and housing as in the
  * Statistics Iceland basket; VAT scales the first two. Household spending is turned into a volume
  * with a consumption deflator that leaves out the housing part, which here follows market rents
  * and is mostly owner-occupiers' imputed rent, never paid in cash (audit H4). Expected inflation
@@ -26,7 +27,7 @@ export const prices: ModuleDef = {
   label: 'Prices and expectations',
   description: 'Markup pricing on smoothed unit labour and import costs, import prices, the CPI with data weights, inflation and expectations.',
   requires: ['structure', 'labour-and-wages', 'external', 'housing', 'government'],
-  params: pickParams(ALL_PARAMS, ['aLab', 'eta', 'lamUC', 'lamP', 'lamPm', 'distM', 'omD', 'omM', 'omH', 'chi', 'lamPia', 'lamVat']),
+  params: pickParams(ALL_PARAMS, ['aLab', 'eta', 'lamUC', 'lamUCw', 'lamP', 'lamPm', 'distM', 'omD', 'omM', 'omH', 'chi', 'lamPia', 'lamVat']),
   vars: [
     {
       id: 'borderImportPrice',
@@ -55,6 +56,8 @@ export const prices: ModuleDef = {
       initial: 1,
       description: 'What buyers in Iceland pay for imported goods and inputs, before VAT (1 at baseline): import prices plus the Icelandic cost of getting them to the buyer (unloading, wholesale, transport and retail).',
     },
+    { id: 'labourCostSeen', label: 'Labour cost (as firms see it)', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'The wage rate as firms build it into their prices (1 at baseline).' },
+    { id: 'importCostSeen', label: 'Import cost (as firms see it)', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'What imported inputs cost delivered, as firms build it into their prices (1 at baseline).' },
     { id: 'unitCost', label: 'Unit cost (as firms see it)', unit: 'index', kind: 'price', scale: 'nominal', initial: 1 },
     { id: 'domesticPrice', label: 'Domestic prices', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Prices of goods and services made in Iceland, before VAT (1 at baseline).' },
     { id: 'vatInPrices', label: 'VAT built into shop prices', unit: 'fraction', kind: 'rate', scale: 'none', initial: base('vatRate'), description: 'The VAT rate shops have so far passed into their prices: it follows the statutory rate within a few months.' },
@@ -122,21 +125,48 @@ export const prices: ModuleDef = {
       },
     },
     {
+      id: 'labourCostSeen',
+      target: 'labourCostSeen',
+      category: 'BEHAVIOUR',
+      label: 'Labour cost as firms see it',
+      inputs: ['wage'],
+      adjust: { speed: 'lamUCw', form: 'exponential' },
+      terms: terms(['wage', 'Wage rate', 'cost-pass-through', (c) => c.v('wage')]),
+      concepts: ['cost-pass-through'],
+      explain: {
+        what: 'The wage rate as firms build it into their costs, 1 at baseline.',
+        rule: 'Moves toward the wage rate at speed {lamUCw} a year: pay rises are known and hit every payslip, so firms price them in within a few months.',
+      },
+    },
+    {
+      id: 'importCostSeen',
+      target: 'importCostSeen',
+      category: 'BEHAVIOUR',
+      label: 'Import cost as firms see it',
+      inputs: ['deliveredImportPrice'],
+      adjust: { speed: 'lamUC', form: 'exponential' },
+      terms: terms(['delivered', 'Imported inputs as delivered', 'exchange-rate-pass-through', (c) => c.v('deliveredImportPrice')]),
+      concepts: ['exchange-rate-pass-through'],
+      explain: {
+        what: 'What imported inputs cost as firms build it into their prices, 1 at baseline.',
+        rule: 'Moves toward what imported inputs cost delivered at speed {lamUC} a year: firms work through stocks bought earlier and wait to see whether a move in the króna lasts.',
+      },
+    },
+    {
       id: 'unitCost',
       target: 'unitCost',
-      category: 'BEHAVIOUR',
+      category: 'IDENTITY',
       label: 'Unit cost',
-      inputs: ['wage', 'deliveredImportPrice'],
+      inputs: ['labourCostSeen', 'importCostSeen'],
       params: ['aLab'],
-      adjust: { speed: 'lamUC', form: 'exponential' },
       terms: terms(
-        ['labour', 'Labour cost', 'cost-pass-through', (c) => c.p('aLab') * c.v('wage')],
-        ['imports', 'Imported inputs', 'exchange-rate-pass-through', (c) => (1 - c.p('aLab')) * c.v('deliveredImportPrice')],
+        ['labour', 'Labour cost', 'cost-pass-through', (c) => c.p('aLab') * c.v('labourCostSeen')],
+        ['imports', 'Imported inputs', 'exchange-rate-pass-through', (c) => (1 - c.p('aLab')) * c.v('importCostSeen')],
       ),
       concepts: ['cost-pass-through'],
       explain: {
-        what: 'What it costs firms to make one unit, as they judge it: a smoothed mix of wages and imported inputs.',
-        rule: 'Moves toward {aLab} × wage rate + (1 − {aLab}) × what imported inputs cost delivered at speed {lamUC} a year.',
+        what: 'What it costs firms to make one unit, as they judge it: a mix of wages and imported inputs.',
+        rule: 'Unit cost = {aLab} × labour cost as firms see it + (1 − {aLab}) × imported inputs as firms see it. Firms price in a pay rise faster ({lamUCw} a year) than a move in import costs ({lamUC} a year).',
       },
     },
     {

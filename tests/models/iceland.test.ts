@@ -23,6 +23,8 @@ const V1_LEVERS = [
 ];
 const SECTOR_LEVERS = ['fishPrices', 'aluminiumPrice'];
 const STABILISER_LEVERS = ['stabilisers', 'incomeTaxOffset'];
+/** A labour-supply shock into a steady economy (labour-LAB-6). */
+const LABOUR_LEVERS = ['netImmigration'];
 const V1_SERIES = [
   'output', 'consumption', 'investment', 'unemployment', 'unemploymentY', 'unemploymentW', 'unemploymentO', 'realWage', 'profitsFD', 'profitsFX',
   'inflation', 'priceLevel', 'expInflation', 'keyRate', 'mortgageRate', 'broadMoney', 'creditImpulse', 'creditImpulseTotal', 'netMortgage',
@@ -63,8 +65,8 @@ describe('Iceland model: structure', () => {
     }
   });
 
-  test('v1’s levers with the same ids (less its two rule switches), the fish- and aluminium-price levers, the stabiliser setting and the income-tax offset; a precise definition each', () => {
-    expect(model.levers.map((l) => l.id).sort()).toEqual([...V1_LEVERS, ...SECTOR_LEVERS, ...STABILISER_LEVERS].sort());
+  test('v1’s levers with the same ids (less its two rule switches), the fish- and aluminium-price levers, the stabiliser setting, the income-tax offset and net immigration; a precise definition each', () => {
+    expect(model.levers.map((l) => l.id).sort()).toEqual([...V1_LEVERS, ...SECTOR_LEVERS, ...STABILISER_LEVERS, ...LABOUR_LEVERS].sort());
     for (const l of model.levers) expect(l.definition.length).toBeGreaterThan(40);
   });
 

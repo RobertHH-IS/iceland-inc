@@ -11,7 +11,7 @@
  * who buys them: banks and the central bank pay with new money, pension funds and older
  * households with money that already exists.
  */
-import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
+import type { Ctx, Id, LeverDef, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
 import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, pickParams, terms, lastMonth, automatic, AUTOMATIC, MANUAL, STABILISERS } from '../util.ts';
 import { cashToSpend } from './banks.ts';
@@ -493,7 +493,7 @@ const rules: RuleDef[] = [
     id: 'deficit',
     target: 'deficit',
     category: 'IDENTITY',
-    inputs: [...SPEND, 'publicInvestment', ...TRANSFERS, ...INTEREST, ...TAXES_H, ...GROSS_H, 'taxRuleAdjustment', 'vat', 'consumption', ...PAYROLL, ...CORP, 'cbProfit', 'bankDividendsG'],
+    inputs: [...SPEND, 'publicInvestment', ...TRANSFERS, ...INTEREST, ...TAXES_H, ...GROSS_H, 'taxRuleAdjustment', 'vat', 'consumption', ...PAYROLL, ...CORP, 'fishingFee', 'cbProfit', 'bankDividendsG'],
     params: ['tau0', 'vat0'],
     levers: [STABILISERS],
     // Taxes and transfers are split as in their own rules: what moves with the cycle by itself
@@ -511,13 +511,14 @@ const rules: RuleDef[] = [
       ['vatChange', 'VAT: your change to the rate', 'multiplier', (c) => -(c.v('vat') - vatShare(c.p('vat0')) * c.v('consumption'))],
       ['payrollTax', 'Payroll tax', undefined, (c) => -sumV(PAYROLL)(c)],
       ['corporateTax', 'Corporate tax', 'automatic-stabilisers', (c) => -sumV(CORP)(c)],
+      ['fishingFee', 'Fishing fee on profit above normal', 'export-sectors', (c) => -c.v('fishingFee')],
       ['centralBank', 'Central-bank profit', undefined, (c) => -c.v('cbProfit')],
       ['bankDividends', 'Dividends from state-owned banks', undefined, (c) => -c.v('bankDividendsG')],
     ),
     concepts: ['sectoral-balances', 'deficits-and-money'],
     explain: {
       what: 'The government’s cash deficit: what it pays out minus what it takes in this month (a yearly rate). The government’s deficit is the rest of the economy’s surplus.',
-      rule: 'Deficit = public services + investment + transfers and benefits + interest − income tax − VAT − payroll tax − corporate tax − central-bank profit − bank dividends. Unemployment benefits, and income tax and VAT at their baseline rates, move with jobs, incomes and spending by themselves (automatic stabilisers); the other transfers and any change in tax rates are decisions.',
+      rule: 'Deficit = public services + investment + transfers and benefits + interest − income tax − VAT − payroll tax − corporate tax − the fishing fee on profit above normal − central-bank profit − bank dividends. Unemployment benefits, and income tax and VAT at their baseline rates, move with jobs, incomes and spending by themselves (automatic stabilisers); the other transfers and any change in tax rates are decisions.',
     },
   },
   {
@@ -587,6 +588,13 @@ const rules: RuleDef[] = [
     explain: { what: 'Revenue minus spending on an accrual basis: indexation added to indexed debt counts as spending.', rule: 'Balance = −(cash deficit + indexation of indexed bonds).' },
   },
 ];
+
+/** Levers whose lasting change, with the key rate held on Manual, leaves inflation off target for
+ *  good (trade-nominal-drift, decision 0002 §6): their definitions say so. */
+const DRIFTS = new Set(['incomeTax', 'vat', 'health', 'education', 'otherServices', 'publicInvestment', 'oldAgeTransfers', 'familyBenefits', 'unemploymentBenefits']);
+const HELD_RATE =
+  ' With the key rate held (Manual), a lasting change that keeps unemployment off its normal rate keeps inflation off target, and the price level drifts: expectations are only half anchored to the target, so the long-run Phillips curve is not vertical (decision 0002 §6). On Automatic the central bank’s rule pulls inflation mostly back within a few years, but its neutral rate and potential output are fixed, so a small gap can remain: after 20 years about 0.1 point for VAT ±2.5, 0.2–0.3 for benefits ±30 points or the income-tax offset ±2.5, and up to about 1 point for spending ±3% of GDP.';
+const heldRateNote = (l: LeverDef): LeverDef => (DRIFTS.has(l.id) ? { ...l, definition: `${l.definition}${HELD_RATE}` } : l);
 
 const leverFor = (id: string, label: string, param: Id, unit: string, min: number, max: number, step: number, description: string, definition: string, concepts: Id[], scale?: number) => ({
   id,
@@ -755,7 +763,7 @@ export const government: ModuleDef = {
       explain: { what: 'The government borrows its deficit by selling bonds. When banks or the central bank buy, new money is created; when pension funds or older households buy, existing deposits move to the government.' },
     },
   ],
-  levers: [
+  levers: ([
     {
       ...leverFor('incomeTax', 'Income-tax rate', 'incomeTaxShift', 'pp', -10, 10, 0.5, 'Changes the average tax rate on wages, benefits and pensions, held where you set it. The debt rule only suggests a value beside the lever.', 'Level shift in the income-tax rate, in percentage points from its baseline, applied in the month it is set and held there until you change it (stabilisers on Manual). This is the whole change: the debt rule only suggests a value beside the lever. Setting it back to 0 removes your shift. It has no effect while stabilisers are Automatic, when the debt rule and your offset set the rate.', ['multiplier', 'consumption-function'], 0.01),
       showWhen: { lever: STABILISERS, equals: MANUAL },
@@ -784,7 +792,7 @@ export const government: ModuleDef = {
     leverFor('publicInvestment', 'Public investment', 'gInv', '% of GDP', -3, 3, 0.1, 'Real change in public investment bought from domestic firms.', 'Level shift in real public investment, % of baseline GDP a year, persistent while set; nominal spending moves with domestic prices. Setting it back to 0 returns it to baseline.', ['multiplier']),
     leverFor('oldAgeTransfers', 'Old-age and disability transfers', 'trOA', '% of GDP', -2, 2, 0.1, 'Real change in public pensions and disability benefits (mostly to older people).', 'Level shift in real old-age and disability transfers, % of baseline GDP a year, indexed to the CPI and split by age as at baseline; persistent while set. Setting it back to 0 ends it.', ['multiplier', 'consumption-function', 'intergenerational-flows']),
     leverFor('familyBenefits', 'Family and housing benefits', 'trFam', '% of GDP', -2, 2, 0.1, 'Real change in child, parental-leave and housing benefits (young and working age).', 'Level shift in real family and housing benefits, % of baseline GDP a year, indexed to the CPI and split by age as at baseline; persistent while set. Setting it back to 0 ends it.', ['multiplier', 'consumption-function', 'borrowers-and-savers']),
-    leverFor('unemploymentBenefits', 'Unemployment-benefit rate', 'rrShift', 'pp of wage', -30, 30, 5, 'Changes the replacement rate paid automatically to the unemployed.', 'Level shift in the replacement rate, in percentage points of the average wage, applied to everyone unemployed at once and persistent while set. Setting it back to 0 ends it.', ['automatic-stabilisers'], 0.01),
+    leverFor('unemploymentBenefits', 'Unemployment-benefit rate', 'rrShift', 'pp of wage', -30, 30, 5, 'Changes the replacement rate paid automatically to the unemployed.', 'Level shift in the replacement rate, in percentage points of the average wage, applied to everyone unemployed at once and persistent while set. It works two ways. At once, the unemployed have more to spend, which supports demand and jobs (an automatic stabiliser). Within about a year, people out of work search longer before taking a job and workers hold out for more pay, so normal unemployment rises: +30 points raises unemployment by about 0.6–0.8 points after a few years. Setting it back to 0 ends it the same way.', ['automatic-stabilisers', 'reservation-wage'], 0.01),
     {
       id: 'bondBuyers',
       label: 'Who buys new government bonds',
@@ -808,7 +816,7 @@ export const government: ModuleDef = {
         'Choice, persistent while set: every new bond sold from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Pension funds and older households buy only what their deposits can pay for that month; banks take the rest. When the budget is in surplus the government buys bonds back from every holder in proportion to what they hold, whatever the choice. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares. New bonds pay the key rate plus its spread whoever buys, so the choice changes money and who receives the interest, not interest rates. Non-residents are not an option: they buy and sell bonds with banks on their own, through the carry trade.',
       concepts: ['bond-buyers', 'deficits-and-money', 'endogenous-money'],
     },
-  ],
+  ] satisfies LeverDef[]).map(heldRateNote),
   stabilisers: [
     {
       id: 'debtRule',

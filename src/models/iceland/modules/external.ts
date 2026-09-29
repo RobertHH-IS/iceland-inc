@@ -17,7 +17,7 @@
  */
 import type { Ctx, Id, ModuleDef, RuleDef, TermDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { EXPORTERS, FIRM_NAME, gapRate, pickParams, sum, terms, lastMonth, type Exporter } from '../util.ts';
+import { EXPORTERS, FIRM_NAME, gapRate, gapShare, pickParams, sum, terms, lastMonth, type Exporter } from '../util.ts';
 import { bondsBanksCanSell } from './banks.ts';
 
 /** Export lines: [key, seller, baseline volume, elasticity, what, price in foreign currency (null: krónur)]. */
@@ -28,12 +28,13 @@ const EXPORTS = [
   ['Other', 'XO', 'xOther', 'eOther', 'other goods and services', null],
 ] as const;
 
-/** What moves each line's volume besides the real exchange rate. */
-const DEMAND: Record<string, { params: Id[]; f: (c: Ctx) => number; label: string; rule: string; why: string }> = {
-  Fish: { params: ['foreignDemandShift', 'fdWeightFish'], f: (c) => 1 + c.p('fdWeightFish') * c.p('foreignDemandShift'), label: 'Foreign demand (lightly: catches are capped by quotas)', rule: ' × (1 + {fdWeightFish} × the foreign-demand lever)', why: 'catches are set by quotas, so volumes barely react' },
-  Aluminium: { params: [], f: () => 1, label: 'Capacity (the smelters run flat out)', rule: '', why: 'the smelters run at capacity and sell at a dollar price, so volumes hardly react' },
-  Tourism: { params: ['tourismShift'], f: (c) => 1 + c.p('tourismShift'), label: 'Foreign visitors (the tourism lever)', rule: ' × (1 + the tourism lever)', why: 'visitors react more than any other buyer' },
-  Other: { params: ['foreignDemandShift'], f: (c) => 1 + c.p('foreignDemandShift'), label: 'Foreign demand', rule: ' × (1 + the foreign-demand lever)', why: 'buyers in competitive markets react strongly' },
+/** What moves each line's volume besides the real exchange rate. Foreign demand and visitors reach
+ *  volumes through foreignDemandFelt and tourismFelt, which follow the levers over a few months. */
+const DEMAND: Record<string, { params: Id[]; inputs: Id[]; f: (c: Ctx) => number; label: string; rule: string; why: string }> = {
+  Fish: { params: ['fdWeightFish'], inputs: ['foreignDemandFelt'], f: (c) => 1 + c.p('fdWeightFish') * c.v('foreignDemandFelt'), label: 'Foreign demand (lightly: catches are capped by quotas)', rule: ' × (1 + {fdWeightFish} × foreign demand as it reaches orders)', why: 'catches are capped by quotas, so volumes react only a little, through fuller use of quotas, the product mix and aquaculture' },
+  Aluminium: { params: [], inputs: [], f: () => 1, label: 'Capacity (the smelters run flat out)', rule: '', why: 'the smelters run at capacity and sell at a dollar price, so volumes hardly react' },
+  Tourism: { params: [], inputs: ['tourismFelt'], f: (c) => 1 + c.v('tourismFelt'), label: 'Foreign visitors (the tourism lever, as it reaches bookings)', rule: ' × (1 + the tourism lever as it reaches bookings)', why: 'visitors react more than any other buyer' },
+  Other: { params: [], inputs: ['foreignDemandFelt'], f: (c) => 1 + c.v('foreignDemandFelt'), label: 'Foreign demand (as it reaches orders)', rule: ' × (1 + foreign demand as it reaches orders)', why: 'buyers in competitive markets react strongly' },
 };
 
 /** What a line priced abroad earns in krónur against domestic costs, smoothed like the real
@@ -68,7 +69,7 @@ const exportRules: RuleDef[] = EXPORTS.flatMap(([k, seller, base0, elas, what, p
     id: `exportVolume${k}`,
     target: `exportVolume${k}`,
     category: 'BEHAVIOUR',
-    inputs: [price ? profitabilityOf(k) : 'realExchangeRate'],
+    inputs: [price ? profitabilityOf(k) : 'realExchangeRate', ...DEMAND[k].inputs],
     params: [base0, elas, ...DEMAND[k].params],
     terms: terms(
       ['normal', 'Baseline volume', undefined, (c) => c.p(base0)],
@@ -170,6 +171,8 @@ const vars: VarDef[] = [
   { id: 'fishPrice', label: 'World fish prices', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Foreign-currency prices of Icelandic marine products (1 at baseline).' },
   { id: 'aluminiumPrice', label: 'World aluminium price', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'The aluminium price in foreign currency (1 at baseline).' },
   { id: 'foreignRate', label: 'Foreign interest rate', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('foreignRate') },
+  { id: 'foreignDemandFelt', label: 'Foreign demand reaching orders', unit: 'fraction', kind: 'ratio', scale: 'none', initial: 0, description: 'The foreign-demand lever as it has reached export orders so far (0 at baseline).' },
+  { id: 'tourismFelt', label: 'Visitors reaching bookings', unit: 'fraction', kind: 'ratio', scale: 'none', initial: 0, description: 'The tourism lever as it has reached visitor numbers so far (0 at baseline).' },
   { id: 'kronaSentiment', label: 'Króna sentiment', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'A shift in what investors think the króna is worth; positive means a weaker króna.' },
   { id: 'sentimentShock', label: 'Króna sentiment shock this month', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'A one-off change in sentiment; zero in every month without one.' },
   { id: 'worldPriceAnchor', label: 'World prices the króna has adjusted to (log)', unit: 'log points', kind: 'state', scale: 'none', initial: 0, description: 'The level of world prices that purchasing-power parity has so far built into the króna’s target, in logs (0 at baseline). It catches up with world prices over years.' },
@@ -210,11 +213,45 @@ export const external: ModuleDef = {
   params: pickParams(ALL_PARAMS, [
     'xFish', 'xAlu', 'xTour', 'xOther', 'eFish', 'eAlu', 'eTour', 'eOther', 'lamRer', 'muX', 'muC', 'muD', 'muI', 'muG', 'epsM',
     'betaI', 'betaH', 'fxDepth', 'lamFX', 'lamPPP', 'lamSent', 'psiB', 'lamBW', 'iF0', 'iFnow', 'krona0', 'bW0', 'worldPrice0', 'fishPrice0', 'aluminiumPrice0',
-    'foreignDemandShift', 'tourismShift', 'foreignRateShift', 'worldPriceShift', 'fishPriceShift', 'aluminiumPriceShift', 'fdWeightFish', 'bondW', 'depW', 'eqW', 'wDepositFloorShare',
+    'foreignDemandShift', 'tourismShift', 'lamXD', 'lamTourDown', 'foreignRateShift', 'worldPriceShift', 'fishPriceShift', 'aluminiumPriceShift', 'fdWeightFish', 'bondW', 'depW', 'eqW', 'wDepositFloorShare',
     'gvaXF', 'gvaXA', 'gvaXT', 'gvaXO', 'mXF', 'mXA', 'mXT', 'mXO', 'dXF', 'dXA', 'dXT', 'dXO',
   ]),
   vars,
   rules: [
+    {
+      id: 'foreignDemandFelt',
+      target: 'foreignDemandFelt',
+      category: 'BEHAVIOUR',
+      label: 'Foreign demand reaches orders',
+      params: ['foreignDemandShift'],
+      adjust: { speed: 'lamXD', form: 'exponential' },
+      terms: terms(['lever', 'The foreign-demand lever', 'export-sectors', (c) => c.p('foreignDemandShift')]),
+      concepts: ['export-sectors', 'policy-lags'],
+      explain: {
+        what: 'How much of a change in foreign demand has reached export orders so far.',
+        rule: 'Moves toward the foreign-demand lever at speed {lamXD} a year: buyers abroad change orders and contracts over a few quarters, and exporters need time to take on staff and capacity.',
+      },
+    },
+    {
+      id: 'tourismFelt',
+      target: 'tourismFelt',
+      category: 'BEHAVIOUR',
+      label: 'Visitors reach bookings',
+      params: ['tourismShift', 'lamXD', 'lamTourDown'],
+      lagInputs: ['tourismFelt'],
+      terms: terms(['lever', 'The tourism lever', 'export-sectors', (c) => c.p('tourismShift')]),
+      // Rises are limited by hotels, flights and staff; falls come at once, as in 2010 and 2020.
+      combine: (t, c) => {
+        const last = c.lag('tourismFelt');
+        return last + gapShare(t.lever < last ? c.p('lamTourDown') : c.p('lamXD'), c.dt) * (t.lever - last);
+      },
+      regime: (c, _v, t) => (t.lever < c.lag('tourismFelt') - 1e-12 ? 'Visitors stop coming at once' : null),
+      concepts: ['export-sectors'],
+      explain: {
+        what: 'How much of a change in foreign visitors has reached visitor numbers so far.',
+        rule: 'Rises toward the tourism lever at speed {lamXD} a year, since more visitors need more flights, hotel rooms and staff; falls at speed {lamTourDown} a year, within a month or so, since visitors can stop coming at once, as in 2010 and 2020.',
+      },
+    },
     {
       id: 'worldPrice',
       target: 'worldPrice',
@@ -691,7 +728,7 @@ export const external: ModuleDef = {
       binds: { param: 'foreignDemandShift', mode: 'add', scale: 0.01 },
       description: 'Demand abroad for Icelandic goods and services other than tourism and aluminium: it moves other exporters one for one and fisheries lightly.',
       definition:
-        'Level shift in foreign demand, in percent of baseline, applied at once and persistent while set: other exporters’ volume moves by the full percentage and marine volume by 0.3 of it (catches are capped by quotas). Tourism has its own lever and the smelters run at capacity. Setting it back to 0 returns demand to baseline.',
+        'Level shift in foreign demand, in percent of baseline, persistent while set. It reaches export volumes over a few quarters (about a fifth in the first month, 95% within a year): other exporters’ volume moves by the full percentage and marine volume by 0.3 of it (catches are capped by quotas). Tourism has its own lever and the smelters run at capacity. Held for many years, a lasting change in exports also changes the króna for good: non-residents’ krónur keep draining (or piling up) until the current account closes, so a rise ends in a stronger real króna that takes back other exports, and a fall in a weaker one (decision 0002 §6). On Automatic output and unemployment end near baseline (at +20 unemployment about 0.25 point higher after 20 years). With the key rate held (Manual) the króna keeps strengthening and prices keep falling after a rise, so after about ten years output ends below baseline and unemployment above it (+20: output 1.1% lower and unemployment 0.6 point higher after 20 years), and the reverse after a fall: a known gap in how the current account closes, not a lasting cost of exporting more. Setting it back to 0 returns demand to baseline the same way.',
       concepts: ['export-sectors'],
     },
     {
@@ -707,7 +744,8 @@ export const external: ModuleDef = {
       step: 5,
       binds: { param: 'tourismShift', mode: 'add', scale: 0.01 },
       description: 'Foreign visitors’ spending: it drives the tourism sector.',
-      definition: 'Level shift in tourism export volume (what foreign visitors buy), in percent of baseline, applied at once and persistent while set. Tourism firms’ revenue, jobs and imports follow. Setting it back to 0 ends it.',
+      definition:
+        'Level shift in tourism export volume (what foreign visitors buy), in percent of baseline, persistent while set. A rise reaches visitor numbers over a few quarters (95% within a year), limited by flights, hotel rooms and staff; a fall hits within a month or so, as in 2010 and 2020. Tourism firms’ revenue, jobs and imports follow. Held for many years, a lasting change in exports also changes the króna for good: non-residents’ krónur keep draining (or piling up) until the current account closes, so a rise ends in a stronger real króna that takes back other exports, and a fall in a weaker one (decision 0002 §6). On Automatic output and unemployment end near baseline (at +30 unemployment about 0.35 point higher after 20 years). With the key rate held (Manual) the króna keeps strengthening and prices keep falling after a rise, so after about ten years output ends below baseline and unemployment above it (+30: output 1.8% lower and unemployment 0.9 point higher; +10: 0.6% and 0.3 point after 20 years), and the reverse after a fall: a known gap in how the current account closes, not a lasting cost of exporting more. Setting it back to 0 ends it the same way.',
       concepts: ['export-sectors'],
     },
     {
@@ -775,7 +813,7 @@ export const external: ModuleDef = {
       binds: { param: 'fishPriceShift', mode: 'add', scale: 0.01 },
       description: 'What foreign buyers pay for Icelandic fish, in foreign currency.',
       definition:
-        'Level shift in the world price of marine products, in percent, on top of the world-prices lever; applied at once and persistent while set. Catches are fixed by quotas, so the change goes straight into fisheries’ revenue and profit. Setting it back to 0 ends it.',
+        'Level shift in the world price of marine products, in percent, on top of the world-prices lever; applied at once and persistent while set. Quotas cap the catch, so most of the change goes into fisheries’ revenue and profit; volume moves only a little (about 3% at +30), through fuller use of quotas, the product mix and aquaculture, and the stronger króna that follows takes back part of the gain. A third of fisheries’ profit above normal goes to the state as the fishing fee two years later. Held for many years, a rise keeps strengthening the króna, which takes back other exports: at +30 output is about 0.4% lower and unemployment 0.5 point higher after 20 years on Automatic, and 2% lower and 1 point higher with the key rate held (Manual), a known gap in how the current account closes (decision 0002 §6). Setting it back to 0 ends it.',
       concepts: ['export-sectors', 'exchange-rate-pass-through'],
     },
     {

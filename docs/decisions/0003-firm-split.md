@@ -61,6 +61,7 @@ New leaves in `data/iceland/calibration.json` under `firm_sectors`, with sources
 - **Tourism employs the young.** Tourism pays 30% more of its wages to the young than their share of all jobs, and retail and services correspondingly less, so every age group's pay still adds up (module test). A change in tourism jobs moves young jobs more and working-age jobs less. Tourism −30%: youth unemployment +2.2 pp at month 12, working age +0.8 pp.
 - **Retention is kept between 0 and 1.** A loss-making firm pays nothing out and its owners share the loss, instead of v1's formula paying out when retention exceeded one on a loss. The regime label says so ("Keeps all its profit"). It never binds in the calibration scenarios.
 - **Retention reads last month's GDP** (as the debt-tied tax rule does), which takes the five retention rules and the exporters' dividends out of the income–spending block.
+- **Superseded 29 September 2026 (trade-exporter-debt-spiral, trade-fish-windfall-hoarded): payout replaces retention.** Held for decades, the retention cap did bind: fish prices −30 or tourism +30 left fisheries keeping all their profit and borrowing without limit (loans 6% of GDP → 78–349% by month 600), and a fish windfall was 95% retained, then parked in deposits for ever once loans were repaid. The five retention rules are gone; each sector's dividends (`dividendsRule`, firms.ts) are its normal payout (1 − ρ₀) of baseline after-tax profit, plus the larger of `payMarginal` (0.3, Lintner) and the normal payout share of any change in after-tax profit, never below zero; minus `payDebt` (0.2 a year) × debt above its normal share of GDP (negative: owners put money in, as the smelters' parents already did); plus `paySpare` (1 a year) × deposits above target, which only arise once loans are repaid. Owners in Iceland put in at most `ownerCashSpeed` (0.1 a year) of their deposits, and pension funds only from deposits above the cash buffer they keep (pensions.ts), so firms' calls never drain the funds toward zero (in 40-year Manual collapses they did: public investment −3 overdrew them from month 456). Investment plans also fall when debt is above normal (`betaLev`, "Debt too high: investment cut"). The baseline is unchanged. Fish −30, tourism +30 and foreign demand +20 held for 50 years now keep every firm's loans at most 2.1 times their normal share of GDP; fish +30 pays owners 3.0% of GDP-years over five years (0.70 before).
 
 ## 5. Levers
 
@@ -68,10 +69,10 @@ All 25 v1 ids keep their meaning, with two sharper definitions and two new lever
 
 | Lever | Now |
 |---|---|
-| `tourism` | Drives XT's export volume (no longer multiplied by foreign demand). |
-| `foreignDemand` | Moves other exporters' volume one for one and marine volume by 0.3 of it (quotas); tourism has its own lever and the smelters run at capacity. |
+| `tourism` | Drives XT's export volume (no longer multiplied by foreign demand). Since 29 September 2026 a rise reaches volumes over a few quarters and a fall within a month (`tourismFelt`, trade-month1-export-jump). |
+| `foreignDemand` | Moves other exporters' volume one for one and marine volume by 0.3 of it (quotas); tourism has its own lever and the smelters run at capacity. Since 29 September 2026 it reaches volumes over a few quarters (`foreignDemandFelt`, `lamXD` 3 a year), so output peaks after about 9 months rather than in month 1. |
 | `importPrices` (world prices) | Unchanged: imports, fish and aluminium in foreign currency. |
-| `fishPrices` (new) | World fish prices, %, −30 to +30: level shift on top of world prices, persistent while set; straight into fisheries' revenue. |
+| `fishPrices` (new) | World fish prices, %, −30 to +30: level shift on top of world prices, persistent while set; mostly into fisheries' revenue and profit, with volume up only a little (about 3% at +30, through the profitability elasticity `eFish`: fuller use of quotas, the product mix and aquaculture). A third of profit above normal goes to the state as the fishing fee two years later (`fishingFee`, since 29 September 2026). |
 | `aluminiumPrice` (new) | World aluminium price, %, −40 to +40: level shift on top of world prices, persistent while set; the alumina bill does not move, and the foreign owners take almost all of the extra profit. |
 
 ## 6. Calibration
@@ -144,7 +145,7 @@ The simultaneous income–spending block has 50 rules (45 before): moving retent
 
 - **Other exporters' value added and pay are estimates,** and 2025 was a weak year for the smelters (their net operating surplus was below zero), so aluminium's margin is thin and its profit swings by large percentages.
 - **Bank loans by sector:** only construction's share is published; the other shares are placeholders.
-- **Fisheries retain 96% of profit** at baseline because of 2025's heavy fleet investment against weak catches, so their dividends are small.
+- **Fisheries retain 96% of profit** at baseline because of 2025's heavy fleet investment against weak catches, so their baseline dividends are small (payout about 0.04 of after-tax profit, against about 0.2–0.35 in the industry). A change in their profit is now paid out at `payMarginal` (0.3), and the fishing fee is modelled only on profit above normal; recalibrating the baseline payout would mean solving another quantity (investment or the profit share) instead of ρ₀.
 - **Tourism's young workforce** rests on a proxy (workers outside ages 25–64) and an assumed tilt.
 - **No new-home building:** construction does not respond to house prices or mortgage credit except through consumption.
 - **Book equity** of each firm is split by net assets and never changes (as in v1).

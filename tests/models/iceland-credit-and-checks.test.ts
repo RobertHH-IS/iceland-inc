@@ -338,13 +338,15 @@ describe('Iceland calibration: each check runs the experiment its source describ
     expect(pass(12)).toBeLessThanOrEqual(0.23);
     // the check's fading shock gives nearly the same ratio as the held depreciation
     expect(Math.abs(c.measure(run('krona-pass-through-year1')) - pass(12))).toBeLessThan(0.03);
-    // as its source says: slower than WP85 within the quarter, and past WP85's long-run 0.23 later, near the IMF's 0.4 at 36 months
+    // as its source says: slower than WP85 within the quarter, and a little past WP85's long-run 0.23 later,
+    // levelling off below the IMF's 0.4 at 36 months: wages no longer chase a lasting depreciation (trade-nominal-drift)
     expect(pass(3)).toBeLessThan(0.15);
-    expect(pass(24)).toBeGreaterThan(0.3);
-    expect(pass(24)).toBeLessThan(0.4);
-    expect(pass(36)).toBeGreaterThan(0.35);
-    expect(pass(36)).toBeLessThan(0.5);
-    expect(c.source).toMatch(/0\.34 after two years and 0\.43 after three/);
+    expect(pass(24)).toBeGreaterThan(0.25);
+    expect(pass(24)).toBeLessThan(0.35);
+    expect(pass(36)).toBeGreaterThan(0.25);
+    expect(pass(36)).toBeLessThan(0.35);
+    expect(pass(36) - pass(24)).toBeLessThan(0.03);
+    expect(c.source).toMatch(/0\.30 after two years and 0\.32 after three/);
     expect(KNOWN_GAPS['krona-pass-through-year1']).toBeUndefined();
   });
 

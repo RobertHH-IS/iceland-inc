@@ -278,7 +278,7 @@ export const centralBank: ModuleDef = {
       showWhen: { lever: STABILISERS, equals: AUTOMATIC },
       description: 'Sets the key rate this many points above (or below) what the central bank’s inflation rule says.',
       definition:
-        'Level shift in the key rate, in percentage points on top of the rule’s rate, applied in the month it is set and persistent while set (stabilisers on Automatic). The rule keeps reacting to inflation and output underneath it. Setting it back to 0 returns the key rate to the rule’s rate that month. It has no effect while stabilisers are Manual.',
+        'Level shift in the key rate, in percentage points on top of the rule’s rate, applied in the month it is set and persistent while set (stabilisers on Automatic). The rule keeps reacting to inflation and output underneath it. A lasting offset acts partly like a lower inflation target (inflation stays about 0.2 pp below baseline per point) and partly as a lasting drag on output (about 0.3% per point after 20 years): expectations are only half anchored, and a higher rate moves interest income between borrowers and savers for good. That lasting output effect is a stock-flow departure from long-run neutrality, like the one a rate held high on Manual shows (decision 0002 §6). Setting it back to 0 returns the key rate to the rule’s rate that month. It has no effect while stabilisers are Manual.',
       concepts: ['taylor-rule', 'interest-rate-channel'],
     },
   ],
