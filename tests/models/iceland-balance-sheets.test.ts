@@ -159,16 +159,39 @@ describe('Iceland model: balance sheets stay possible', () => {
     expect(lowest).toBeGreaterThan(-1e-9);
   });
 
-  test('known gap: a current-account surplus after non-residents have sold every bond overdraws their króna deposits', () => {
-    // decision 0002 §6: nothing supplies them krónur once their bonds are gone (no króna borrowing).
-    // Since world prices anchor the króna only slowly (audit H5) this case is clean on Manual and
-    // shows on Automatic.
-    expect(wrongSigns([['pfForeign', -20], ['tourism', 30]], true)).toEqual(['deposits/W']);
+  test('a current-account surplus after non-residents have sold every bond: they borrow krónur from banks instead of overdrawing (review M6)', () => {
+    // This used to overdraw their deposits by up to 0.02% of GDP (decision 0002 §6, before the
+    // króna loans). Now banks lend them what the month's payments would overdraw, and they repay it.
+    expect(wrongSigns([['pfForeign', -20], ['tourism', 30]], true)).toEqual([]);
+    const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    e.setLever('stabilisers', 1);
+    e.setLever('pfForeign', -20);
+    e.setLever('tourism', 30);
+    let borrowed = 0;
+    for (let m = 1; m <= 240; m++) {
+      e.step(1);
+      borrowed = Math.max(borrowed, e.stock('kronaLoansW', 'W'));
+      expect(e.stock('deposits', 'W')).toBeGreaterThan(-1e-9);
+    }
+    expect(borrowed).toBeGreaterThan(0.005);
+    expect(e.stock('kronaLoansW', 'W')).toBeLessThan(1e-9); // repaid
+  });
+
+  test('non-residents borrow no krónur at the baseline or under moderate shocks', () => {
+    for (const settings of [[], [['tourism', -30]], [['kronaShock', -10]], [['foreignRate', 1]], [['pfForeign', 5]]] as Setting[][]) {
+      const e = createEngine(model, { baseline: base.baselineData, dev: false });
+      for (const [id, v] of settings) (model.levers.find((l) => l.id === id)!.kind === 'oneoff' ? e.fire(id, v) : e.setLever(id, v));
+      e.step(120);
+      let most = 0;
+      for (let m = 0; m <= 120; m++) most = Math.max(most, e.valueAt('kronaBorrowingW', m));
+      expect(most).toBe(0);
+    }
   });
 
   test('known gap: when the economy collapses, the funds run through every asset they can sell and overdraw deposits', () => {
     // decision 0002 §6: shares and mortgages are never sold, and pensions are paid in full.
-    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false)).toEqual(['deposits/PF', 'deposits/W']);
+    // Non-residents, who also ran out of krónur here, now borrow them from banks (review M6).
+    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false)).toEqual(['deposits/PF']);
   });
 
   test('the floors do not bind at the baseline, in either mode', () => {

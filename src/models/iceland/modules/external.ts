@@ -137,6 +137,9 @@ const wCash = (c: Ctx) => Math.min(gapRate(c.p('liquiditySpeed'), c.dt) * (wDepo
  *  purchases of pension funds and older households. */
 const wFromBanks = (c: Ctx) => Math.max(0, bondsBanksCanSell(c) - Math.max(0, c.v('bondPurchasesPF')) - Math.max(0, c.v('bondPurchasesHO')));
 
+/** Non-residents' deposits after this month's payments and bond trade. */
+const wDepositsAfterTrade = (c: Ctx) => wDepositsBeforeTrade(c) - c.dt * c.v('bondPurchasesW');
+
 /** Relative price factor for home-market import volumes: (real exchange rate)^−epsM. */
 const rq = (c: { v(id: string): number; p(id: string): number }) => Math.pow(Math.max(1e-6, c.v('realExchangeRate')), -c.p('epsM'));
 
@@ -172,6 +175,8 @@ const vars: VarDef[] = [
   { id: 'revaluationFXReserves', label: 'Revaluation of FX reserves', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'revaluationForeignAssets', label: 'Revaluation of pension funds’ foreign assets', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'bondPurchasesW', label: 'Non-residents’ bond purchases', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  { id: 'kronaBorrowingW', label: 'Non-residents’ króna borrowing', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0 },
+  { id: 'kronaLoanInterestW', label: 'Interest on non-residents’ króna loans', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0 },
   { id: 'currentAccount', label: 'Current account', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0 },
 ];
 
@@ -507,22 +512,59 @@ export const external: ModuleDef = {
       },
     },
     {
+      id: 'kronaBorrowingW',
+      target: 'kronaBorrowingW',
+      category: 'BEHAVIOUR',
+      label: 'Non-residents’ króna borrowing',
+      inputs: ['nominalGDP', 'foreignAssetPurchases', 'currentAccount', 'bondPurchasesW'],
+      params: ['depW', 'bondW', 'wDepositFloorShare', 'liquiditySpeed'],
+      stocks: [
+        ['deposits', 'W'],
+        ['govBonds', 'W'],
+        ['kronaLoansW', 'W'],
+      ],
+      terms: terms(
+        ['overdraft', 'Covering what this month’s payments would overdraw', 'endogenous-money', (c) => Math.max(0, -wDepositsAfterTrade(c)) / c.dt],
+        [
+          'repayment',
+          'Repaying from deposits above what they keep',
+          'money-destruction',
+          (c) => -Math.min(c.stock('kronaLoansW', 'W') / c.dt, gapRate(c.p('liquiditySpeed'), c.dt) * Math.max(0, wDepositsAfterTrade(c) - wDepositFloor(c))),
+        ],
+      ),
+      concepts: ['current-account', 'endogenous-money'],
+      explain: {
+        what: 'Krónur non-residents borrow from Icelandic banks (negative: repay). It happens only when they have no government bonds left to sell and a month’s payments, for Iceland’s exports and the income it earns abroad, would overdraw their deposits.',
+        rule: 'Borrowing = whatever this month’s payments and bond trade would take their deposits below zero, so they never go negative. Repayment = at most about 63% a month (the liquidity speed, {liquiditySpeed} a year) of their deposits above the share they keep ({wDepositFloorShare%} of their usual deposit share), and never more than they owe. The loan creates a deposit, as any bank loan does, and repaying destroys one. They pay the key rate on it.',
+      },
+    },
+    {
+      id: 'kronaLoanInterestW',
+      target: 'kronaLoanInterestW',
+      category: 'CONTRACT',
+      inputs: ['keyRate'],
+      stocks: [['kronaLoansW', 'W']],
+      compute: (c) => c.v('keyRate') * c.stock('kronaLoansW', 'W'),
+      concepts: ['interest-distribution'],
+      explain: { what: 'Interest non-residents pay Icelandic banks on króna loans.', rule: 'Interest = key rate × what they owe.' },
+    },
+    {
       id: 'currentAccount',
       target: 'currentAccount',
       category: 'IDENTITY',
       inputs: [
-        'exportValue', ...IMPORTS.map(([k]) => `imports${k}`), 'fxReserveIncome', 'foreignAssetIncome', 'depositInterestW', 'bondInterestW', 'dividendsAbroad',
+        'exportValue', ...IMPORTS.map(([k]) => `imports${k}`), 'fxReserveIncome', 'foreignAssetIncome', 'kronaLoanInterestW', 'depositInterestW', 'bondInterestW', 'dividendsAbroad',
       ],
       terms: terms(
         ['exports', 'Exports', 'export-sectors', (c) => c.v('exportValue')],
         ['imports', 'Imports', 'import-leakage', (c) => -IMPORTS.reduce((s, [k]) => s + c.v(`imports${k}`), 0)],
-        ['incomeIn', 'Income on foreign assets', undefined, (c) => c.v('fxReserveIncome') + c.v('foreignAssetIncome')],
+        ['incomeIn', 'Income on foreign assets', undefined, (c) => c.v('fxReserveIncome') + c.v('foreignAssetIncome') + c.v('kronaLoanInterestW')],
         ['incomeOut', 'Interest and dividends paid abroad', 'export-sectors', (c) => -(c.v('depositInterestW') + c.v('bondInterestW') + c.v('dividendsAbroad'))],
       ),
       concepts: ['current-account', 'sectoral-balances'],
       explain: {
         what: 'Iceland’s income from the rest of the world minus its payments to it. Positive means Iceland lends to the world.',
-        rule: 'Current account = exports − imports + income on foreign reserves and pension funds’ foreign assets − interest and dividends paid to non-residents.',
+        rule: 'Current account = exports − imports + income on foreign reserves and pension funds’ foreign assets + interest on non-residents’ króna loans − interest and dividends paid to non-residents.',
       },
     },
   ],
@@ -583,6 +625,26 @@ export const external: ModuleDef = {
       legs: [{ from: 'W', to: 'PF', amount: 'revaluationForeignAssets' }],
       concepts: ['revaluation', 'funded-pensions'],
       explain: { what: 'When the króna weakens, pension funds’ foreign assets are worth more krónur. A change in value, not a payment.' },
+    },
+    {
+      id: 'kronaBorrowingW',
+      label: 'Non-residents’ króna borrowing',
+      kind: 'cash',
+      account: 'financial',
+      posting: { type: 'issue', instrument: 'kronaLoansW' },
+      legs: [{ from: 'B', to: 'W', amount: 'kronaBorrowingW' }],
+      concepts: ['endogenous-money', 'current-account'],
+      explain: { what: 'Icelandic banks lend non-residents krónur when they have none left to pay for Iceland’s exports: the loan creates their deposit. Repaying cancels it.' },
+    },
+    {
+      id: 'kronaLoanInterestW',
+      label: 'Interest on non-residents’ króna loans',
+      kind: 'cash',
+      account: 'current',
+      posting: { type: 'transfer' },
+      legs: [{ from: 'W', to: 'B', amount: 'kronaLoanInterestW' }],
+      concepts: ['interest-distribution'],
+      explain: { what: 'Non-residents pay Icelandic banks interest on their króna loans, out of their króna deposits.' },
     },
     {
       id: 'bondPurchasesW',
