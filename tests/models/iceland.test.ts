@@ -151,7 +151,11 @@ describe('Iceland model: the steady state matches engine v1', () => {
   // These six moved for a stated reason, so each is pinned at its new value (to 0.01%), and its move
   // from v1 must stay within 8%: an unintended move of a few percent fails the first check.
   const solvedValue = (id: string) => e.baselineData.pBase[model.paramIndex.get(id)!];
-  const afterTax = (id: string) => solvedValue(id) * (1 - solvedValue('tau0'));
+  // nu now also covers the loans sellers pay off when homes change hands within an age group (turnRate,
+  // lever review credit-gross-mortgage-flows-vs-home-purchases), so v1's nu compares with nu × the
+  // share of gross lending that is amortisation.
+  const param = (id: string) => model.params.find((p) => p.id === id)!.value;
+  const afterTax = (id: string) => solvedValue(id) * (1 - solvedValue('tau0')) * (1 / param('Tm') / (1 / param('Tm') + param('turnRate')));
   const V1_EXPLAINED: Record<string, { v1: number; now: number; value: () => number }> = {
     cEe: { v1: 0.0465, now: 0.048975, value: () => solvedValue('cEe') },
     rr: { v1: 0.3879, now: 0.393879, value: () => solvedValue('rr') },

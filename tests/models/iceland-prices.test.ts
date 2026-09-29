@@ -118,7 +118,7 @@ describe('H4: consumption is deflated by prices households pay for, not by house
   // rents that follow house prices one for one and fast, against rents that never move
   const lending = (lamRent: number) => {
     const e = createEngine(model).fork({ params: { lamRent, betaRentH: 1 } });
-    e.setLever('lendingAppetite', 1);
+    e.setLever('lendingAppetite', 2); // the loan-to-value cap trims part of the push
     e.step(6);
     return e;
   };

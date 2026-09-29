@@ -230,7 +230,7 @@ Parameter overrides in a start are like a variant applied after the steady state
 | `tga` | Today's treasury deposit | Data; otherwise `treasuryTopUp` = 12/yr would issue bonds to reach 5% within a month. |
 | `debtR0` | 56.7% (kept) | The debt rule's anchor is a policy choice; kept so that Automatic behaves as calibrated. |
 | `dstiY`, `dstiW`, floors and terms | Rules 1300/2025 (already data) | Unchanged. |
-| `ltvLimit` (`ltvCap` lever), `ltvYExtra` | The current CBI loan-to-value rules (to be confirmed by the data brief; `ltvCap` is off in `steady`) | Start parameter, so the replace-bound lever starts at today's cap. |
+| `ltvLimit` (`ltvCap` lever), `ltvYExtra` | The current CBI loan-to-value rules (to be confirmed by the data brief; `steady` already starts at the 80% / 90% caps of Rules 1131/2025) | Start parameter, so the replace-bound lever starts at today's cap. |
 | `kapT` | max(requirement + buffer, today's capital ratio) | Otherwise `bankDividends` (at `lamEq` = 1/yr) pays out any excess capital at once: a month-1 jump. |
 
 **C — contract terms on today's stocks: from data, permanent.**

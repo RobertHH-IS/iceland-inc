@@ -141,11 +141,11 @@ Legacy results from `node legacy/v1-engine/run_tests.js` (rebuilt against `data/
 
 Improvements over v1:
 - Every flow is a set of legs with its own rule, so pipes are exact and each is explained; v1 split multi-party rows after the fact.
-- Homes are a real asset: purchases between generations are trades, homes are revalued with house prices, and they move with their owners as they age, so households' net worth includes housing (v1: a memo item). The loan-to-value cap uses the value of the homes each group owns.
+- Homes are a real asset: purchases between generations are trades, homes are revalued with house prices, and they move with their owners as they age, so households' net worth includes housing (v1: a memo item). The loan-to-value cap uses the value of all the homes each group buys: from older households and, at the turnover rate `turnRate`, from others in the same group, whose sellers pay off their mortgages (lever review, 29 September 2026).
 - Firms own their capital: investment buys machines and buildings, and depreciation (8% a year, assumed) writes them off, so firms' balance sheets are complete (v1 counted investment as current spending). Neither change moves any v1 result.
 - Pension payouts follow the national-accounts treatment (a redemption of rights).
 - Behavioural lags are a month whatever the step length (`lastMonth`), and partial adjustment is the exact first-order lag, so halving the step moves every calibration measure by at most 5% except the near-zero one above (v1's own half-step differences were up to 33%).
-- Regimes name the binding constraint: debt-service cap, loan-to-value cap, stress-test floors, the zero lower bound, fixed key rate, capital premium, debt rule off.
+- Regimes name the binding constraint: debt-service cap (binding for many borrowers), loan-to-value cap (likewise), the zero floor on new lending, stress-test floors, the zero lower bound, fixed key rate, capital premium, debt rule off.
 - Every parameter has provenance: 61 values from `data/iceland/calibration.json` (or its notes) with source and vintage; 93 assumed, 30 placeholder and 19 tuned as in v1; and 71 solved or derived by the steady state, each saying what it is solved from.
 
 Simplifications, kept from v1 or new:

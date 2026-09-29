@@ -6,13 +6,15 @@
  * Statistics Iceland has measured owner-occupied housing by rental equivalence (market rents from
  * the HMS rental register) since June 2024. Rents follow other consumer prices one for one, and
  * real house prices and real income only partly and slowly. Household spending is deflated
- * without this component (prices.ts). Homes are a real asset: young and working-age households buy homes from older ones each
- * year, homes are revalued when prices move, and they move up an age group with their owners.
+ * without this component (prices.ts). Homes are a real asset: young and working-age households buy
+ * homes from older ones each year, and from others in their own group (which moves no money between
+ * groups but drives gross mortgage lending); homes are revalued when prices move, and they move up an
+ * age group with their owners.
  * The housing stock itself is fixed.
  */
 import type { ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
-import { ALL_PARAMS } from '../steady.ts';
-import { AGE_LABEL, AGES, HH, pickParams, terms, lastMonth } from '../util.ts';
+import { ALL_PARAMS, base } from '../steady.ts';
+import { AGE_LABEL, AGES, BORROWERS, HH, pickParams, terms, lastMonth } from '../util.ts';
 
 const revaluation: RuleDef[] = AGES.map((g) => ({
   id: `homesRevaluation${g}`,
@@ -33,6 +35,7 @@ const vars: VarDef[] = [
   { id: 'housingCost', label: 'Housing costs in the CPI', unit: 'index', kind: 'price', scale: 'nominal', initial: 1 },
   { id: 'homePurchasesY', label: 'Homes bought by the young', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'homePurchasesW', label: 'Homes bought by working-age households', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+  ...BORROWERS.map((g): VarDef => ({ id: `grossHomePurchases${g}`, label: `All homes bought by the ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`grossHomePurchases${g}`), description: 'From older households and from others in the same age group, at market prices: what home buyers borrow against.' })),
   ...AGES.map((g): VarDef => ({ id: `homesRevaluation${g}`, label: `Revaluation of homes, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' })),
   { id: 'homesAgeingY', label: 'Homes moving from young to working age', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
   { id: 'homesAgeingW', label: 'Homes moving from working age to older', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
@@ -43,7 +46,7 @@ export const housing: ModuleDef = {
   label: 'Housing',
   description: 'House prices, the housing component of the CPI, home purchases between generations and the value of homes.',
   requires: ['structure', 'households', 'mortgages', 'prices'],
-  params: pickParams(ALL_PARAMS, ['Y0', 'lamH', 'betaHY', 'betaHC', 'betaHR', 'lamRent', 'betaRentH', 'betaRentY', 'purY', 'purW', 'ydH0', 'homeAgeingRateY', 'homeAgeingRateW', 'house0', 'hshY', 'hshW']),
+  params: pickParams(ALL_PARAMS, ['Y0', 'lamH', 'betaHY', 'betaHC', 'betaHR', 'lamRent', 'betaRentH', 'betaRentY', 'purY', 'purW', 'turnRate', 'ydH0', 'homeAgeingRateY', 'homeAgeingRateW', 'house0', 'hshY', 'hshW']),
   vars,
   rules: [
     {
@@ -123,6 +126,24 @@ export const housing: ModuleDef = {
       concepts: ['intergenerational-flows'],
       explain: { what: 'Homes working-age households buy from older ones (a yearly rate).', rule: 'Purchases = {purW}% of GDP at baseline prices × house prices.' },
     },
+    ...BORROWERS.map(
+      (g): RuleDef => ({
+        id: `grossHomePurchases${g}`,
+        target: `grossHomePurchases${g}`,
+        category: 'BEHAVIOUR',
+        inputs: [`homePurchases${g}`],
+        params: ['turnRate'],
+        stocks: [['homes', HH[g]]],
+        terms: terms(
+          ['fromOlder', 'Bought from older households', 'intergenerational-flows', (c) => c.v(`homePurchases${g}`)],
+          ['turnover', 'Bought from others in the same age group', 'loan-to-value', (c) => c.p('turnRate') * c.stock('homes', HH[g])],
+        ),
+        explain: {
+          what: `The value of all the homes the ${AGE_LABEL[g]} buy this year (a yearly rate): the base the loan-to-value cap is measured against.`,
+          rule: `Homes bought from older households + {turnRate%} of the group’s own homes, at their market value, which change hands within the group each year. A sale within the group moves a deposit from buyer to seller and the home the other way, so it changes neither the group’s money nor its homes; but the seller pays off the mortgage on the home and the buyer takes out a new one (mortgages.ts).`,
+        },
+      }),
+    ),
     ...revaluation,
     {
       id: 'homesAgeingY',

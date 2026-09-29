@@ -256,8 +256,9 @@ P('house0', 200, '% of GDP', 'IDENTITY', 'Value of the housing stock.', placehol
   P('hshY', own('Y') / tot, 'fraction', 'IDENTITY', 'Young households’ share of housing wealth.', dataProv(`${hh}young_18_34.home_ownership_rate`, note));
   P('hshW', own('W') / tot, 'fraction', 'IDENTITY', 'Working-age households’ share of housing wealth (the rest is older households’).', dataProv(`${hh}working_35_66.home_ownership_rate`, note));
 }
-P('purY', 1.2, '% of GDP/yr', 'BEHAVIOUR', 'Homes the young buy from older households each year, at baseline prices.', placeholder());
-P('purW', 1, '% of GDP/yr', 'BEHAVIOUR', 'Homes working-age households buy from older households each year, at baseline prices.', placeholder());
+P('purY', 1.2, '% of GDP/yr', 'BEHAVIOUR', 'Homes the young buy from older households each year, at baseline prices: the net flow of homes between generations, not all sales.', placeholder());
+P('purW', 1, '% of GDP/yr', 'BEHAVIOUR', 'Homes working-age households buy from older households each year, at baseline prices: the net flow between generations, not all sales.', placeholder());
+P('turnRate', 0.05, 'per year', 'BEHAVIOUR', 'Share of the young’s and of working-age households’ homes sold each year to others in the same age group. The seller repays the mortgage on the home and the buyer takes out a new one, so the money nets out within the group but gross mortgage lending and repayment are several times larger than the net flows.', assumed('HMS (Housing and Construction Authority) registers about 10–12 thousand residential purchase agreements a year on about 160 thousand dwellings, 6–7% of the stock; leaving out new builds and the sales between generations already in purY and purW gives about 5%. With it, baseline gross mortgage lending is about 5% of GDP a year and the average new loan is about 40% of the price for the young and 60% for working-age buyers (lever review credit-gross-mortgage-flows-vs-home-purchases, 29 September 2026). The young’s low average reflects placeholder home values (house0, hshY).'), { min: 0, max: 0.2 });
 
 /* ----------------------------------------------------------------- banks */
 P('kapT', 0.22, 'fraction', 'POLICY', 'Banks’ target capital ratio (equity ÷ risk-weighted assets): the requirement plus the buffer banks choose to keep. The baseline sits exactly on it, and loans cost neither more nor less there.', assumed('Total capital requirement about 20% plus a management buffer of about 2 points, so the baseline already holds the buffer and is not solved above it.'));
@@ -301,8 +302,15 @@ P('floorN', 0.055, 'fraction/yr', 'POLICY', 'Stress-test rate floor for non-inde
 P('termN', 40, 'years', 'POLICY', 'Longest term allowed in the stress test for non-indexed loans.', { basis: 'data', source: 'Central Bank of Iceland Rules No. 1300/2025 (40 years)', vintage: '2025' });
 P('floorI', 0.03, 'fraction/yr', 'POLICY', 'Stress-test real-rate floor for indexed loans.', { basis: 'data', source: 'Central Bank of Iceland Rules No. 1300/2025 (3%)', vintage: '2025' });
 P('termI', 25, 'years', 'POLICY', 'Longest term allowed in the stress test for indexed loans.', { basis: 'data', source: 'Central Bank of Iceland Rules No. 1300/2025 (25 years)', vintage: '2025' });
-P('capUse0', 0.6, 'fraction', 'BEHAVIOUR', 'Baseline new lending as a share of what the debt-service cap allows (slack under the cap).', assumed());
-P('ltvYExtra', 0.1, 'fraction', 'POLICY', 'Extra loan-to-value room for the young (first-time buyers) when the LTV cap is on.', {
+P('capUse0', 0.6, 'fraction', 'BEHAVIOUR', 'Baseline new lending as a share of what the debt-service cap would allow if every new borrower borrowed right up to it: the average borrower’s payments use 60% of the cap.', assumed());
+P('sigmaDsti', 0.35, 'fraction', 'BEHAVIOUR', 'How much new borrowers differ in the share of income their payments would take (log-standard deviation, loan-weighted). With capUse0 it puts about 10% of new lending with borrowers at the debt-service cap at baseline.', assumed('To be calibrated to the distribution of debt service on new mortgages in the Central Bank of Iceland’s Financial Stability reports. Borrower-based caps bind on the tail of borrowers, not on the average (Kuttner and Shim 2016; Alam et al. 2019, IMF WP 19/66); with one representative borrower the cap did nothing until tightened by 14 points (lever review credit-dsti-representative-borrower, 29 September 2026).'), { min: 0.05, max: 1 });
+P('sigmaLtv', 0.3, 'fraction', 'BEHAVIOUR', 'How much home buyers differ in the share of the price they borrow (log-standard deviation, loan-weighted). At baseline about a fifth of working-age buyers’ new loans come from buyers at the 80% cap.', assumed('To be calibrated to the distribution of loan-to-value ratios on new mortgages (Central Bank of Iceland, Financial Stability). Loan-to-value limits bind at origination on the buyers who want to borrow most (Richter, Schularick and Shim 2019; Cerutti, Claessens and Laeven 2017).'), { min: 0.05, max: 1 });
+P('ltvLimit', 0.8, 'fraction', 'POLICY', 'Loan-to-value cap on new mortgages: the largest loan as a share of the price of the home bought (the lever; first-time buyers get ltvYExtra more).', {
+  basis: 'data',
+  source: 'Central Bank of Iceland Rules No. 1131/2025 on maximum loan-to-value ratios, art. 3: 80% in general and 90% for first-time buyers, in force 3 November 2025 (also CBI Financial Stability 2026/1)',
+  vintage: '2025',
+});
+P('ltvYExtra', 0.1, 'fraction', 'POLICY', 'Extra loan-to-value room for the young (first-time buyers).', {
   basis: 'data',
   source: 'Central Bank of Iceland Rules No. 1131/2025 on maximum loan-to-value ratios, art. 3: 80% in general and 90% for first-time buyers, in force 3 November 2025 (also CBI Financial Stability 2026/1)',
   vintage: '2025',
@@ -420,7 +428,6 @@ P('incomeTaxShift', 0, 'fraction', 'POLICY', 'Your change in the income-tax rate
 P('vatShift', 0, 'fraction', 'POLICY', 'Change in the effective VAT rate (the VAT lever).', lev('set by the VAT lever.'));
 P('rrShift', 0, 'fraction', 'POLICY', 'Change in the unemployment-benefit replacement rate (the lever).', lev('set by the unemployment-benefit lever.'));
 P('dstiShift', 0, 'fraction', 'POLICY', 'Shift of both debt-service caps (the debt-service-cap lever).', lev('set by the debt-service-cap lever.'));
-P('ltvLimit', 0, 'fraction', 'POLICY', 'Loan-to-value cap; 0 means off (the lever).', lev('the LTV cap is off unless the lever turns it on.'));
 P('lendingAppetite', 0, '% of GDP/yr', 'BEHAVIOUR', 'Extra mortgage lending banks are keen to push each year (the lending-appetite lever).', lev('set by the lending-appetite lever.'));
 P('pfForeignShift', 0, 'fraction', 'BEHAVIOUR', 'Shift of pension funds’ target foreign share (the foreign-allocation lever).', lev('set by the foreign-allocation lever.'));
 P('foreignDemandShift', 0, 'fraction', 'BEHAVIOUR', 'Change in foreign demand for Icelandic exports (the foreign-demand lever).', lev('set by the foreign-demand lever.'));

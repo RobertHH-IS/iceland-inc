@@ -3,10 +3,12 @@
  *
  * Young and working-age households want mortgage debt in proportion to their lasting income, less when
  * real mortgage rates are high and more when real house prices are high. New lending replaces
- * what is repaid and closes part of the gap to that wish, plus any extra banks push. It is
- * capped by the Central Bank's debt-service rule (payments at stressed rates may take at most
- * 35% of income after tax, 40% for first-time buyers) and, when switched on, by a loan-to-value cap on the
- * homes bought this year (80%, 90% for first-time buyers, under Rules 1131/2025).
+ * what is repaid, including the loans sellers pay off when they sell to others in their age group,
+ * and closes part of the gap to that wish, plus any extra banks push. Two borrower-based rules
+ * trim it: the Central Bank's debt-service rule (payments at stressed rates may take at most 35% of
+ * income after tax, 40% for first-time buyers) and the loan-to-value rule on the homes bought (80%,
+ * 90% for first-time buyers, under Rules 1131/2025). Borrowers differ, so each cap trims the loans of
+ * those who want most, smoothly (borrowers.ts).
  * 65% of loans are CPI-indexed: their borrowers pay a low real rate in cash, and inflation is
  * added to the loan instead (an accrual, so no money moves). Banks and pension funds lend in
  * their historical proportions: a bank loan creates a deposit, a pension-fund loan moves one.
@@ -14,6 +16,7 @@
 import type { Ctx, Id, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
 import { AGE_LABEL, annuity, BORROWERS, FIRMS, HH, pickParams, stepsIn, terms, lastMonth } from '../util.ts';
+import { cappedShare } from './borrowers.ts';
 
 type B = (typeof BORROWERS)[number];
 const LENDERS = [
@@ -25,6 +28,15 @@ type L = (typeof LENDERS)[number][0];
 /** Debt of a borrower in one kind of mortgage, and a lender's share of that kind. */
 const debt = (c: Ctx, ins: 'mortgagesN' | 'mortgagesI', g: B) => c.stock(ins, HH[g]);
 const lenderShare = (c: Ctx, ins: 'mortgagesN' | 'mortgagesI', l: L) => c.stock(ins, l) / (c.stock(ins, 'B') + c.stock(ins, 'PF'));
+/** How much more of the wanted lending a cap must trim than at baseline before the regime names it:
+ *  5% of demand, so a small tightening that trims a few more borrowers is not labelled as binding. */
+const CAP_BITES = 0.05;
+/** Share of the wanted lending each borrower-based cap lets through, relative to baseline, and the
+ *  share it trims now (borrowers.ts). */
+function capsAllow(c: Ctx, t: Record<Id, number>, g: B) {
+  const [sd, sl] = [cappedShare(t.dstiCap / t.demand, c.p('sigmaDsti')), cappedShare(t.ltvCap / t.demand, c.p('sigmaLtv'))];
+  return { dsti: sd / c.p('dstiShare0'), ltv: sl / c.p(`ltvShare0${g}`), dstiTrim: 1 - sd, ltvTrim: 1 - sl };
+}
 const allMortgageStocks: [Id, Id][] = (['mortgagesN', 'mortgagesI'] as const).flatMap((ins) => [[ins, 'HY'], [ins, 'HW'], [ins, 'B'], [ins, 'PF']] as [Id, Id][]);
 
 function groupRules(g: B): RuleDef[] {
@@ -69,14 +81,20 @@ function groupRules(g: B): RuleDef[] {
       id: `mortgageRepayment${g}`,
       target: `mortgageRepayment${g}`,
       category: 'CONTRACT',
-      params: ['Tm'],
+      params: ['Tm', 'turnRate'],
       stocks: [
         ['mortgagesN', pl],
         ['mortgagesI', pl],
       ],
-      compute: (c) => (debt(c, 'mortgagesN', g) + debt(c, 'mortgagesI', g)) / c.p('Tm'),
+      terms: terms(
+        ['amortisation', 'Scheduled repayment', 'amortisation', (c) => (debt(c, 'mortgagesN', g) + debt(c, 'mortgagesI', g)) / c.p('Tm')],
+        ['sales', 'Loans paid off when homes are sold', 'money-destruction', (c) => c.p('turnRate') * (debt(c, 'mortgagesN', g) + debt(c, 'mortgagesI', g))],
+      ),
       concepts: ['amortisation', 'money-destruction'],
-      explain: { what: `Principal the ${who} repay (a yearly rate).`, rule: 'Repayment = mortgage debt ÷ {Tm} years: the average loan has {Tm} years left to run.' },
+      explain: {
+        what: `Principal the ${who} repay (a yearly rate): scheduled repayments, and the loans sellers pay off when they sell their homes.`,
+        rule: 'Repayment = mortgage debt ÷ {Tm} years (the average loan has {Tm} years left to run) + {turnRate%} of the debt, the share of the group’s homes sold each year to others in the group: a seller pays off the loan on the home, and the buyer’s new loan is new lending.',
+      },
     },
     {
       id: `mortgageDemand${g}`,
@@ -89,13 +107,13 @@ function groupRules(g: B): RuleDef[] {
         ['mortgagesI', pl],
       ],
       terms: terms(
-        ['replace', 'Replacing what is repaid', 'amortisation', (c) => c.v(`mortgageRepayment${g}`)],
+        ['replace', 'Replacing what is repaid (new buyers of the homes sold)', 'amortisation', (c) => c.v(`mortgageRepayment${g}`)],
         ['towardTarget', 'Moving toward desired debt', 'endogenous-money', (c) => c.p('lamM') * (c.v(`mortgageTarget${g}`) - debt(c, 'mortgagesN', g) - debt(c, 'mortgagesI', g))],
         ['appetite', 'Banks’ lending appetite (lever)', 'endogenous-money', (c) => c.p('lendingAppetite') * c.p(`lendSh${g}`)],
       ),
       explain: {
-        what: `New mortgage lending the ${who} want this year, before the caps.`,
-        rule: `Demand = repayments + {lamM} × (desired debt − debt) + their share {lendSh${g}} of any extra lending banks push.`,
+        what: `New mortgage lending the ${who} want this year, with the borrower-based caps as they are at baseline.`,
+        rule: `Demand = repayments + {lamM} × (desired debt − debt) + their share {lendSh${g}} of any extra lending banks push. Most of it is the loans of people buying the homes others sell: the repayments include the loans sellers pay off, so it is several times net lending.`,
       },
     },
     {
@@ -118,41 +136,39 @@ function groupRules(g: B): RuleDef[] {
       target: `ltvCap${g}`,
       category: 'POLICY',
       label: 'Loan-to-value cap',
-      inputs: [`mortgageRepayment${g}`, `mortgageDemand${g}`, `homePurchases${g}`],
+      inputs: [`grossHomePurchases${g}`],
       params: ['ltvLimit', ...(g === 'Y' ? ['ltvYExtra'] : [])],
-      compute: (c) => {
-        if (!(c.p('ltvLimit') > 0)) return c.v(`mortgageDemand${g}`); // off: never binds
-        const limit = c.p('ltvLimit') + (g === 'Y' ? c.p('ltvYExtra') : 0);
-        return c.v(`mortgageRepayment${g}`) + limit * c.v(`homePurchases${g}`);
-      },
-      regime: (c) => (c.p('ltvLimit') > 0 ? null : 'Cap switched off'),
+      compute: (c) => (c.p('ltvLimit') + (g === 'Y' ? c.p('ltvYExtra') : 0)) * c.v(`grossHomePurchases${g}`),
       concepts: ['loan-to-value', 'macroprudential-policy'],
       explain: {
-        what: `The most new lending a loan-to-value cap allows the ${who} this year.`,
-        rule: `When the lever sets a cap: cap = repayments + {ltvLimit%}${g === 'Y' ? ' (plus {ltvYExtra%} for first-time buyers)' : ''} of the value of the homes they buy this year. Loans that replace what is repaid are always allowed; new debt on top of that may pay for at most that share of the homes bought, and loans already made are never tested. How many homes each group buys a year is a placeholder, so the point where the cap starts to bite is approximate. When the cap is off, it equals demand and never binds.`,
+        what: `The new lending the loan-to-value rule would allow the ${who} this year if every buyer borrowed right up to it.`,
+        rule: `Cap = {ltvLimit%}${g === 'Y' ? ' + {ltvYExtra%} for first-time buyers' : ''} × the value of all the homes they buy this year, from older households and from each other (Rules 1131/2025). Every new loan is tested when it is made; loans already made are never tested.`,
       },
     },
     {
       id: `mortgageLending${g}`,
       target: `mortgageLending${g}`,
       category: 'IDENTITY',
-      label: 'New mortgages: demand or the tightest cap',
+      label: 'New mortgages: demand, trimmed by the caps',
       inputs: [`mortgageDemand${g}`, `dstiCap${g}`, `ltvCap${g}`],
+      params: ['sigmaDsti', 'sigmaLtv', 'dstiShare0', `ltvShare0${g}`],
       terms: terms(
         ['demand', 'What households want', 'endogenous-money', (c) => c.v(`mortgageDemand${g}`)],
         ['dstiCap', 'Debt-service cap', 'debt-service-constraint', (c) => c.v(`dstiCap${g}`)],
         ['ltvCap', 'Loan-to-value cap', 'loan-to-value', (c) => c.v(`ltvCap${g}`)],
       ),
-      combine: (t) => Math.max(0, Math.min(t.demand, t.dstiCap, t.ltvCap)),
-      regime: (_c, v, t) => {
-        if (v <= 0 && t.demand > 0) return 'No new lending';
-        if (v >= t.demand - 1e-12) return null;
-        return t.dstiCap <= t.ltvCap ? 'Debt-service cap binds' : 'Loan-to-value cap binds';
+      combine: (t, c) => (t.demand > 0 ? t.demand * capsAllow(c, t, g).dsti * capsAllow(c, t, g).ltv : 0),
+      regime: (c, v, t) => {
+        if (v <= 0) return t.demand <= 0 ? 'No new lending: households want to pay debt down faster than they repay it' : 'No new lending';
+        const a = capsAllow(c, t, g);
+        const [d, l] = [a.dstiTrim - (1 - c.p('dstiShare0')), a.ltvTrim - (1 - c.p(`ltvShare0${g}`))];
+        if (Math.max(d, l) <= CAP_BITES) return null;
+        return d >= l ? 'Debt-service cap binds for many borrowers' : 'Loan-to-value cap binds for many borrowers';
       },
       concepts: ['macroprudential-policy', 'endogenous-money'],
       explain: {
         what: `New mortgages to the ${who} this year.`,
-        rule: 'Lending = the smallest of what households want, the debt-service cap and the loan-to-value cap, and never below zero.',
+        rule: `Borrowers differ: some want to borrow a larger share of their income, or of the price of their home, than others. Each cap trims only the loans of those who want more than it allows, down to the cap. So lending = what households want × the share of it the debt-service cap allows × the share the loan-to-value cap allows, each relative to that share at baseline, when the caps already trim the borrowers who want most (about {dstiShare0%} and {ltvShare0${g}%} of wanted lending is let through). As demand grows toward a cap, or the cap is tightened, more borrowers reach it and lending falls short of demand; a looser cap lets those borrowers borrow a little more. The spread of borrowers is {sigmaDsti} (debt service) and {sigmaLtv} (loan-to-value). When households want to pay their debt down faster than it is repaid, lending stops at zero: they cannot pay back early, and only the repayments shrink the debt.`,
       },
     },
     {
@@ -195,13 +211,13 @@ function legRules(): RuleDef[] {
           id: `repayments${suffix}_${pl}_${l}`,
           target: `repayments${suffix}_${pl}_${l}`,
           category: 'CONTRACT',
-          params: ['Tm'],
+          params: ['Tm', 'turnRate'],
           stocks: allMortgageStocks,
-          compute: (c) => (debt(c, ins, g) / c.p('Tm')) * lenderShare(c, ins, l),
+          compute: (c) => debt(c, ins, g) * (1 / c.p('Tm') + c.p('turnRate')) * lenderShare(c, ins, l),
           concepts: [l === 'B' ? 'money-destruction' : 'amortisation'],
           explain: {
             what: `Principal the ${AGE_LABEL[g]} repay to ${lender} on ${kind} mortgages. ${l === 'B' ? 'Repaying a bank destroys the deposit used.' : 'Repaying a pension fund moves the deposit back to the fund.'}`,
-            rule: `Repayment = ${kind} debt ÷ {Tm} years × ${lender}’ share of ${kind} mortgages.`,
+            rule: `Repayment = ${kind} debt × (1 ÷ {Tm} years + {turnRate%} paid off as homes are sold) × ${lender}’ share of ${kind} mortgages.`,
           },
         });
       }
@@ -254,12 +270,12 @@ const vars: VarDef[] = [
   { id: 'realMortgageRate', label: 'Real mortgage rate', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('realMortgageRate'), description: 'The average real rate on new mortgages: indexed and non-indexed in their usual mix.' },
   { id: 'stressTestPayment', label: 'Stressed payment per króna of loan', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('stressTestPayment'), description: 'Yearly payment per króna borrowed, at the stress-test rates and terms of the debt-service rule.' },
   ...BORROWERS.flatMap((g): VarDef[] => [
-    { id: `permIncome${g}`, label: `Lasting income, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base(`grossIncome${g}`), description: 'Gross income at baseline prices, smoothed over about two years: what households judge their borrowing by.' },
+    { id: `permIncome${g}`, label: `Lasting income, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base(`permIncome${g}`), description: 'Gross income at baseline prices, smoothed over about two years: what households judge their borrowing by.' },
     { id: `mortgageTarget${g}`, label: `Desired mortgage debt, ${AGE_LABEL[g]}`, unit: '% of GDP', kind: 'state', scale: 'nominal', initial: base(`mortgageTarget${g}`) },
     { id: `mortgageRepayment${g}`, label: `Mortgage repayments, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`mortgageRepayment${g}`) },
     { id: `mortgageDemand${g}`, label: `Mortgage demand, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`mortgageDemand${g}`) },
     { id: `dstiCap${g}`, label: `Debt-service cap on new lending, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`dstiCap${g}`) },
-    { id: `ltvCap${g}`, label: `Loan-to-value cap on new lending, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
+    { id: `ltvCap${g}`, label: `Loan-to-value cap on new lending, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`ltvCap${g}`) },
     { id: `mortgageLending${g}`, label: `New mortgages, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`mortgageLending${g}`) },
     { id: `netMortgageLending${g}`, label: `Net mortgage lending, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0 },
   ]),
@@ -280,6 +296,7 @@ export const mortgages: ModuleDef = {
   params: pickParams(ALL_PARAMS, [
     'theta', 'Tm', 'dstiY', 'dstiW', 'floorN', 'termN', 'floorI', 'termI', 'dstiShift', 'ltvLimit', 'ltvYExtra', 'betaM', 'lamM', 'betaMH', 'lamYP',
     'mRY', 'mRW', 'nuY', 'nuW', 'rmR0', 'lendShY', 'lendShW', 'pfShN', 'pfShI', 'mortTot', 'mortShY', 'pfMortI', 'pfMortN', 'capUse0',
+    'sigmaDsti', 'sigmaLtv', 'dstiShare0', 'ltvShare0Y', 'ltvShare0W',
   ]),
   vars,
   rules: [
@@ -422,7 +439,7 @@ export const mortgages: ModuleDef = {
       step: 1,
       binds: { param: 'dstiShift', mode: 'add', scale: 0.01 },
       description: 'Shifts the payment-to-income caps on new mortgages (40% for first-time buyers, 35% for others).',
-      definition: 'Level shift in both debt-service caps, in percentage points of income, applied to new lending at once and persistent while set. Existing loans are unaffected. Setting it back to 0 restores the Rules 1300/2025 caps.',
+      definition: 'Level shift in both debt-service caps, in percentage points of income, applied to new lending at once and persistent while set. Borrowers whose payments would take more than the cap borrow up to it, so a tightening trims the loans of those who borrow most and a loosening lets them borrow a little more. Existing loans are unaffected. Setting it back to 0 restores the Rules 1300/2025 caps.',
       concepts: ['debt-service-constraint', 'macroprudential-policy'],
     },
     {
@@ -432,14 +449,14 @@ export const mortgages: ModuleDef = {
       section: 'Financial stability',
       kind: 'setting',
       unit: '%',
-      default: 0,
-      min: 0,
+      default: 80,
+      min: 50,
       max: 100,
       step: 5,
       binds: { param: 'ltvLimit', mode: 'replace', scale: 0.01 },
-      description: `0 = off. Otherwise new mortgages may pay for at most this share of the value of the homes bought this year (first-time buyers ${Math.round(100 * ALL_PARAMS.ltvYExtra.value)} points more).`,
+      description: `Today 80% (first-time buyers ${Math.round(100 * ALL_PARAMS.ltvYExtra.value)} points more). New mortgages may pay for at most this share of the price of the home bought; lower tightens.`,
       definition:
-        'Level of the loan-to-value cap in percent, applied to new lending at once and persistent while set; 0 switches it off. It is the largest ratio of new mortgage debt to the market value of the homes a group buys this year, over and above loans that replace repayments. The existing stock of loans is never tested, so loans already made are unaffected.',
+        'Level of the loan-to-value cap in percent, persistent while set, applied at once to every new loan as it is made (the loans of people buying from older households and from each other); first-time buyers (the young) get 10 points more. Buyers who want to borrow more than the cap allows borrow up to it; the rest are unaffected, so a small change trims the buyers who borrow most and a large cut trims many. Loans already made are never tested. 80 is the rule in force (Rules 1131/2025); setting it back to 80 restores it.',
       concepts: ['loan-to-value', 'macroprudential-policy'],
     },
   ],
@@ -465,39 +482,52 @@ export const mortgages: ModuleDef = {
       },
     },
     {
-      id: 'dsti-cap-binds-when-tightened',
-      label: 'With the debt-service cap 12 points tighter and banks pushing 1% of GDP more, the cap binds for both groups and lending falls to it',
+      id: 'dsti-cap-trims-the-tail',
+      label: 'The debt-service cap trims the borrowers who want most: 4 points tighter cuts new lending by 0.5–3% in the first month, 15 points by 10–20%, and 4 points looser raises it a little, for both groups',
       run: (e) => {
-        e.setLever('dstiCap', -12);
-        e.setLever('lendingAppetite', 1);
-        e.step(1);
-        const out = (['Y', 'W'] as const).map((g) => ({ g, regime: e.influences(`mortgageLending${g}`).regime, lending: e.value(`mortgageLending${g}`), cap: e.value(`dstiCap${g}`), demand: e.value(`mortgageDemand${g}`) }));
-        const ok = out.every((x) => x.regime === 'Debt-service cap binds' && Math.abs(x.lending - x.cap) < 1e-12 && x.demand > x.cap);
-        return { pass: ok, detail: out.map((x) => `${x.g}: ${x.regime}, lending ${x.lending.toFixed(4)} = cap ${x.cap.toFixed(4)} < demand ${x.demand.toFixed(4)}`).join('; ') };
+        const lend = (shift: number) => {
+          const f = e.fork();
+          f.setLever('dstiCap', shift);
+          f.step(1);
+          return (['Y', 'W'] as const).map((g) => ({ cut: f.value(`mortgageLending${g}`) / f.baseline(`mortgageLending${g}`) - 1, regime: f.influences(`mortgageLending${g}`).regime ?? null }));
+        };
+        const [m15, m12, m4, p4] = [lend(-15), lend(-12), lend(-4), lend(4)];
+        const ok = [0, 1].every(
+          (k) =>
+            m15[k].cut < m12[k].cut && m12[k].cut < m4[k].cut && m4[k].cut < 0 && p4[k].cut > 0 &&
+            m4[k].cut < -0.005 && m4[k].cut > -0.03 && m15[k].cut < -0.1 && m15[k].cut > -0.2 &&
+            m15[k].regime === 'Debt-service cap binds for many borrowers' && m4[k].regime === null && p4[k].regime === null,
+        );
+        const pc = (x: { cut: number }) => `${(100 * x.cut).toFixed(1)}%`;
+        return { pass: ok, detail: (['Y', 'W'] as const).map((g, k) => `${g}: −15 ${pc(m15[k])}, −12 ${pc(m12[k])}, −4 ${pc(m4[k])}, +4 ${pc(p4[k])}`).join('; ') + `; at −15: ${m15[1].regime}` };
       },
     },
     {
-      id: 'ltv-cap-binds-on-purchases',
-      label: 'An 80% loan-to-value cap on the homes bought this year binds for working-age households when banks push 2% of GDP more; 75% lends less; at baseline it is slack',
+      id: 'ltv-cap-trims-buyers',
+      label: 'The loan-to-value cap binds on its own: at 80% (the rule in force) lending is demand; 100% lends at most a few percent more; 50% cuts working-age lending by 10–30% and a 25% cap by more than half, in the first month',
       run: (e) => {
-        const at = (limit: number, appetite: number) => {
-          const f = e.fork();
-          f.setLever('ltvCap', limit);
-          f.setLever('lendingAppetite', appetite);
+        const lend = (limit: number) => {
+          const f = e.fork({ params: { ltvLimit: limit / 100 } });
           f.step(1);
-          return { regime: f.influences('mortgageLendingW').regime, lending: f.value('mortgageLendingW'), cap: f.value('ltvCapW'), demand: f.value('mortgageDemandW'), want: f.value('mortgageRepaymentW') + (limit / 100) * f.value('homePurchasesW') };
+          return (['Y', 'W'] as const).map((g) => ({ cut: f.value(`mortgageLending${g}`) / f.baseline(`mortgageLending${g}`) - 1, demand: f.value(`mortgageDemand${g}`) / f.baseline(`mortgageDemand${g}`) - 1, regime: f.influences(`mortgageLending${g}`).regime ?? null }));
         };
-        const calm = at(80, 0),
-          push = at(80, 2),
-          tighter = at(75, 2);
+        const [l25, l50, l80, l100] = [lend(25), lend(50), lend(80), lend(100)];
         const ok =
-          calm.regime === null &&
-          Math.abs(push.cap - push.want) < 1e-12 &&
-          push.regime === 'Loan-to-value cap binds' &&
-          Math.abs(push.lending - push.cap) < 1e-12 &&
-          push.demand > push.cap &&
-          tighter.lending < push.lending;
-        return { pass: ok, detail: `80%, no push: ${calm.regime ?? 'demand'}; 80% with +2: ${push.regime}, lending ${push.lending.toFixed(3)} = cap ${push.cap.toFixed(3)} < demand ${push.demand.toFixed(3)}; 75%: lending ${tighter.lending.toFixed(3)}` };
+          [0, 1].every((k) => Math.abs(l80[k].cut) < 1e-12 && l80[k].regime === null && l25[k].cut < l50[k].cut && l50[k].cut < 0 && l100[k].cut > 0 && l100[k].cut < 0.05 && Math.abs(l25[k].demand) < 1e-12) &&
+          l50[1].cut < -0.1 && l50[1].cut > -0.3 && l25[1].cut < -0.5 && l25[1].regime === 'Loan-to-value cap binds for many borrowers';
+        const pc = (x: { cut: number }) => `${(100 * x.cut).toFixed(1)}%`;
+        return { pass: ok, detail: (['Y', 'W'] as const).map((g, k) => `${g}: 25% ${pc(l25[k])}, 50% ${pc(l50[k])}, 80% ${pc(l80[k])}, 100% ${pc(l100[k])}`).join('; ') + `; at 25%: ${l25[1].regime}` };
+      },
+    },
+    {
+      id: 'lending-floor-named',
+      label: 'When households want to pay their debt down faster than it is repaid, lending stops at zero and the regime says why',
+      run: (e) => {
+        const f = e.fork({ params: { lendingAppetite: -8 } });
+        f.step(1);
+        const out = (['Y', 'W'] as const).map((g) => ({ g, v: f.value(`mortgageLending${g}`), demand: f.value(`mortgageDemand${g}`), regime: f.influences(`mortgageLending${g}`).regime }));
+        const ok = out.every((x) => x.v === 0 && x.demand < 0 && x.regime === 'No new lending: households want to pay debt down faster than they repay it');
+        return { pass: ok, detail: out.map((x) => `${x.g}: demand ${x.demand.toFixed(3)}, lending ${x.v}, “${x.regime}”`).join('; ') };
       },
     },
     {
@@ -527,15 +557,32 @@ export const mortgages: ModuleDef = {
     },
     {
       id: 'amortisation',
-      label: 'Amortisation: repayments = debt ÷ remaining term, split by who holds the loans',
+      label: 'Repayments = debt ÷ remaining term + the loans paid off as homes are sold, split by who holds the loans',
       run: (e) => {
         const bs = e.balanceSheet('HY');
         const debtY = bs.liabilities.filter((l) => l.instrument.startsWith('mortgages')).reduce((s, l) => s + l.value, 0);
-        const Tm = e.influences('mortgageRepaymentY').params.find((p) => p.id === 'Tm')!.value;
+        const ps = Object.fromEntries(e.influences('mortgageRepaymentY').params.map((p) => [p.id, p.value]));
+        const want = debtY * (1 / ps.Tm + ps.turnRate);
         const legs = ['N', 'I'].flatMap((s) => ['B', 'PF'].map((l) => e.value(`repayments${s}_HY_${l}`)));
         const sumLegs = legs.reduce((a, b) => a + b, 0);
-        const ok = Math.abs(e.value('mortgageRepaymentY') - debtY / Tm) < 1e-12 && Math.abs(sumLegs - debtY / Tm) < 1e-12;
-        return { pass: ok, detail: `debt ${debtY.toFixed(4)} ÷ ${Tm} years = ${(debtY / Tm).toFixed(6)}; repayment ${e.value('mortgageRepaymentY').toFixed(6)}; legs sum ${sumLegs.toFixed(6)}` };
+        const ok = Math.abs(e.value('mortgageRepaymentY') - want) < 1e-12 && Math.abs(sumLegs - want) < 1e-12 && ps.turnRate > 0;
+        return { pass: ok, detail: `debt ${debtY.toFixed(4)} × (1 ÷ ${ps.Tm} years + ${ps.turnRate} sold) = ${want.toFixed(6)}; repayment ${e.value('mortgageRepaymentY').toFixed(6)}; legs sum ${sumLegs.toFixed(6)}` };
+      },
+    },
+    {
+      id: 'gross-lending-is-purchase-lending',
+      label: 'Gross lending is the loans of home buyers: at baseline the average new loan is 30–75% of the price, and banks’ lending appetite at its minimum cuts gross lending by about half without stopping it',
+      run: (e) => {
+        const ltv = (['Y', 'W'] as const).map((g) => e.baseline(`mortgageLending${g}`) / e.baseline(`grossHomePurchases${g}`));
+        const f = e.fork();
+        f.setLever('lendingAppetite', -3);
+        let lowest = Infinity;
+        for (let m = 0; m < 60; m++) {
+          f.step(1);
+          lowest = Math.min(lowest, ...(['Y', 'W'] as const).map((g) => f.value(`mortgageLending${g}`) / f.baseline(`mortgageLending${g}`)));
+        }
+        const ok = ltv.every((x) => x > 0.3 && x < 0.75) && lowest > 0.3 && lowest < 0.7;
+        return { pass: ok, detail: `average new loan-to-value: young ${(100 * ltv[0]).toFixed(0)}%, working age ${(100 * ltv[1]).toFixed(0)}%; with appetite −3 the lowest gross lending in 5 years is ${(100 * lowest).toFixed(0)}% of baseline` };
       },
     },
     {
