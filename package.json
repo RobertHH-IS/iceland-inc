@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "harness": "bun run src/harness/cli.ts",
     "dev": "bun scripts/dev.ts",
-    "build": "bun build src/ui/index.html --outdir dist --production"
+    "build": "bun build src/ui/index.html --outdir dist --production",
+    "levers": "bun run src/harness/lever-cli.ts"
   },
   "type": "module",
   "dependencies": {

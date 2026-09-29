@@ -5,3 +5,4 @@ dist/
 reports/*.tmp
 .vercel
 .env*
+reports/levers/paths/
