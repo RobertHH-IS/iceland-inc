@@ -201,9 +201,9 @@ export const banks: ModuleDef = {
         ['keyRate', 'Key rate', 'taylor-rule', (c) => c.v('keyRate')],
         ['spread', 'Mortgage spread', undefined, (c) => c.p('sMN')],
         ['capitalPremium', 'Capital premium', 'bank-capital', (c) => c.v('loanPremium')],
-        ['funding', 'Pension funds’ demand for domestic assets (partly passed on)', 'bond-buyers', (c) => c.p('psiPFdomN') * c.v('domesticFundingPremium')],
+        ['funding', 'Pension funds’ demand for domestic assets', 'bond-buyers', (c) => c.p('psiPFdomN') * c.v('domesticFundingPremium')],
       ),
-      explain: { what: 'Interest on non-indexed mortgages, new and old (they float with the key rate).', rule: 'Rate = key rate + {sMN pp} + the capital premium + {psiPFdomN} × the domestic funding premium (banks fund these loans partly with deposits).' },
+      explain: { what: 'Interest on non-indexed mortgages, new and old (they float with the key rate).', rule: 'Rate = key rate + {sMN pp} + the capital premium + {psiPFdomN} × the domestic funding premium (banks price new loans on what their next króna of funding costs, the covered bonds the pension funds buy, though deposits fund part of these loans).' },
     },
     {
       id: 'mortgageRateI',

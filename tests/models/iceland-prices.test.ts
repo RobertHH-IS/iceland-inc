@@ -119,7 +119,7 @@ describe('H4: consumption is deflated by prices households pay for, not by house
   const lending = (lamRent: number) => {
     const e = createEngine(model).fork({ params: { lamRent, betaRentH: 1 } });
     e.setLever('lendingAppetite', 2); // the loan-to-value cap trims part of the push
-    e.step(6);
+    e.step(9); // long enough for house prices to reach the CPI clearly (0.1 point after 9 months)
     return e;
   };
 
