@@ -1,7 +1,7 @@
 /**
  * Iceland Inc.: mortgages (v1 equations E13 and E15–E20, and the credit impulse of E46).
  *
- * Young and working-age households want mortgage debt in proportion to their income, less when
+ * Young and working-age households want mortgage debt in proportion to their lasting income, less when
  * real mortgage rates are high and more when real house prices are high. New lending replaces
  * what is repaid and closes part of the gap to that wish, plus any extra banks push. It is
  * capped by the Central Bank's debt-service rule (payments at stressed rates may take at most
@@ -33,22 +33,36 @@ function groupRules(g: B): RuleDef[] {
   const dsti = g === 'Y' ? 'dstiY' : 'dstiW';
   return [
     {
+      id: `permIncome${g}`,
+      target: `permIncome${g}`,
+      category: 'BEHAVIOUR',
+      label: 'Income households borrow against',
+      lagInputs: [`grossIncome${g}`, 'cpi'],
+      adjust: { speed: 'lamYP', form: 'exponential' },
+      terms: terms(['income', 'Last month’s gross income at baseline prices', 'consumption-function', (c) => lastMonth(c, `grossIncome${g}`) / lastMonth(c, 'cpi')]),
+      concepts: ['gradual-adjustment'],
+      explain: {
+        what: `The income the ${who} expect to keep, at baseline prices: what they judge how much they can borrow by.`,
+        rule: 'Moves toward last month’s gross income ÷ the CPI at speed {lamYP} a year, a mean lag of about two years. A pay rise, a lost job or a bonus changes it only as it lasts, so a jump in pay does not become a jump in borrowing the next month.',
+      },
+    },
+    {
       id: `mortgageTarget${g}`,
       target: `mortgageTarget${g}`,
       category: 'BEHAVIOUR',
       label: 'Desired mortgage debt',
-      inputs: ['realMortgageRate', 'realHousePrice'],
-      lagInputs: [`grossIncome${g}`],
+      inputs: ['realMortgageRate', 'realHousePrice', `permIncome${g}`],
+      lagInputs: ['cpi'],
       params: [`mR${g}`, 'betaM', 'rmR0', 'betaMH'],
       terms: terms(
-        ['income', 'Debt in proportion to income', 'credit-and-house-prices', (c) => c.p(`mR${g}`) * lastMonth(c, `grossIncome${g}`)],
+        ['income', 'Debt in proportion to lasting income', 'credit-and-house-prices', (c) => c.p(`mR${g}`) * c.v(`permIncome${g}`) * lastMonth(c, 'cpi')],
         ['rate', 'Real mortgage rate', 'interest-distribution', (c) => 1 - c.p('betaM') * (c.v('realMortgageRate') - c.p('rmR0'))],
         ['housePrice', 'Real house prices', 'credit-and-house-prices', (c) => Math.pow(Math.max(1e-6, c.v('realHousePrice')), c.p('betaMH'))],
       ),
       combine: (t) => t.income * t.rate * t.housePrice,
       explain: {
         what: `The mortgage debt the ${who} would like to have.`,
-        rule: `Desired debt = {mR${g}} × last month’s gross income × (1 − {betaM} × (real mortgage rate − baseline)) × (real house price)^{betaMH}.`,
+        rule: `Desired debt = {mR${g}} × lasting income × last month’s CPI × (1 − {betaM} × (real mortgage rate − baseline)) × (real house price)^{betaMH}. Lasting income follows gross income with a lag of about two years, so households borrow more after a pay rise only as it proves to last.`,
       },
     },
     {
@@ -240,6 +254,7 @@ const vars: VarDef[] = [
   { id: 'realMortgageRate', label: 'Real mortgage rate', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('realMortgageRate'), description: 'The average real rate on new mortgages: indexed and non-indexed in their usual mix.' },
   { id: 'stressTestPayment', label: 'Stressed payment per króna of loan', unit: 'fraction/yr', kind: 'rate', scale: 'none', initial: base('stressTestPayment'), description: 'Yearly payment per króna borrowed, at the stress-test rates and terms of the debt-service rule.' },
   ...BORROWERS.flatMap((g): VarDef[] => [
+    { id: `permIncome${g}`, label: `Lasting income, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base(`grossIncome${g}`), description: 'Gross income at baseline prices, smoothed over about two years: what households judge their borrowing by.' },
     { id: `mortgageTarget${g}`, label: `Desired mortgage debt, ${AGE_LABEL[g]}`, unit: '% of GDP', kind: 'state', scale: 'nominal', initial: base(`mortgageTarget${g}`) },
     { id: `mortgageRepayment${g}`, label: `Mortgage repayments, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`mortgageRepayment${g}`) },
     { id: `mortgageDemand${g}`, label: `Mortgage demand, ${AGE_LABEL[g]}`, unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base(`mortgageDemand${g}`) },
@@ -263,7 +278,7 @@ export const mortgages: ModuleDef = {
   description: 'Desired mortgage debt, the debt-service and loan-to-value caps, amortisation, interest, CPI indexation and the credit impulse.',
   requires: ['structure', 'banks', 'households', 'housing', 'prices', 'firms'],
   params: pickParams(ALL_PARAMS, [
-    'theta', 'Tm', 'dstiY', 'dstiW', 'floorN', 'termN', 'floorI', 'termI', 'dstiShift', 'ltvLimit', 'ltvYExtra', 'betaM', 'lamM', 'betaMH',
+    'theta', 'Tm', 'dstiY', 'dstiW', 'floorN', 'termN', 'floorI', 'termI', 'dstiShift', 'ltvLimit', 'ltvYExtra', 'betaM', 'lamM', 'betaMH', 'lamYP',
     'mRY', 'mRW', 'nuY', 'nuW', 'rmR0', 'lendShY', 'lendShW', 'pfShN', 'pfShI', 'mortTot', 'mortShY', 'pfMortI', 'pfMortN', 'capUse0',
   ]),
   vars,
@@ -483,6 +498,31 @@ export const mortgages: ModuleDef = {
           push.demand > push.cap &&
           tighter.lending < push.lending;
         return { pass: ok, detail: `80%, no push: ${calm.regime ?? 'demand'}; 80% with +2: ${push.regime}, lending ${push.lending.toFixed(3)} = cap ${push.cap.toFixed(3)} < demand ${push.demand.toFixed(3)}; 75%: lending ${tighter.lending.toFixed(3)}` };
+      },
+    },
+    {
+      id: 'wage-rise-borrowing-builds-up',
+      label: 'After a 10% wage settlement households borrow more only as the higher pay lasts: net lending in month 2 is under 0.3% of GDP a year above no change, and peaks after 6 to 36 months, in both modes',
+      run: (e) => {
+        const path = (mode: number, shock: boolean) => {
+          const f = e.fork();
+          f.setLever('stabilisers', mode);
+          if (shock) f.fire('wageSettlement', 10);
+          const out = [0];
+          for (let m = 1; m <= 36; m++) {
+            f.step(1);
+            out.push(f.value('netMortgageLending'));
+          }
+          return out;
+        };
+        const res = [0, 1].map((mode) => {
+          const [a, b] = [path(mode, true), path(mode, false)];
+          const d = a.map((x, i) => x - b[i]);
+          const peak = d.indexOf(Math.max(...d.slice(1)));
+          return { mode, m2: d[2], peak, top: d[peak] };
+        });
+        const ok = res.every((r) => r.m2 < 0.3 && r.peak >= 6 && r.peak <= 36 && r.top > 2 * r.m2);
+        return { pass: ok, detail: res.map((r) => `${r.mode ? 'Automatic' : 'Manual'}: month 2 +${r.m2.toFixed(3)}, peak +${r.top.toFixed(3)} in month ${r.peak}`).join('; ') };
       },
     },
     {

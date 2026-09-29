@@ -326,6 +326,7 @@ P('lamC', 0.9, 'per year', 'BEHAVIOUR', 'Consumption habit: how fast spending mo
 P('betaM', 3, 'fraction', 'BEHAVIOUR', 'Desired mortgage debt versus the real mortgage rate (share lost per unit of rate).', assumed());
 P('lamM', 0.25, 'per year', 'BEHAVIOUR', 'How fast households move their mortgage debt toward what they want.', assumed());
 P('betaMH', 0.5, 'elasticity', 'BEHAVIOUR', 'Desired mortgage debt versus real house prices.', assumed());
+P('lamYP', 0.5, 'per year', 'BEHAVIOUR', 'How fast the income households borrow against (their lasting income) follows their gross income: a mean lag of about two years.', assumed('Permanent income: credit demand follows income households expect to last, not last month’s pay (Friedman 1957; the credit channel, Bernanke and Gertler 1995). A two-year mean lag keeps most of a temporary rise in real pay out of borrowing; at one year the wage-back-consumption check moved 13% when the step was halved. Borrowing against last month’s income turned a 10% wage settlement into net mortgage lending 1.2% of GDP a year higher from month 2 in both modes, about half of all baseline lending (lever review LAB-3, 29 September 2026).'));
 
 /* --------------------------------------------------------------- housing */
 const RENT: Provenance = {
