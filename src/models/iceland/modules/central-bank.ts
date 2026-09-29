@@ -38,6 +38,15 @@ export const zeroBoundWeight = (c: Ctx): number => Math.min(1, Math.max(0, -last
  *  rule that calls it declares `locks: [rule]`. */
 export const ruleStep = (c: Ctx, lam: number, rule: Id): number => gapShare(lam, c.locked(rule) ? MONTH : c.dt);
 
+/** The reserve target in krónur, set in foreign currency (decision 0013): fxr% of the past 12
+ *  months' GDP at baseline prices (÷ domestic prices), valued at the world prices the króna has
+ *  adjusted to and turned into krónur at last month's exchange rate. A move in the króna revalues
+ *  the reserves and the target alike, so it triggers no sales. The slow anchor, not world prices
+ *  themselves, so that a jump in world prices does not move the target before the króna has
+ *  absorbed it. At baseline it is fxr% of GDP. */
+export const reserveTarget = (c: Ctx): number =>
+  (c.p('fxr') / 100) * lastMonth(c, 'gdpTrailing12') * ((lastMonth(c, 'exchangeRate') * Math.exp(lastMonth(c, 'worldPriceAnchor'))) / Math.max(1e-6, lastMonth(c, 'domesticPrice')));
+
 export const centralBank: ModuleDef = {
   id: 'central-bank',
   label: 'Central bank',
@@ -249,20 +258,15 @@ export const centralBank: ModuleDef = {
       label: 'Reserve management (an operating rule)',
       params: ['iFXR', 'fxr', 'lamRes'],
       stocks: [['fxReserves', 'CB']],
-      lagInputs: ['gdpTrailing12'],
+      lagInputs: ['gdpTrailing12', 'exchangeRate', 'worldPriceAnchor', 'domesticPrice'],
       terms: terms(
         ['normal', 'Normal yield turned into krónur', 'reserves-and-payments', (c) => c.p('iFXR') * c.stock('fxReserves', 'CB')],
-        [
-          'target',
-          'Reserves above or below their target',
-          'reserves-and-payments',
-          (c) => c.p('lamRes') * (c.stock('fxReserves', 'CB') - (c.p('fxr') / 100) * lastMonth(c, 'gdpTrailing12')),
-        ],
+        ['target', 'Reserves above or below their target (set in foreign currency)', 'reserves-and-payments', (c) => c.p('lamRes') * (c.stock('fxReserves', 'CB') - reserveTarget(c))],
       ),
       concepts: ['reserves-and-payments'],
       explain: {
         what: 'Foreign currency the central bank sells to non-residents for krónur, out of its reserves (below zero when it buys).',
-        rule: 'Sales = the normal reserve yield {iFXR%} × the reserves’ value in krónur + {lamRes} a year × (the reserves − their target of {fxr}% of GDP over the past 12 months). The central bank turns the normal return on its reserves into krónur, which it hands to the government with the rest of its profit. Anything the reserves earn above that, when rates abroad rise, first builds up the reserves in foreign currency, so it takes no krónur from non-residents at once. The bank then sells reserves above its target slowly back into krónur, and buys when they are below it, so the reserves settle near {fxr}% of GDP instead of growing without end. Non-residents pay out of their króna deposits. This is how the central bank runs its balance sheet under its reserve-adequacy mandate, not a policy setting: no lever holds it, and it works the same whether the policy levers are locked or not.',
+        rule: 'Sales = the normal reserve yield {iFXR%} × the reserves’ value in krónur + {lamRes} a year × (the reserves − their target). Reserve adequacy is a foreign-currency idea, so the target is set in foreign currency: {fxr}% of the past 12 months’ GDP at baseline prices, valued at the world prices the króna has adjusted to, and turned into krónur at last month’s exchange rate. A move in the króna revalues the reserves and the target alike, so it triggers no sales: the bank does not sell reserves into a depreciation, which would be intervention by the back door. Real growth, and a slow change in the real exchange rate, move the target. The central bank turns the normal return on its reserves into krónur, which it hands to the government with the rest of its profit. Anything the reserves earn above that, when rates abroad rise, first builds up the reserves in foreign currency, so it takes no krónur from non-residents at once. The bank then sells reserves above its target slowly back into krónur, and buys when they are below it, so the reserves settle near {fxr}% of GDP (at the real exchange rate of the time) instead of growing without end. Non-residents pay out of their króna deposits. This is how the central bank runs its balance sheet under its reserve-adequacy mandate, not a policy setting: no lever holds it, and it works the same whether the policy levers are locked or not.',
       },
     },
     {
@@ -348,7 +352,7 @@ export const centralBank: ModuleDef = {
       description:
         'The central bank’s key interest rate. Unlocked (the default), the central bank’s inflation rule sets it and the lever follows the rule. Move the lever, or close its padlock, to hold the rate yourself; the rule then only suggests a rate beside the lever.',
       definition:
-        'Level of the key rate in percent a year. Unlocked (the default) the central bank’s inflation rule sets it every month, and the lever shows the rule’s rate. Moving the lever, or closing its padlock, locks it: the key rate is then held at the lever’s level from the month it is set until you move it again, and the rule only suggests a rate beside the lever. Closing the padlock holds the rate in force that month. Unlocking hands the key rate back to the rule, which moves from the rate you held about a tenth of the way toward where it is heading each month, so the rate does not jump. The default, 3%, is the neutral rate, so the baseline is unchanged. While the key rate is locked, nothing anchors inflation but people’s partial trust in the target: a lasting change that keeps unemployment off its normal rate keeps inflation off target for as long as you hold the rate, and the price level drifts (decision 0002 §6). Held while income tax is unlocked, the debt rule pays for the higher interest bill with higher taxes, so a higher rate keeps cooling the economy: at 6%, output is about 1.5% below baseline after a year, 2.3% below in the fourth year and about 2.4% below until about the tenth, still 1.2% below after 20 years, with the price level 11% lower, government debt 27 points of GDP higher and income tax 3.2 points higher. (The debt rule stands aside while the central bank’s own rule is heading below zero, and that rule now reads slack from unemployment, decision 0012, so taxes rise sooner than they did: with the fixed potential output was 0.8% below after 20 years.) At 15% the interest bill runs away: debt ends about 260 points of GDP higher and income tax 41 points higher, rates no government could sustain; treat that run as showing why real central banks do not hold such rates, not as a forecast. Held at 0%, output is 1.5% higher after a year and 3.3% after 20, with the price level 18% higher and still rising. With income tax locked too, nothing in the model reacts, and any lasting move reverses its effect on output after about ten years, roughly in proportion to its size: a rise first cools the economy, but the government then pays more interest every year, as its bonds are refinanced at the higher rate (about a fifth of them a year) and on a debt that grows with that interest, and the interest is income for households and pension funds, who spend it. At 4%, output is about 0.5% below baseline after a year and about 0.7% below at the trough early in the fourth year, back above it from about month 136 and about 0.7% above after 20 years; bigger moves reverse sooner and much further. At 6%, output is 2.2% lower at the trough, above baseline from month 124 and 2.8% higher after 20 years, with inflation 0.9 point higher. At the top of the range the run becomes explosive: at 15%, output falls 9.5% by the fourth year, is above baseline from month 110, and after 20 years is 29% higher with unemployment 3 points lower, the price level 46% higher, real wages 27% lower, government debt 350 points of GDP higher and the deficit 45% of GDP, still accelerating. That is fiscal dominance: a government that neither taxes nor cuts spending pays for its interest by borrowing, and the interest it pays is spent. A cut mirrors this.',
+        'Level of the key rate in percent a year. Unlocked (the default) the central bank’s inflation rule sets it every month, and the lever shows the rule’s rate. Moving the lever, or closing its padlock, locks it: the key rate is then held at the lever’s level from the month it is set until you move it again, and the rule only suggests a rate beside the lever. Closing the padlock holds the rate in force that month. Unlocking hands the key rate back to the rule, which moves from the rate you held about a tenth of the way toward where it is heading each month, so the rate does not jump. The default, 3%, is the neutral rate, so the baseline is unchanged. While the key rate is locked, nothing anchors inflation but people’s partial trust in the target: a lasting change that keeps unemployment off its normal rate keeps inflation off target for as long as you hold the rate, and the price level drifts (decision 0002 §6). Held while income tax is unlocked, the debt rule pays for the higher interest bill with higher taxes, so a higher rate keeps cooling the economy: at 6%, output is about 1.6% below baseline after a year, 2.6% below in the fourth year and about 2.5% below until about the tenth, still 0.9% below after 20 years, with the price level 10.5% lower, government debt 29 points of GDP higher and income tax 2.9 points higher. (The debt rule stands aside while the central bank’s own rule is heading below zero, and that rule now reads slack from unemployment, decision 0012, so taxes rise sooner than they did: with the fixed potential output was 0.8% below after 20 years.) At 15% the interest bill runs away: debt ends about 250 points of GDP higher and income tax 35 points higher, rates no government could sustain; treat that run as showing why real central banks do not hold such rates, not as a forecast. Held at 0%, output is 1.6% higher after a year and 3.4% after 20, with the price level 19% higher and still rising. With income tax locked too, nothing in the model reacts, and any lasting move reverses its effect on output after about ten years, roughly in proportion to its size: a rise first cools the economy, but the government then pays more interest every year, as its bonds are refinanced at the higher rate (about a fifth of them a year) and on a debt that grows with that interest, and the interest is income for households and pension funds, who spend it. At 4%, output is about 0.5% below baseline after a year and about 0.8% below at the trough early in the fourth year, back above it from about month 140 and about 0.7% above after 20 years; bigger moves reverse sooner and much further. At 6%, output is 2.4% lower at the trough, above baseline from month 127 and 2.9% higher after 20 years, with inflation 0.9 point higher. At the top of the range the run becomes explosive: at 15%, output falls 10% by the fourth year, is above baseline from month 108, and after 20 years is 34% higher with unemployment 3 points lower, the price level 62% higher, real wages 39% lower, government debt 320 points of GDP higher and the deficit 42% of GDP, still accelerating. That is fiscal dominance: a government that neither taxes nor cuts spending pays for its interest by borrowing, and the interest it pays is spent. A cut mirrors this.',
       concepts: ['taylor-rule', 'interest-rate-channel'],
     },
   ],
@@ -369,6 +373,24 @@ export const centralBank: ModuleDef = {
     },
   ],
   tests: [
+    {
+      id: 'reserve-target-in-foreign-currency',
+      label: 'The reserve target is set in foreign currency: fxr% of GDP at baseline, and a fall in the króna revalues it with the reserves, so it triggers no sales (decision 0013)',
+      run: (e) => {
+        const ke = e as unknown as { stock(i: string, p: string): number; valueAt(id: string, m: number): number };
+        const fxr = e.influences('fxReserveSales').params.find((x) => x.id === 'fxr')!.value;
+        const target0 = e.influences('fxReserveSales').terms.find((x) => x.id === 'target')!.value;
+        lockPolicy(e);
+        e.fire('kronaShock', -25);
+        e.step(6); // the target reads last month's rate, so it trails the reserves while the króna is still falling
+        // reserves ÷ target now, against reserves ÷ what a target in krónur (fxr% of the past year's GDP) would be
+        const lam = e.influences('fxReserveSales').params.find((x) => x.id === 'lamRes')!.value;
+        const target = ke.stock('fxReserves', 'CB') - e.influences('fxReserveSales').terms.find((x) => x.id === 'target')!.value / lam;
+        const inKronur = (fxr / 100) * ke.valueAt('gdpTrailing12', e.t - 1);
+        const [gapFX, gapISK] = [ke.stock('fxReserves', 'CB') / target - 1, ke.stock('fxReserves', 'CB') / inKronur - 1];
+        return { pass: Math.abs(target0) < 1e-12 && Math.abs(gapFX) < 0.02 && gapISK > 0.1, detail: `six months after a 25% fall in sentiment: reserves ${(100 * gapFX).toFixed(2)}% above their target (a target in krónur would put them ${(100 * gapISK).toFixed(1)}% above it)` };
+      },
+    },
     {
       id: 'neutral-at-baseline',
       label: 'At baseline the key rate equals the neutral nominal rate (real neutral + inflation target)',

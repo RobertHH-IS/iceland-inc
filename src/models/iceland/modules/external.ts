@@ -151,22 +151,28 @@ const wDepositsAfterTrade = (c: Ctx) => wDepositsBeforeTrade(c) - c.dt * c.v('bo
 /** The interest-rate gap with abroad: the key rate above its normal nominal level (i0 + piT) minus
  *  the foreign rate above its normal level iF0. */
 const rateGap = (c: Ctx) => c.v('keyRate') - (c.p('i0') + c.p('piT')) - (c.v('foreignRate') - c.p('iF0'));
-/** Portfolio balance: log of (non-residents' net real króna holdings + the rest of the market's
- *  depth) ÷ (what they want to hold + that depth). Net holdings are their deposits and government
- *  bonds less the krónur they have borrowed from banks. What they want to hold is their normal
- *  holdings krona0 plus the bonds the carry trade wants on top when Icelandic rates are high
- *  (bondW × psiB × the rate gap, as bondPurchasesW), so krónur bought for the rate gap do not
- *  weaken the króna. The depth fxDepth stands for the other holders who take krónur on or give them
- *  up as the price moves: it makes the term nearly symmetric for moderate swings and bounds it.
- *  A short position counts down to half the depth, so the premium is at least
- *  betaH × log((fxDepth ÷ 2) ÷ (krona0 + fxDepth)) (lever review TAX-1). */
+/** Non-residents' net real króna holdings: their deposits and government bonds less the krónur
+ *  they have borrowed from banks, deflated by last month's domestic prices. */
 const netKronur = (c: Ctx) => (c.stock('deposits', 'W') + c.stock('govBonds', 'W') - c.stock('kronaLoansW', 'W')) / Math.max(1e-6, lastMonth(c, 'domesticPrice'));
-const shortestCounted = (c: Ctx) => -0.5 * c.p('fxDepth');
-const portfolioPremium = (c: Ctx) => {
-  const wanted = c.p('krona0') + c.p('bondW') * c.p('psiB') * rateGap(c);
-  const D = c.p('fxDepth');
-  return c.p('betaH') * Math.log((Math.max(shortestCounted(c), netKronur(c)) + D) / Math.max(0.05 * D, wanted + D));
-};
+/** What non-residents want to hold: their normal holdings krona0 plus the bonds the carry trade
+ *  wants on top when Icelandic rates are high (bondW × psiB × the rate gap, as bondPurchasesW), so
+ *  krónur bought for the rate gap do not weaken the króna. */
+const wantedKronur = (c: Ctx) => c.p('krona0') + c.p('bondW') * c.p('psiB') * rateGap(c);
+/** The krónur a year the carry trade takes up for the rate gap (% of GDP a year, real): the carry
+ *  term of its bond rule, lamBW × its normal bonds bondW × psiB × the rate gap (wCarry, at baseline
+ *  prices). The flow term prices only the krónur flowing to non-residents beyond it: the flow
+ *  counterpart of netting the carry trade's wanted holdings out of the stock term (decision 0013,
+ *  lever-vetting item 4). Without it a credit boom's import bill, priced as it flows, outran the
+ *  rule's tightening and weakened the real króna. */
+const carryFlow = (c: Ctx) => c.p('lamBW') * c.p('bondW') * c.p('psiB') * rateGap(c);
+/** The smooth one-sided limit on portfolio balance (decision 0013): one for one while non-residents
+ *  hold more krónur than they want (g ≥ 0), and at most pbBound stronger however short they are,
+ *  approached smoothly: pbBound × tanh(g ÷ pbBound). */
+export const smoothBound = (g: number, b: number): number => (g >= 0 ? g : b * Math.tanh(g / b));
+/** How much of the limit the short side has used: tanh(|g| ÷ pbBound), 0 on the long side. The
+ *  regime "Portfolio balance near its limit" shows above PB_NEAR_LIMIT. */
+export const boundUsed = (g: number, b: number): number => (g >= 0 ? 0 : Math.tanh(-g / b));
+export const PB_NEAR_LIMIT = 0.8;
 
 /** Relative price factor for home-market import volumes: (real exchange rate)^−epsM. */
 const rq = (c: { v(id: string): number; p(id: string): number }) => Math.pow(Math.max(1e-6, c.v('realExchangeRate')), -c.p('epsM'));
@@ -181,6 +187,8 @@ const vars: VarDef[] = [
   { id: 'kronaSentiment', label: 'Króna sentiment', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'A shift in what investors think the króna is worth; positive means a weaker króna.' },
   { id: 'sentimentShock', label: 'Króna sentiment shock this month', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'A one-off change in sentiment; zero in every month without one.' },
   { id: 'worldPriceAnchor', label: 'World prices the króna has adjusted to (log)', unit: 'log points', kind: 'state', scale: 'none', initial: 0, description: 'The level of world prices that purchasing-power parity has so far built into the króna’s target, in logs (0 at baseline). It catches up with world prices over years.' },
+  { id: 'kronaInflowW', label: 'Krónur flowing to non-residents (real, a quarter’s average)', unit: '% of GDP/yr', kind: 'flow', scale: 'real', initial: 0, description: 'The net flow of krónur to non-residents, averaged over about a quarter, at baseline prices: Iceland’s current-account deficit (leaving out reserve income the central bank keeps abroad, which is not paid in krónur) plus pension funds’ foreign purchases. Zero at baseline.' },
+  { id: 'portfolioGap', label: 'Portfolio balance before its limit', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0, description: 'How much weaker non-residents’ króna holdings, and the krónur flowing to them, would make the króna before the smooth limit on the short side: positive when they hold more than they want. Zero at baseline.' },
   { id: 'logExchangeRate', label: 'Exchange rate (log)', unit: 'log points', kind: 'ratio', scale: 'none', initial: 0 },
   { id: 'exchangeRate', label: 'Exchange rate', unit: 'index', kind: 'price', scale: 'nominal', initial: 1, description: 'Krónur per unit of foreign currency (1 at baseline); up means a weaker króna.' },
   { id: 'realExchangeRate', label: 'Real exchange rate (as trade sees it)', unit: 'index', kind: 'price', scale: 'none', initial: 1, description: 'Foreign prices in krónur ÷ domestic prices, smoothed; up means Iceland is cheaper.' },
@@ -217,7 +225,7 @@ export const external: ModuleDef = {
   requires: ['structure', 'prices', 'central-bank', 'firms', 'government', 'households', 'pensions'],
   params: pickParams(ALL_PARAMS, [
     'xFish', 'xAlu', 'xTour', 'xOther', 'eFish', 'eAlu', 'eTour', 'eOther', 'lamRer', 'muX', 'muC', 'muD', 'muI', 'muG', 'epsM',
-    'betaI', 'betaH', 'fxDepth', 'lamFX', 'lamPPP', 'lamSent', 'psiB', 'lamBW', 'iF0', 'iFnow', 'krona0', 'bW0', 'worldPrice0', 'fishPrice0', 'aluminiumPrice0',
+    'betaI', 'pbStock', 'pbFlow', 'pbBound', 'lamFlowFX', 'lamFX', 'lamPPP', 'lamSent', 'psiB', 'lamBW', 'iF0', 'iFnow', 'krona0', 'bW0', 'worldPrice0', 'fishPrice0', 'aluminiumPrice0',
     'foreignDemandShift', 'tourismShift', 'lamXD', 'lamTourDown', 'foreignRateShift', 'worldPriceShift', 'fishPriceShift', 'aluminiumPriceShift', 'fdWeightFish', 'bondW', 'depW', 'eqW', 'wDepositFloorShare',
     'gvaXF', 'gvaXA', 'gvaXT', 'gvaXO', 'mXF', 'mXA', 'mXT', 'mXO', 'dXF', 'dXA', 'dXT', 'dXO',
   ]),
@@ -342,30 +350,69 @@ export const external: ModuleDef = {
       },
     },
     {
-      id: 'logExchangeRate',
-      target: 'logExchangeRate',
+      id: 'kronaInflowW',
+      target: 'kronaInflowW',
       category: 'BEHAVIOUR',
-      label: 'The króna',
-      inputs: ['kronaSentiment', 'keyRate', 'foreignRate', 'worldPriceAnchor'],
+      label: 'Krónur flowing to non-residents',
+      lagInputs: ['foreignAssetPurchases', 'currentAccount', 'reserveIncomeKept', 'domesticPrice'],
+      adjust: { speed: 'lamFlowFX', form: 'exponential' },
+      terms: terms(
+        ['deficit', 'Current-account deficit (krónur paid abroad)', 'current-account', (c) => -lastMonth(c, 'currentAccount') / Math.max(1e-6, lastMonth(c, 'domesticPrice'))],
+        ['reserves', 'Reserve income the central bank keeps abroad (counted in the current account, not paid in krónur)', 'reserves-and-payments', (c) => lastMonth(c, 'reserveIncomeKept') / Math.max(1e-6, lastMonth(c, 'domesticPrice'))],
+        ['funds', 'Pension funds’ foreign purchases (krónur sold)', 'funded-pensions', (c) => lastMonth(c, 'foreignAssetPurchases') / Math.max(1e-6, lastMonth(c, 'domesticPrice'))],
+      ),
+      concepts: ['current-account', 'floating-exchange-rate'],
+      explain: {
+        what: 'How many krónur a year are flowing to non-residents at the moment, averaged over about a quarter, at baseline prices. Zero at baseline, when non-residents’ holdings are steady.',
+        rule: 'Moves toward last month’s flow at speed {lamFlowFX} a year, about a quarter’s average: the current-account deficit, plus pension funds’ foreign purchases, each ÷ domestic prices. Reserve income the central bank keeps abroad counts in the current account but is paid in foreign currency, so it is added back. It is what non-residents’ króna holdings are about to grow by.',
+      },
+    },
+    {
+      id: 'portfolioGap',
+      target: 'portfolioGap',
+      category: 'BEHAVIOUR',
+      label: 'Portfolio balance (before its limit)',
+      inputs: ['keyRate', 'foreignRate', 'kronaInflowW'],
       lagInputs: ['domesticPrice'],
-      params: ['betaI', 'betaH', 'i0', 'piT', 'iF0', 'krona0', 'bondW', 'psiB', 'fxDepth'],
+      params: ['pbStock', 'pbFlow', 'krona0', 'bondW', 'psiB', 'i0', 'piT', 'iF0', 'lamBW'],
       stocks: [
         ['deposits', 'W'],
         ['govBonds', 'W'],
         ['kronaLoansW', 'W'],
       ],
+      terms: terms(
+        ['holdings', 'Non-residents’ króna holdings against what they want to hold', 'floating-exchange-rate', (c) => c.p('pbStock') * (netKronur(c) - wantedKronur(c))],
+        ['flow', 'Krónur still flowing to them', 'floating-exchange-rate', (c) => c.p('pbFlow') * c.v('kronaInflowW')],
+        ['carryFlow', 'Less the krónur the carry trade takes up a year for the rate gap', 'carry-trade', (c) => -c.p('pbFlow') * carryFlow(c)],
+      ),
+      concepts: ['floating-exchange-rate', 'carry-trade'],
+      explain: {
+        what: 'How much weaker the króna must be for non-residents to hold the krónur they have, and those still flowing to them, in log points (0.01 is about 1%), before the limit on the short side. Positive when they hold more than they want.',
+        rule: 'Gap = {pbStock} × (their holdings − what they want to hold), in % of GDP, + {pbFlow} × (the krónur flowing to them a year − the krónur the carry trade takes up a year for the rate gap). Their holdings are their deposits and government bonds less any krónur they have borrowed, in real terms. What they want to hold is their normal holdings {krona0}% of GDP plus the extra bonds the carry trade wants when Icelandic rates are high ({psiB} × the rate gap × their normal bonds {bondW}), so krónur bought for the rate gap do not weaken the króna. The flow part is extrapolative expectations of flows: the market takes the last quarter’s flow of krónur as the flow still to come and prices about {pbFlow} ÷ {pbStock} of a year of it before it has piled up. While Icelandic rates are high the carry trade keeps buying krónur for the rate gap ({lamBW} a year × {psiB} × the rate gap × their normal bonds {bondW}, its bond rule’s carry term), so that part of the flow is taken up and not priced: in a credit boom the central bank’s tightening draws in carry money that meets part of the import bill. The rate gap is the key rate above its normal level (the neutral real rate {i0%} + the inflation target {piT%}) minus the foreign interest rate above its normal level {iF0%}.',
+      },
+    },
+    {
+      id: 'logExchangeRate',
+      target: 'logExchangeRate',
+      category: 'BEHAVIOUR',
+      label: 'The króna',
+      inputs: ['kronaSentiment', 'keyRate', 'foreignRate', 'worldPriceAnchor', 'portfolioGap'],
+      lagInputs: ['domesticPrice'],
+      params: ['betaI', 'pbBound', 'i0', 'piT', 'iF0'],
       adjust: { speed: 'lamFX', form: 'exponential' },
       terms: terms(
         ['ppp', 'Relative prices (purchasing-power parity)', 'purchasing-power-parity', (c) => Math.log(lastMonth(c, 'domesticPrice')) - c.v('worldPriceAnchor')],
         ['sentiment', 'Sentiment', 'floating-exchange-rate', (c) => c.v('kronaSentiment')],
         ['carry', 'Interest-rate gap with abroad', 'carry-trade', (c) => -c.p('betaI') * rateGap(c)],
-        ['portfolio', 'Non-residents’ króna holdings against what they want to hold', 'floating-exchange-rate', portfolioPremium],
+        ['portfolio', 'Non-residents’ króna holdings, and the krónur flowing to them, against what they want to hold', 'floating-exchange-rate', (c) => smoothBound(c.v('portfolioGap'), c.p('pbBound'))],
       ),
-      regime: (c) => (netKronur(c) < shortestCounted(c) ? 'Non-residents are short of krónur: portfolio balance at its bound' : null),
+      // The portfolio term's smooth limit on the short side: named once it has used most of it
+      // (model rule 2; lever review item 5).
+      regime: (c) => (boundUsed(c.v('portfolioGap'), c.p('pbBound')) > PB_NEAR_LIMIT ? 'Portfolio balance near its limit: non-residents short of krónur' : null),
       concepts: ['floating-exchange-rate', 'purchasing-power-parity'],
       explain: {
         what: 'The exchange rate in logs: krónur per unit of foreign currency. Up means a weaker króna.',
-        rule: 'Moves toward a target at speed {lamFX} a year, about 63% of the way each month. Target = log of domestic prices − the world prices the króna has adjusted to + sentiment − {betaI} × the rate gap with abroad + the portfolio-balance term. The first two are purchasing-power parity: in the long run the króna keeps Icelandic goods as dear as before, so it follows domestic prices at once, but absorbs a change in world prices only over years, at {lamPPP} a year. The rate gap term is the carry trade: when Icelandic rates are high compared with rates abroad, investors buy krónur, so the króna is stronger. The holdings term is portfolio balance: the more krónur non-residents hold compared with what they want to hold, the cheaper the króna must be before they will hold more. Their holdings are their deposits and government bonds less any krónur they have borrowed, in real terms. What they want to hold is their normal holdings plus the extra bonds the carry trade wants when Icelandic rates are high ({psiB} × the rate gap × their normal bonds {bondW}), so krónur bought for the rate gap do not weaken the króna. Other holders take krónur on or give them up too (a market depth of {fxDepth}% of GDP), so the term is {betaH} × log((their holdings + {fxDepth}) ÷ (what they want to hold + {fxDepth})): about 1.7% on the króna per 1% of GDP at first, less for larger swings. A short position counts only down to half the depth, so however few krónur non-residents hold, this term makes the króna at most about 40% stronger. The rate gap is the key rate above its normal level (the neutral real rate {i0%} + the inflation target {piT%}) minus the foreign interest rate above its normal level {iF0%}.',
+        rule: 'Moves toward a target at speed {lamFX} a year, about 63% of the way each month. Target = log of domestic prices − the world prices the króna has adjusted to + sentiment − {betaI} × the rate gap with abroad + the portfolio-balance term. The first two are purchasing-power parity: in the long run the króna keeps Icelandic goods as dear as before, so it follows domestic prices at once, but absorbs a change in world prices only over years, at {lamPPP} a year. The rate gap term is the carry trade: when Icelandic rates are high compared with rates abroad, investors buy krónur, so the króna is stronger. The rate gap is the key rate above its normal level (the neutral real rate {i0%} + the inflation target {piT%}) minus the foreign interest rate above its normal level {iF0%}. The portfolio-balance term is the gap between the krónur non-residents hold, and those flowing to them, and what they want to hold (its own rule): the more they hold, the cheaper the króna must be before they will hold more. When they hold fewer krónur than they want, it makes the króna stronger only up to a limit of {pbBound} log points, approached smoothly ({pbBound} × tanh(gap ÷ {pbBound})), because other holders take krónur on or give them up as the price moves; once more than 80% of that limit is used, the rule says so.',
       },
     },
     {
@@ -737,7 +784,7 @@ export const external: ModuleDef = {
       binds: { param: 'foreignDemandShift', mode: 'add', scale: 0.01 },
       description: 'Demand abroad for Icelandic goods and services other than tourism and aluminium: it moves other exporters one for one and fisheries lightly.',
       definition:
-        'Level shift in foreign demand, in percent of baseline, persistent while set. It reaches export volumes over a few quarters (about a fifth in the first month, 95% within a year): other exporters’ volume moves by the full percentage and marine volume by 0.3 of it (catches are capped by quotas). Tourism has its own lever and the smelters run at capacity. Held for many years, a lasting change in exports also changes the króna for good: non-residents’ krónur keep draining (or piling up) until the current account closes, so a rise ends in a stronger real króna that takes back other exports, and a fall in a weaker one (decision 0002 §6). With the policy rules acting output and unemployment end near baseline (at +20 unemployment about 0.1 point higher after 20 years). With the key rate held (both policy levers locked) the króna keeps strengthening and prices keep falling after a rise, so after about ten years output ends below baseline and unemployment above it (+20: output 1.2% lower and unemployment 0.5 point higher after 20 years), and the reverse after a fall: a known gap in how the current account closes, not a lasting cost of exporting more. Setting it back to 0 returns demand to baseline the same way.',
+        'Level shift in foreign demand, in percent of baseline, persistent while set. It reaches export volumes over a few quarters (about a fifth in the first month, 95% within a year): other exporters’ volume moves by the full percentage and marine volume by 0.3 of it (catches are capped by quotas). Tourism has its own lever and the smelters run at capacity. Held for many years, a lasting change in exports also changes the króna for good: non-residents’ krónur keep draining (or piling up) until the current account closes, so a rise ends in a stronger real króna that takes back other exports, and a fall in a weaker one (decision 0002 §6). With the policy rules acting output and unemployment end near baseline (at +20 unemployment about 0.1 point higher after 20 years). With the key rate held (both policy levers locked) the króna keeps strengthening and prices keep falling after a rise, so after about ten years output ends below baseline and unemployment above it (+20: output 0.8% lower and unemployment 0.3 point higher after 20 years), and the reverse after a fall: a known gap in how the current account closes, not a lasting cost of exporting more. Setting it back to 0 returns demand to baseline the same way.',
       concepts: ['export-sectors'],
     },
     {
@@ -754,7 +801,7 @@ export const external: ModuleDef = {
       binds: { param: 'tourismShift', mode: 'add', scale: 0.01 },
       description: 'Foreign visitors’ spending: it drives the tourism sector.',
       definition:
-        'Level shift in tourism export volume (what foreign visitors buy), in percent of baseline, persistent while set. A rise reaches visitor numbers over a few quarters (95% within a year), limited by flights, hotel rooms and staff; a fall hits within a month or so, as in 2010 and 2020. Tourism firms’ revenue, jobs and imports follow. Held for many years, a lasting change in exports also changes the króna for good: non-residents’ krónur keep draining (or piling up) until the current account closes, so a rise ends in a stronger real króna that takes back other exports, and a fall in a weaker one (decision 0002 §6). With the policy rules acting output and unemployment end near baseline (at +30 unemployment about 0.1 point higher after 20 years). A very large fall is different: at −60, about the 2020 collapse, the central bank cuts gradually, because it reads slack from unemployment, which rises more slowly than output falls, while the weaker króna lifts inflation at first: the key rate is still about 1.3% after a year and reaches zero in the fourth year, where it stays. Prices fall (12% lower after 20 years, inflation still about 0.4 point below target), and output is still about 2% lower and unemployment 0.9 point higher after twenty years. Until the key rate is stuck at zero the debt rule leans against the rising debt, and income tax ends 1.2 points higher; from then on it raises no taxes (its escape clause), and without that clause it raised income tax by over 3 points and output ended almost 4% lower. (While the central bank measured slack against a fixed capacity it cut to zero within about half a year, and output ended about 1% lower with no tax rise; decision 0012.) With the key rate held (both policy levers locked) the króna keeps strengthening and prices keep falling after a rise, so after about ten years output ends below baseline and unemployment above it (+30: output 1.4% lower and unemployment 0.5 point higher; +10: 0.4% and 0.15 point after 20 years), and the reverse after a fall: a known gap in how the current account closes, not a lasting cost of exporting more. Setting it back to 0 ends it the same way.',
+        'Level shift in tourism export volume (what foreign visitors buy), in percent of baseline, persistent while set. A rise reaches visitor numbers over a few quarters (95% within a year), limited by flights, hotel rooms and staff; a fall hits within a month or so, as in 2010 and 2020. Tourism firms’ revenue, jobs and imports follow. Held for many years, a lasting change in exports also changes the króna for good: non-residents’ krónur keep draining (or piling up) until the current account closes, so a rise ends in a stronger real króna that takes back other exports, and a fall in a weaker one (decision 0002 §6). With the policy rules acting output and unemployment end near baseline (at +30 unemployment about 0.1 point higher after 20 years). A very large fall is different: at −60, about the 2020 collapse, the central bank cuts gradually, because it reads slack from unemployment, which rises more slowly than output falls, while the weaker króna lifts inflation at first: foreign currency is about 12% dearer after a year (the 2020 slump took about 10% off the trade-weighted króna), inflation is higher for the first two years, and the key rate is still about 1.5% after a year and reaches zero in the fourth year, where it stays. Prices then fall (8% lower after 20 years, inflation still about 0.15 point below target), and output is still about 1.3% lower and unemployment 0.6 point higher after twenty years. Until the key rate is stuck at zero the debt rule leans against the rising debt, and income tax ends 1.3 points higher; from then on it raises no taxes (its escape clause), and without that clause it raised income tax by over 3 points and output ended almost 4% lower. (While the central bank measured slack against a fixed capacity it cut to zero within about half a year, and output ended about 1% lower with no tax rise; decision 0012.) With the key rate held (both policy levers locked) the króna keeps strengthening and prices keep falling after a rise, so after about ten years output ends below baseline and unemployment above it (+30: output 1.1% lower and unemployment 0.45 point higher; +10: 0.4% and 0.15 point after 20 years), and the reverse after a fall: a known gap in how the current account closes, not a lasting cost of exporting more. Setting it back to 0 ends it the same way.',
       concepts: ['export-sectors'],
     },
     {
@@ -770,7 +817,7 @@ export const external: ModuleDef = {
       step: 1,
       description: 'A one-off shift in what investors think the króna is worth. Negative means a weaker króna.',
       definition:
-        'One-off shift in the króna’s target value by this percentage (−10: a target 10% weaker), fired once. The króna falls by most of it within a quarter (−10: about 9% by month 3). At first the current account worsens: imports are invoiced in foreign currency, so the import bill in krónur rises at once, while volumes take months to respond (a J-curve). Then portfolio balance pulls the króna back. Pension funds sell some of their foreign assets, now worth more in krónur, to get back to their target share (about 1.5–2% of GDP a year at first), and once trade has turned, the surplus the weaker króna brings drains krónur too. With fewer krónur to hold, non-residents accept a stronger króna. With the policy rules acting the central bank also raises the key rate, and the wider rate gap adds to the pull; with both policy levers locked the key rate does not move. Part of the fall is gone after a year: about a quarter with the policy rules acting and a sixth with both policy levers locked (−10: about 7% weaker at month 12 with the policy rules acting, 8% with both policy levers locked); two-thirds after two years with the policy rules acting and half with both policy levers locked. The shift in the target itself fades at only about 10% of its size a year, so the króna recovers well before it has faded. No one here owes foreign currency (pension funds and the central bank hold foreign assets), so a weaker króna raises residents’ net worth; the squeeze comes from dearer imports cutting real wages and from CPI indexation of mortgages and government debt. Before 2008, firms’ and households’ foreign-currency loans made a fall in the króna far more damaging (Krugman 1999; Céspedes, Chang and Velasco 2004). Prices, rates and trade respond.',
+        'One-off shift in the króna’s target value by this percentage (−10: a target 10% weaker), fired once. The króna falls by most of it within a quarter (−10: about 9% by month 3). At first the current account worsens: imports are invoiced in foreign currency, so the import bill in krónur rises at once, while volumes take months to respond (a J-curve). Then portfolio balance pulls the króna back, more slowly than the krónur non-residents hold alone would, because the market also prices the krónur still flowing to them. Pension funds sell some of their foreign assets, now worth more in krónur, to get back to their target share (about 1.5–2% of GDP a year at first), and once trade has turned, the surplus the weaker króna brings drains krónur too. With fewer krónur to hold, non-residents accept a stronger króna. With the policy rules acting the central bank also raises the key rate, and the wider rate gap adds to the pull; with both policy levers locked the key rate does not move. Part of the fall is gone after a year: about a quarter with the policy rules acting and a fifth with both policy levers locked (−10: about 7% weaker at month 12 with the policy rules acting, 8% with both policy levers locked); about half after two years with the policy rules acting and two-fifths with both policy levers locked. In real terms half of the fall is gone about a year after its low with the policy rules acting and a year and a half with both policy levers locked: faster than the two to three years the Central Bank of Iceland’s model implies (a known gap, decision 0013). The shift in the target itself fades at only about 10% of its size a year, so the króna recovers well before it has faded. No one here owes foreign currency (pension funds and the central bank hold foreign assets), so a weaker króna raises residents’ net worth; the squeeze comes from dearer imports cutting real wages and from CPI indexation of mortgages and government debt. Before 2008, firms’ and households’ foreign-currency loans made a fall in the króna far more damaging (Krugman 1999; Céspedes, Chang and Velasco 2004). Prices, rates and trade respond.',
       concepts: ['floating-exchange-rate', 'exchange-rate-pass-through'],
       fire: (s, size) => s.setLagged('sentimentShock', s.get('sentimentShock') - Math.log(1 + size / 100)),
     },
@@ -788,7 +835,7 @@ export const external: ModuleDef = {
       binds: { param: 'foreignRateShift', mode: 'add', scale: 0.01 },
       description: 'Interest rates abroad; a higher rate pulls carry money and pension savings out of krónur, so the króna weakens.',
       definition:
-        'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. The rate gap with abroad narrows, so carry traders sell króna bonds and pension funds raise their foreign target by 1 point of assets per point: the króna weakens for about the first five and a half years (about 1.2% on average over the first two per point with the policy rules acting). It also raises the yield on the central bank’s reserves and on the funds’ foreign bonds (not their shares). The central bank first keeps the extra in its reserves, in foreign currency, then slowly sells what is above its reserve target back into krónur, so its reserves settle a little above target (about a point of GDP per point held); the funds’ extra income is paid home in krónur. Spent at home, that income slowly strengthens the króna: per point held with the policy rules acting the króna is back near its start after about five and a half years and nearly 2% stronger after twenty, with prices about 0.15% lower and inflation slightly below target (with both policy levers locked about 5% stronger and prices about 2.5% lower after twenty, and more than proportionally so for large rises). That drift is a known gap (decision 0002 §6): the model has no foreign-currency debt that pays the foreign rate, so Iceland’s income from abroad rises by about 0.3% of GDP a year per point, where its roughly matched foreign-currency assets and debts would make it much less. Setting it back to 0 ends it.',
+        'Level shift in the foreign interest rate, in percentage points, applied at once and persistent while set. The rate gap with abroad narrows, so carry traders sell króna bonds and pension funds raise their foreign target by 1 point of assets per point: the króna weakens for about the first six and a half years (about 1.4% on average over the first two per point with the policy rules acting). It also raises the yield on the central bank’s reserves and on the funds’ foreign bonds (not their shares). The central bank first keeps the extra in its reserves, in foreign currency, then slowly sells what is above its reserve target back into krónur, so its reserves settle a little above target (about two-thirds of a point of GDP per point held); the funds’ extra income is paid home in krónur. Spent at home, that income slowly strengthens the króna: per point held with the policy rules acting the króna is back near its start after about six and a half years and about 1.5% stronger after twenty, with prices about where they started and inflation slightly below target (with both policy levers locked about 4% stronger and prices about 2% lower after twenty, and more than proportionally so for large rises). That drift is a known gap (decision 0002 §6): the model has no foreign-currency debt that pays the foreign rate, so Iceland’s income from abroad rises by about 0.3% of GDP a year per point, where its roughly matched foreign-currency assets and debts would make it much less. Setting it back to 0 ends it.',
       concepts: ['carry-trade'],
     },
     {
@@ -805,7 +852,7 @@ export const external: ModuleDef = {
       binds: { param: 'worldPriceShift', mode: 'add', scale: 0.01 },
       description: 'Foreign-currency prices of imports and of fish and aluminium.',
       definition:
-        'Level shift in world prices in foreign currency, in percent, applied at once and persistent while set. Fish and aluminium revenue in krónur jumps at once, and so does the import bill, about three times as large, since imports are invoiced in foreign currency: at first Iceland pays more abroad than it earns and the current account worsens. Importers pass the dearer imports on to prices at home within a year or two. What buyers pay for imported goods rises by less, since part of it is the Icelandic cost of getting the goods to them: +10 raises consumer prices about 2% within a year and 2.7% within two with the policy rules acting. The króna is a little stronger after a year, as the key rate rises and purchasing-power parity slowly absorbs the new world prices, which takes back part of the rise in krónur over several years. Setting it back to 0 ends it.',
+        'Level shift in world prices in foreign currency, in percent, applied at once and persistent while set. Fish and aluminium revenue in krónur jumps at once, and so does the import bill, about three times as large, since imports are invoiced in foreign currency: at first Iceland pays more abroad than it earns and the current account worsens. Importers pass the dearer imports on to prices at home within a year or two. What buyers pay for imported goods rises by less, since part of it is the Icelandic cost of getting the goods to them: +10 raises consumer prices about 2% within a year and 2.5% within two with the policy rules acting. The króna is a little stronger after a year, as the key rate rises and purchasing-power parity slowly absorbs the new world prices, which takes back part of the rise in krónur over several years. Setting it back to 0 ends it.',
       concepts: ['exchange-rate-pass-through', 'purchasing-power-parity'],
     },
     {
@@ -822,7 +869,7 @@ export const external: ModuleDef = {
       binds: { param: 'fishPriceShift', mode: 'add', scale: 0.01 },
       description: 'What foreign buyers pay for Icelandic fish, in foreign currency.',
       definition:
-        'Level shift in the world price of marine products, in percent, on top of the world-prices lever; applied at once and persistent while set. Quotas cap the catch, so most of the change goes into fisheries’ revenue and profit; volume moves only a little (about 3% at +30), through fuller use of quotas, the product mix and aquaculture, and the stronger króna that follows takes back part of the gain. A third of any change in fisheries’ profit goes to or comes back from the state as the fishing fee two years later, so a fall in prices lowers the fee as a rise raises it. Fisheries normally pay out only about 4% of their profit, so their payout sits close to zero: a small fall in their profit, or even an unrelated shock that raises their debt a little, stops dividends or has owners putting money in for years, which makes their responses lopsided (a known gap: recalibrating the baseline payout needs a new steady-state target, decision 0003). Held for many years, a rise keeps strengthening the króna, which takes back other exports: at +30 output is about 0.4% higher but unemployment 0.2 point higher after 20 years with the policy rules acting, and output 2.6% lower and unemployment 1.1 points higher with the key rate held (both policy levers locked), a known gap in how the current account closes (decision 0002 §6). Setting it back to 0 ends it.',
+        'Level shift in the world price of marine products, in percent, on top of the world-prices lever; applied at once and persistent while set. Quotas cap the catch, so most of the change goes into fisheries’ revenue and profit; volume moves only a little (about 3% at +30), through fuller use of quotas, the product mix and aquaculture, and the stronger króna that follows takes back part of the gain. A third of any change in fisheries’ profit goes to or comes back from the state as the fishing fee two years later, so a fall in prices lowers the fee as a rise raises it. Fisheries normally pay out only about 4% of their profit, so their payout sits close to zero: a small fall in their profit, or even an unrelated shock that raises their debt a little, stops dividends or has owners putting money in for years, which makes their responses lopsided (a known gap: recalibrating the baseline payout needs a new steady-state target, decision 0003). The spending comes first and the stronger króna follows, and in the first year the two about cancel in output (+30: 0.05% lower over the first year, where the windfall’s spending lifts household consumption about 1.5% over three years and tourism and other exports fall about 4% over years 1–5; decision 0013). Held for many years, a rise keeps strengthening the króna, which takes back other exports: at +30 output is about 0.4% higher but unemployment 0.2 point higher after 20 years with the policy rules acting, and output 2.6% lower and unemployment 1.1 points higher with the key rate held (both policy levers locked), a known gap in how the current account closes (decision 0002 §6). Setting it back to 0 ends it.',
       concepts: ['terms-of-trade', 'export-sectors', 'resource-rent', 'dutch-disease'],
     },
     {
@@ -844,6 +891,30 @@ export const external: ModuleDef = {
     },
   ],
   tests: [
+    {
+      id: 'portfolio-balance-arithmetic',
+      label: 'Portfolio balance: the holdings gap, plus the krónur flowing to non-residents less those the carry trade takes up, through the smooth limit; zero at baseline (decision 0013)',
+      run: (e) => {
+        const at0 = e.influences('portfolioGap').terms.map((t) => Math.abs(t.value));
+        e.fire('kronaShock', 20); // non-residents short of krónur: the strong side
+        e.setLever('keyRate', 6); // a rate gap for the carry trade
+        e.step(6);
+        const inf = e.influences('portfolioGap');
+        const p = (id: string) => inf.params.find((x) => x.id === id)!.value;
+        const t = (id: string) => inf.terms.find((x) => x.id === id)!.value;
+        // (the holdings term reads positions at the start of the month's last step, which a test at
+        // the month's end does not see; the other parts read this step's values)
+        const gap = e.value('keyRate') - (p('i0') + p('piT')) - (e.value('foreignRate') - p('iF0'));
+        const errs = [
+          t('flow') - p('pbFlow') * e.value('kronaInflowW'),
+          t('carryFlow') + p('pbFlow') * p('lamBW') * p('bondW') * p('psiB') * gap,
+          e.value('portfolioGap') - (t('holdings') + t('flow') + t('carryFlow')),
+          e.influences('logExchangeRate').terms.find((x) => x.id === 'portfolio')!.value - smoothBound(e.value('portfolioGap'), e.influences('logExchangeRate').params.find((x) => x.id === 'pbBound')!.value),
+        ].map(Math.abs);
+        const worst = Math.max(...errs, ...at0);
+        return { pass: worst < 1e-12 && t('holdings') < 0 && e.value('portfolioGap') < 0, detail: `gap ${e.value('portfolioGap').toFixed(4)} log points (holdings ${t('holdings').toFixed(4)}, flow ${t('flow').toFixed(4)}, carry trade ${t('carryFlow').toFixed(4)}); largest arithmetic error ${worst.toExponential(2)}` };
+      },
+    },
     {
       id: 'current-account-balanced',
       label: 'At baseline the current account is balanced, so non-residents’ króna holdings are steady',

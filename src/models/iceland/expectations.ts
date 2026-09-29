@@ -107,6 +107,10 @@ export const expectations: LeverExpectation[] = [
   { lever: 'tourism', setting: 'max', variable: 'output', fromMonth: 1, toMonth: 24, sign: 1, theory: 'More visitors raise output over the following quarters.', source: 'CBI QMM simulations' },
   { lever: 'tourism', setting: 'min', variable: 'output', fromMonth: 1, toMonth: 24, sign: -1, theory: 'A collapse in visitors lowers output at once (2010, 2020).', source: 'Statistics Iceland national accounts, 2020' },
   { lever: 'tourism', setting: 'max', variable: 'krona', fromMonth: 12, toMonth: 240, sign: 1, theory: 'A lasting export gain strengthens the currency in real and nominal terms (Dutch disease).', source: 'Corden and Neary (1982), Economic Journal 92' },
+  // Back in the gate with decision 0013 (the flow-priced króna; lever-vetting open item 18): until
+  // then the króna fell too little after a collapse in tourism, and inflation fell over months 3–18
+  // with both policy levers locked. Only the sign is gated: 2020 is an upper bound on the size.
+  { lever: 'tourism', setting: 'min', variable: 'inflation', fromMonth: 6, toMonth: 24, sign: 1, theory: 'A collapse in export earnings weakens a floating currency, and pass-through lifts consumer prices for the first two years before slack pulls them down (2020: the króna fell nearly 10% in trade-weighted terms and inflation rose from 1.7% to 3.6% despite a 7% fall in GDP). The 2020 rise is an upper bound for tourism alone, since rate cuts, a housing boom and world prices also lifted it, so only the sign is tested.', source: 'CBI Monetary Bulletin 2020/4 and 2021/1; Landsbankinn, 8 January 2021; Edwards and Cabezas (2022), CBI Working Paper 85' },
   // Re-specified with decision 0012 (owner decision 10 of the long-run-anchors proposal): it said
   // "inflation over months 180–240 does not move", which catches the upswing of a slow learning cycle.
   // The inflation gap after tourism −15 is about −0.08 pp at month 60, crosses zero near month 180
@@ -125,7 +129,19 @@ export const expectations: LeverExpectation[] = [
   { lever: 'fishPrices', setting: 'max', variable: 'realDisposableIncome', fromMonth: 6, toMonth: 36, sign: 1, theory: 'A terms-of-trade gain raises real national income, through cheaper imports after appreciation and through owners’ income.', source: 'Kohli (2004), Review of Income and Wealth; Corden and Neary (1982)' },
   { lever: 'fishPrices', setting: 'max', variable: 'jobsXT', fromMonth: 12, toMonth: 60, sign: -1, theory: 'Dutch disease: a commodity boom appreciates the currency and shrinks other tradables.', source: 'Corden and Neary (1982)' },
   { lever: 'fishPrices', setting: 'min', variable: 'currentAccount', fromMonth: 1, toMonth: 24, sign: -1, theory: 'A terms-of-trade loss on a quota-bound export lowers export earnings.', source: 'Obstfeld and Rogoff (1996); BPM6' },
-  { lever: 'fishPrices', setting: 'max', variable: 'output', fromMonth: 1, toMonth: 12, sign: 1, theory: 'The income (spending) effect of a domestically owned commodity windfall comes before the slower expenditure switching from appreciation, so short-run output rises. This holds after fixing trade-fish-windfall-hoarded; it was about 0 at the vetting (−0.02).', source: 'IMF World Economic Outlook, October 2012, ch. 4; Corden and Neary (1982)' },
+  // Re-specified with decision 0013 (owner decision 10 of the long-run-anchors proposal): "output
+  // over months 1–12 rises" is replaced by the three tests below. For a quota-bound windfall, GDP
+  // volume is ambiguous in theory: the spending effect lifts non-tradables, while the stronger króna
+  // crowds out other exports, and with no resources to move the net sign depends on how much of the
+  // spending goes on imports (Corden and Neary 1982). The flow-priced króna strengthens sooner, so
+  // year-1 output is now −0.05% (all three lock configurations; +0.04 before, −0.02 at the vetting).
+  // It stays reported, with its value, as a documented ambiguous case (tests/models/
+  // iceland-real-economy.test.ts and the lever-vetting record), not gated. Real gross domestic
+  // income alone would hold by construction, so it is the third test, labelled as the accounting
+  // effect of the terms of trade; the first two do not hold by construction.
+  { lever: 'fishPrices', setting: 'max', variable: 'consumption', fromMonth: 1, toMonth: 36, sign: 1, theory: 'The spending effect of a domestically owned windfall: owners’ income, the fishing fee and cheaper imports after the appreciation raise household spending.', source: 'Corden and Neary (1982), Economic Journal 92; IMF World Economic Outlook, October 2012, ch. 4' },
+  { lever: 'fishPrices', setting: 'max', variable: 'otherExports', fromMonth: 12, toMonth: 60, sign: -1, theory: 'Dutch disease: the commodity windfall strengthens the currency in real terms, which crowds out the other exports (tourism and other goods and services).', source: 'Corden and Neary (1982), Economic Journal 92; Cashin, Céspedes and Sahay (2004)' },
+  { lever: 'fishPrices', setting: 'max', variable: 'realGDI', fromMonth: 1, toMonth: 12, sign: 1, theory: 'The terms-of-trade accounting effect: at the same volumes, a higher price for what Iceland sells buys more of what it consumes, so real gross domestic income rises (this one holds by construction; it is here as the accounting check beside the two behavioural ones).', source: 'Kohli (2004), Journal of International Economics 62; System of National Accounts 2008, ch. 15 (the trading gain)' },
   { lever: 'fishPrices', setting: 'max', variable: 'profitsFX', fromMonth: 1, toMonth: 60, sign: 1, theory: 'Quotas cap the catch, so a higher price goes mainly into fisheries’ profit (resource rent).', source: 'Arnason (2008) on Iceland’s ITQ fisheries' },
   { lever: 'fishPrices', setting: 'max', mode: 'locked', variable: 'govBalance', fromMonth: 24, toMonth: 60, sign: 1, theory: 'The state takes a share of resource rent through the fishing fee and corporate tax.', source: 'Lög um veiðigjald nr. 145/2018' },
   { lever: 'fishPrices', setting: 'min', variable: 'profitsFX', fromMonth: 1, toMonth: 60, sign: -1, theory: 'A lower price cuts fisheries’ profit, since volume is quota-bound.', source: 'Arnason (2008) on Iceland’s ITQ fisheries' },

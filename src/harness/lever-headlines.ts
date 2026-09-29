@@ -162,6 +162,23 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
       },
       { indicator: 'profitsFD' },
       { indicator: 'profitsFX' },
+      // Exports other than the quota-bound and capacity-bound lines, and income at home's prices:
+      // the Dutch-disease and terms-of-trade tests of the fish-price lever (decision 0013).
+      {
+        id: 'otherExports',
+        label: 'Tourism and other exports (real)',
+        vars: ['exportVolumeTourism', 'exportVolumeOther'],
+        level: (v) => v('exportVolumeTourism') + v('exportVolumeOther'),
+        display: 'deviation-pct',
+        gradual: true,
+      },
+      {
+        id: 'realGDI',
+        label: 'Gross domestic income (real: GDP in krónur ÷ consumer prices)',
+        vars: ['nominalGDP', 'cpi'],
+        level: (v) => v('nominalGDP') / v('cpi'),
+        display: 'deviation-pct',
+      },
       { indicator: 'incomeTaxRate', policy: true },
       { id: 'vatRate', label: 'VAT rate (effective)', vars: ['vatRate'], level: (v) => v('vatRate'), display: 'deviation-pp', policy: true },
     ],

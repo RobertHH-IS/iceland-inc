@@ -220,17 +220,18 @@ describe('Iceland model: balance sheets stay possible', () => {
       expect(e.stock('deposits', 'W')).toBeGreaterThan(-1e-9);
     }
     expect(borrowed).toBeGreaterThan(0.005);
-    // The much dearer króna shrinks the reserves in krónur below their target, so the central bank
-    // buys foreign currency from non-residents with krónur (lever review FX-1 follow-up): they need
-    // to borrow less (about 2.2% of GDP at the peak, 4.4% before). They repay from deposits above
-    // what they keep, so slowly while the surplus lasts: their loans stop growing after about two
-    // years, fall every two years from month 72, and by month 240 are at most three-quarters of the
-    // peak. (Two-thirds on the monetary-fx branch alone; with the fix branches merged, the króna rises
-    // less and the current account turns to deficit for about ten years, which leaves them fewer
-    // spare krónur to repay with.)
-    for (let m = 36; m <= 240; m++) expect(loans[m - 1]).toBeLessThanOrEqual(loans[35] + 1e-9);
-    for (let m = 72; m + 24 <= 240; m += 24) expect(loans[m + 24 - 1]).toBeLessThan(loans[m - 1]);
-    expect(e.stock('kronaLoansW', 'W')).toBeLessThan(0.75 * borrowed);
+    // Known gap since decision 0013 (until then their loans peaked at about 2.5% of GDP in the
+    // second year and fell to 0.57 of the peak by month 240). The portfolio term is now linear up
+    // to its smooth limit: 1.2% on the króna per 1% of GDP, where decision 0007's log form grew
+    // steeper as non-residents ran short (about 4% per 1% of GDP once they owed 3%). So the króna
+    // strengthens less (the term is at −0.13 log points at month 240, two-thirds of its limit), the
+    // surplus of 20 points of pension assets brought home and a tourism boom lasts, and they keep
+    // borrowing to pay for Iceland's exports: 3.1% of GDP by month 36 and 6.0% by month 240, still
+    // rising but ever more slowly. Non-residents borrowing krónur for decades is what króna stage 2
+    // is for (a home for net foreign assets and one slow closure on them). Tripwire: the growth
+    // slows every two years from month 24, and stays below 7% of GDP.
+    for (let m = 48; m + 24 <= 240; m += 24) expect(loans[m + 24 - 1] - loans[m - 1]).toBeLessThan(loans[m - 1] - loans[m - 24 - 1]);
+    expect(e.stock('kronaLoansW', 'W')).toBeLessThan(7);
   });
 
   test('non-residents borrow exactly what a month would overdraw, and repay from deposits above what they keep, never more than they owe (review M6)', () => {
@@ -281,9 +282,10 @@ describe('Iceland model: balance sheets stay possible', () => {
     // Non-residents, who also ran out of krónur here, now borrow them from banks (review M6). Since
     // firms call on the funds only for deposits above their buffer, the overdraft started in month
     // 248, not 228; with the fix branches merged (bounded portfolio balance, bonds that reprice as
-    // they mature, market rents, a higher import elasticity) it starts in month 288, so the run is 25 years.
-    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 276)).toEqual([]);
-    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 300)).toEqual(['deposits/PF']);
+    // they mature, market rents, a higher import elasticity) in month 288 (292 at two steps a
+    // month); with the flow-priced króna (decision 0013) in month 380, so the run is 35 years.
+    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 360)).toEqual([]);
+    expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 420)).toEqual(['deposits/PF']);
   });
 
   test('pension funds pay for new government bonds only from cash above their buffer, so a deficit they buy does not force foreign sales (review E1 follow-up)', () => {

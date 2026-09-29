@@ -404,6 +404,8 @@ export function steadyState(p: Record<Id, number>): IcelandSteadyState {
     realExchangeRate: 1,
     worldPrice: 1,
     kronaSentiment: 0,
+    kronaInflowW: 0,
+    portfolioGap: 0,
     inflation: 0,
     inflation12: 0,
     adaptiveInflation: 0,

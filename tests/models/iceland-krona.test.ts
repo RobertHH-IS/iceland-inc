@@ -8,6 +8,7 @@ import { lockAll } from '../../src/core/scenario.ts';
 import { createEngine } from '../../src/core/engine.ts';
 import { icelandModel } from '../../src/models/iceland/index.ts';
 import { withConcepts } from '../../src/models/index.ts';
+import { boundUsed, PB_NEAR_LIMIT, smoothBound } from '../../src/models/iceland/modules/external.ts';
 
 const model = compile(withConcepts(icelandModel));
 const base = createEngine(model);
@@ -71,15 +72,20 @@ describe('Iceland model: the foreign interest rate (review E3)', () => {
     // monetary-fx branch alone it ended within 1% of baseline, but prices were then 9% lower; with
     // wages measured against the value-added price (trade-nominal-drift) they end about 1% lower,
     // so in real terms broad money ends a little nearer baseline than it did there.
-    const e = run('foreignRate', 5, true, 240);
+    const e = run('foreignRate', 5, true, 360);
     const [bm, ca] = [series(e, 'broadMoney'), series(e, 'currentAccount')];
     const [bm0, ca0] = [series(base, 'broadMoney')[0], series(base, 'currentAccount')[0]];
-    expect(Math.max(...bm) - bm0).toBeLessThan(10);
-    // Restated with decision 0012 (was 0.75 of the peak at month 240, with 0.73): the rule reads
-    // slack from unemployment, which moves later than output, so it eases later, broad money peaks
-    // four months later (month 148, not 144) and falls back later: 0.76 of its peak at month 240,
-    // 0.54 at month 300 (0.49 before). The fall is tested as before: still falling, and slowly.
-    expect(bm[240] - bm0).toBeLessThan(0.8 * (Math.max(...bm) - bm0));
+    // Restated with decision 0013 (was below 10, and below 0.8 of the peak at month 240): the
+    // market now prices the krónur the carry trade sells a year while the rate gap lasts, and the
+    // flow of krónur itself, so at +5 pp the króna stays weaker for longer (7.5% at month 12, was
+    // 6.5%) and the surplus is larger and lasts longer (1.7% of GDP at month 120, was 1.4%). Broad
+    // money, which the surplus builds up at home, peaks higher and later: +12.7% in month 183 (+9.3%
+    // in month 144 before; mostly real, prices end 0.1% higher). It then falls back as before, only
+    // later: 0.94 of its peak at month 240 and 0.72 at month 360. The fall is tested as before, ten
+    // years further on: still falling, slowly, and below 0.8 of the peak by month 360.
+    const peak = Math.max(...bm) - bm0;
+    expect(peak).toBeLessThan(13);
+    expect(bm[360] - bm0).toBeLessThan(0.8 * peak);
     expect(bm[240]).toBeLessThan(bm[228]);
     expect(Math.abs(bm[240] - bm[228])).toBeLessThan(1);
     expect(ca[240] - ca0).toBeLessThan(0.25 * (Math.max(...ca) - ca0)); // was +2.81 and rising
@@ -167,7 +173,7 @@ describe('Iceland model: the króna-shock lever does what its definition says (r
 });
 
 describe('Iceland model: portfolio balance is bounded and nets out the carry trade (lever review TAX-1 and FX-4)', () => {
-  test('pension funds moving 20 points of assets home or abroad move the króna by tens of percent, not twice its value, and about symmetrically', () => {
+  test('pension funds moving 20 points of assets home or abroad move the króna by tens of percent, not twice its value; symmetrically for moderate moves, and bounded on the strong side', () => {
     for (const automatic of [false, true]) {
       const home = series(run('pfForeign', -20, automatic, 15), 'krona')[15];
       const abroad = series(run('pfForeign', 20, automatic, 15), 'krona')[15];
@@ -175,34 +181,56 @@ describe('Iceland model: portfolio balance is bounded and nets out the carry tra
       expect(home).toBeLessThan(30); // v1: +107%
       expect(abroad).toBeLessThan(0);
       expect(abroad).toBeGreaterThan(-30);
-      const logs = [Math.log(1 + home / 100), -Math.log(1 + abroad / 100)];
-      expect(Math.max(...logs) / Math.min(...logs)).toBeLessThan(1.5);
+      // Restated with decision 0013 (was: the ±20 responses within a ratio of 1.5 in logs; now
+      // 1.83 locked, 1.91 unlocked, +10.2% home against −16.3% abroad locked). The portfolio term
+      // is now linear up to a smooth limit of pbBound (0.2 log points) on the side where
+      // non-residents are short of krónur, as the owner approved (lever review TAX-1: portfolio
+      // balance within 0.2 log points of parity), where decision 0007's log form was nearly
+      // symmetric and bounded at 0.34. Bringing 20 points home uses much of that limit, so the
+      // strong side is smaller by design. Symmetry is tested where the limit does not bind: ±5
+      // (+6.2% and −6.1% locked) within a ratio of 1.1 in logs, tighter than before.
+      const [up, down] = [series(run('pfForeign', -5, automatic, 15), 'krona')[15], series(run('pfForeign', 5, automatic, 15), 'krona')[15]];
+      const logs = [Math.log(1 + up / 100), -Math.log(1 + down / 100)];
+      expect(Math.min(...logs)).toBeGreaterThan(0);
+      expect(Math.max(...logs) / Math.min(...logs)).toBeLessThan(1.1);
+      expect(Math.log(1 + home / 100)).toBeLessThan(-Math.log(1 + abroad / 100)); // the limit binds on the strong side only
     }
   });
 
-  test('income tax +10 held with both policy levers locked: the króna stays within a fifth of purchasing-power parity for 15 years and about a third for 20 (known gap: the review asked for 0.2 log points throughout)', () => {
+  test('income tax ±10 held with both policy levers locked: the króna stays within 0.2 log points of purchasing-power parity for 20 years, and the portfolio term’s limit is visible before it binds (lever review TAX-1, items 5)', () => {
     // v1: non-residents' krónur ran out and the unbounded premium made the króna 1462% stronger
     // while prices fell 86%, 2.3 times beyond parity. The deflation itself (the key rate held) remains.
-    const e = run('incomeTax', 10, false, 240);
-    const k = series(e, 'krona');
-    const p = series(e, 'priceLevel');
-    const beyondParity = (m: number) => Math.abs(Math.log((1 + k[m] / 100) * (1 + p[m] / 100)));
-    for (const m of [60, 120, 180]) expect(beyondParity(m)).toBeLessThan(Math.log(1.2));
-    // Known gap (decision 0007): the review asked for less than 0.2 log points through month 240.
-    // From about month 190 non-residents are short of krónur and the premium sits at its bound,
-    // betaH × log((fxDepth ÷ 2) ÷ (krona0 + fxDepth)) ≈ −0.34, so the króna ends about 0.27 log
-    // points beyond parity. A bound inside 0.2 needs a deeper market or a smaller betaH, which
-    // flattens the slope the tourism-slump and world-price checks need. Tripwire: if this passes
-    // below 0.2, tighten the bound to the review's 0.2 and remove the gap from decision 0007.
-    expect(beyondParity(240)).toBeGreaterThan(0.2);
-    expect(beyondParity(240)).toBeLessThan(Math.log(1.35));
-    // the premium never passes its bound, however few krónur non-residents hold
-    const ps = e.influences('logExchangeRate').params;
-    const q = (id: string) => ps.find((x) => x.id === id)!.value;
-    const bound = q('betaH') * Math.log(q('fxDepth') / 2 / (q('krona0') + q('fxDepth')));
-    for (let m = 0; m <= 240; m += 12) expect(e.valueAt('logExchangeRate', m)).toBeGreaterThan(-Infinity);
-    expect(e.influences('logExchangeRate').terms.find((t) => t.id === 'portfolio')!.value).toBeGreaterThanOrEqual(bound - 1e-12);
-    expect(bound).toBeGreaterThan(-0.36);
+    // Until decision 0013 this was a known gap: from about month 190 the log-form premium sat at its
+    // bound of about −0.34 and the króna ended 0.27 log points beyond parity. The smooth limit of
+    // pbBound (0.2) closes it: at most 0.125 beyond parity (month 240) at +10, 0.09 at −10.
+    const pb = model.params.find((x) => x.id === 'pbBound')!.value;
+    for (const v of [10, -10]) {
+      const e = run('incomeTax', v, false, 240);
+      const k = series(e, 'krona');
+      const p = series(e, 'priceLevel');
+      const beyondParity = (m: number) => Math.abs(Math.log((1 + k[m] / 100) * (1 + p[m] / 100)));
+      for (let m = 12; m <= 240; m += 12) expect(beyondParity(m)).toBeLessThan(0.2);
+    }
+    // Item 5: a gate on the bounded term passes by construction, so the gap before the limit is a
+    // variable of its own (portfolioGap), and the rule names the regime once more than 80% of the
+    // limit is used. At +10 the gap is −0.43 log points at month 240, the limit 97% used; the
+    // regime shows in exactly the months it is more than 80% used (96 of them), and the bounded
+    // term never passes pbBound.
+    const e = run('incomeTax', 10, false, 0);
+    let labelled = 0;
+    for (let m = 1; m <= 240; m++) {
+      e.step(1);
+      const g = e.value('portfolioGap');
+      const used = boundUsed(g, pb);
+      const regime = e.influences('logExchangeRate').regime;
+      expect(regime == null ? used <= PB_NEAR_LIMIT : used > PB_NEAR_LIMIT && /near its limit/.test(regime)).toBe(true);
+      if (regime) labelled++;
+      expect(e.influences('logExchangeRate').terms.find((t) => t.id === 'portfolio')!.value).toBeCloseTo(smoothBound(g, pb), 12);
+      expect(smoothBound(g, pb)).toBeGreaterThan(-pb);
+    }
+    expect(labelled).toBeGreaterThan(60);
+    expect(e.value('portfolioGap')).toBeLessThan(-0.35);
+    expect(boundUsed(e.value('portfolioGap'), pb)).toBeGreaterThan(0.95);
   });
 
   test('krónur bought for the rate gap do not weaken the króna: a credit or tax-cut boom with higher rates leaves the real króna stronger than with the key rate held, for a year and a half (the key-rate rule acting)', () => {
@@ -227,12 +255,14 @@ describe('Iceland model: portfolio balance is bounded and nets out the carry tra
         expect(r - held[m][0]).toBeLessThanOrEqual(1e-6);
         expect(x - held[m][1]).toBeLessThanOrEqual(1e-6);
       });
-      // Known gap (lever-vetting open item 4, decision 0012): until the labour-market gap the rule
-      // raised its rate early enough that the real króna was also stronger than without the boom
-      // (at most 1e-6 weaker in months 1–18). It now reads slack from unemployment, which moves
-      // after output, so it raises the rate later (0.04 pp by month 6, was 0.10 after the tax cut)
-      // and the króna is up to 0.03% weaker in real terms by month 18 (exports 0.02% higher).
-      // Tripwire: it must not grow; the króna stage-1 fix of item 4 brings it back under 1e-6.
+      // Known gap (lever-vetting open item 4, decisions 0012 and 0013): until the labour-market gap
+      // the rule raised its rate early enough that the real króna was also stronger than without
+      // the boom (at most 1e-6 weaker in months 1–18). It now reads slack from unemployment, which
+      // moves after output, so it raises the rate later (0.04 pp by month 6, was 0.10 after the tax
+      // cut) and the króna is up to 0.03% weaker in real terms by month 18 (exports 0.02% higher).
+      // Króna stage 1's flow term took it to 0.052% (lending +3) until the carry trade's flow was
+      // netted from it; now 0.042% and 0.049% (the tax cut). Tripwire: it must not grow. It comes
+      // back under 1e-6 only once the rule sees a boom in time (item 14); see the item-4 test below.
       for (const [r, x] of acting) {
         expect(r).toBeLessThanOrEqual(5e-4);
         expect(x).toBeLessThanOrEqual(5e-4);
@@ -240,6 +270,86 @@ describe('Iceland model: portfolio balance is bounded and nets out the carry tra
     }
     // a higher key rate alone (until padlocks an offset of 1 to the rule; now held 1 point above neutral): the real króna stronger for five years
     for (const [r] of effect('keyRate', 4, 60)) expect(r).toBeLessThan(0);
+  });
+});
+
+describe('Iceland model: króna stage 1, the flow-priced portfolio term and the reserve target in foreign currency (decision 0013)', () => {
+  /** The real exchange rate as the long-run-anchors proposal measures it, e × world prices ÷
+   *  domestic prices, unsmoothed: the % change against the no-change run, month by month. */
+  const q = (e: ReturnType<typeof run>, m: number) => e.valueAt('exchangeRate', m) * e.valueAt('worldPrice', m) / e.valueAt('domesticPrice', m);
+  const meanQ = (s: ReturnType<typeof run>, b: ReturnType<typeof run>, from: number, to: number) => {
+    let x = 0;
+    for (let m = from; m <= to; m++) x += 100 * (q(s, m) / q(b, m) - 1);
+    return x / (to - from + 1);
+  };
+
+  test('the flow term prices only the krónur the carry trade does not take up: its netting is the carry term of the carry trade’s own rule', () => {
+    const e = run('keyRate', 5, true, 3);
+    const inf = e.influences('portfolioGap');
+    const p = (id: string) => inf.params.find((x) => x.id === id)!.value;
+    const gap = e.value('keyRate') - (p('i0') + p('piT')) - (e.value('foreignRate') - p('iF0'));
+    expect(gap).toBeGreaterThan(0.01);
+    expect(inf.terms.find((t) => t.id === 'carryFlow')!.value).toBeCloseTo(-p('pbFlow') * p('lamBW') * p('bondW') * p('psiB') * gap, 12);
+    expect(inf.terms.find((t) => t.id === 'flow')!.value).toBeCloseTo(p('pbFlow') * e.value('kronaInflowW'), 12);
+    // at the baseline every part is zero
+    for (const t of base.influences('portfolioGap').terms) expect(Math.abs(t.value)).toBeLessThan(1e-12);
+  });
+
+  test('item 4, a credit boom with the policy rules acting: stage 1 no longer weakens the real króna; the rest waits for the rule to see a boom in time (known gap, release blocker)', () => {
+    // Lending appetite +3, the policy rules acting: the mean change in the real exchange rate over
+    // months 12–36, %, + weaker. The proposal's release criterion is ≤ 0 (the textbook sign with an
+    // inflation-targeting rule that tightens, and Iceland's 2004–07). Before stage 1 it was +0.111
+    // (+0.021 on main with the fixed-capacity gap). The flow term read the boom's import bill as a
+    // flow still to come, while the carry trade's demand for krónur at the higher rate was priced
+    // only as a stock: +0.134. Netting the carry trade's flow brings it to +0.100, below where it
+    // was before stage 1. What is left is the labour-market gap reading the boom late (the key rate
+    // +0.14 on average against +0.27 with the fixed capacity): with a rule that saw the boom as the
+    // fixed-capacity rule did, the same króna gives −0.005 (a scratch run; +0.053 without the
+    // netting). That is item 14's timing (phase 5), so the criterion is not met yet
+    // and stage 1 is not releasable until it is (decision 0013).
+    const b = run('lendingAppetite', 0, true, 36);
+    const s = run('lendingAppetite', 3, true, 36);
+    const unnetted = base.fork({ disableTerms: ['portfolioGap.carryFlow'] });
+    const bu = base.fork({ disableTerms: ['portfolioGap.carryFlow'] });
+    unnetted.setLever('lendingAppetite', 3);
+    unnetted.step(36);
+    bu.step(36);
+    const [now, before] = [meanQ(s, b, 12, 36), meanQ(unnetted, bu, 12, 36)];
+    expect(now).toBeLessThan(before - 0.02); // the netting takes off about a quarter (0.134 → 0.100)
+    expect(now).toBeLessThan(0.111); // no weaker than before stage 1
+    // Tripwire: must not grow. When it passes ≤ 0, turn this into the release criterion.
+    expect(now).toBeGreaterThan(0);
+    expect(now).toBeLessThan(0.105);
+  });
+
+  test('tourism −60 with the policy rules acting weakens the króna by at least 8% within a year (lever-vetting item 18)', () => {
+    // 12.0% dearer foreign currency at month 12 (8.7% before stage 1); 2020: nearly 10% trade-weighted, 14.9% against the euro
+    const [b, s] = [run('tourism', 0, true, 12), run('tourism', -60, true, 12)];
+    expect(s.value('exchangeRate') / b.value('exchangeRate') - 1).toBeGreaterThan(0.08);
+  });
+
+  test('the reserve target is set in foreign currency: after a 25% fall in sentiment the central bank sells almost no reserves into the depreciation, with both policy levers locked (E2)', () => {
+    // Reserves sold in months 1–36 beyond the no-change run, % of GDP: 0.27 (0.86 with the target
+    // in krónur, a de facto intervention on a held policy). What is left is the normal yield on
+    // reserves now worth more krónur, and real activity moving the target.
+    const [b, s] = [run('kronaShock', 0, false, 36), run('kronaShock', -25, false, 36)];
+    let sold = 0;
+    for (let m = 1; m <= 36; m++) sold += (s.valueAt('fxReserveSales', m) - b.valueAt('fxReserveSales', m)) / 12;
+    expect(sold).toBeGreaterThan(0);
+    expect(sold).toBeLessThan(0.3);
+  });
+
+  test('known gap until króna stage 2: after a 25% fall in sentiment the real króna halves its deviation within about a year and a half, against QMM’s 24–40 months', () => {
+    // From month 3, e × world prices ÷ domestic prices: 17 months with both policy levers locked
+    // (13 before stage 1), 12 with the rules acting (12). The portfolio closure, not the fading of
+    // sentiment, sets it (proposal H5). Tripwire: if it reaches 24, stage 2's target is met.
+    for (const [automatic, lo] of [[false, 14], [true, 10]] as const) {
+      const [b, s] = [run('kronaShock', 0, automatic, 120), run('kronaShock', -25, automatic, 120)];
+      const d = (m: number) => Math.log(q(s, m) / q(b, m));
+      const half = Array.from({ length: 117 }, (_, i) => i + 4).find((m) => d(m) < d(3) / 2)! - 3;
+      expect(half).toBeGreaterThanOrEqual(lo);
+      expect(half).toBeLessThan(24);
+    }
   });
 });
 
@@ -293,8 +403,11 @@ describe('Iceland model: a high key rate held for years (review E7)', () => {
     expect(trough).toBeLessThan(-0.6); // about −0.83%, in month 37
     expect(output.indexOf(trough)).toBeGreaterThan(24); // in the third or fourth year
     const back = output.findIndex((y, m) => m >= 24 && y > 0);
-    expect(back).toBeGreaterThanOrEqual(124); // month 130 (106 while bonds repriced at once)
-    expect(back).toBeLessThanOrEqual(136);
+    // Month 140 since decision 0013 (136 before, 130 at one step a month, 106 while bonds repriced
+    // at once): the carry trade's flow, now priced, makes the króna about a quarter stronger while the
+    // rate is held higher, so exports stay lower and the interest-income lift takes a few months longer.
+    expect(back).toBeGreaterThanOrEqual(124);
+    expect(back).toBeLessThanOrEqual(142);
     expect(output[240]).toBeGreaterThan(0.6); // about +0.72% after 20 years
     expect(output[240]).toBeLessThan(0.85);
     // A cut mirrors it: about −0.49% after 20 years.
@@ -302,11 +415,13 @@ describe('Iceland model: a high key rate held for years (review E7)', () => {
     expect(cut[240]).toBeLessThan(-0.35);
     expect(cut[240]).toBeGreaterThan(-0.65);
     // Bonds keep their coupons until they mature (about five years on average), so the interest bill
-    // rises gradually. The first month's −0.135 of GDP is mostly the central bank's higher interest
-    // on reserves, which cuts the profit it pays the Treasury; it was −0.49 while the whole bond
-    // stock repriced with the key rate at once.
+    // rises gradually. The first month's −0.097 of GDP is mostly the central bank's higher interest
+    // on reserves, which cuts the profit it pays the Treasury by 0.12; other items make up the
+    // rest. It was −0.49 while the whole bond stock repriced with the key rate at once. (Restated
+    // with decision 0013: −0.108 before, with the bound at −0.1; the change comes with the stronger
+    // króna on impact, 0.68% against 0.53%.)
     const balance = e.valueAt('govBalance', 1) - e.baseline('govBalance');
-    expect(balance).toBeLessThan(-0.1);
+    expect(balance).toBeLessThan(-0.09);
     expect(balance).toBeGreaterThan(-0.17);
   });
 });

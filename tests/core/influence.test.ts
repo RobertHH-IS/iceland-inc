@@ -408,7 +408,9 @@ describe('stabiliser shadows: declared and checked', () => {
     const e = ice();
     e.setLever('keyRate', 3); // lock the key rate only, at its default
     e.setLever('tourism', -60); // a slump deep enough for the escape clause
-    e.step(24);
+    // from month 25 (month 13 before króna stage 1, decision 0013: the flow of krónur weakens the
+    // króna further, so inflation holds the rule's target above zero for a year longer)
+    e.step(36);
     expect(e.influences('taxRuleTarget').regime).toMatch(/Escape clause/);
     const via = e.ideasAtPlay('var:taxRuleTarget').flatMap((x) => x.via);
     expect(via.some((v) => v.startsWith('ruleTarget'))).toBe(true);

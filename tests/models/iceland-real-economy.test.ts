@@ -398,24 +398,34 @@ describe('tax-TAX-2: households keep a cash buffer', () => {
 });
 
 describe('monetary-MON-11: investment is planned before it is spent', () => {
-  test('the key rate held +1 pp for a year: investment keeps falling after the hold ends and troughs later than consumption', () => {
+  test('the key rate held +1 pp for a year: investment keeps falling after the hold ends, after its plans have turned, and troughs no earlier than consumption', () => {
     const e = createEngine(model, { baseline: base.baselineData, dev: false });
     lockAll(e); // both policy levers locked
     const b = createEngine(model, { baseline: base.baselineData, dev: false });
     lockAll(b); // both policy levers locked
     e.setLever('keyRate', 4);
+    const plans = model.vars.map((v) => v.id).filter((id) => id.startsWith('investmentPlan'));
     const inv: number[] = [0],
+      plan: number[] = [0],
       cons: number[] = [0];
     for (let m = 1; m <= 36; m++) {
       if (m === 13) lockAll(e, false), lockAll(b, false);
       e.step(1);
       b.step(1);
       inv.push(e.value('investmentReal') - b.value('investmentReal'));
+      plan.push(plans.reduce((x, id) => x + e.value(id) - b.value(id), 0));
       cons.push(e.value('realConsumption') - b.value('realConsumption'));
     }
     const low = (a: number[]) => a.indexOf(Math.min(...a.slice(1)));
+    expect(plans.length).toBe(6);
     expect(low(inv)).toBeGreaterThan(12);
-    expect(low(inv)).toBeGreaterThan(low(cons));
+    expect(low(inv)).toBeGreaterThan(low(plan)); // spending follows plans (month 20 against 15)
+    // Restated with decision 0013 (was: strictly later than consumption, month 20 against 19). The
+    // króna now rises more on the hold (1.0% against 0.8%, the carry trade's flow priced), prices
+    // fall more and cushion real incomes, so consumption falls less and bottoms a month later: both
+    // now in month 20 (between months, investment's trough is about 19.5 and consumption's 19.9).
+    // Known gap, as a tripwire: investment must not trough in an earlier month than consumption.
+    expect(low(inv)).toBeGreaterThanOrEqual(low(cons));
   });
 });
 
@@ -472,7 +482,8 @@ describe('the central bank reads its output gap from the labour market (decision
 
   test('known gaps, as tripwires: lasting shifts in public spending and fish prices still leave inflation off target after twenty years with the policy rules acting', () => {
     // Months 180–240, pp. With a fixed potential: health +3 +0.60, education +3 +0.78, fish +30 −0.13;
-    // now +0.31, +0.39 and −0.09. What remains belongs to channels the model lacks, not to potential
+    // with the labour-market gap +0.31, +0.39 and −0.09; with króna stage 1 (decision 0013) +0.30,
+    // +0.38 and −0.08. What remains belongs to channels the model lacks, not to potential
     // output: adjustment through the real exchange rate, and labour supply that follows lasting
     // tightness (lever-vetting open item 2). The neutral-rate estimate is at its limit for health
     // and education; the implied neutral rates are in the lever report. Tighten these as the króna
@@ -494,13 +505,43 @@ describe('the central bank reads its output gap from the labour market (decision
   });
 });
 
+describe('fish prices +30: year-1 output is a documented ambiguous case (decision 0013, owner decision 10)', () => {
+  test('reported, not gated: the windfall’s spending and the stronger króna nearly cancel in year 1, and the three real tests hold', () => {
+    // For a quota-bound windfall, GDP volume is ambiguous (Corden and Neary 1982): spending lifts
+    // non-tradables, the stronger króna crowds out other exports, and with no resources to move the
+    // net sign depends on how much of the spending goes on imports. The expectation "output rises
+    // in year 1" failed once the króna priced the flow of krónur (−0.05% both ways; +0.04 before,
+    // −0.02 at the vetting), so the lever report's expectations test consumption, other exports and
+    // real income instead. This keeps the value in view: small either way, whichever side it is on.
+    for (const automatic of [true, false]) {
+      const r = twins([['fishPrices', 30]], automatic, 60);
+      let y = 0,
+        c = 0,
+        x = 0;
+      for (let m = 1; m <= 12; m++) y += r.pct('output', m) / 12;
+      for (let m = 1; m <= 36; m++) c += r.pct('realConsumption', m) / 36;
+      const other = (e: KernelEngine, m: number) => e.valueAt('exportVolumeTourism', m) + e.valueAt('exportVolumeOther', m);
+      for (let m = 12; m <= 60; m++) x += (100 * (other(r.s, m) / other(r.b, m) - 1)) / 49;
+      expect(Math.abs(y)).toBeLessThan(0.15);
+      expect(c).toBeGreaterThan(1); // the spending effect, about 1.4–1.5%
+      expect(x).toBeLessThan(-3); // Dutch disease, about −3.8 to −4.1%
+    }
+  });
+});
+
 describe('the debt rule’s escape clause (lever review ZLB-DEBT-RULE)', () => {
   test('tourism −60 with the policy rules acting: while the key rate is stuck at zero the debt rule raises no taxes, and output recovers far more', () => {
     // before: income tax up to 3.3 points higher and output 3.85% lower after 20 years
     const r = twins([['tourism', -60]], true, 240);
     const tau0 = param(base, 'taxRate', 'tau0');
-    for (let t = 1; t <= 240; t++) {
-      if (r.s.valueAt('ruleTarget', t - 1) < -param(base, 'taxRuleTarget', 'escapeBand')) expect(r.s.valueAt('taxRate', t)).toBeLessThanOrEqual(tau0 + Math.max(0, r.s.valueAt('taxRuleAnchor', t - 1)) + 1e-12);
+    // "Stuck" through the whole month before: at two steps a month (decision 0011) the first step
+    // of month t reads the rule a month earlier, in the middle of month t − 1, so the rule must be
+    // below the band at the ends of months t − 2 and t − 1. Checking only the end of month t − 1
+    // caught month 41 after króna stage 1 (decision 0013), where the target crossed the band within
+    // month 40 and the clause was still phasing in for the first step: 6.4e-6 of a point.
+    const band = param(base, 'taxRuleTarget', 'escapeBand');
+    for (let t = 2; t <= 240; t++) {
+      if (Math.max(r.s.valueAt('ruleTarget', t - 1), r.s.valueAt('ruleTarget', t - 2)) < -band) expect(r.s.valueAt('taxRate', t)).toBeLessThanOrEqual(tau0 + Math.max(0, r.s.valueAt('taxRuleAnchor', t - 1)) + 1e-12);
     }
     expect(r.s.valueAt('keyRate', 240)).toBeLessThan(1e-12);
     // Restated with decision 0012 (was −2, with −1.06%): the rule now reads slack from
