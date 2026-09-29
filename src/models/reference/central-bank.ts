@@ -13,13 +13,33 @@ import { automatic, AUTOMATIC, MANUAL } from './stabilisers.ts';
 const assumed = { basis: 'assumed' as const, note: 'Teaching value, chosen to give readable dynamics.' };
 
 const params: ParamDef[] = [
-  { id: 'neutralRate', value: 0.03, unit: 'fraction/yr', category: 'POLICY', description: 'Key rate when inflation is on target (zero here) and output is at capacity.', provenance: assumed },
+  { id: 'neutralRate', value: 0.03, unit: 'fraction/yr', category: 'POLICY', description: 'Key rate when inflation is on target and output is at capacity.', provenance: assumed },
+  {
+    id: 'inflationTarget',
+    value: 0,
+    unit: 'fraction/yr',
+    category: 'POLICY',
+    description: 'The inflation the central bank aims for, and that people partly expect whatever inflation is now. Zero here: the baseline has stable prices.',
+    provenance: { basis: 'assumed', note: 'The baseline is a steady state with zero inflation (roadmap v2 adds a growing baseline with 2.5% inflation, the Central Bank of Iceland’s target).' },
+  },
   { id: 'taylorInflation', value: 1.5, unit: 'fraction', category: 'POLICY', description: 'Points of key rate per point of inflation above target. Above 1, real rates rise when inflation does.', provenance: assumed },
   { id: 'taylorOutput', value: 1, unit: 'fraction', category: 'POLICY', description: 'Points of key rate per 1% of output above capacity (Taylor’s 1999 variant; his 1993 rule used 0.5).', provenance: assumed },
   { id: 'policySpeed', value: 1, unit: 'per year', category: 'POLICY', description: 'How fast the key rate moves toward what the rule says (central banks move in steps).', provenance: assumed },
   { id: 'bondSpread', value: 0.005, unit: 'fraction/yr', category: 'CONTRACT', description: 'How far the bond rate sits above the key rate.', provenance: assumed },
   { id: 'reserveRatio', value: 0.1, unit: 'fraction of deposits', category: 'POLICY', description: 'Reserves the central bank aims to supply, as a share of deposits.', provenance: assumed },
   { id: 'reserveSpeed', value: 6, unit: 'per year', category: 'POLICY', description: 'How fast open-market operations close the gap to the reserve target.', provenance: assumed },
+  {
+    id: 'cbCapitalTarget',
+    value: 7.2,
+    unit: '% of GDP',
+    category: 'POLICY',
+    description: 'The central bank’s own capital (its bonds minus the reserves and treasury balance it owes) that it keeps; it hands the government its profit plus anything above this.',
+    provenance: {
+      basis: 'assumed',
+      note: 'Where the baseline solver used to leave it. Before this target nothing pinned the central bank’s capital, so the solved baseline (government spending, the tax rate, who holds the bonds) shifted with unrelated settings such as adjustment speeds.',
+    },
+  },
+  { id: 'cbPayoutSpeed', value: 1, unit: 'per year', category: 'POLICY', description: 'How fast the central bank pays out capital above its target (or keeps profit back when below).', provenance: assumed },
 ];
 
 export const centralBank: ModuleDef = {
@@ -45,12 +65,12 @@ export const centralBank: ModuleDef = {
       label: 'Taylor rule',
       inputs: ['inflation12'],
       lagInputs: ['output'],
-      params: ['neutralRate', 'taylorInflation', 'taylorOutput', 'potentialOutput'],
+      params: ['neutralRate', 'inflationTarget', 'taylorInflation', 'taylorOutput', 'potentialOutput'],
       levers: ['stabilisers', 'keyRateAddon'],
       adjust: { speed: 'policySpeed' },
       terms: [
         { id: 'neutral', label: 'Neutral rate', compute: (c) => c.p('neutralRate') },
-        { id: 'inflation', label: 'Inflation above target', concept: 'taylor-rule', compute: (c) => c.p('taylorInflation') * c.v('inflation12') },
+        { id: 'inflation', label: 'Inflation above target', concept: 'taylor-rule', compute: (c) => c.p('taylorInflation') * (c.v('inflation12') - c.p('inflationTarget')) },
         { id: 'outputGap', label: 'Output above capacity', concept: 'taylor-rule', compute: (c) => c.p('taylorOutput') * (c.lag('output') / c.p('potentialOutput') - 1) },
         { id: 'addOn', label: 'Your offset (Automatic)', concept: 'policy-lags', compute: (c) => (automatic(c) ? c.lever('keyRateAddon') / 100 : 0) },
       ],
@@ -59,7 +79,7 @@ export const centralBank: ModuleDef = {
       concepts: ['taylor-rule', 'policy-lags'],
       explain: {
         what: 'The key rate the Taylor rule calls for. With stabilisers on Automatic it is the key rate; on Manual it is only a suggestion beside the key-rate lever.',
-        rule: 'Target = {neutralRate%} + {taylorInflation} × 12-month inflation + {taylorOutput} × last month’s output gap, plus your offset on Automatic, never below zero. The rate moves toward the target at speed {policySpeed} a year, in both modes.',
+        rule: 'Target = {neutralRate%} + {taylorInflation} × 12-month inflation above the {inflationTarget%} target + {taylorOutput} × last month’s output gap, plus your offset on Automatic, never below zero. The rate moves toward the target at speed {policySpeed} a year, in both modes. The other terms react as inflation and output respond, so they pull against your offset: the lower inflation and output it brings pull the target back down.',
       },
     },
     {
@@ -141,8 +161,25 @@ export const centralBank: ModuleDef = {
       target: 'cbProfit',
       category: 'POLICY',
       inputs: ['bondInterestCB', 'reserveInterest'],
-      compute: (c) => c.v('bondInterestCB') - c.v('reserveInterest'),
-      explain: { what: 'The central bank’s profit, handed to the government.', rule: 'Profit = interest on its bonds − interest paid on reserves. All of it goes to the government.' },
+      stocks: [
+        ['bonds', 'CB'],
+        ['reserves', 'CB'],
+        ['treasuryAccount', 'CB'],
+      ],
+      params: ['cbCapitalTarget', 'cbPayoutSpeed'],
+      terms: [
+        { id: 'profit', label: 'Profit', concept: 'reserves-and-payments', compute: (c) => c.v('bondInterestCB') - c.v('reserveInterest') },
+        {
+          id: 'capitalSurplus',
+          label: 'Capital above target',
+          concept: 'net-worth',
+          compute: (c) => c.p('cbPayoutSpeed') * (c.stock('bonds', 'CB') - c.stock('reserves', 'CB') - c.stock('treasuryAccount', 'CB') - c.p('cbCapitalTarget')),
+        },
+      ],
+      explain: {
+        what: 'The central bank’s profit, handed to the government.',
+        rule: 'Payment = interest on its bonds − interest paid on reserves, plus {cbPayoutSpeed} × a year of any capital above {cbCapitalTarget}% of GDP (minus if below). At the baseline its capital is on target, so it hands over exactly its profit.',
+      },
     },
   ],
   flows: [
@@ -189,10 +226,10 @@ export const centralBank: ModuleDef = {
       max: 3,
       step: 0.25,
       showWhen: { lever: 'stabilisers', equals: AUTOMATIC },
-      description: 'Sets the key-rate target this many points above (or below) what the Taylor rule says.',
+      description: 'Sets the key-rate target this many points above (or below) what the Taylor rule says. The rule then leans against it, so the key rate itself rises by much less.',
       definition:
-        'Level shift in the key-rate target, in percentage points, persistent while set (stabilisers on Automatic). The key rate moves toward the new target gradually. Setting it back to 0 returns policy to the rule. It has no effect on Manual.',
-      concepts: ['taylor-rule', 'policy-lags'],
+        'Level shift in the key-rate target, in percentage points, persistent while set (stabilisers on Automatic). The key rate moves toward the new target gradually, and output and inflation fall (or rise, if negative). As they do, the rule’s own inflation and output terms cancel part of the offset, so the key rate rises by only about half of it at its peak, after a little over a year. Held for years, the offset works partly like a lower inflation target: inflation settles lower, by about a quarter of the offset. Because expectations stay anchored to the target, output also stays below capacity, by about 0.6% per point of offset, and the rule’s own terms end up cancelling nearly all of the offset, so the key rate ends close to where it started. Setting it back to 0 returns policy to the rule. It has no effect on Manual.',
+      concepts: ['taylor-rule', 'policy-lags', 'anchored-expectations'],
     },
     {
       id: 'keyRateFixed',
@@ -206,9 +243,9 @@ export const centralBank: ModuleDef = {
       max: 10,
       step: 0.25,
       showWhen: { lever: 'stabilisers', equals: MANUAL },
-      description: 'The key interest rate, held where you set it (stabilisers on Manual).',
+      description: 'The key interest rate, held where you set it (stabilisers on Manual). Held for years, a rate below neutral feeds inflation that the rule would have stopped.',
       definition:
-        'Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual); the Taylor rule only suggests. The default, 3%, is the neutral rate. It has no effect on Automatic.',
+        'Level of the key rate in percent a year, applied in the month it is set and held there until you change it (stabilisers on Manual); the Taylor rule only suggests. The default, 3%, is the neutral rate. A rate held away from what the rule suggests is not corrected by anything else: rising inflation lowers the real interest rate and feeds more spending (Wicksell’s cumulative process), so effects beyond two or three years show an economy without its nominal anchor. It has no effect on Automatic.',
       concepts: ['taylor-rule'],
     },
   ],

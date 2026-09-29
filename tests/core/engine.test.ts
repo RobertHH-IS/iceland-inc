@@ -117,7 +117,7 @@ describe('forks and counterfactuals', () => {
     const hike: ScenarioEvent[] = [{ t: 0, lever: 'keyRateAddon', value: 1 }];
     const e = fresh();
     e.load({ modelId: 'reference', events: hike, months: 24 });
-    const noSaving = e.fork({ disableTerms: ['consumption.realRate', 'investmentReal.realRate'] });
+    const noSaving = e.fork({ disableTerms: ['consumption.realRate', 'investmentPlan.realRate'] });
     // the disabled terms sit at their baseline values
     const inf = noSaving.influences('consumption').terms.find((t) => t.id === 'realRate')!;
     expect(inf.change).toBe(0);

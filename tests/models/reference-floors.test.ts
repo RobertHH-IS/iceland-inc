@@ -51,11 +51,13 @@ describe('reference economy: floors', () => {
       }
     });
     expect(floored).toBeGreaterThan(60);
-    expect(widest).toBeGreaterThan(0.03);
+    // past 0.5 × (5% − 2%) = 1.5% a year, with a margin (about 2.6% since the calmer demand
+    // block and anchored expectations of decision 0007; about 4% before)
+    expect(widest).toBeGreaterThan(0.02);
     const at = (m: number) => inflation[m - 1];
     expect(at(48)).toBeGreaterThan(at(24));
     expect(at(120)).toBeGreaterThan(at(48));
-    expect(at(120)).toBeGreaterThan(0.1);
+    expect(at(120)).toBeGreaterThan(0.03);
   });
 
   test('a surplus buys back only the bonds the bank holds: the buyback floor and its regime', () => {

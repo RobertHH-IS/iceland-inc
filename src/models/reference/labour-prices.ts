@@ -4,10 +4,13 @@
  * Firms hire in line with output (Okun's law); wages grow with expected inflation and with how
  * much work firms want compared with normal (a wage Phillips curve), and prices are a markup over
  * the normal labour cost of each unit of output (markup pricing). Expectations adapt to recent
- * inflation. In a boom the unemployment rate approaches the people between jobs but never goes
- * below them: the extra work comes from people joining the labour force and from longer hours,
- * and the wage pressure keeps growing with the work firms want, so excess demand still raises
- * wages and prices.
+ * inflation but stay partly anchored to the central bank's target, so a one-off jump in costs
+ * spreads only partly into later wage claims, and a lasting boom or slump leaves inflation off
+ * target by a steady amount rather than accelerating (the "back to the 1960s" Phillips curve of
+ * Blanchard 2016; decision 0007). In a boom the unemployment rate approaches the people between
+ * jobs but never goes below them: the extra work comes from people joining the labour force and
+ * from longer hours, and the wage pressure keeps growing with the work firms want, so excess
+ * demand still raises wages and prices.
  */
 import type { Ctx, ModuleDef, ParamDef } from '../../core/types.ts';
 
@@ -26,7 +29,7 @@ export function flooredRate(x: number, floor: number, start: number): number {
 
 const params: ParamDef[] = [
   { id: 'potentialOutput', value: 100, unit: '% of GDP/yr', category: 'BEHAVIOUR', description: 'What the economy can produce at normal capacity. The baseline runs at capacity, so baseline GDP = 100.', provenance: { basis: 'assumed', note: 'The unit of the model: baseline annual GDP = 100.' } },
-  { id: 'naturalUnemployment', value: 0.05, unit: 'fraction', category: 'BEHAVIOUR', description: 'Unemployment at which wages grow only with expected inflation.', provenance: assumed },
+  { id: 'naturalUnemployment', value: 0.05, unit: 'fraction', category: 'BEHAVIOUR', description: 'Unemployment at which wages grow only with expected inflation, so with no inflation expected they do not grow at all.', provenance: assumed },
   {
     id: 'minUnemployment',
     value: 0.02,
@@ -48,9 +51,34 @@ const params: ParamDef[] = [
   { id: 'markup', value: 0.5, unit: 'fraction', category: 'BEHAVIOUR', description: 'Price over normal labour cost: 0.5 means prices are 50% above what the labour in a product costs.', provenance: assumed },
   { id: 'priceSpeed', value: 1.5, unit: 'per year', category: 'BEHAVIOUR', description: 'How fast prices catch up with their target.', provenance: assumed },
   { id: 'phillipsSlope', value: 0.5, unit: 'per year', category: 'BEHAVIOUR', description: 'Extra wage growth per point of unemployment below its natural rate.', provenance: assumed },
-  { id: 'wageIndexation', value: 0.7, unit: 'fraction', category: 'BEHAVIOUR', description: 'Share of expected inflation that wage demands pass on.', provenance: assumed },
-  { id: 'wageFloor', value: -0.02, unit: 'fraction/yr', category: 'BEHAVIOUR', description: 'Wages are sticky downwards: they fall by at most this much a year, however slack the labour market.', provenance: assumed },
-  { id: 'expectationsSpeed', value: 1, unit: 'per year', category: 'BEHAVIOUR', description: 'How fast expected inflation adapts to actual inflation.', provenance: assumed },
+  {
+    id: 'wageIndexation',
+    value: 1,
+    unit: 'fraction',
+    category: 'BEHAVIOUR',
+    description: 'Share of expected inflation that wage demands pass on: all of it, so at the natural rate of unemployment real wages hold steady.',
+    provenance: { basis: 'assumed', note: 'Full pass-through, as in the Iceland model’s wage rule and Friedman (1968) and Phelps (1967). It was 0.7, which made the natural rate’s description untrue and hid a partly anchored Phillips curve in the wage rule (review REF-LRPC-not-vertical); the anchoring is now explicit, in expected inflation.' },
+  },
+  {
+    id: 'wageFloor',
+    value: -0.02,
+    unit: 'fraction/yr',
+    category: 'BEHAVIOUR',
+    description: 'Wages are sticky downwards: they fall by at most this much a year, however slack the labour market (downward nominal wage rigidity).',
+    provenance: { basis: 'assumed', note: 'Teaching value. Nominal wage cuts are rare (Akerlof, Dickens & Perry 1996); this floor lets pay fall a little in a deep slump but stops a deflationary spiral.' },
+  },
+  { id: 'expectationsSpeed', value: 1, unit: 'per year', category: 'BEHAVIOUR', description: 'How fast expected inflation adapts to what people see.', provenance: assumed },
+  {
+    id: 'expectationsAnchor',
+    value: 0.6,
+    unit: 'fraction',
+    category: 'BEHAVIOUR',
+    description: 'How firmly people trust the inflation target: the weight of the target in expected inflation. At 0.6, expectations move only 40% as far as inflation; at 0 they follow inflation alone, and at 1 they never leave the target.',
+    provenance: {
+      basis: 'assumed',
+      note: 'Teaching value for partly anchored expectations (Blanchard 2016; Bernanke 2007). It keeps a one-off 10% wage settlement to about a 12% rise in the price level, within the 10–15% that the evidence on short-lived wage–price spirals suggests (Alvarez et al. 2022; Blanchard & Bernanke 2023), and keeps a lasting slump from turning into a deflationary spiral at the zero lower bound. The anchor is fixed: the model does not simulate expectations drifting away from a target that is missed for years.',
+    },
+  },
 ];
 
 export const labourPrices: ModuleDef = {
@@ -137,7 +165,7 @@ export const labourPrices: ModuleDef = {
       lagInputs: ['expectedInflation', 'employment'],
       params: ['wageIndexation', 'phillipsSlope', 'naturalUnemployment', 'wageFloor'],
       terms: [
-        { id: 'expectedInflation', label: 'Expected inflation', concept: 'adaptive-expectations', compute: (c) => c.p('wageIndexation') * c.lag('expectedInflation') },
+        { id: 'expectedInflation', label: 'Expected inflation', concept: 'anchored-expectations', compute: (c) => c.p('wageIndexation') * c.lag('expectedInflation') },
         // Read from the work firms employ, not the floored unemployment rate: when the unemployed
         // run out, the extra hours and newcomers still have to be paid for.
         { id: 'tightLabourMarket', label: 'Tight labour market', concept: 'wage-phillips-curve', compute: (c) => c.p('phillipsSlope') * (1 - c.p('naturalUnemployment')) * (c.lag('employment') - 1) },
@@ -148,7 +176,7 @@ export const labourPrices: ModuleDef = {
       concepts: ['wage-phillips-curve'],
       explain: {
         what: 'How fast wage rates rise, per year.',
-        rule: 'Wage growth = {wageIndexation} × expected inflation + {phillipsSlope} × the work firms employed last month above normal, as a share of the labour force (the fall in unemployment it would bring, if every extra job went to someone unemployed), but wages fall by no more than {wageFloor%} a year. Scarce workers push pay up faster, and once the unemployed run out, the extra hours and the people drawn into work push it up further still.',
+        rule: 'Wage growth = {wageIndexation} × expected inflation + {phillipsSlope} × the work firms employed last month above normal, as a share of the labour force (the fall in unemployment it would bring, if every extra job went to someone unemployed), but wages fall by no more than {wageFloor%} a year. Scarce workers push pay up faster, and once the unemployed run out, the extra hours and the people drawn into work push it up further still. Because expected inflation is partly anchored to the target, a lasting boom raises inflation by a steady amount rather than ever faster; the floor is the rarity of pay cuts (downward nominal wage rigidity).',
       },
     },
     {
@@ -205,12 +233,16 @@ export const labourPrices: ModuleDef = {
       target: 'expectedInflation',
       category: 'BEHAVIOUR',
       inputs: ['inflation'],
+      params: ['expectationsAnchor', 'inflationTarget'],
       adjust: { speed: 'expectationsSpeed' },
-      terms: [{ id: 'recentInflation', label: 'Recent inflation', concept: 'adaptive-expectations', compute: (c) => c.v('inflation') }],
-      concepts: ['adaptive-expectations'],
+      terms: [
+        { id: 'recentInflation', label: 'Recent inflation', concept: 'adaptive-expectations', compute: (c) => (1 - c.p('expectationsAnchor')) * c.v('inflation') },
+        { id: 'target', label: 'The inflation target', concept: 'anchored-expectations', compute: (c) => c.p('expectationsAnchor') * c.p('inflationTarget') },
+      ],
+      concepts: ['adaptive-expectations', 'anchored-expectations'],
       explain: {
         what: 'The inflation people expect, which feeds into wage demands.',
-        rule: 'Expected inflation moves toward actual inflation at speed {expectationsSpeed} a year: people learn from what they see.',
+        rule: 'Expected inflation moves at speed {expectationsSpeed} a year toward a blend of what people see and what the central bank promises: {expectationsAnchor} of the way to the target ({inflationTarget%}), the rest to actual inflation. Because people partly trust the target, a burst of inflation raises what they expect by well under half as much, and so feeds less into the next wage round.',
       },
     },
   ],
@@ -240,8 +272,8 @@ export const labourPrices: ModuleDef = {
       step: 0.5,
       description: 'A one-off jump in wage rates, as after a collective agreement.',
       definition:
-        'One-off level shift: the wage rate jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages grow by the Phillips curve again, and prices, jobs and the key rate respond.',
-      concepts: ['wage-phillips-curve', 'cost-pass-through'],
+        'One-off level shift: the wage rate jumps by this percentage in the month the lever is fired. It is not reversed; afterwards wages grow by the Phillips curve again. Prices follow wages up within a year or two (the first round). Because wage demands pass on expected inflation, and expectations learn partly from the inflation that follows, part of the lasting rise in prices comes in later rounds: after +10% wages, prices end about 12% higher. On Automatic the Taylor rule reacts to the jump in 12-month inflation as if it would last and raises the key rate by about 4 points within a year; that, and the squeeze on firms’ profits while prices catch up with wages, is most of the fall in output. The slack limits the spiral, but the central bank targets inflation, not the price level, so it does not bring prices back down. On Manual the key rate stays where you set it and the rule only suggests.',
+      concepts: ['wage-phillips-curve', 'cost-pass-through', 'anchored-expectations'],
       fire: (s, size) => s.setLagged('wage', s.get('wage') * (1 + size / 100)),
     },
   ],

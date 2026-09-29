@@ -3,7 +3,11 @@
  *
  * Firms finance part of their investment with bank loans. A new loan creates a deposit (new
  * money); a repayment destroys one. Interest flows from borrowers to the bank and from the bank
- * to depositors, and profits are paid out to households as dividends.
+ * to depositors, and profits are paid out to households as dividends. When the bank is keen to
+ * lend more (the lending-appetite lever), firms spend the net new credit it gives them: the extra
+ * lending minus what they repay on the extra debt. So the boost to demand follows the flow of net
+ * credit and fades as repayments catch up (the credit impulse), and reverses when the appetite
+ * goes.
  */
 import type { ModuleDef, ParamDef } from '../../core/types.ts';
 
@@ -12,7 +16,7 @@ const assumed = { basis: 'assumed' as const, note: 'Teaching value, chosen to gi
 const params: ParamDef[] = [
   { id: 'loanFinancedShare', value: 0.4, unit: 'fraction', category: 'BEHAVIOUR', description: 'Share of investment that firms pay for with new bank loans.', provenance: assumed },
   { id: 'loanTerm', value: 8, unit: 'years', category: 'CONTRACT', description: 'Loans are repaid in equal parts over this many years.', provenance: assumed },
-  { id: 'creditAppetite', value: 0, unit: '% of GDP/yr', category: 'BEHAVIOUR', description: 'Extra lending the bank pushes beyond what investment needs (set by the lending-appetite lever).', provenance: { basis: 'assumed', note: 'Zero at baseline; moved by a lever.' } },
+  { id: 'creditAppetite', value: 0, unit: '% of GDP/yr', category: 'BEHAVIOUR', description: 'Extra lending a year the bank is willing to give firms beyond what their own investment plans need (set by the lending-appetite lever).', provenance: { basis: 'assumed', note: 'Zero at baseline; moved by a lever.' } },
   { id: 'depositSpread', value: 0.01, unit: 'fraction/yr', category: 'BEHAVIOUR', description: 'How far the deposit rate sits below the key rate.', provenance: assumed },
   { id: 'loanSpread', value: 0.025, unit: 'fraction/yr', category: 'BEHAVIOUR', description: 'How far the loan rate sits above the key rate.', provenance: assumed },
   { id: 'firmCashTarget', value: 0.12, unit: 'fraction of GDP', category: 'BEHAVIOUR', description: 'Deposits firms like to keep, as a share of a year’s GDP.', provenance: assumed },
@@ -30,6 +34,8 @@ export const banking: ModuleDef = {
   vars: [
     { id: 'depositRate', label: 'Deposit rate', unit: 'fraction/yr', kind: 'rate', scale: 'none' },
     { id: 'loanRate', label: 'Loan rate', unit: 'fraction/yr', kind: 'rate', scale: 'none' },
+    { id: 'creditInvestment', label: 'Investment paid for by the bank’s extra credit', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0, description: 'The net new credit the bank’s lending appetite gives firms, which they spend on investment.' },
+    { id: 'appetiteLoans', label: 'Loans from the bank’s extra appetite', unit: '% of GDP', kind: 'state', scale: 'nominal', initial: 0, description: 'The part of firms’ loans that the bank’s extra lending appetite has added: a memo line, not a separate instrument.' },
     { id: 'newLoans', label: 'New loans', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
     { id: 'loanRepayments', label: 'Loan repayments', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal' },
     { id: 'netLending', label: 'Net new lending', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: 0 },
@@ -75,19 +81,51 @@ export const banking: ModuleDef = {
       explain: { what: 'Interest the bank charges on loans, per year.', rule: 'Loan rate = key rate + {loanSpread pp}.' },
     },
     {
+      id: 'creditInvestment',
+      target: 'creditInvestment',
+      category: 'BEHAVIOUR',
+      label: 'Spending the bank’s extra credit',
+      lagInputs: ['appetiteLoans'],
+      params: ['creditAppetite', 'loanTerm'],
+      adjust: { speed: 'investmentSpeed' },
+      terms: [
+        { id: 'appetite', label: 'Extra lending the bank offers', concept: 'endogenous-money', compute: (c) => c.p('creditAppetite') },
+        { id: 'repayments', label: 'Repaying the extra debt', concept: 'money-destruction', compute: (c) => -c.lag('appetiteLoans') / c.p('loanTerm') },
+      ],
+      concepts: ['credit-impulse'],
+      explain: {
+        what: 'Investment firms pay for with the net new credit the bank’s extra lending appetite gives them, % of GDP a year: the extra lending minus what they repay on the extra debt.',
+        rule: 'Moves toward the extra lending the bank offers ({creditAppetite}% of GDP a year) minus the repayments on the extra loans already made (those loans ÷ {loanTerm} years), at the speed firms turn plans into spending ({investmentSpeed} a year). As the extra debt builds up, repayments take more and more of the new credit, so the extra spending fades; when the appetite goes, repayments exceed it and investment falls below normal until the extra debt is repaid.',
+      },
+    },
+    {
+      id: 'appetiteLoans',
+      target: 'appetiteLoans',
+      category: 'IDENTITY',
+      inputs: ['creditInvestment'],
+      lagInputs: ['appetiteLoans'],
+      compute: (c) => c.lag('appetiteLoans') + c.dt * c.v('creditInvestment'),
+      concepts: ['credit-impulse'],
+      explain: {
+        what: 'The part of firms’ loans the bank’s extra lending appetite has added, % of GDP: a memo line within the loan book.',
+        rule: 'Last month’s + one month of the net new credit it gave (new extra loans − repayments on them), which firms spent on investment.',
+      },
+    },
+    {
       id: 'newLoans',
       target: 'newLoans',
       category: 'BEHAVIOUR',
-      inputs: ['investment'],
-      params: ['loanFinancedShare', 'creditAppetite'],
+      inputs: ['investmentPlan', 'price', 'creditInvestment'],
+      lagInputs: ['appetiteLoans'],
+      params: ['loanFinancedShare', 'loanTerm'],
       terms: [
-        { id: 'investmentFinance', label: 'Loans for investment', concept: 'endogenous-money', compute: (c) => c.p('loanFinancedShare') * c.v('investment') },
-        { id: 'appetite', label: 'Bank lending appetite', concept: 'credit-impulse', compute: (c) => c.p('creditAppetite') },
+        { id: 'investmentFinance', label: 'Loans for investment', concept: 'endogenous-money', compute: (c) => c.p('loanFinancedShare') * c.v('investmentPlan') * c.v('price') },
+        { id: 'appetite', label: 'Extra lending the bank is keen to make', concept: 'endogenous-money', compute: (c) => c.v('creditInvestment') + c.lag('appetiteLoans') / c.p('loanTerm') },
       ],
       concepts: ['endogenous-money'],
       explain: {
         what: 'New loans the bank makes to firms, % of GDP a year. Each loan creates a new deposit.',
-        rule: 'New loans = {loanFinancedShare} × investment + any extra lending the bank is keen to push.',
+        rule: 'New loans = {loanFinancedShare} × firms’ own investment plans (in money) + the extra lending the bank is keen to make: what firms spend of it, plus what rolls over the extra debt as it falls due.',
       },
     },
     {
@@ -297,9 +335,9 @@ export const banking: ModuleDef = {
       max: 2,
       step: 0.25,
       binds: { param: 'creditAppetite', mode: 'add' },
-      description: 'Extra (or less) lending the bank is willing to push to firms each year, which firms invest.',
+      description: 'Extra (or less) lending the bank is willing to give firms each year, which firms invest. The boost lasts while credit is accelerating, then fades as firms repay the extra debt.',
       definition:
-        'Level shift in the flow of new loans, % of baseline GDP a year, persistent while set. Firms spend the extra credit on investment. Setting it back to 0 ends the extra lending; the loans already made are repaid over the loan term.',
+        'Level shift in the bank’s willingness to lend, % of baseline GDP a year of extra new loans, persistent while set. Firms take up the extra credit as fast as they turn plans into spending and spend the net new credit (the extra lending minus repayments on the extra debt) on investment, so new loans and the spending they pay for move together. As the extra debt builds up toward the loan term’s worth of the extra lending, repayments absorb more and more of it: the credit impulse turns negative after about two years and the extra investment fades, leaving firms with more debt and higher interest costs. Setting it back to 0 ends the extra lending; firms then repay the extra loans over the loan term, and investment falls below normal until they have (payback).',
       concepts: ['endogenous-money', 'credit-impulse'],
     },
   ],
