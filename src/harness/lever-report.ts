@@ -1049,7 +1049,8 @@ function measureRun(S: Setup, e: KernelEngine, ref: Reference, c: MeasureCtx): L
  * The implied-neutral-rate diagnostic (ImpliedNeutralSpec) for one run with every rule acting, or
  * null when the model declares none, the lever is the key-rate lever itself, or the run's learned
  * neutral rate is inside its band at the end. The key-rate lever is held at a constant level on top
- * of the run's own lever (setting it locks it; the other rules, the debt rule among them, still act).
+ * of the run's own lever (setting it locks it; the other rules, the debt rule among them, still act,
+ * in their usual form where the spec's `hold` parameters say so).
  * The mean inflation effect over the final 60 months need not fall as the held rate rises, so the
  * lever's whole range is scanned every IMPLIED_NEUTRAL_GRID points first; the rate is then bisected
  * to 0.01 points inside the bracket where the effect changes sign that lies nearest the rule's own
@@ -1085,9 +1086,11 @@ function impliedNeutral(S: Setup, e: KernelEngine, ref: Reference, event: Scenar
   };
   const finalEffect = (run: KernelEngine, k: number) => (k < 0 ? null : effectOf(S.indicators[k].display, S.indicators[k].levels(run)[months], ref.indicators[k][months]));
   let runs = 0;
+  const scan = x.hold ? S.base.fork({ params: x.hold }) : null;
   const held = (rate: number) => {
     runs++;
-    return S.run([...ref.events, event, { t: 0, lever: x.lever, value: rate }], months);
+    const events = [...ref.events, event, { t: 0, lever: x.lever, value: rate }];
+    return scan ? runScenario(scan, events, months).engine : S.run(events, months);
   };
   const f = (rate: number) => meanEffect(held(rate), ki);
   const band: [number, number] = [100 * (par(x.centre) - par(x.band)), 100 * (par(x.centre) + par(x.band))];

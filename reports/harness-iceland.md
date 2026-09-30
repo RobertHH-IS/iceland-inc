@@ -15,7 +15,7 @@ Step time: printed by `bun run harness`, not stored here since it depends on the
 
 ## 1. Compilation: PASS
 
-Compiled: 14 players, 16 instruments, 418 variables, 393 parameters, 418 rules, 58 flows (211 legs), 27 levers, 53 indicators, 68 concepts.
+Compiled: 14 players, 16 instruments, 418 variables, 396 parameters, 418 rules, 58 flows (211 legs), 27 levers, 53 indicators, 68 concepts.
 
 Schedule: 369 blocks, 1 simultaneous: [grossIncomeY, netLabourIncomeY, propertyIncomeY, consumptionY, grossIncomeW, netLabourIncomeW, propertyIncomeW, consumptionW, grossIncomeO, netLabourIncomeO, propertyIncomeO, consumptionO, consumption, realConsumption, importsConsumer, importsInputsFR, importsInputsFC, importsInputs, importVolume, output, salesFC, constructionInputs, profitsFC, valueAddedFC, dividendsFC, profitsFR, valueAddedFR, dividendsFR, dividendsFC_HY, dividendsFC_HW, dividendsFC_HO, dividendsFR_HY, dividendsFR_HW, dividendsFR_HO, employmentFC, employmentFR, employmentTotal, employmentY, unemployedY, employmentW, unemployedW, employmentO, unemployedO, unemploymentBenefitsY, unemploymentBenefitsW, unemploymentBenefitsO, vat, incomeTaxY, incomeTaxW, incomeTaxO].
 
@@ -77,7 +77,7 @@ Warnings (1):
 | government | In a surplus the government buys bonds back from every holder in proportion to its holdings, never more than there are; the rest of the surplus stays in the treasury account | PASS | buyback shares differ from holding shares by at most 5.6e-17; lowest holding 0.00e+0; buyback capped for 146 months; treasury account 33.06% of GDP |
 | government | When pension funds or older households are the sole buyers of a very large deficit, they buy only what their deposits pay for and banks take the rest | PASS | PF: lowest deposits 3.986, banks took the rest in 238 months; HO: lowest deposits 1.939, banks took the rest in 131 months |
 | government | Only the taxable share of family benefits is income-taxed: a point more costs the budget about 0.85 of a point at once, not 1 − the tax rate | PASS | taxable share 0.359; young: +0.5500 benefits, +0.1976 taxable, +0.3524 tax-free; government balance -0.852 (% of GDP) in month 1 |
-| government | A key rate 1 point higher reaches the average bond coupon as bonds mature and new ones are sold, not at once (review MON-1) | PASS | bond rate +0.017 pp in month 1, +0.187 at month 12 (+0.231 with spending 5% of GDP higher), +0.883 at month 120; interest bill +0.006 and +0.078 % of GDP |
+| government | A key rate 1 point higher reaches the average bond coupon as bonds mature and new ones are sold, not at once (review MON-1) | PASS | bond rate +0.017 pp in month 1, +0.187 at month 12 (+0.231 with spending 5% of GDP higher), +0.884 at month 120; interest bill +0.006 and +0.078 % of GDP |
 | government | Who buys new bonds changes money, not the bond rate; non-residents are not an option (they trade with banks) | PASS | bond rate after 12 months for each choice: 0.035000, 0.035000, 0.035000, 0.035000, 0.035000; options: Mix: 40% banks, 60% pension funds, Banks, Central bank, Pension funds, Older households |
 | government | Spending financed by banks creates more broad money than spending financed by pension funds | PASS | broad money after 12 months: bank-financed 68.105, pension-fund-financed 67.458 (% of GDP) |
 | pensions | At baseline payouts = contributions + fund income, so pension rights are constant | PASS | payouts − contributions − income = 0.00e+0 |
@@ -98,7 +98,7 @@ All four checks after every step of every run the harness makes, including the f
 
 ## 4. Baseline: PASS
 
-Solver: closed-form + newton, 0 iteration(s), 158 unknowns, largest residual 3.41e-13.
+Solver: closed-form + newton, 0 iteration(s), 157 unknowns, largest residual 3.41e-13.
 
 Solved parameters: tau0 = 0.385330, c0Y = 0.930470, c0W = 9.534726, c0O = 4.402102, muD = 0.028646, rhoFC0 = 0.470075, rhoFR0 = 0.522582, rhoXF0 = 0.962018, rhoXT0 = 0.378296, rhoXO0 = 0.553913, payout = 0.180737, ageing = 0.116749, mRY = 0.923974, mRW = 1.430036.
 

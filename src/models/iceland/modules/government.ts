@@ -26,24 +26,25 @@ import { stepByStep } from '../testing.ts';
  *  downturnBand). Iceland's fiscal rules, and the EU's, ask for no consolidation in a severe
  *  downturn (lever review ECON-4). */
 const downturnWeight = (c: Ctx): number => Math.min(1, Math.max(0, (-c.v('outputGap') - c.p('downturnGap')) / c.p('downturnBand')));
-/** How far interest rates are stuck at zero in a slump, 0 to 1, for the escape clause: while the key
- *  rate is unlocked, how far the central bank's rule was heading below zero (zeroBoundWeight), which
- *  it does only when it wants to cut further; while it is locked, the rate in force, the one you
- *  hold (R4 of the long-run-anchors proposal, decision 0016): 1 at zero, 0 at escapeBand or above,
- *  times how far output is below potential, fully once the gap is −downturnBand. A rate held at
- *  zero in a boom does not stop the debt rule leaning against it. A rule that uses it declares
- *  inputs ['outputGap'], lagInputs ['ruleTarget', 'keyRate'], params ['escapeBand', 'downturnBand']
- *  and locks [KEY_RATE_RULE]. */
-const zeroWeight = (c: Ctx): number =>
-  c.locked(KEY_RATE_RULE)
-    ? Math.min(1, Math.max(0, (c.p('escapeBand') - lastMonth(c, 'keyRate')) / c.p('escapeBand'))) * Math.min(1, Math.max(0, -c.v('outputGap') / c.p('downturnBand')))
-    : zeroBoundWeight(c);
-/** The escape clause's weight: the stronger of its two conditions. */
-const escapeWeight = (c: Ctx): number => Math.max(zeroWeight(c), downturnWeight(c));
-/** While the key rate is locked the central bank does not react, so the debt rule leans against the
- *  cycle as well as debt, and on debt more slowly (Kirsanova, Leith and Wren-Lewis 2009; decision
- *  0016). Declare locks [KEY_RATE_RULE]. */
-const heldRate = (c: Ctx) => c.locked(KEY_RATE_RULE);
+/** While the key rate is locked the central bank does not react, so the debt rule takes its
+ *  held-rate form: it leans against the cycle as well as debt, on debt more slowly, and does not let
+ *  debt move income tax against the cycle (Kirsanova, Leith and Wren-Lewis 2009; decision 0016). The switch
+ *  heldRateFiscal (1) lets the implied-neutral diagnostic hold the rate without it. A rule that uses
+ *  it declares params ['heldRateFiscal'] and locks [KEY_RATE_RULE]. */
+const heldRate = (c: Ctx) => c.locked(KEY_RATE_RULE) && c.p('heldRateFiscal') > 0;
+/** In the held-rate form, how far the debt rule is kept from moving income tax against the cycle,
+ *  0 to 1: from raising it in a slump (fully once the output gap is −heldSlumpBand) and from cutting
+ *  it in a boom (fully at +heldBoomBand). The slump weight stands in for the escape clause, whatever
+ *  rate is held, so the clause no longer reads the unused central-bank rule (R4, decision 0016). A
+ *  rule that uses them declares inputs ['outputGap'] and params ['heldSlumpBand', 'heldBoomBand']. */
+const slumpWeight = (c: Ctx): number => (heldRate(c) ? Math.min(1, Math.max(0, -c.v('outputGap') / c.p('heldSlumpBand'))) : 0);
+const boomWeight = (c: Ctx): number => (heldRate(c) ? Math.min(1, Math.max(0, c.v('outputGap') / c.p('heldBoomBand'))) : 0);
+/** The debt term the held-rate form acts on: a rise it asks for fades out as output falls below
+ *  potential, a cut as output rises above it. Unchanged while the key rate is unlocked. */
+const debtAgainstCycle = (c: Ctx, debt: number): number => debt * (1 - (debt > 0 ? slumpWeight(c) : boomWeight(c)));
+/** The escape clause's weight: the stronger of its two conditions, while the key rate is unlocked;
+ *  in the held-rate form, the slump weight. */
+const escapeWeight = (c: Ctx): number => (heldRate(c) ? slumpWeight(c) : Math.max(zeroBoundWeight(c), downturnWeight(c)));
 
 type Channel = { id: string; label: string; level: Id; share: Id; lever: string; channel: string; what: string };
 const CHANNELS: Channel[] = [
@@ -381,28 +382,38 @@ const rules: RuleDef[] = [
     category: 'POLICY',
     label: 'Debt-tied tax rule: where it is heading',
     inputs: ['debtRatio', 'outputGap'],
-    lagInputs: ['ruleTarget', 'taxRuleAnchor', 'keyRate'],
-    params: ['phiTau', 'phiTauHeld', 'phiGap', 'debtR0', 'escapeBand', 'downturnGap', 'downturnBand'],
+    lagInputs: ['ruleTarget', 'taxRuleAnchor'],
+    params: ['phiTau', 'phiTauHeld', 'phiGap', 'heldRateFiscal', 'heldSlumpBand', 'heldBoomBand', 'debtR0', 'escapeBand', 'downturnGap', 'downturnBand'],
     locks: [KEY_RATE_RULE],
     terms: terms(
       ['debt', 'Debt above its baseline ratio (more slowly while the key rate is locked)', 'debt-feedback', (c) => (heldRate(c) ? c.p('phiTauHeld') : 1) * c.p('phiTau') * (c.v('debtRatio') - c.p('debtR0'))],
       ['cycle', 'Output above potential, while the key rate is locked', 'debt-feedback', (c) => (heldRate(c) ? c.p('phiGap') * c.v('outputGap') : 0)],
     ),
     // Escape clause (a stabiliser interaction, decisions 0004, 0009, 0015 and 0016): in a severe
-    // downturn, or while interest rates are at zero, the debt rule does not raise taxes above the
-    // shift in force. Each condition fades in over a band, so the switch is smooth. While the key rate
-    // is locked the second reads the rate you hold (R4), and the rule leans against the cycle, so it
-    // cuts taxes in a slump rather than only standing still (decision 0016).
-    combine: (t, c) => t.debt + t.cycle - escapeWeight(c) * Math.max(0, t.debt + t.cycle - c.lag('taxRuleAnchor')),
+    // downturn, or while the central bank's rule is heading below zero, the debt rule does not raise
+    // taxes above the shift in force. Each condition fades in over a band, so the switch is smooth.
+    // While the key rate is locked the rule never moves the tax against the cycle: no rise while
+    // output is below potential, whatever rate is held, and no cut while it is above (decision 0016).
+    combine: (t, c) => {
+      const want = debtAgainstCycle(c, t.debt) + t.cycle,
+        inForce = c.lag('taxRuleAnchor');
+      return want - escapeWeight(c) * Math.max(0, want - inForce) + boomWeight(c) * Math.max(0, inForce - want);
+    },
     regime: (c, _v, t) => {
-      if (escapeWeight(c) === 0 || t.debt + t.cycle <= c.lag('taxRuleAnchor')) return null;
-      if (downturnWeight(c) >= zeroWeight(c)) return 'Escape clause: no tax rise in a severe downturn';
-      return heldRate(c) ? 'Escape clause: no tax rise while the key rate you hold is at zero in a slump' : 'Escape clause: no tax rise while the central bank’s rule is heading below zero';
+      const want = debtAgainstCycle(c, t.debt) + t.cycle,
+        inForce = c.lag('taxRuleAnchor');
+      if (heldRate(c)) {
+        if (slumpWeight(c) > 0 && (t.debt > 0 || want > inForce)) return 'Key rate held: debt adds no tax while output is below potential';
+        if (boomWeight(c) > 0 && (t.debt < 0 || want < inForce)) return 'Key rate held: low debt cuts no tax while output is above potential';
+        return null;
+      }
+      if (escapeWeight(c) === 0 || want <= inForce) return null;
+      return downturnWeight(c) >= zeroBoundWeight(c) ? 'Escape clause: no tax rise in a severe downturn' : 'Escape clause: no tax rise while the central bank’s rule is heading below zero';
     },
     concepts: ['debt-feedback'],
     explain: {
       what: 'Where the debt rule would put the income-tax rate, as a shift from its baseline, if it moved there at once. The rule itself moves toward it gradually.',
-      rule: 'Target = {phiTau} × (debt ratio − {debtR0}): ten points more debt means 2.5 points more tax. Escape clause: in two cases the debt rule does not raise the rate above the shift in force; it can still cut it. First, in a severe downturn: once the output gap the central bank reads from unemployment is below −{downturnGap%} (about a point of unemployment above normal), fully once it is a further {downturnBand%} lower, because raising taxes then would deepen the slump. Fiscal rules in Iceland and the EU have such clauses for severe downturns. Second, while the central bank’s inflation rule is heading for a key rate below zero, because interest rates cannot then be cut any further to cushion a tax rise; it phases in over the first {escapeBand%} point of that shortfall. While you hold the key rate locked the second reads the rate you hold instead: it applies only when that is at zero (fully) or within {escapeBand%} point of it, and output is below potential (fully {downturnBand%} below), so a rate held at zero in a boom does not stop the rule. And while you hold the key rate locked the central bank no longer steadies the economy, so the rule also leans against the cycle, as fiscal rules must when monetary policy does not act: it adds {phiGap} points of tax for each 1% of output above potential, and takes as much off below it (a slump brings tax cuts, not rises), and leans on debt only {phiTauHeld} as hard, so debt is still pulled back, but slowly.',
+      rule: 'Target = {phiTau} × (debt ratio − {debtR0}): ten points more debt means 2.5 points more tax. Escape clause: in two cases the debt rule does not raise the rate above the shift in force; it can still cut it. First, in a severe downturn: once the output gap the central bank reads from unemployment is below −{downturnGap%} (about a point of unemployment above normal), fully once it is a further {downturnBand%} lower, because raising taxes then would deepen the slump. Fiscal rules in Iceland and the EU have such clauses for severe downturns. Second, while the central bank’s inflation rule is heading for a key rate below zero, because interest rates cannot then be cut any further to cushion a tax rise; it phases in over the first {escapeBand%} point of that shortfall. While you hold the key rate locked, the central bank no longer steadies the economy, so the rule does it instead, as fiscal rules must when monetary policy does not act. It leans against the cycle: it adds {phiGap} points of tax for each 1% of output above potential, and takes as much off below it. It leans on debt only {phiTauHeld} as hard, so debt is still pulled back, but slowly. And it does not move the tax against the cycle for debt’s sake. While output is below potential, the rise the debt term asks for fades out, gone once output is {heldSlumpBand%} below potential, and from there the rule raises no tax at all, whatever rate you hold; so debt built up in a slump is paid back as the economy recovers, not during the slump. While output is above potential, the cut the debt term asks for fades out the same way, gone at {heldBoomBand%} above, so debt that a cheap held rate or rising prices have shrunk is not handed back as tax cuts until the boom has passed. The first band is wider because with the key rate held the debt rule is all that stops debt compounding, so in a long, mild slump it must still pay part of the interest bill. These take the place of the escape clause while you hold the key rate.',
     },
   },
   {
@@ -712,7 +723,7 @@ export const government: ModuleDef = {
   requires: ['structure', 'labour-and-wages', 'prices', 'central-bank', 'banks', 'households', 'firms'],
   params: pickParams(ALL_PARAMS, [
     'gHealth', 'gEdu', 'gOther', 'gInv', 'wsHealth', 'wsEdu', 'wsOther', 'trOA', 'oaShareY', 'oaShareO', 'trFam', 'famShareY', 'famTaxableShare', 'rr', 'rrShift',
-    'vat0', 'vatShift', 'tau0', 'incomeTaxShift', 'phiTau', 'phiTauHeld', 'phiGap', 'lamTau', 'escapeBand', 'downturnGap', 'downturnBand', 'debtR0', 'css', 'tauF', 'sB', 'bondMaturity', 'rBI0', 'tga', 'treasuryTopUp', 'bondMixBankShare',
+    'vat0', 'vatShift', 'tau0', 'incomeTaxShift', 'phiTau', 'phiTauHeld', 'phiGap', 'heldRateFiscal', 'heldSlumpBand', 'heldBoomBand', 'lamTau', 'escapeBand', 'downturnGap', 'downturnBand', 'debtR0', 'css', 'tauF', 'sB', 'bondMaturity', 'rBI0', 'tga', 'treasuryTopUp', 'bondMixBankShare',
     'compG', 'ueTarget', 'vatTarget', 'citTarget', 'govDebt', 'govIdxShare',
   ]),
   vars,
@@ -913,7 +924,7 @@ export const government: ModuleDef = {
       // Half the lever's half-point step: it calls exactly when "Apply" would move the lever.
       threshold: 0.25,
       description:
-        'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually from the rate in force. It raises no taxes in a severe downturn, or while interest rates are at zero (an escape clause). While you hold the key rate locked it also leans against the cycle, cutting taxes when output is below potential, and leans on debt only half as hard. While income tax is unlocked it sets the rate. While you hold income tax locked it suggests a value for the lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step. Unlocking starts the rule from the rate you held.',
+        'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually from the rate in force. It raises no taxes in a severe downturn, or while interest rates are at zero (an escape clause). While you hold the key rate locked it also leans against the cycle, cutting taxes when output is below potential, leans on debt only half as hard, and does not let debt push the tax against the cycle: no rise for debt while output is below potential, no cut for low debt while it is above. While income tax is unlocked it sets the rate. While you hold income tax locked it suggests a value for the lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step. Unlocking starts the rule from the rate you held.',
       concepts: ['debt-feedback'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'incomeTaxRate' },
       // ECON-5 (lever-vetting open item 21, decision 0016): debt takes the strain of a held tax change.

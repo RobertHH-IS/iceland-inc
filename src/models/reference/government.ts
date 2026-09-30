@@ -23,6 +23,18 @@ const buybackLimit = (c: Ctx) => c.v('openMarket') - c.stock('bonds', 'B') / c.d
 /** A tax rate × households' income: wages, and deposit interest and dividends. The tax rule's terms
  *  are differences of these, so they add up to the unsplit tax to the last digit (review TAX-4). */
 const onIncome = (c: Ctx, rate: number) => rate * c.v('wages') + rate * (c.v('depositInterestHH') + c.v('firmDividends') + c.v('bankDividends'));
+/** While the key rate is locked, how far the debt rule is kept from moving the tax rate against the
+ *  cycle, 0 to 1: from raising it for debt while output is below capacity (fully once it is
+ *  fiscalSlumpBand below) and from cutting it for low debt while output is above (fully at
+ *  fiscalBoomBand above); 0 while the key rate is unlocked (decision 0016). A rule that uses them
+ *  declares lagInputs ['output'], params ['potentialOutput', 'fiscalSlumpBand', 'fiscalBoomBand']
+ *  and locks [TAYLOR_RULE]. */
+const gap = (c: Ctx) => c.lag('output') / c.p('potentialOutput') - 1;
+const slumpWeight = (c: Ctx) => (c.locked(TAYLOR_RULE) ? Math.min(1, Math.max(0, -gap(c) / c.p('fiscalSlumpBand'))) : 0);
+const boomWeight = (c: Ctx) => (c.locked(TAYLOR_RULE) ? Math.min(1, Math.max(0, gap(c) / c.p('fiscalBoomBand'))) : 0);
+/** The debt term the rule acts on: while the key rate is locked, a rise it asks for fades out as
+ *  output falls below capacity, and a cut as output rises above it. */
+const debtAgainstCycle = (c: Ctx, debt: number) => debt * (1 - (debt > 0 ? slumpWeight(c) : boomWeight(c)));
 
 const params: ParamDef[] = [
   {
@@ -73,6 +85,22 @@ const params: ParamDef[] = [
       basis: 'assumed',
       note: 'The slow debt term under the counter-cyclical term (Kirsanova, Leith and Wren-Lewis 2009). At full strength a key rate held below neutral ran away: the debt ratio fell as prices rose, so the rule cut taxes into the boom (2.25% held: the price level 19% higher after 20 years and accelerating), and one held above neutral deepened the slump as the rule raised taxes to pay the interest bill (4.75%: output 13% lower). Decision 0016.',
     },
+  },
+  {
+    id: 'fiscalSlumpBand',
+    value: 0.01,
+    unit: 'fraction',
+    category: 'POLICY',
+    description: 'While the key rate is locked, the debt rule raises no tax for debt while output is below capacity: the rise its debt term asks for fades out as output falls from capacity to this far below it (1%), and below that the rule does not raise the rate at all.',
+    provenance: { basis: 'assumed', note: 'When monetary policy does not act, a fiscal rule that tightened in a slump would deepen it (Kirsanova, Leith and Wren-Lewis 2009). Without it the debt rule raised the tax rate 1.7 points by month 240 while a key rate held at 4.75% kept output 1.6% below capacity, and 8.9 points at 10% with output 4.3% below (review of decision 0016, 30 September 2026). Wider than fiscalBoomBand, as in the Iceland model: with the key rate held the debt rule is all that keeps debt from compounding (Leeper 1991), so in a long, mild slump it must still pay part of the interest bill. Decision 0016.' },
+  },
+  {
+    id: 'fiscalBoomBand',
+    value: 0.0025,
+    unit: 'fraction',
+    category: 'POLICY',
+    description: 'While the key rate is locked, the debt rule cuts no tax for low debt while output is above capacity: the cut its debt term asks for fades out as output rises from capacity to this far above it (a quarter of 1%), and above that the rule does not cut the rate at all.',
+    provenance: { basis: 'assumed', note: 'When monetary policy does not act, a fiscal rule that loosened in a boom would feed it (Kirsanova, Leith and Wren-Lewis 2009). Without it a key rate held at 0% cut the tax rate 1.6 points by month 240 while output stayed about 2% above capacity and the price level rose 14%, as the lower interest bill and rising prices shrank the debt ratio (review of decision 0016, 30 September 2026). Narrow, because holding back a cut costs nothing but time: the debt stays low, and the cut comes once the boom has passed. Decision 0016.' },
   },
   {
     id: 'fiscalSpeed',
@@ -137,8 +165,8 @@ export const government: ModuleDef = {
       target: 'taxRuleTarget',
       category: 'POLICY',
       label: 'Debt rule: where it is heading',
-      lagInputs: ['debtRatio', 'output'],
-      params: ['normalTaxRate', 'fiscalResponse', 'fiscalHeldShare', 'fiscalCycle', 'potentialOutput'],
+      lagInputs: ['debtRatio', 'output', 'taxRuleAnchor'],
+      params: ['normalTaxRate', 'fiscalResponse', 'fiscalHeldShare', 'fiscalCycle', 'fiscalSlumpBand', 'fiscalBoomBand', 'potentialOutput'],
       locks: [TAYLOR_RULE],
       terms: [
         { id: 'normal', label: 'Normal tax rate', compute: (c) => c.p('normalTaxRate') },
@@ -152,13 +180,28 @@ export const government: ModuleDef = {
           id: 'cycle',
           label: 'Output above capacity, while the key rate is locked',
           concept: 'debt-feedback',
-          compute: (c) => (c.locked(TAYLOR_RULE) ? c.p('fiscalCycle') * (c.lag('output') / c.p('potentialOutput') - 1) : 0),
+          compute: (c) => (c.locked(TAYLOR_RULE) ? c.p('fiscalCycle') * gap(c) : 0),
         },
       ],
+      // While the key rate is locked the rule never moves the tax rate against the cycle (decision
+      // 0016): the debt term's rises fade out below capacity and its cuts above, and the rate is not
+      // stepped up from the one in force in a slump, nor down in a boom.
+      combine: (t, c) => {
+        const want = t.normal + debtAgainstCycle(c, t.debtRule) + t.cycle,
+          inForce = c.lag('taxRuleAnchor');
+        return want - slumpWeight(c) * Math.max(0, want - inForce) + boomWeight(c) * Math.max(0, inForce - want);
+      },
+      regime: (c, _v, t) => {
+        const want = t.normal + debtAgainstCycle(c, t.debtRule) + t.cycle,
+          inForce = c.lag('taxRuleAnchor');
+        if (slumpWeight(c) > 0 && (t.debtRule > 0 || want > inForce)) return 'Key rate held: debt adds no tax while output is below capacity';
+        if (boomWeight(c) > 0 && (t.debtRule < 0 || want < inForce)) return 'Key rate held: low debt cuts no tax while output is above capacity';
+        return null;
+      },
       concepts: ['debt-feedback'],
       explain: {
         what: 'Where the government’s debt rule would put the income-tax rate if it moved there at once. The rule itself moves toward it gradually.',
-        rule: 'Target = {normalTaxRate%} + {fiscalResponse} × (debt ratio − its starting level) ÷ 100: 10 more points of debt mean about 3 more points of tax. Without such a rule, interest on a growing debt could feed on itself. Because the rule keeps leaning until debt is back where the tax rate balances the budget, it undoes any lasting change in the end; its strength sets how fast, and how far debt moves meanwhile (the tax change ÷ {fiscalResponse}, in points of GDP). At {fiscalResponse} it is several times stronger than real governments’ estimated reactions, so debt settles within a decade. While you hold the key rate locked, the central bank no longer steadies the economy, and a rule that leaned on debt alone would amplify shocks: it would cut taxes as rising prices shrank the debt ratio in a boom, and raise them to pay a higher interest bill in a slump. So then the rule also adds {fiscalCycle} points of tax per 1% of output above capacity (and cuts as much below it), and leans on debt only {fiscalHeldShare} as hard.',
+        rule: 'Target = {normalTaxRate%} + {fiscalResponse} × (debt ratio − its starting level) ÷ 100: 10 more points of debt mean about 3 more points of tax. Without such a rule, interest on a growing debt could feed on itself. Because the rule keeps leaning until debt is back where the tax rate balances the budget, it undoes any lasting change in the end; its strength sets how fast, and how far debt moves meanwhile (the tax change ÷ {fiscalResponse}, in points of GDP). At {fiscalResponse} it is several times stronger than real governments’ estimated reactions, so debt settles within a decade. While you hold the key rate locked, the central bank no longer steadies the economy, and a rule that leaned on debt alone would amplify shocks: it would cut taxes as rising prices shrank the debt ratio in a boom, and raise them to pay a higher interest bill in a slump. So then the rule also adds {fiscalCycle} points of tax per 1% of output above capacity (and cuts as much below it), and leans on debt only {fiscalHeldShare} as hard. And debt no longer moves the tax against the cycle: below capacity, the rise the debt term asks for fades out, gone once output is {fiscalSlumpBand%} below, and from there the rule raises no tax at all; above capacity, the cut it asks for fades out the same way, gone at {fiscalBoomBand%} above. So debt built up in a slump is paid back as output recovers, and debt shrunk in a boom is handed back as tax cuts only once the boom has passed. The first band is wider because with the key rate held the rule is all that stops debt compounding, so in a long, mild slump it must still pay part of the interest bill.',
       },
     },
     {
@@ -406,7 +449,7 @@ export const government: ModuleDef = {
       shadow: ['debtRuleRate', 'taxRuleAnchor', 'taxRuleTarget'],
       threshold: 0.25, // half the lever's half-point step: calls when Apply would move the lever
       description:
-        'The government’s debt rule: about 3 points more income tax for 10 points more debt, reached gradually from the rate in force. While the key rate is locked it also leans against the cycle, cutting taxes when output is below capacity, and leans on debt half as hard. While the tax lever is unlocked it sets the tax rate. While you hold it locked it suggests a shift for the lever, which turns red when applying it would move the lever.',
+        'The government’s debt rule: about 3 points more income tax for 10 points more debt, reached gradually from the rate in force. While the key rate is locked it also leans against the cycle, cutting taxes when output is below capacity, leans on debt half as hard, and does not let debt push the tax against the cycle. While the tax lever is unlocked it sets the tax rate. While you hold it locked it suggests a shift for the lever, which turns red when applying it would move the lever.',
       concepts: ['debt-feedback', 'policy-lags'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'govDebt' },
       // ECON-5 (lever-vetting open item 21): the owner decides the fix; until then, the panel says it.

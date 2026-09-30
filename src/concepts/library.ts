@@ -1013,7 +1013,7 @@ export const concepts: ConceptDef[] = [
       `A *fiscal reaction function* describes how a government's budget responds to its debt. Bohn (1998) showed that if the primary balance (taxes minus spending, before interest) rises whenever the debt ratio rises, debt stays sustainable. Estimated responses are small, roughly 0.02–0.1% of GDP of primary balance per point of debt (Mauro et al. 2015).`,
       `Iceland's legal anchor is the debt rule in article 7 of the Public Finance Act (123/2015): debt, net of cash and deposits, of at most 30% of GDP, with any excess cut by at least a twentieth a year. Since 2026 a stability rule on spending growth sits beside it (see the fiscal stability rule).`,
       `Both economies in Iceland Inc. use a stylised stand-in, not the law: it works only through the income-tax rate, anchors debt at its baseline ratio (about 57% of GDP in Iceland), and moves the tax rate toward 0.25 points per point of debt above it (0.3 in the reference economy), several times stronger than estimated reactions. It acts while the tax lever is unlocked; locked, it only suggests.`,
-      `While the key rate is locked it also leans against the cycle, half a point of tax per point of output gap, and on debt half as hard: when monetary policy does not act, fiscal policy must (Kirsanova, Leith and Wren-Lewis 2009).`,
+      `While the key rate is locked, so monetary policy does not act, it also leans against the cycle, half a point of tax per point of output gap, and on debt half as hard, never against the cycle (Kirsanova, Leith and Wren-Lewis 2009).`,
     ),
     school: 'institutional',
     references: [ref.bohn1998, ref.mauro2015, ref.publicFinanceAct],

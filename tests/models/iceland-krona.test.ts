@@ -427,9 +427,21 @@ describe('Iceland model: fish and aluminium volumes follow their own price (revi
 describe('Iceland model: a high key rate held for years (review E7)', () => {
   // Until padlocks (decision 0010) this was a +5-point offset to the rule; it is now the key rate
   // held 5 points above neutral while the debt rule acts (income tax unlocked).
-  test('with the debt rule acting, a key rate held 5 points above neutral keeps output below baseline for 20 years', () => {
+  test('with the debt rule acting, a key rate held 5 points above neutral keeps output below baseline for its first eight years and its last seven, and at most 0.5% above it between', () => {
+    // Until the review of decision 0016 output stayed below baseline for all 20 years (−1.47% at
+    // month 120), because the debt rule raised income tax through the slump the hold brings to pay
+    // the higher interest bill. The owner's review asked that it raise no tax while output is more
+    // than 1% below potential (heldSlumpBand), so now it cuts taxes in the slump and pays the bill
+    // only as the slump fades; the debt built up meanwhile (+41 points of GDP by month 120, +37
+    // before) and its interest lift output a little above baseline from month 107 to 155, by at
+    // most 0.41% (month 126): the interest-income channel of a rate held high (decision 0002 §6),
+    // which the debt rule now delays rather than prevents. Holds 1–3 points above neutral, the
+    // long-run-anchors proposal's acceptance test, still keep output below baseline to month 480
+    // (iceland-real-economy.test.ts).
     const output = series(run('keyRate', 8, true, 240), 'output');
-    expect(Math.max(...output.slice(1))).toBeLessThan(0);
+    expect(Math.max(...output.slice(1, 97))).toBeLessThan(0);
+    expect(Math.max(...output.slice(1))).toBeLessThan(0.5);
+    expect(Math.max(...output.slice(156))).toBeLessThan(0);
   });
 
   test('both policy levers locked, 15% held: output below baseline for eight years, then the interest-income channel lifts it', () => {

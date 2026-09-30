@@ -15,7 +15,7 @@ Step time: printed by `bun run harness`, not stored here since it depends on the
 
 ## 1. Compilation: PASS
 
-Compiled: 5 players, 6 instruments, 55 variables, 54 parameters, 55 rules, 16 flows (19 legs), 7 levers, 8 indicators, 68 concepts.
+Compiled: 5 players, 6 instruments, 55 variables, 56 parameters, 55 rules, 16 flows (19 legs), 7 levers, 8 indicators, 68 concepts.
 
 Schedule: 49 blocks, 1 simultaneous: [employment, wages, disposableIncome, consumption, gdp, output, taxes].
 
@@ -71,7 +71,7 @@ No-shock run of 240 months: largest drift of 55 variables and 13 stock positions
 
 | Check | Scenario and measure | Result | Range | Source | Verdict |
 |---|---|---|---|---|---|
-| rate-hike-output | Key rate locked 1 pp above neutral for 2 years, then unlocked: output trough, % vs baseline | -1.147 | -3 to -0.05 | teaching model: qualitative sign/size check | PASS |
+| rate-hike-output | Key rate locked 1 pp above neutral for 2 years, then unlocked: output trough, % vs baseline | -1.114 | -3 to -0.05 | teaching model: qualitative sign/size check | PASS |
 | spending-multiplier | Government spending +1% of GDP: output peak, % vs baseline | 1.576 | 0.3 to 3 | teaching model: qualitative sign/size check | PASS |
 | wage-settlement-inflation | Wage settlement +10%: 12-month inflation peak, pp vs baseline | 8.557 | 2 to 15 | teaching model: qualitative sign/size check | PASS |
 | locked-rate-hike-output | Locked: key rate held at 4% (+1 pp) for 2 years: output trough, % vs baseline | -1.406 | -2 to -0.3 | Christiano, Eichenbaum & Evans (1999) and Ramey (2016): a 1 pp policy-rate shock lowers output about 0.5–1.5% at its peak; a rate held for two years while inflation falls, so that the real rate keeps rising, may cost somewhat more | PASS |
@@ -99,7 +99,7 @@ Each calibration scenario rerun with half the kernel step: 2 sub-steps a month i
 
 | Check | step h | h / 2 | Change | Limit | Error at h | Verdict |
 |---|---|---|---|---|---|---|
-| rate-hike-output | -1.147 | -1.124 | 0.08 of allowed | -1.102 | -0.045 | PASS |
+| rate-hike-output | -1.114 | -1.091 | 0.08 of allowed | -1.067 | -0.047 | PASS |
 | spending-multiplier | 1.576 | 1.553 | 0.09 of allowed | 1.529 | 0.046 | PASS |
 | wage-settlement-inflation | 8.557 | 8.416 | 0.11 of allowed | 8.275 | 0.282 | PASS |
 | locked-rate-hike-output | -1.406 | -1.363 | 0.25 of allowed | -1.320 | -0.086 | PASS |

@@ -583,7 +583,7 @@ describe('the debt rule’s escape clause (lever review ZLB-DEBT-RULE, ECON-4; d
   });
 });
 
-describe('the debt rule while only the key rate is locked (decision 0016: R4 and a counter-cyclical term)', () => {
+describe('the debt rule while only the key rate is locked (decision 0016: a counter-cyclical term, and debt never moves the tax against the cycle)', () => {
   /** The months in which the debt rule's target shows each regime label. */
   const labels = (e: KernelEngine, months: number) => {
     const out: Record<string, number[]> = {};
@@ -594,52 +594,85 @@ describe('the debt rule while only the key rate is locked (decision 0016: R4 and
     }
     return out;
   };
+  const SLUMP = 'Key rate held: debt adds no tax while output is below potential';
+  const BOOM = 'Key rate held: low debt cuts no tax while output is above potential';
+  /** The largest month-on-month move of income tax, in points, in the months whose output gap is
+   *  beyond `gap` (below it when negative, above it when positive): up for a slump, down for a boom. */
+  const worstAgainstCycle = (e: KernelEngine, gap: number, months: number) => {
+    let worst = 0;
+    for (let m = 2; m <= months; m++) {
+      const g = e.valueAt('outputGap', m),
+        d = 100 * (e.valueAt('taxRate', m) - e.valueAt('taxRate', m - 1));
+      if (gap < 0 && g < gap) worst = Math.max(worst, d);
+      if (gap > 0 && g > gap) worst = Math.max(worst, -d);
+    }
+    return worst;
+  };
 
-  test('R4: the zero-bound clause reads the rate you hold, and only in a slump', () => {
+  test('R4: while the key rate is held the escape clause no longer reads the unused central-bank rule; the slump guard takes its place, whatever rate is held', () => {
     // Before decision 0016 it read where the unused central-bank rule was heading: falling prices
     // switched it on from about month 103 under a 6% hold, and a 15% hold kept the debt rule idle
-    // for eight years (review ECON-2). Now a held rate above zero never switches it on.
+    // for eight years (review ECON-2). The first round of 0016 read the held rate instead, only at
+    // zero; the review of 0016 found debt still raised taxes in slumps at any other rate.
     const six = twins([['keyRate', 6]], 'key rate locked', 240);
-    expect(Object.keys(labels(six.s, 240))).toEqual([]);
-    // Held at zero in a slump it stands the debt rule aside (tourism −60: from month 36)...
+    const sixLabels = labels(six.s, 240);
+    expect(Object.keys(sixLabels).some((l) => /central bank/.test(l))).toBe(false);
+    expect(sixLabels[SLUMP]?.length).toBeGreaterThan(24); // through the slump the 6% hold brings
+    // Held at zero in a slump the guard stands the debt term aside (tourism −60)...
     const trap = twins([['keyRate', 0], ['tourism', -60]], 'key rate locked', 120);
-    const at = labels(trap.s, 120)['Escape clause: no tax rise while the key rate you hold is at zero in a slump'] ?? [];
-    expect(at.length).toBeGreaterThan(60);
+    expect(labels(trap.s, 120)[SLUMP]?.length).toBeGreaterThan(60);
     // ...but a rate held at zero in a boom does not stop the rule leaning against it: health +3
-    // raises income tax (+1.5 points at month 60), where the clause alone would have held it.
+    // raises income tax (+1.8 points at month 60), and no guard binds.
     const boom = twins([['keyRate', 0], ['health', 3]], 'key rate locked', 60);
-    expect(Object.keys(labels(boom.s, 60))).toEqual([]);
+    expect(labels(boom.s, 60)[SLUMP]).toBeUndefined();
     expect(boom.pp('taxRate', 60)).toBeGreaterThan(1);
   });
 
-  test('a private-demand slump brings tax cuts, not rises: tourism −60 and lending appetite −3 with the key rate held (reviews ECON-3 and ECON-4)', () => {
+  test('a private-demand slump brings tax cuts, and no tax rise while output is more than 1% below potential: tourism −60 and lending appetite −3 with the key rate held, months 1–240 (reviews ECON-3 and ECON-4)', () => {
     // A debt-only rule is procyclical when monetary policy does not act (Kirsanova, Leith and
     // Wren-Lewis 2009). Before decision 0016: tourism −60 held income tax still through the slump
-    // (the downturn clause) with output −6.27% at month 60; lending appetite −3 raised it 0.43 points
-    // by month 60 and 1.14 by month 240, with output −1.28% at month 240.
+    // (the downturn clause), output −6.27% at month 60, and raised it 3.4 points in the second
+    // decade, output −0.95% at month 240; lending appetite −3 raised it 0.43 points by month 60 and
+    // 1.14 by month 240, output −1.28% at month 240. The first round of 0016 raised it 4.5 points by
+    // month 240 after tourism −60, from month 90, with the output gap still −3 to −1% (the review of
+    // 0016), and left output −1.57% at month 240.
     const t = twins([['tourism', -60]], 'key rate locked', 240);
-    let most = -Infinity,
-      least = Infinity;
-    for (let m = 1; m <= 60; m++) {
-      most = Math.max(most, t.pp('taxRate', m));
-      least = Math.min(least, t.pp('taxRate', m));
-    }
-    expect(most).toBeLessThan(0.001); // no rise in the first five years (at most 7e-5 of a point, in month 1)
-    expect(least).toBeLessThan(-0.8); // a cut of about a point (−0.98)
-    expect(t.pct('output', 60)).toBeGreaterThan(-5.5); // −5.38 (−6.27 before)
-    // Later the slow debt term pays the slump's debt back (+4.5 points of tax at month 240, debt
-    // +41 points of GDP); output −1.57% at month 240 (−0.95% before, when the tax rise came in the
-    // second decade too, +3.4 points).
-    expect(t.pct('output', 240)).toBeGreaterThan(-2);
+    expect(worstAgainstCycle(t.s, -0.01, 240)).toBeLessThan(1e-9);
+    let least = Infinity;
+    for (let m = 1; m <= 120; m++) least = Math.min(least, t.pp('taxRate', m));
+    expect(least).toBeLessThan(-1.5); // a cut of 1.8 points
+    expect(t.pct('output', 60)).toBeGreaterThan(-5); // −4.77
+    // Once output is back near potential the slow debt term pays the slump's debt back: +3.6 points
+    // of tax at month 240, debt +47 points of GDP; output −0.60% at month 240, shallower than
+    // before decision 0016.
+    expect(t.pp('taxRate', 240)).toBeGreaterThan(2);
+    expect(t.pct('output', 240)).toBeGreaterThan(-0.95);
     const l = twins([['lendingAppetite', -3]], 'key rate locked', 240);
-    expect(l.pp('taxRate', 60)).toBeLessThan(0.1); // −0.03
-    expect(l.pct('output', 240)).toBeGreaterThan(-0.8); // −0.57
+    expect(worstAgainstCycle(l.s, -0.01, 240)).toBeLessThan(1e-9);
+    expect(l.pp('taxRate', 60)).toBeLessThan(0); // −0.17
+    expect(l.pct('output', 240)).toBeGreaterThan(-0.6); // −0.42
+  });
+
+  test('a boom brought by a key rate held low brings no tax cuts while it lasts (the review of decision 0016)', () => {
+    // The first round of 0016 cut income tax 1.9 points by month 240 with the key rate held at 0%,
+    // while output stayed about 1% above potential and the price level rose 11%: the lower interest
+    // bill and inflation shrank the debt ratio, and the half-strength debt term outweighed the
+    // counter-cyclical one. Now the rule raises the tax through the boom (+0.46 at month 60), and hands
+    // some of the lower interest bill back only once the boom has passed (−0.63 at month 240, the
+    // gap 0.2%); the price level is 5.7% higher at month 240.
+    const z = twins([['keyRate', 0]], 'key rate locked', 240);
+    expect(worstAgainstCycle(z.s, 0.0025, 240)).toBeLessThan(1e-9);
+    expect(z.pp('taxRate', 60)).toBeGreaterThan(0.3);
+    expect(z.pct('cpi', 240)).toBeLessThan(8);
+    expect(labels(z.s, 120)[BOOM]?.length).toBeGreaterThan(24); // (seeks the run back)
   });
 
   test('the proposal’s acceptance test: no key rate held 1 to 3 points above neutral turns output positive before month 480', () => {
     // With the debt rule leaning on debt at full strength and no counter-cyclical term the 6% hold
     // left output 1.1% lower after 20 years; at a quarter of the strength (phiTauHeld 0.25) it turned
-    // positive before month 480 (decision 0016). Now at most −0.04, −0.07 and −0.11% at its highest.
+    // positive before month 480, and so did a 6% hold with a slump guard a quarter of a point wide
+    // (heldSlumpBand 0.0025: +0.2% at month 130; decision 0016). Now at most −0.04, −0.07 and −0.08%
+    // at its highest.
     for (const k of [4, 5, 6]) {
       const r = twins([['keyRate', k]], 'key rate locked', 480);
       for (let m = 1; m <= 480; m++) expect(r.pct('output', m)).toBeLessThan(0);
