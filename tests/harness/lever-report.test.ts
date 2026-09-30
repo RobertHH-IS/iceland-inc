@@ -383,29 +383,44 @@ describe('flags', () => {
     expect(row.split('|')[2].trim()).toBe(String(2 * key.settings.length));
   }, 60_000);
 
-  describe('known limitation (review ECON-5, lever-vetting open item 21, decision 0016): a tax lever held while the central bank’s rule acts', () => {
-    // Moving a tax lever locks it; with the key-rate rule still acting, nothing pays a tax cut back,
-    // so no stable path exists (Leeper 1991). Decision 0016 measured the evidence-based ways to
-    // weaken the interest-income channel: they shrink the runaway but cannot remove it here, because
-    // in these zero-growth baselines debt compounds at about 3.5% a year (r − g) on any lasting
-    // deficit, which the Explosive test reads as acceleration, and in Iceland the deficit also
-    // weakens the króna through non-residents' holdings (lever-vetting item 4). Only a fix that acts
-    // on the compounding can make the first test below pass: a balanced-growth baseline (roadmap v2,
-    // r − g near zero) or a fiscal anchor while the tax is held. Króna stage 2 shrinks Iceland's part
-    // of the runaway but leaves the compounding, so on its own it will not (decision 0016). The owner
-    // decides. Until then the lever panel says so (StabiliserDef.lockedAloneNote) and these pin it.
+  describe('the owner’s decision (decision 0016, lever-vetting item 21): a tax lever held while the central bank’s rule acts is paid for with debt', () => {
+    // Moving a tax lever locks it; with the key-rate rule still acting, nothing pays a tax cut back
+    // (Leeper 1991). The owner decided (30 September 2026) that this is the lesson, not a defect:
+    // deficits that grow faster than the economy pile up debt against GDP, money keeps expanding and
+    // the króna weakens, while the central bank leans against the inflation. In these zero-growth
+    // baselines debt compounds at r − g of about 3.5% a year, so the lever report flags the long run
+    // Explosive; a balanced-growth baseline (the start-from-today work) brings r − g near zero and
+    // will change the magnitudes, not the chain. The first test pins the chain, the tripwire the size.
     const moderate = (m: KModel, id: string) => {
       const spec = { ...leverReportSpecs[m.def.id], impliedNeutral: undefined };
       const r = leverReport(m, { months: 240, levers: [id], expectations: null, spec });
       return r.levers[0].runs.filter((x) => x.mode === 'unlocked' && (x.roles.includes('up') || x.roles.includes('down')));
     };
     const at240 = (run: ReturnType<typeof moderate>[number], id: string) => run.headlines.find((h) => h.id === id)!.at.at(-1)!;
+    const path = (run: ReturnType<typeof moderate>[number], id: string, months: number[]) => {
+      const h = run.headlines.find((x) => x.id === id)!;
+      return months.map((m) => h.at[HORIZONS.indexOf(m)]); // the report's horizons are HORIZONS
+    };
 
-    test.failing('OWNER DECISION PENDING: no moderate tax step with the central bank’s rule acting is Explosive within 240 months (Iceland ±2.5, reference −0.5 and +1)', () => {
-      // Expected to fail until a balanced-growth baseline or a fiscal anchor while the tax is held
-      // lands (above); bun reports it as soon as it passes, and then `.failing` comes off with
-      // lever-vetting open item 21.
-      for (const run of [...moderate(ice, 'incomeTax'), ...moderate(ref, 'taxRate')]) expect(run.flags.some((f) => f.kind === 'explosive')).toBe(false);
+    test('a held tax cut opens a deficit at once, and debt, money and the key rate climb while the króna weakens; a rise mirrors it', () => {
+      const [cut, rise] = moderate(ice, 'incomeTax');
+      // the budget moves first: the deficit opens in month 1, before the central bank moves
+      expect(path(cut, 'govBalance', [1])[0]).toBeLessThan(-1);
+      expect(Math.abs(path(cut, 'keyRate', [1])[0])).toBeLessThan(0.01);
+      for (const [run, s] of [[cut, 1], [rise, -1]] as const) {
+        const debt = path(run, 'govDebt', [12, 60, 120, 240]).map((v) => s * v);
+        expect(debt[0]).toBeGreaterThan(0);
+        for (let i = 1; i < debt.length; i++) expect(debt[i]).toBeGreaterThan(debt[i - 1]); // it accumulates
+        expect(s * at240(run, 'broadMoney')).toBeGreaterThan(0);
+        expect(s * at240(run, 'krona')).toBeLessThan(0); // + is a stronger króna
+        expect(s * at240(run, 'keyRate')).toBeGreaterThan(0); // the rule leans against it
+      }
+      const [refCut, refRise] = moderate(ref, 'taxRate');
+      for (const [run, s] of [[refCut, 1], [refRise, -1]] as const) {
+        const debt = path(run, 'govDebt', [60, 120, 240]).map((v) => s * v);
+        for (let i = 1; i < debt.length; i++) expect(debt[i]).toBeGreaterThan(debt[i - 1]);
+        expect(s * at240(run, 'keyRate')).toBeGreaterThan(0);
+      }
     }, 60_000);
 
     test('tripwire: how far the moderate steps run away after 20 years does not grow', () => {

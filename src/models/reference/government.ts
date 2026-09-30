@@ -456,7 +456,8 @@ export const government: ModuleDef = {
         'The government’s debt rule: about 3 points more income tax for 10 points more debt, reached gradually from the rate in force. While the key rate is locked it also leans against the cycle, cutting taxes when output is below capacity, leans on debt half as hard, and does not let debt push the tax against the cycle. While the tax lever is unlocked it sets the tax rate. While you hold it locked it suggests a shift for the lever, which turns red when applying it would move the lever.',
       concepts: ['debt-feedback', 'policy-lags'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'govDebt' },
-      // ECON-5 (lever-vetting open item 21): the owner decides the fix; until then, the panel says it.
+      // ECON-5 (lever-vetting open item 21, decision 0016): by the owner's decision this is the lesson;
+      // the panel says so.
       lockedAloneNote:
         'With income tax locked while the Taylor rule sets the key rate, nothing pays government debt back, and a lasting tax change can run away: the higher rates the rule sets add interest income as well as cooling spending. To lean on the debt rule instead, lock income tax, set it and unlock it again.',
     },

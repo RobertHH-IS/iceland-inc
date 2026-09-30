@@ -932,9 +932,10 @@ export const government: ModuleDef = {
         'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually from the rate in force. It raises no taxes in a severe downturn, or while interest rates are at zero (an escape clause). While you hold the key rate locked it also leans against the cycle, cutting taxes when output is below potential, leans on debt only half as hard, and does not let debt push the tax against the cycle: no rise for debt while output is below potential, no cut for low debt while it is above. While income tax is unlocked it sets the rate. While you hold income tax locked it suggests a value for the lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step. Unlocking starts the rule from the rate you held.',
       concepts: ['debt-feedback'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'incomeTaxRate' },
-      // ECON-5 (lever-vetting open item 21, decision 0016): debt takes the strain of a held tax change.
+      // ECON-5 (lever-vetting open item 21, decision 0016, the owner's decision): debt takes the strain
+      // of a held tax change, as the theory says it should.
       lockedAloneNote:
-        'With income tax locked while the central bank’s rule sets the key rate, government debt takes the strain of a tax change and nothing pays it back: over decades the interest on it and a weakening króna keep a lasting change from settling. To lean on the debt rule instead, lock income tax, set it and unlock it again.',
+        'With income tax locked while the central bank’s rule sets the key rate, a tax cut is paid for with debt and nothing pays it back: deficits that grow faster than the economy pile up debt against GDP, money keeps expanding and the króna weakens, while the rule leans against the inflation this brings. To let the debt rule pay a change back instead, lock income tax, set it and unlock it again.',
     },
   ],
   tests: [
