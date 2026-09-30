@@ -6,8 +6,10 @@
  * since, decisions 0012 and 0013 on the engine before padlocks; decision 0015's downturn clause
  * moves I2-auto's tourism slump from month 24, and I2-auto was re-recorded on this engine, which
  * gave the old engine's values bit for bit before that change and applies the same rule): migrated, they
- * must give the same numbers bit for bit, except where an offset tilted a rule or, in the reference
- * economy, from a switch to Automatic after a hold (the rules now take over smoothly; a notice says so).
+ * must give the same numbers, except where an offset tilted a rule or, in the reference economy, from a
+ * switch to Automatic after a hold (the rules now take over smoothly; a notice says so). "The same" is
+ * bit for bit on the machine that recorded them and to 1e-12 relative elsewhere, because the last bit
+ * of Math.exp and Math.log can differ across platforms.
  */
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
@@ -168,7 +170,7 @@ describe('format-1 scenarios give the numbers they gave before padlocks', () => 
   const fixtures = JSON.parse(readFileSync(join(import.meta.dir, '../fixtures/scenarios-v1.json'), 'utf8')) as Record<string, Fixture>;
   const engines = { iceland: createEngine(iceland, { dev: false }), reference: createEngine(reference, { dev: false }) };
   for (const [name, f] of Object.entries(fixtures))
-    test(`${name}: every recorded value, bit for bit`, () => {
+    test(`${name}: every recorded value, to 1e-12 relative`, () => {
       const e = engines[f.modelId as keyof typeof engines];
       const { scenario, notices } = migrateScenario(e.model, v1(f.modelId, f.events, f.months));
       if (f.notice) {
@@ -178,7 +180,12 @@ describe('format-1 scenarios give the numbers they gave before padlocks', () => 
       e.load(scenario);
       for (const [id, byMonth] of Object.entries(f.expected)) {
         const series = e.series(id).map((p) => p.v);
-        for (const [m, v] of Object.entries(byMonth)) expect(`${id}@${m} = ${series[Number(m)]}`).toBe(`${id}@${m} = ${v}`);
+        // Bit for bit on the machine that recorded the fixtures; elsewhere Math.exp and Math.log may
+        // round the last bit differently (CI runs on Linux x64), so compare to 1e-12 relative.
+        for (const [m, v] of Object.entries(byMonth)) {
+          const got = series[Number(m)];
+          expect({ at: `${id}@${m}`, close: Math.abs(got - v) <= 1e-12 * Math.max(1, Math.abs(v)) }).toEqual({ at: `${id}@${m}`, close: true });
+        }
       }
     });
 });

@@ -138,7 +138,8 @@ describe('scenario URL hash', () => {
     for (const [id, byMonth] of Object.entries(f.expected as Record<string, Record<string, number>>)) {
       // the fixture holds the engine's series(): an indicator where one has the id, else the variable
       const s = b.info.indicators.some((i) => i.id === id) ? b.series(id) : b.varSeries(id, 0, f.months);
-      for (const [m, v] of Object.entries(byMonth)) expect(s[Number(m)]).toBe(v);
+      // to 1e-12 relative: the last bit of Math.exp and Math.log can differ across platforms (CI is Linux x64)
+      for (const [m, v] of Object.entries(byMonth)) expect(Math.abs(s[Number(m)] - v)).toBeLessThanOrEqual(1e-12 * Math.max(1, Math.abs(v)));
     }
     b.dispose();
   });
