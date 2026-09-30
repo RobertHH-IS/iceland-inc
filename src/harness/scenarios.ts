@@ -57,7 +57,8 @@ const shockLevers = (m: KModel): LeverDef[] => m.levers.filter((l) => l.kind !==
 const leverEvent = (l: LeverDef, t: number, value: number): ScenarioEvent => (l.kind === 'oneoff' ? { t, lever: l.id, value, fire: true } : { t, lever: l.id, value });
 
 /**
- * Every lever shown in the mode moved in turn, one every ALL_LEVERS_SPACING months, each held for
+ * Every lever other than a padlock, in declaration order and whether or not the lever panel shows
+ * it (LeverDef.shown), moved in turn, one every ALL_LEVERS_SPACING months, each held for
  * the rest of the run, which ends ALL_LEVERS_TAIL months after the last event (an event at or
  * after the last month would never reach the recorded history). One-offs fire at their default
  * size; settings move halfway from their default to their max; choices take their first option

@@ -1,6 +1,6 @@
 # 0013. The króna, stage 1: portfolio balance prices the flow of krónur; the reserve target is set in foreign currency
 
-Status: accepted (September 2026), **not releasable**. Phase 3 of the [long-run anchors proposal](../design/long-run-anchors.md) (section C, stage 1), with the owner's decision 10. **Phase 3 is incomplete: its release blocker, the item-4 fix, is not delivered.** A credit boom with the policy rules acting still weakens the real króna (+0.135% over months 12–36, against the criterion ≤ 0), and no principled change inside stage 1 meets the criterion (see "Item 4" below). Stage 1 is not to be released (merged to main) until either the policy-side timing lands (item 14, phase 5) and the release test passes, or the owner records here a decision to release stage 1 with item 4 open. That decision is pending: the final verification of phases 1–4 raised it as a blocker, and it is the owner's, not an engineer's (lever-vetting open item 4). The release test stays a `test.failing` either way. Stage 1 supersedes the portfolio-balance part of [decision 0007](0007-monetary-fx.md). It closes lever-vetting open item 18, closes the bound part of item 5, and improves item 17 without solving it.
+Status: accepted (September 2026); **released with item 4 open, by the owner's decision of 30 September 2026.** Phase 3 of the [long-run anchors proposal](../design/long-run-anchors.md) (section C, stage 1), with the owner's decision 10. Phase 3 is incomplete: the item-4 fix, which was to be its release condition, is not delivered. A credit boom with the policy rules acting still weakens the real króna (+0.135% over months 12–36, against the criterion ≤ 0), and no principled change inside stage 1 meets the criterion (see "Item 4" below). The final verification of phases 1–4 raised this as a blocker, and the choice was the owner's, not an engineer's (lever-vetting open item 4): release stage 1 only after phase 5 makes the release test pass, or release it now with item 4 as a stated known gap. On 30 September 2026 the owner chose the second: stage 1 is released with item 4 open, a known gap that lending appetite's definition states. Item 4 stays open for phase 5 (item 14's timing and decision 0007's joint search), and the release test stays a `test.failing` as a tripwire until then. Stage 1 supersedes the portfolio-balance part of [decision 0007](0007-monetary-fx.md). It closes lever-vetting open item 18, closes the bound part of item 5, and improves item 17 without solving it.
 
 ## The problem
 
@@ -56,7 +56,7 @@ Year-1 output stays reported as a documented ambiguous case: a model test (`test
 
 **Tourism −60 is back in the gate.** "Inflation up over months 6–24", in every lock configuration, as a sign only: 2020's rise from 1.7% to 3.6% is an upper bound for tourism alone. It is +0.31 pp with both levers locked and +0.50 with the rules acting (−0.10 and +0.15 before).
 
-## Item 4: the release blocker, not fixed
+## Item 4: the release condition, not met; released open by the owner's decision
 
 The proposal's criterion: with the policy rules acting, lending appetite +3 must leave the real exchange rate (e × world prices ÷ domestic prices) no weaker on average over months 12–36. Measured here (+ weaker):
 
@@ -77,13 +77,13 @@ The proposal's criterion: with the policy rules acting, lending appetite +3 must
 
 **How it is held.** In `tests/models/iceland-krona.test.ts`:
 
-- The release criterion is a test marked `test.failing`: the credit boom's real króna averages ≤ 0 over months 12–36, and a credit or tax-cut boom leaves it no more than 5e-4 weaker in months 1–18 (decision 0012's bound). It fails now, as expected. Bun reports it as soon as it passes; then `.failing` comes off, and so does "not releasable" here and in architecture row 19. Neither bound is loosened.
+- The release criterion is a test marked `test.failing`: the credit boom's real króna averages ≤ 0 over months 12–36, and a credit or tax-cut boom leaves it no more than 5e-4 weaker in months 1–18 (decision 0012's bound). It fails now, as expected. Bun reports it as soon as it passes; then `.failing` comes off, and item 4 closes here and in architecture row 19. Until then it is a tripwire: stage 1 was released with it failing, by the owner's decision (above). Neither bound is loosened.
 - A tripwire keeps the measure from growing: 0 < x < 0.14 (now 0.135).
 - The FX-4 test keeps its mechanism check (with the rules acting, the real króna is never weaker than in the same boom with the key rate held, to 1e-6). Its known-gap bound was 5e-4 in decision 0012; stage 1's flow term takes the regression to 0.053% after lending +3 and 0.103% after the tax cut (0.042% and 0.049% with the retune that is removed above), so the test now only stops it growing (1.1e-3, exports 7e-4), and the 5e-4 bound lives on in the failing release test.
 
 For reference, the CPI-based real exchange rate, which the CBI publishes, is +0.009% over months 12–36 (a housing boom raises consumer prices more than domestic producers' prices), and the smoothed index trade sees, `realExchangeRate`, +0.089%. The criterion stays on domestic prices, as the proposal wrote it.
 
-**What the owner needs to decide.** Either release stage 1 only after phase 5 has made the criterion pass, or accept stage 1 with item 4 open as a stated known gap (lending appetite's definition already says so), and record that decision here.
+**What the owner decided.** The choice was either to release stage 1 only after phase 5 has made the criterion pass, or to accept stage 1 with item 4 open as a stated known gap (lending appetite's definition already says so). On 30 September 2026 the owner accepted stage 1 with item 4 open. Phase 5 still has the release test as one of its targets.
 
 ## What moved
 
@@ -149,7 +149,7 @@ The price level after a one-off shock now keeps a lasting part for a decade, and
 
 ## Known gaps, stated
 
-- **Item 4**, above: +0.135% against ≤ 0; the release blocker.
+- **Item 4**, above: +0.135% against ≤ 0; released open by the owner's decision of 30 September 2026, for phase 5 to close.
 - **The real half-life** after kronaShock −25 is 17 months with both policy levers locked and 13 with the rules acting, from month 3 (e × world prices ÷ domestic prices), against QMM's 24–40. The fast reversion comes from the portfolio closure overriding the premium, not from sentiment fading (proposal H5). A tripwire test keeps it below 24; stage 2 is to bring it there.
 - **Item 17** is improved, not solved: net foreign assets still have no home, the late real overshoot is larger (lowest real rate over months 61–240 −4.4% locked, −3.9% with the rules acting, against −1.8 and −1.6), and non-residents can end up borrowing krónur for decades (M6).
 - **Item 5's other part** stays open: public investment +0.8 with both levers locked still lowers real consumption (−0.17% at month 36, −0.14% at month 240).
@@ -167,7 +167,7 @@ The price level after a one-off shock now keeps a lasting part for a decade, and
 
 ## Next steps
 
-**Before stage 1 is released:** phase 5 (item 14's timing, and decision 0007's joint search of `betaI`, `psiB` and the consumption habit against QMM's 0.67) is run with the failing release test as one of its targets, or the owner records a decision to release with item 4 open.
+**Item 4, after the release:** stage 1 is released with item 4 open (the owner's decision of 30 September 2026). Phase 5 (item 14's timing, and decision 0007's joint search of `betaI`, `psiB` and the consumption habit against QMM's 0.67) is run with the failing release test as one of its targets; when it passes, `.failing` comes off.
 
 **Stage 2 (item 17, phase 8), re-specified from the proposal's D5b:**
 

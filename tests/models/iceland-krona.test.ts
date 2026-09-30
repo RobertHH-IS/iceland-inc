@@ -336,11 +336,12 @@ describe('Iceland model: króna stage 1, the flow-priced portfolio term and the 
   const creditBoom = () => meanQ(run('lendingAppetite', 3, true, 36), run('lendingAppetite', 0, true, 36), 12, 36);
 
   test.failing('RELEASE CRITERION, not met (item 4, decision 0013): a credit boom with the policy rules acting does not weaken the real króna over months 12–36, and a credit or tax-cut boom leaves it no more than 5e-4 weaker in months 1–18', () => {
-    // Expected to fail until item 4 is fixed; bun reports it as soon as it passes, and then
-    // `.failing` comes off and decision 0013's "not releasable" with it. The textbook sign with an
-    // inflation-targeting rule that tightens, and Iceland's 2004–07. Now +0.135 (+0.111 before
-    // stage 1, +0.021 on main), and the boom's real króna up to 0.053% (lending) and 0.103% (tax
-    // cut) weaker by month 18, against decision 0012's bound of 5e-4.
+    // Expected to fail until item 4 is fixed in phase 5; bun reports it as soon as it passes, and
+    // then `.failing` comes off and item 4 closes. Stage 1 was released with it failing, by the
+    // owner's decision of 30 September 2026 (decision 0013), so until then it is a tripwire. The
+    // textbook sign with an inflation-targeting rule that tightens, and Iceland's 2004–07. Now
+    // +0.135 (+0.111 before stage 1, +0.021 on main), and the boom's real króna up to 0.053%
+    // (lending) and 0.103% (tax cut) weaker by month 18, against decision 0012's bound of 5e-4.
     expect(creditBoom()).toBeLessThanOrEqual(0);
     for (const [lever, value] of [
       ['lendingAppetite', 3],

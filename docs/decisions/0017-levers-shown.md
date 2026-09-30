@@ -1,6 +1,6 @@
 # 0017. Fewer levers in the panel: the main ones of each section
 
-Status: accepted (September 2026).
+Status: accepted (September 2026), the owner's decision: the lever panel shows the main levers of each section, not a collapsed list.
 
 ## The request
 
