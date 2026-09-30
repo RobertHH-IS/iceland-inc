@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { LeverInfo } from '../../src/ui/model/info.ts';
 import {
+  allLockedNote,
   canStep,
   changedCount,
   changedCountWithLocks,
@@ -153,6 +154,7 @@ describe('padlocks and stabilisers (decisions 0004 and 0010)', () => {
     expect(lockActionLabel(rate, false)).toBe('Lock the key interest rate');
     expect(lockActionLabel(rate, true)).toBe('Unlock the key interest rate');
     expect(lockActionLabel(tax, false)).toBe('Lock the income-tax rate');
+    expect(lockActionLabel(vat, false)).toBe('Lock the VAT rate'); // an acronym keeps its capitals
     expect(lockTitle(rate, { label: 'Central bank’s rule', locked: false })).toBe('Unlocked: Central bank’s rule sets the key interest rate, and the lever follows it. Lock to hold it where it is; moving the lever locks it too.');
     expect(lockTitle(rate, { label: 'Central bank’s rule', locked: true })).toContain('Locked: the key interest rate stays where you set it');
     expect(leverValueLabel(lock, 1)).toBe('Locked');
@@ -211,5 +213,15 @@ describe('padlocks and stabilisers (decisions 0004 and 0010)', () => {
     expect(stabiliserMarks([{ ...s, suggested: -0.8, current: 0 }], byId).get('rate')).toMatchObject({ kind: 'beyond' });
     // Within half a step of where the lever is, Apply would not move it either.
     expect(stabiliserMarks([{ ...s, suggested: 4.3, current: 4.25 }], byId).get('rate')).toMatchObject({ kind: 'beyond', text: 'Central bank’s rule: 4.3% (the nearest step is where the lever is)' });
+  });
+
+  test('every lever with a rule locked: one calm line that nothing pulls prices back (decision 0014); any padlock open, or no padlocks: none', () => {
+    const debt = { lever: 'tax', locked: true };
+    expect(allLockedNote([state({ locked: true }), debt], byId)).toBe('With the key interest rate and the income-tax rate both locked, nothing pulls prices back over the long run.');
+    expect(allLockedNote([state(), debt], byId)).toBeNull();
+    expect(allLockedNote([state({ locked: true }), { ...debt, locked: false }], byId)).toBeNull();
+    expect(allLockedNote([], byId)).toBeNull();
+    expect(allLockedNote([state({ locked: true })], byId)).toBe('With the key interest rate locked, nothing pulls prices back over the long run.');
+    expect(allLockedNote([state({ locked: true }), debt, { lever: 'vat', locked: true }], byId)).toBe('With the key interest rate, the income-tax rate and the VAT rate all locked, nothing pulls prices back over the long run.');
   });
 });

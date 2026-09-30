@@ -11,7 +11,9 @@
  * to and offers "Apply", and its section header gets a red dot. When Apply could not move the
  * lever (the rule wants a value beyond its range), the suggestion is a plain note, without Apply
  * or a red dot. Pressing the padlock locks the lever where it is, or hands it back to its rule.
- * Levers without a rule have no padlock and never move by themselves.
+ * Levers without a rule have no padlock and never move by themselves. While every lever with a
+ * rule is locked, one calm line at the top of the panel says that nothing then pulls prices back
+ * over the long run, with a link to the idea that explains why (decision 0014).
  *
  * Changing a lever starts the clock if it is paused: the change then filters through the
  * economy month by month.
@@ -20,7 +22,9 @@ import { memo, useMemo, useState } from 'react';
 import type { Id, ScenarioEvent, StabiliserState } from '../../core/types.ts';
 import type { EngineClient } from '../engine-client.ts';
 import type { LeverInfo, ModelInfo } from '../model/info.ts';
+import type { Selection } from '../model/navigation.ts';
 import {
+  allLockedNote,
   canStep,
   changedCountWithLocks,
   firedCounts,
@@ -30,6 +34,7 @@ import {
   leverValueLabel,
   lockActionLabel,
   lockTitle,
+  NOMINAL_ANCHOR_CONCEPT,
   padlocksByLever,
   sectionCalling,
   shownValue,
@@ -46,16 +51,19 @@ interface LeverPanelProps {
   events: readonly ScenarioEvent[];
   /** Every stabiliser now (Frame.stabilisers); empty for a model without them. */
   stabilisers?: readonly StabiliserState[];
+  /** Open a selection in the inspector (the locked-economy note's link to its idea). */
+  onSelect?: (s: Selection) => void;
 }
 
 const NO_STABILISERS: readonly StabiliserState[] = [];
 
-export const LeverPanel = memo(function LeverPanel({ info, client, values, events, stabilisers = NO_STABILISERS }: LeverPanelProps) {
+export const LeverPanel = memo(function LeverPanel({ info, client, values, events, stabilisers = NO_STABILISERS, onSelect }: LeverPanelProps) {
   // the padlocks are drawn beside their levers, not as levers of their own
   const sections = useMemo(() => leverSections(info.levers.filter((l) => l.kind !== 'lock')), [info]);
   const fired = useMemo(() => firedCounts(events), [events]);
   const marks = useMemo(() => stabiliserMarks(stabilisers, info.leverById), [stabilisers, info]);
   const pads = useMemo(() => padlocksByLever(stabilisers), [stabilisers]);
+  const lockedNote = useMemo(() => allLockedNote(stabilisers, info.leverById), [stabilisers, info]);
   const [open, setOpen] = useState<Set<string>>(() => new Set(info.levers.length <= 8 ? sections.map((s) => s.id) : sections.slice(0, 2).map((s) => s.id)));
   const total = sections.reduce((n, s) => n + changedCountWithLocks(s, values, fired, pads), 0);
   const toggle = (id: string) =>
@@ -73,6 +81,19 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
       </div>
       <div className="panel-body scroll">
         {sections.length === 0 && <p className="muted">This model has no levers.</p>}
+        {lockedNote && (
+          <p className="lock-note">
+            {lockedNote}
+            {onSelect && info.conceptById.has(NOMINAL_ANCHOR_CONCEPT) && (
+              <>
+                {' '}
+                <button type="button" className="navlink" onClick={() => onSelect({ kind: 'concept', id: NOMINAL_ANCHOR_CONCEPT })} aria-label={`Why? Open the idea: ${info.conceptById.get(NOMINAL_ANCHOR_CONCEPT)!.title}`}>
+                  Why?
+                </button>
+              </>
+            )}
+          </p>
+        )}
         {sections.map((s) => {
           const n = changedCountWithLocks(s, values, fired, pads);
           const calling = sectionCalling(s, marks);

@@ -199,4 +199,33 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     expect(html).toContain('>3%</span>'); // held where it is
     client.dispose();
   });
+
+  test('every lever with a rule locked: one calm line that nothing pulls prices back, linked to the idea that says why (decision 0014); with one open, none', () => {
+    const client = createEngineClient(iceland);
+    const panel = (onSelect?: (s: Selection) => void) => {
+      const f = client.getFrame();
+      return renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} onSelect={onSelect} />);
+    };
+    const note = 'With the key interest rate and the income-tax rate both locked, nothing pulls prices back over the long run.';
+    expect(panel(noop)).not.toContain('class="lock-note"'); // unlocked, the default
+    client.setLever('keyRateLock', 1);
+    client.pause();
+    client.step(3);
+    expect(panel(noop)).not.toContain('class="lock-note"'); // income tax still unlocked
+    client.setLever('incomeTaxLock', 1);
+    client.step(3);
+    const html = panel(noop);
+    expect(count(html, /class="lock-note"/g)).toBe(1);
+    expect(html).toContain(note);
+    expect(html).toMatch(/<button type="button" class="navlink" aria-label="Why\? Open the idea: Nominal anchor">Why\?<\/button>/);
+    expect(client.info.conceptById.get('nominal-anchor')!.body).toMatch(/cumulative process/);
+    // without a way to open the idea, the line stands alone
+    expect(panel()).toContain(note);
+    expect(panel()).not.toContain('Why?');
+    // unlocking either hands it back to its rule, and the line goes
+    client.setLever('incomeTaxLock', 0);
+    client.step(1);
+    expect(panel(noop)).not.toContain('class="lock-note"');
+    client.dispose();
+  });
 });

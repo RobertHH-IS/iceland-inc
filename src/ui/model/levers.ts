@@ -1,6 +1,7 @@
 /**
  * Levers for the lever panel: accordion sections, stepping, the bar, "changed" state, the
- * padlocks on levers with a rule (decision 0010) and the marks of locked stabilisers.
+ * padlocks on levers with a rule (decision 0010), the marks of locked stabilisers and the note
+ * shown while every padlock is closed (decision 0014).
  * Pure functions over LeverInfo (a LeverDef without its `fire` function).
  */
 import type { Id, ScenarioEvent, StabiliserState } from '../../core/types.ts';
@@ -177,8 +178,8 @@ export function changedCountWithLocks(section: LeverSection, values: readonly nu
   return n;
 }
 
-/** A lever's name inside a sentence: "the key interest rate". */
-const inSentence = (label: string) => `the ${label.charAt(0).toLowerCase()}${label.slice(1)}`;
+/** A lever's name inside a sentence: "the key interest rate" (an acronym keeps its capitals: "the VAT rate"). */
+const inSentence = (label: string) => `the ${/^[A-Z]{2}/.test(label) ? label : `${label.charAt(0).toLowerCase()}${label.slice(1)}`}`;
 
 /** The padlock button's accessible name: what pressing it does. */
 export function lockActionLabel(l: Pick<LeverInfo, 'label'>, locked: boolean): string {
@@ -191,6 +192,21 @@ export function lockTitle(l: Pick<LeverInfo, 'label'>, pad: Pick<PadlockState, '
   return pad.locked
     ? `Locked: ${name} stays where you set it, and ${pad.label} only suggests. Unlock to hand it back to the rule, which carries on from where it is.`
     : `Unlocked: ${pad.label} sets ${name}, and the lever follows it. Lock to hold it where it is; moving the lever locks it too.`;
+}
+
+/** The idea the locked-economy note links to (src/concepts/library.ts). */
+export const NOMINAL_ANCHOR_CONCEPT: Id = 'nominal-anchor';
+
+/** The one calm line the lever panel shows while every lever with a rule is locked (decision
+ *  0014): with the key rate and income tax both held, the price level has no nominal anchor, by
+ *  construction. "With the key interest rate and the income-tax rate both locked, nothing pulls
+ *  prices back over the long run." Null while any padlock is open, and in a model without them. */
+export function allLockedNote(states: readonly Pick<PadlockState, 'lever' | 'locked'>[], byId: ReadonlyMap<Id, Pick<LeverInfo, 'label'>>): string | null {
+  if (!states.length || states.some((s) => !s.locked)) return null;
+  const names = states.map((s) => inSentence(byId.get(s.lever)?.label ?? s.lever));
+  const held =
+    names.length === 1 ? `${names[0]} locked` : names.length === 2 ? `${names[0]} and ${names[1]} both locked` : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} all locked`;
+  return `With ${held}, nothing pulls prices back over the long run.`;
 }
 
 /** The value the "Apply" button sets: the nearest point of the lever's step grid (anchored at
