@@ -13,7 +13,11 @@
  * or a red dot. Pressing the padlock locks the lever where it is, or hands it back to its rule.
  * Levers without a rule have no padlock and never move by themselves. While every lever with a
  * rule is locked, one calm line at the top of the panel says that nothing then pulls prices back
- * over the long run, with a link to the idea that explains why (decision 0014).
+ * over the long run, with a link to the idea that explains why (decision 0014). While one is locked
+ * and another unlocked, the locked one's note, if its stabiliser has one, says what holding it
+ * alone does (StabiliserDef.lockedAloneNote, decision 0015), there and in its padlock's title. A
+ * lever held off its baseline has a "back to baseline" button; for a lever with a padlock it keeps
+ * the lever locked.
  *
  * Changing a lever starts the clock if it is paused: the change then filters through the
  * economy month by month.
@@ -25,6 +29,7 @@ import type { LeverInfo, ModelInfo } from '../model/info.ts';
 import type { Selection } from '../model/navigation.ts';
 import {
   allLockedNote,
+  canResetToBaseline,
   canStep,
   changedCountWithLocks,
   firedCounts,
@@ -33,6 +38,7 @@ import {
   leverSections,
   leverValueLabel,
   lockActionLabel,
+  lockedAloneNotes,
   lockTitle,
   NOMINAL_ANCHOR_CONCEPT,
   padlocksByLever,
@@ -64,6 +70,7 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
   const marks = useMemo(() => stabiliserMarks(stabilisers, info.leverById), [stabilisers, info]);
   const pads = useMemo(() => padlocksByLever(stabilisers), [stabilisers]);
   const lockedNote = useMemo(() => allLockedNote(stabilisers, info.leverById), [stabilisers, info]);
+  const aloneNotes = useMemo(() => lockedAloneNotes(stabilisers, new Map(info.stabilisers.map((s) => [s.id, s.lockedAloneNote]))), [stabilisers, info]);
   const [open, setOpen] = useState<Set<string>>(() => new Set(info.levers.length <= 8 ? sections.map((s) => s.id) : sections.slice(0, 2).map((s) => s.id)));
   const total = sections.reduce((n, s) => n + changedCountWithLocks(s, values, fired, pads), 0);
   const toggle = (id: string) =>
@@ -94,6 +101,11 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
             )}
           </p>
         )}
+        {[...aloneNotes.values()].map((note) => (
+          <p key={note} className="lock-note">
+            {note}
+          </p>
+        ))}
         {sections.map((s) => {
           const n = changedCountWithLocks(s, values, fired, pads);
           const calling = sectionCalling(s, marks);
@@ -118,7 +130,7 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
               {isOpen && (
                 <div className="acc-body" id={bodyId}>
                   {s.levers.map((l) => (
-                    <LeverRow key={l.id} lever={l} value={values[l.index] ?? l.default} fired={fired.get(l.id) ?? 0} client={client} mark={marks.get(l.id)} pad={pads.get(l.id)} />
+                    <LeverRow key={l.id} lever={l} value={values[l.index] ?? l.default} fired={fired.get(l.id) ?? 0} client={client} mark={marks.get(l.id)} pad={pads.get(l.id)} note={aloneNotes.get(l.id)} />
                   ))}
                 </div>
               )}
@@ -131,14 +143,14 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
 });
 
 /** The padlock beside a lever with a rule: closed (locked) or open (unlocked, the rule moves it). */
-function Padlock({ lever: l, pad, client }: { lever: LeverInfo; pad: StabiliserState; client: EngineClient }) {
+function Padlock({ lever: l, pad, client, note }: { lever: LeverInfo; pad: StabiliserState; client: EngineClient; note?: string }) {
   return (
     <button
       type="button"
       className={`icon-btn tiny padlock${pad.locked ? ' on' : ''}`}
       aria-pressed={pad.locked}
       aria-label={lockActionLabel(l, pad.locked)}
-      title={lockTitle(l, pad)}
+      title={lockTitle(l, pad, note)}
       onClick={() => client.setLever(pad.lock, pad.locked ? 0 : 1)}
     >
       <Icon name={pad.locked ? 'lock' : 'unlock'} size={14} />
@@ -146,10 +158,29 @@ function Padlock({ lever: l, pad, client }: { lever: LeverInfo; pad: StabiliserS
   );
 }
 
-const LeverRow = memo(function LeverRow({ lever: l, value: stored, fired, client, mark, pad }: { lever: LeverInfo; value: number; fired: number; client: EngineClient; mark?: StabiliserMark; pad?: StabiliserState }) {
+const LeverRow = memo(function LeverRow({
+  lever: l,
+  value: stored,
+  fired,
+  client,
+  mark,
+  pad,
+  note,
+}: {
+  lever: LeverInfo;
+  value: number;
+  fired: number;
+  client: EngineClient;
+  mark?: StabiliserMark;
+  pad?: StabiliserState;
+  /** The lever's locked-alone note (lockedAloneNotes), for its padlock's title. */
+  note?: string;
+}) {
   const [showInfo, setShowInfo] = useState(false);
   const value = shownValue(stored, pad);
   const auto = !!pad && !pad.locked;
+  // An unlocked lever follows its rule's live value: shown, and read out, to two decimals.
+  const shown = auto ? Number(value.toFixed(2)) : value;
   const changed = isLeverChanged(l, value, new Map<Id, number>([[l.id, fired]]), pad);
   const infoId = `lever-info-${l.id}`;
   const calling = mark?.kind === 'calling' ? mark : undefined;
@@ -164,10 +195,16 @@ const LeverRow = memo(function LeverRow({ lever: l, value: stored, fired, client
             auto
           </span>
         )}
-        {l.kind === 'setting' && <span className="lever-value mono">{leverValueLabel(l, auto ? Number(value.toFixed(2)) : value)}</span>}
-        {pad && <Padlock lever={l} pad={pad} client={client} />}
-        {!pad && l.kind !== 'oneoff' && changed && (
-          <button type="button" className="icon-btn tiny" onClick={() => client.setLever(l.id, l.default)} aria-label={`Set ${l.label} back to its baseline`} title="Back to baseline">
+        {l.kind === 'setting' && <span className="lever-value mono">{leverValueLabel(l, shown)}</span>}
+        {pad && <Padlock lever={l} pad={pad} client={client} note={note} />}
+        {canResetToBaseline(l, value, pad) && (
+          <button
+            type="button"
+            className="icon-btn tiny"
+            onClick={() => client.setLever(l.id, l.default)}
+            aria-label={`Set ${l.label} back to its baseline${pad ? ', keeping it locked' : ''}`}
+            title={pad ? 'Back to baseline (stays locked)' : 'Back to baseline'}
+          >
             <Icon name="undo" size={14} />
           </button>
         )}
@@ -175,7 +212,7 @@ const LeverRow = memo(function LeverRow({ lever: l, value: stored, fired, client
           <Icon name="info" size={14} />
         </button>
       </div>
-      {l.kind === 'setting' && <SettingControl lever={l} value={value} client={client} />}
+      {l.kind === 'setting' && <SettingControl lever={l} value={value} shown={shown} client={client} />}
       {l.kind === 'choice' && <ChoiceControl lever={l} value={value} client={client} />}
       {l.kind === 'oneoff' && <OneOffControl lever={l} fired={fired} client={client} />}
       {calling && (
@@ -199,7 +236,9 @@ const LeverRow = memo(function LeverRow({ lever: l, value: stored, fired, client
   );
 });
 
-function SettingControl({ lever: l, value, client }: { lever: LeverInfo; value: number; client: EngineClient }) {
+/** `shown` is the value as the row displays it (an unlocked lever's rounded to two decimals), for
+ *  the bar's accessible name; the steppers step from `value`. */
+function SettingControl({ lever: l, value, shown = value, client }: { lever: LeverInfo; value: number; shown?: number; client: EngineClient }) {
   const bar = leverBar(l, value);
   const down = stepLever(l, value, -1),
     up = stepLever(l, value, 1);
@@ -208,7 +247,7 @@ function SettingControl({ lever: l, value, client }: { lever: LeverInfo; value: 
       <button type="button" className="icon-btn step-btn" onClick={() => client.setLever(l.id, down)} disabled={!canStep(l, value, -1)} aria-label={`Lower ${l.label} to ${leverValueLabel(l, down)}`}>
         <Icon name="minus" size={14} />
       </button>
-      <div className="lbar" role="img" aria-label={`${l.label}: ${leverValueLabel(l, value)}, baseline ${leverValueLabel(l, l.default)}, range ${leverValueLabel(l, bar.min)} to ${leverValueLabel(l, bar.max)}`}>
+      <div className="lbar" role="img" aria-label={`${l.label}: ${leverValueLabel(l, shown)}, baseline ${leverValueLabel(l, l.default)}, range ${leverValueLabel(l, bar.min)} to ${leverValueLabel(l, bar.max)}`}>
         <span className="lbar-track" />
         <span className="lbar-fill" style={{ left: `${bar.fillFrom * 100}%`, width: `${(bar.fillTo - bar.fillFrom) * 100}%` }} />
         <span className="lbar-base" style={{ left: `${bar.base * 100}%` }} title="Baseline" />

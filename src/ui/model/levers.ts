@@ -128,13 +128,6 @@ export function isChanged(l: Pick<LeverInfo, 'kind' | 'default' | 'id'>, value: 
   return Math.abs(value - l.default) > 1e-12;
 }
 
-/** How many levers of a section are changed. `values` is by lever index (LeverInfo.index). */
-export function changedCount(section: LeverSection, values: readonly number[], fired: Map<Id, number>): number {
-  let n = 0;
-  for (const l of section.levers) if (isChanged(l, values[l.index] ?? l.default, fired)) n++;
-  return n;
-}
-
 /** A lever value with its unit, compactly: "+0.25 pp", "10%", "Floating". */
 export function leverValueLabel(l: Pick<LeverInfo, 'unit' | 'kind' | 'options' | 'default'>, v: number): string {
   if (l.kind === 'choice' || l.kind === 'lock') {
@@ -171,11 +164,20 @@ export function isLeverChanged(l: Pick<LeverInfo, 'kind' | 'default' | 'id'>, va
   return pad ? pad.locked : isChanged(l, value, fired);
 }
 
-/** How many levers of a section are changed, padlocks counted as isLeverChanged does. */
+/** How many levers of a section are changed, padlocks counted as isLeverChanged does. `values` is
+ *  by lever index (LeverInfo.index). */
 export function changedCountWithLocks(section: LeverSection, values: readonly number[], fired: Map<Id, number>, pads: ReadonlyMap<Id, PadlockState>): number {
   let n = 0;
   for (const l of section.levers) if (isLeverChanged(l, values[l.index] ?? l.default, fired, pads.get(l.id))) n++;
   return n;
+}
+
+/** Does a lever get the "back to baseline" button? A setting or choice off its default, and for a
+ *  lever with a padlock only while it is locked: the button sets the default and the lever stays
+ *  locked (unlocking hands it to its rule, which is not the baseline). A one-off never does. */
+export function canResetToBaseline(l: Pick<LeverInfo, 'kind' | 'default' | 'id'>, value: number, pad?: Pick<PadlockState, 'locked'>): boolean {
+  if (l.kind === 'oneoff' || Math.abs(value - l.default) <= 1e-12) return false;
+  return pad ? pad.locked : true;
 }
 
 /** A lever's name inside a sentence: "the key interest rate" (an acronym keeps its capitals: "the VAT rate"). */
@@ -186,12 +188,26 @@ export function lockActionLabel(l: Pick<LeverInfo, 'label'>, locked: boolean): s
   return `${locked ? 'Unlock' : 'Lock'} ${inSentence(l.label)}`;
 }
 
-/** The padlock button's title: what the padlock means now, in plain words, and what a press does. */
-export function lockTitle(l: Pick<LeverInfo, 'label'>, pad: Pick<PadlockState, 'label' | 'locked'>): string {
+/** The padlock button's title: what the padlock means now, in plain words, and what a press does.
+ *  `note` (lockedAloneNotes) follows while the lever is locked alone. */
+export function lockTitle(l: Pick<LeverInfo, 'label'>, pad: Pick<PadlockState, 'label' | 'locked'>, note?: string): string {
   const name = inSentence(l.label);
   return pad.locked
-    ? `Locked: ${name} stays where you set it, and ${pad.label} only suggests. Unlock to hand it back to the rule, which carries on from where it is.`
+    ? `Locked: ${name} stays where you set it, and ${pad.label} only suggests. Unlock to hand it back to the rule, which carries on from where it is.${note ? ` ${note}` : ''}`
     : `Unlocked: ${pad.label} sets ${name}, and the lever follows it. Lock to hold it where it is; moving the lever locks it too.`;
+}
+
+/** The notes of stabilisers locked alone (StabiliserDef.lockedAloneNote), by lever: each locked
+ *  stabiliser with a note, while another is unlocked. Empty while every padlock is closed (the
+ *  all-locked line speaks then) or every one is open. `notes` is by stabiliser id. */
+export function lockedAloneNotes(states: readonly Pick<PadlockState, 'id' | 'lever' | 'locked'>[], notes: ReadonlyMap<Id, string | undefined>): Map<Id, string> {
+  const out = new Map<Id, string>();
+  if (!states.some((s) => !s.locked)) return out;
+  for (const s of states) {
+    const note = s.locked ? notes.get(s.id) : undefined;
+    if (note) out.set(s.lever, note);
+  }
+  return out;
 }
 
 /** The idea the locked-economy note links to (src/concepts/library.ts). */

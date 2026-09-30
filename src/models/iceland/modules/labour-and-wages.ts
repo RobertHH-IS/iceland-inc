@@ -420,7 +420,7 @@ export const labourAndWages: ModuleDef = {
       binds: { param: 'mig', mode: 'replace', scale: 0.01 },
       description: 'Share of job gains or losses met by workers arriving or leaving.',
       definition:
-        'Level of the migration share, in percent of any change in jobs, persistent while set. It acts only on changes in jobs relative to baseline, so on its own it changes nothing: it matters once another lever moves jobs, and then a new setting re-sizes the labour force at once. Setting it back to 30 restores the baseline behaviour. For a wave of workers arriving into a steady economy, use net immigration.',
+        'Level of the migration share, in percent of any change in jobs, persistent while set. It acts only on changes in jobs relative to baseline, so on its own it changes nothing: it matters once another lever moves jobs, and then a new setting re-sizes the labour force at once. Setting it back to 30 restores the baseline behaviour. With the policy rules acting, a higher share has a side effect in a slump: when workers leave with the jobs, unemployment rises less, so the central bank, which reads slack from unemployment (decision 0012), eases less or even tightens. At 80 with foreign demand −20, the key rate is about 0.2 point higher after a year and 0.5 point after five years than at 30, and output about 0.7% lower after five years, while wages and prices behave as the tighter labour market says (inflation about 0.06 point higher). For a wave of workers arriving into a steady economy, use net immigration.',
       concepts: ['migration-buffer'],
     },
   ],

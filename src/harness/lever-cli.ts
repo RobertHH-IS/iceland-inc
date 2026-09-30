@@ -62,8 +62,8 @@ for (const def of selected) {
     writeFileSync(p, renderLeverPaths(r));
     written.push(p);
   }
-  const flagged = r.levers.reduce((a, s) => a + s.runs.filter((x) => x.flags.some((f) => f.kind !== 'regime')).length, 0);
-  const broken = r.levers.reduce((a, s) => a + [...s.runs, ...s.companionRuns].filter((x) => x.flags.some((f) => BROKEN_FLAGS.includes(f.kind))).length, 0);
+  const flagged = r.levers.reduce((a, s) => a + s.runs.filter((x) => !x.sameAs && x.flags.some((f) => f.kind !== 'regime')).length, 0);
+  const broken = r.levers.reduce((a, s) => a + [...s.runs, ...s.companionRuns].filter((x) => !x.sameAs && x.flags.some((f) => BROKEN_FLAGS.includes(f.kind))).length, 0);
   const failing = r.expectations?.filter((x) => !x.pass) ?? [];
   if (broken || failing.length) failed = true;
   console.log(`\n${def.id}  ${def.label}`);

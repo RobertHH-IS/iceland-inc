@@ -20,11 +20,14 @@ const base = createEngine(model);
 const FIRMS = ['FC', 'FR', 'XF', 'XA', 'XT', 'XO'];
 
 type Setting = [lever: string, value: number];
-/** Twin runs from the baseline, one with the settings: `at(id, m)` is the shocked run's value. */
-function twins(settings: Setting[], automatic: boolean, months: number, params?: Record<string, number>) {
+/** Twin runs from the baseline, one with the settings: `at(id, m)` is the shocked run's value.
+ *  `automatic`: true, every padlock open; false, every one closed; 'key rate locked', only the key
+ *  rate's closed (the lever report's third configuration). */
+function twins(settings: Setting[], automatic: boolean | 'key rate locked', months: number, params?: Record<string, number>) {
   const make = (shock: boolean) => {
     const e = createEngine(model, { baseline: base.baselineData, dev: false, forkParams: params });
-    lockAll(e, !automatic);
+    lockAll(e, automatic === false);
+    if (automatic === 'key rate locked') e.setLever('keyRateLock', 1);
     if (shock)
       for (const [id, v] of settings) {
         if (model.levers.find((l) => l.id === id)!.kind === 'oneoff') e.fire(id, v);
@@ -126,8 +129,8 @@ describe('trade-nominal-drift: wages are measured against the value-added price'
   });
 
   // Until padlocks (decision 0010) the key-rate offset's definition said the rule learns a lower
-  // neutral rate, and the stabiliser setting's that nothing anchors inflation on Manual; the offset
-  // is gone, and the key-rate lever now says the second.
+  // neutral rate, and the global stabiliser setting's that nothing anchors inflation while the key
+  // rate is held; both are gone, and the key-rate lever now says the second.
   test('the key-rate, spending, tax and benefit levers say that a held rate leaves no nominal anchor', () => {
     const def = (id: string) => model.levers.find((l) => l.id === id)!.definition;
     for (const id of ['incomeTax', 'vat', 'health', 'education', 'otherServices', 'publicInvestment', 'oldAgeTransfers', 'familyBenefits', 'unemploymentBenefits'])
@@ -524,9 +527,9 @@ describe('fish prices +30: year-1 output is a documented ambiguous case (decisio
   });
 });
 
-describe('the debt rule’s escape clause (lever review ZLB-DEBT-RULE)', () => {
-  test('tourism −60 with the policy rules acting: while the key rate is stuck at zero the debt rule raises no taxes, and output recovers far more', () => {
-    // before: income tax up to 3.3 points higher and output 3.85% lower after 20 years
+describe('the debt rule’s escape clause (lever review ZLB-DEBT-RULE, ECON-4; decision 0015)', () => {
+  test('tourism −60 with the policy rules acting: in the slump and while the key rate is stuck at zero the debt rule raises no taxes, and output recovers far more', () => {
+    // before the escape clause: income tax up to 3.3 points higher and output 3.85% lower after 20 years
     const r = twins([['tourism', -60]], true, 240);
     const tau0 = param(base, 'taxRate', 'tau0');
     // "Stuck" through the whole month before: at two steps a month (decision 0011) the first step
@@ -535,18 +538,75 @@ describe('the debt rule’s escape clause (lever review ZLB-DEBT-RULE)', () => {
     // caught month 41 after króna stage 1 (decision 0013), where the target crossed the band within
     // month 40 and the clause was still phasing in for the first step: 6.4e-6 of a point.
     const band = param(base, 'taxRuleTarget', 'escapeBand');
+    const [gap0, gapBand] = [param(base, 'taxRuleTarget', 'downturnGap'), param(base, 'taxRuleTarget', 'downturnBand')];
+    const noRise = (t: number) => expect(r.s.valueAt('taxRate', t)).toBeLessThanOrEqual(tau0 + Math.max(0, r.s.valueAt('taxRuleAnchor', t - 1)) + 1e-12);
+    let deep = 0;
     for (let t = 2; t <= 240; t++) {
-      if (Math.max(r.s.valueAt('ruleTarget', t - 1), r.s.valueAt('ruleTarget', t - 2)) < -band) expect(r.s.valueAt('taxRate', t)).toBeLessThanOrEqual(tau0 + Math.max(0, r.s.valueAt('taxRuleAnchor', t - 1)) + 1e-12);
+      if (Math.max(r.s.valueAt('ruleTarget', t - 1), r.s.valueAt('ruleTarget', t - 2)) < -band) noRise(t);
+      // Fully on in a severe downturn: the output gap below −(downturnGap + downturnBand) through
+      // the month (the gap reads unemployment a month back, so the ends of months t − 1 and t).
+      if (Math.max(r.s.valueAt('outputGap', t - 1), r.s.valueAt('outputGap', t)) < -(gap0 + gapBand)) {
+        noRise(t);
+        deep++;
+      }
     }
+    expect(deep).toBeGreaterThan(48); // the gap is below −3% from month 3 to month 60
     expect(r.s.valueAt('keyRate', 240)).toBeLessThan(1e-12);
-    // Restated with decision 0012 (was −2, with −1.06%): the rule now reads slack from
-    // unemployment, which rises more slowly than output falls, so the key rate reaches zero in
-    // month 41, not month 7. Until then the escape clause does not apply, and the debt rule raises
-    // income tax 1.2 points (0.003 before), so output is 2.1% lower after 20 years; the key rate is
-    // at zero for 200 months (234 before). Still far better than 3.85% without the escape clause.
-    expect(r.pct('output', 240)).toBeGreaterThan(-2.5);
-    expect(r.pp('taxRate', 240)).toBeLessThan(1.5);
-    expect(r.s.influences('taxRuleTarget').regime).toBe('Escape clause: no tax rise while the key rate is stuck at zero');
+    // Restated with decision 0015 (ECON-4). With decision 0012 the rule reads slack from
+    // unemployment, which rises more slowly than output falls, so the key rate reaches zero only in
+    // the fourth or fifth year (month 49 now); until then the zero-bound clause did not apply, and
+    // the debt rule raised income tax 1.25 points in the middle of the slump (tripwire < 1.5,
+    // output −4.72% at month 60 and −1.19% at month 240). The downturn clause now holds income tax
+    // through the slump: +0.01 to month 120, output −3.82% at month 60 and −0.57% at month 240
+    // (main, before decision 0012: −3.95% and −1.06%). Late in the second decade the rule's target
+    // hovers at the edge of zero, the zero-bound clause is only partly on, and income tax creeps up
+    // (+1.02 at month 240), as decision 0009 found for the band.
+    let most = 0;
+    for (let t = 1; t <= 120; t++) most = Math.max(most, r.pp('taxRate', t));
+    expect(most).toBeLessThan(0.05);
+    expect(r.pct('output', 60)).toBeGreaterThan(-4.2);
+    expect(r.pct('output', 240)).toBeGreaterThan(-1);
+    expect(r.pp('taxRate', 240)).toBeLessThan(1.2);
+    expect(r.s.influences('taxRuleTarget').regime).toBe('Escape clause: no tax rise while the central bank’s rule is heading below zero');
+    r.s.seek(36);
+    expect(r.s.influences('taxRuleTarget').regime).toBe('Escape clause: no tax rise in a severe downturn');
+  });
+
+  test('a mild slump still brings the debt rule’s tax rise: tourism −15 with the policy rules acting', () => {
+    // The output gap stays above −1.5% (−1.2% at worst), so the downturn clause never engages and
+    // nothing moves from before decision 0015: income tax +0.27 points at month 36.
+    const r = twins([['tourism', -15]], true, 60);
+    let worst = 0;
+    for (let t = 1; t <= 60; t++) worst = Math.min(worst, r.s.valueAt('outputGap', t));
+    expect(worst).toBeGreaterThan(-param(base, 'taxRuleTarget', 'downturnGap'));
+    expect(r.pp('taxRate', 36)).toBeGreaterThan(0.2);
+  });
+
+  test('known limitation (R4, open): with the key rate locked the zero-bound clause reads the central bank’s rule, not the rate held', () => {
+    // The proposal's fix R4 reads the held rate instead. Measured with this rule (decision 0015):
+    // alone it makes the debt rule tighten in slumps with the key rate held (tourism −60 held at
+    // 3%: output −4.76% at month 240 against −0.95%; key rate held at 6%: −3.08% against −1.13%),
+    // so it waits for the counter-cyclical term the proposal requires with it. These pin today's
+    // behaviour, so that the joint design moves them on purpose.
+    // A 6% hold: falling prices send the unused rule below zero from about month 103, and the
+    // clause then stops the debt rule's tax rises although the key rate is held at 6%.
+    const six = twins([['keyRate', 6]], 'key rate locked', 240);
+    expect(six.pp('taxRate', 36)).toBeGreaterThan(0.3); // +0.54: the rule tightens at first
+    expect(Math.abs(six.pp('taxRate', 240) - six.pp('taxRate', 120))).toBeLessThan(0.1); // +3.08 both
+    let first = 0;
+    for (let t = 1; t <= 240 && !first; t++) {
+      six.s.seek(t);
+      if (/heading below zero/.test(six.s.influences('taxRuleTarget').regime ?? '')) first = t;
+    }
+    expect(first).toBeGreaterThanOrEqual(90);
+    expect(first).toBeLessThanOrEqual(120);
+    // A 15% hold: a deep, long slump (the output gap below −3% for years) keeps the clause on, so
+    // debt climbs 115 points of GDP by month 100 with income tax 0.14 points higher, then the rule
+    // catches up fast (+14 points by month 120). The run explodes either way (decision 0014).
+    const fifteen = twins([['keyRate', 15]], 'key rate locked', 120);
+    expect(fifteen.pp('taxRate', 96)).toBeLessThan(0.5);
+    expect(fifteen.pp('debtRatio', 96)).toBeGreaterThan(80);
+    expect(fifteen.pp('taxRate', 120)).toBeGreaterThan(8);
   });
 });
 

@@ -33,7 +33,7 @@ The JSON file beside this one has the same data, every indicator at the same hor
 
 ## Summary
 
-Number of runs with each flag (comparisons between runs count once per pair; an inert lever once). *Runs* adds the runs on top of a companion shock after a +.
+Number of runs with each flag (comparisons between runs count once per pair; an inert lever once). *Runs* adds the runs on top of a companion shock after a +. A run that repeats another configuration's exactly (the lever's own move closes the only padlock between them) is shown as the same run and counted once.
 
 | Lever | Runs | Non-finite | Residual | Sign | Implausible | Extreme | Policy moved | Month-1 jump | Sawtooth | Unsettled | Explosive | Asymmetry | Lock sign | Flicker | Inert | Regimes | Expectations ✓/✗ |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|

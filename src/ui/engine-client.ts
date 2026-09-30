@@ -21,7 +21,7 @@
  */
 import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
 import type { BalanceSheet, FeedEntry, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent, SignViolation, StabiliserState } from '../core/types.ts';
-import { migrateScenario, SCENARIO_VERSION } from '../core/migrate.ts';
+import { migrateScenario, scenarioVersion, SCENARIO_VERSION } from '../core/migrate.ts';
 import { describeModel, type ModelInfo } from './model/info.ts';
 
 export type Speed = 1 | 3 | 6;
@@ -384,7 +384,7 @@ class MainThreadClient implements EngineClient {
     let notices: string[] = [];
     this.act(() => {
       try {
-        const now = (s.version ?? SCENARIO_VERSION) < SCENARIO_VERSION ? migrateScenario(this.engine.model, s) : { scenario: s, notices: [] };
+        const now = scenarioVersion(s) < SCENARIO_VERSION ? migrateScenario(this.engine.model, s) : { scenario: s, notices: [] };
         notices = now.notices;
         this.engine.load({ ...now.scenario, months: Math.min(s.months, this.maxMonths) });
       } catch (err) {

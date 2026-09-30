@@ -339,6 +339,11 @@ export interface StabiliserDef {
    *  unlocked stabiliser's rule still reads them). The compiler checks that no other rule reads
    *  them when every stabiliser is locked. */
   shadow?: Id[];
+  /** One calm line, in plain English, that the lever panel shows while this stabiliser is locked
+   *  and another is unlocked, and that the padlock's title adds then: what holding this lever
+   *  alone, with the other rules acting, does that a student would not expect (decisions 0014 and
+   *  0015). While every padlock is closed the panel's all-locked line shows instead. */
+  lockedAloneNote?: string;
 }
 
 /** A stabiliser now (Engine.stabilisers()). `gap` = suggested − current, in lever units. */

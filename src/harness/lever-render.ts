@@ -102,7 +102,8 @@ function leverSection(r: LeverReport, s: LeverSection): string[] {
   if (ex.length) L.push('Expectations:', '', ...expectationLines(ex), '');
   for (const run of s.runs) {
     L.push(`### ${esc(run.label)}${modeText(run.mode)}`, '');
-    L.push(...runTable(r, run));
+    if (run.sameAs) L.push(`The same run as in the *${esc(run.sameAs)}* configuration: moving this lever closes its own padlock, so the two configurations differ in nothing here. Its effects are measured against this configuration's no-change run, which is the same, and its flags are counted there.`, '');
+    else L.push(...runTable(r, run));
   }
   for (const run of s.companionRuns) {
     L.push(`### ${esc(run.label)}${modeText(run.mode)}, with ${esc(s.companion!.label)}`, '');
@@ -135,16 +136,16 @@ export function renderLeverMarkdown(r: LeverReport): string {
   for (const f of FLAG_KINDS) L.push(`| ${f.title} | ${f.meaning} |`);
   L.push('');
 
-  L.push('## Summary', '', 'Number of runs with each flag (comparisons between runs count once per pair; an inert lever once). *Runs* adds the runs on top of a companion shock after a +.', '');
+  L.push('## Summary', '', 'Number of runs with each flag (comparisons between runs count once per pair; an inert lever once). *Runs* adds the runs on top of a companion shock after a +. A run that repeats another configuration\'s exactly (the lever\'s own move closes the only padlock between them) is shown as the same run and counted once.', '');
   const kinds = FLAG_KINDS.map((f) => f.kind);
   const exCol = r.expectations ? ' | Expectations ✓/✗' : '';
   L.push(`| Lever | Runs | ${FLAG_KINDS.map((f) => f.title).join(' | ')}${exCol} |`, `|---|---:|${kinds.map(() => '---:').join('|')}${r.expectations ? '|---:' : ''}|`);
   for (const s of r.levers) {
-    const all = [...s.runs, ...s.companionRuns];
+    const all = [...s.runs, ...s.companionRuns].filter((x) => !x.sameAs);
     const counts = kinds.map((k) => all.filter((x) => x.flags.some((f) => f.kind === k)).length + s.crossFlags.filter((f) => f.kind === k).length);
     const ex = r.expectations?.filter((x) => x.lever === s.id) ?? [];
     const exCell = r.expectations ? ` | ${ex.length ? `${ex.filter((x) => x.pass).length}/${ex.filter((x) => !x.pass).length}` : ''}` : '';
-    L.push(`| [${esc(s.label)}](#${anchor(s)}) (\`${s.id}\`) | ${s.runs.length}${s.companionRuns.length ? ` + ${s.companionRuns.length}` : ''} | ${counts.map((c) => (c ? String(c) : '')).join(' | ')}${exCell} |`);
+    L.push(`| [${esc(s.label)}](#${anchor(s)}) (\`${s.id}\`) | ${s.runs.filter((x) => !x.sameAs).length}${s.companionRuns.length ? ` + ${s.companionRuns.length}` : ''} | ${counts.map((c) => (c ? String(c) : '')).join(' | ')}${exCell} |`);
   }
   L.push('');
   if (r.locks.length) L.push(`The padlocks (${r.locks.map((x) => `\`${x}\``).join(', ')}) are not run as levers: they set up the lock configurations every other lever runs in.`, '');

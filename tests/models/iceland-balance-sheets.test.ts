@@ -1,7 +1,8 @@
 /**
  * Balance sheets stay possible (audit H1, H2, H6, H7, M6, M9, M10, M11): under the lever settings
  * that used to break them, no holder's asset goes below zero and no issuer's liability turns into
- * an asset for 20 years, in either stabiliser mode. Real capital counts as a holder's asset.
+ * an asset for 20 years, with every policy lever unlocked and with every one locked. Real capital
+ * counts as a holder's asset.
  */
 import { describe, expect, test } from 'bun:test';
 import { compile } from '../../src/core/compile.ts';
@@ -107,8 +108,9 @@ describe('Iceland model: balance sheets stay possible', () => {
     // publicInvestment −3 with both policy levers locked also borrowed reserves until firms' debt was held near its norm
     // and households kept a cash buffer (trade-exporter-debt-spiral, tax-TAX-2): the surplus then
     // never outran the bonds left to buy back.
-    // Since padlocks (decision 0010) income tax +10 also runs with the key-rate rule acting (it was
-    // hidden on Automatic): moving it locks it, so the surplus is held there too and ends the same way.
+    // Since padlocks (decision 0010) income tax +10 also runs with the key-rate rule acting (before,
+    // the rules ignored the tax lever while they acted): moving it locks it, so the surplus is held
+    // there too and ends the same way.
     expect(borrowed).toEqual(['incomeTax=10 locked', 'incomeTax=10 unlocked']);
   }, 60_000);
 

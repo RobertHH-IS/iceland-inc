@@ -94,6 +94,50 @@ describe('decision 0014: no inflation gap grows within twenty years with every p
   }, 60_000);
 });
 
+describe('decision 0014: how the real economy drifts with every policy lever locked (part (b), known limitations)', () => {
+  // The proposal's other two tripwires (section D). They pin how the real economy drifts, which the
+  // norm test of phase 6 (decision 0014, part (b)) may change on purpose: whoever moves them there
+  // restates the bounds here with the reason. Until then they flag an unintended change.
+
+  test('income tax +2.5: government debt is about 14.5 points of GDP lower at month 240', () => {
+    // −14.53 now. Tax rates, not the primary surplus, are held, so the surplus is endogenous and
+    // the ratio still falls at month 240 (−39.5 at month 600): the lasting surplus piles up as idle
+    // cash once every bond that can be bought back has been (R2 in decision 0014).
+    const e = locked('incomeTax', 2.5, 240);
+    const fall = 100 * (e.valueAt('debtRatio', 240) - noChange.valueAt('debtRatio', 240));
+    expect(fall).toBeGreaterThan(-16);
+    expect(fall).toBeLessThan(-13);
+  });
+
+  /** Exporters' net assets (capital plus deposits less business loans, % of baseline GDP; not net
+   *  worth, which counts the shares their owners hold), month by month to `months`. */
+  const exportersNet = (lever: string, value: number, months: number) => {
+    const e = createEngine(model, { baseline: base.baselineData, dev: false });
+    lockAll(e, true);
+    e.setLever(lever, value);
+    const out: number[] = [];
+    for (let m = 0; m <= months; m++) {
+      if (m) e.step(1);
+      out.push(['XF', 'XA', 'XT', 'XO'].reduce((a, p) => a + e.stock('capital', p) + e.stock('deposits', p) - e.stock('businessLoans', p), 0));
+    }
+    return out;
+  };
+
+  test('exporters’ net assets stay above zero to month 600 after income tax +2.5, and a known limitation at +10', () => {
+    // +2.5: 28.8 at baseline, 26.2 at month 240 and 18.3 at month 600, still falling.
+    const mild = exportersNet('incomeTax', 2.5, 600);
+    expect(Math.min(...mild)).toBeGreaterThan(15);
+    // +10: 18.9 at month 240, below zero from month 507 (−6.3 at month 600). Fisheries' loans grow
+    // without limit (R2), a missing norm that phase 6 tests (E1: insolvent firms' loans written
+    // off). Pinned so that the move is seen: a later crossing or none means part (b) has changed it.
+    const hard = exportersNet('incomeTax', 10, 600);
+    const below = hard.findIndex((x) => x < 0);
+    expect(hard[240]).toBeGreaterThan(15);
+    expect(below).toBeGreaterThanOrEqual(480);
+    expect(below).toBeLessThanOrEqual(540);
+  }, 30_000);
+});
+
 describe('decision 0014: what the texts teach about the locked economy', () => {
   const reference = compile(withConcepts(referenceModel));
   const definitions = [...model.levers, ...reference.levers].map((l) => `${l.id}: ${l.definition}`);

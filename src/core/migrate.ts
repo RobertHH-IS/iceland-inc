@@ -31,8 +31,11 @@ export interface MigrationResult {
   notices: string[];
 }
 
-/** A scenario's format version: 1 when it does not say (every scenario before padlocks). */
-export const scenarioVersion = (s: Pick<Scenario, 'version'>): number => s.version ?? 1;
+/** A scenario's format version: the current one when it does not say, as Scenario.version
+ *  documents. A file or share link without a format tag is version 1, and parseScenario and the
+ *  link decoder say so explicitly, so an object built in code without a version is never taken for
+ *  a scenario written before padlocks (review m3). */
+export const scenarioVersion = (s: Pick<Scenario, 'version'>): number => s.version ?? SCENARIO_VERSION;
 
 /**
  * Bring a scenario to the current format for a model. A current scenario comes back unchanged

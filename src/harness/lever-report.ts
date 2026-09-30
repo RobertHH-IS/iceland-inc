@@ -31,7 +31,7 @@
  */
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { compile, type KModel } from '../core/compile.ts';
+import { compile, lockIdFor, type KModel } from '../core/compile.ts';
 import { createEngine, type KernelEngine } from '../core/engine.ts';
 import { runScenario } from '../core/scenario.ts';
 import type { Id, IndicatorDef, LeverDef, ModelDef, ScenarioEvent } from '../core/types.ts';
@@ -237,6 +237,11 @@ export interface LeverRun {
   paths?: Record<Id, number[]>;
   /** The implied-neutral-rate diagnostic, where the run's learned neutral rate ends at its limit. */
   impliedNeutral?: ImpliedNeutral;
+  /** The configuration whose run this one repeats exactly: the lever's own move closes its
+   *  padlock, so the two configurations differ in nothing here (the key rate's 'key rate locked'
+   *  runs are its 'unlocked' ones). It is measured against its own no-change run, so expectations
+   *  still see it, but not run again, and its flags are counted there, not here (review ECON-9). */
+  sameAs?: string;
 }
 
 /** The constant key rate that would have left inflation on target over the final five years of a
@@ -779,6 +784,7 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
     : null;
 
   // the no-change run of each lock configuration
+  const locks = m.levers.filter((l) => l.kind === 'lock').map((l) => l.id);
   const modes = lockConfigs(m, spec.configs);
   const refs = modes.map((x) => reference(S, x, months));
   const noChange = refs.map((r) => {
@@ -790,7 +796,6 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
     return { mode: r.mode, flags: healthFlags(m, r.engine, S.bounds), drift };
   });
 
-  const locks = m.levers.filter((l) => l.kind === 'lock').map((l) => l.id);
   for (const x of expResults ?? []) {
     if (x.decays && (x.sign !== 0 || !(x.decays.earlier[1] < x.fromMonth))) throw new Error(`expectation for '${x.lever}' that '${x.variable}' dies out needs sign 0 and an earlier window that ends before month ${x.fromMonth}`);
     if (!m.levers.some((l) => l.id === x.lever)) throw new Error(`expectation names lever '${x.lever}', which model '${m.def.id}' does not have`);
@@ -811,13 +816,24 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
     const comp = spec.companions?.[l.id];
     const compLever = comp ? m.levers.find((x) => x.id === comp.lever) : undefined;
     if (comp && !compLever) throw new Error(`lever report: the companion of '${l.id}' is '${comp.lever}', which is not a lever of model '${m.def.id}'`);
-    for (const ref of refs) {
+    // Moving a lever with a padlock closes it, so two configurations that differ only in that
+    // padlock give the same run: it is made once, for the first (ECON-9).
+    const ownLock = l.kind !== 'oneoff' && locks.includes(lockIdFor(l.id)) ? lockIdFor(l.id) : null;
+    const made = new Map<string, Map<number, KernelEngine>>();
+    refs.forEach((ref, i) => {
       const before = ref.events;
+      const as = ownLock ? refs.slice(0, i).find((r) => sameLocks(r, ref, ownLock) && sameLevels(r, ref)) : undefined;
       for (const s of settings) {
         if (!wanted(l, s, ref.mode, false)) continue;
-        const e = S.run([...before, eventOf(l, s.value)], months);
-        runCount++;
+        const prior = as ? made.get(as.mode)?.get(s.value) : undefined;
+        const e = prior ?? S.run([...before, eventOf(l, s.value)], months);
+        if (!prior) runCount++;
+        if (ownLock && !prior) made.set(ref.mode, (made.get(ref.mode) ?? new Map()).set(s.value, e));
         const run = measureRun(S, e, ref, { lever: l, setting: s, paths: !!opts.paths, expResults });
+        if (prior) {
+          runs.push({ ...run, sameAs: as!.mode });
+          continue;
+        }
         const implied = !opts.onlyExpected && ref.mode === UNLOCKED && l.kind === 'setting' ? impliedNeutral(S, e, ref, eventOf(l, s.value), l.id) : null;
         runs.push(implied ? { ...run, impliedNeutral: implied } : run);
       }
@@ -831,8 +847,14 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
           companionRuns.push(measureRun(S, e, compRef, { lever: l, setting: s, paths: !!opts.paths, expResults }));
         }
       }
-    }
-    const cross = crossFlags(l, settings, runs, headlines, horizons);
+    });
+    const cross = crossFlags(
+      l,
+      settings,
+      runs.filter((r) => !r.sameAs),
+      headlines,
+      horizons,
+    );
     if (comp) cross.push(...crossFlags(l, settings, companionRuns, headlines, horizons).map((f) => ({ ...f, companion: true })));
     return {
       id: l.id,
@@ -887,6 +909,21 @@ export function leverReport(def: ModelDef | KModel, opts: LeverReportOptions = {
     expectations: expResults,
     runs: runCount,
   };
+}
+
+/** Do two configurations close the same padlocks once `own` (the lever's own) is closed too? */
+function sameLocks(a: Reference, b: Reference, own: Id): boolean {
+  const set = (r: Reference) => new Set([own, ...r.events.map((e) => e.lever)]);
+  const [x, y] = [set(a), set(b)];
+  return x.size === y.size && [...x].every((id) => y.has(id));
+}
+
+/** Are two no-change runs the same in every headline, month by month, within the harness's drift
+ *  tolerance (1e-9, relative above 1)? The baseline is the same locked or not, so they are, up to
+ *  rounding in the last digits; checked, so that a run is never shared across references that
+ *  differ. */
+function sameLevels(a: Reference, b: Reference): boolean {
+  return a.headlines.every((h, i) => h.length === b.headlines[i].length && h.every((v, t) => Math.abs(v - b.headlines[i][t]) <= 1e-9 * Math.max(1, Math.abs(v))));
 }
 
 interface MeasureCtx {

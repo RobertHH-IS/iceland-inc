@@ -311,3 +311,34 @@ describe('Iceland model: VAT reaches prices over a few months (review E4)', () =
     expect(passed).toBeGreaterThan(0.9);
   });
 });
+
+describe('the central bank’s response to a wage settlement: its timing (lever-vetting open item 14, phase 5)', () => {
+  // A 10% one-off settlement with the policy rules acting. The CBI's evidence puts the key rate's
+  // peak, +1 to +1.5 points, in quarters 2–4 (calibration wage-key-rate-peak's source). The size is
+  // gated there; the timing is not, because the rule reads slack from unemployment (decision 0012)
+  // and jobs fall before output after a settlement, so it peaks late. Phase 5's joint refit (item
+  // 14) is to fix the timing as well as the size (review ECON-6).
+  const keyRatePath = () => {
+    const e = createEngine(model).fork();
+    e.fire('wageSettlement', 10);
+    e.step(72);
+    return e.series('keyRate').map((p) => p.v); // the chart: points against baseline
+  };
+
+  test.failing('PHASE 5 CRITERION, not met: the key rate peaks within five quarters (month 15 at the latest)', () => {
+    // Expected to fail until item 14 lands; bun reports it as soon as it passes, and then
+    // `.failing` comes off. Now month 21 (+1.48 points); main, before decision 0012, month 17.
+    const path = keyRatePath();
+    const peak = path.indexOf(Math.max(...path.slice(1)));
+    expect(peak).toBeLessThanOrEqual(15);
+  });
+
+  test('tripwire: the peak comes in months 18–24 and a year on the rule is still leaning against the settlement', () => {
+    // Month 21 now (+1.48); +0.68 points at month 12 (+0.94 on main) and +0.03 at month 6 (+0.28).
+    const path = keyRatePath();
+    const peak = path.indexOf(Math.max(...path.slice(1)));
+    expect(peak).toBeGreaterThanOrEqual(18);
+    expect(peak).toBeLessThanOrEqual(24);
+    expect(path[12]).toBeGreaterThan(0.5);
+  });
+});

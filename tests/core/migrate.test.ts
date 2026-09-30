@@ -2,7 +2,10 @@
  * Scenario format 2 and the migration of format-1 scenarios, written for the global stabiliser
  * setting, to padlocks (src/core/migrate.ts, decision 0010). The fixture holds format-1 scenarios
  * with values the engine gave before padlocks (tests/fixtures/scenarios-v1.json; Iceland's at two
- * kernel steps a month, decision 0011): migrated, they
+ * kernel steps a month, decision 0011, and re-recorded with each deliberate change of the model
+ * since, decisions 0012 and 0013 on the engine before padlocks; decision 0015's downturn clause
+ * moves I2-auto's tourism slump from month 24, and I2-auto was re-recorded on this engine, which
+ * gave the old engine's values bit for bit before that change and applies the same rule): migrated, they
  * must give the same numbers bit for bit, except where an offset tilted a rule or, in the reference
  * economy, from a switch to Automatic after a hold (the rules now take over smoothly; a notice says so).
  */
@@ -31,7 +34,18 @@ describe('scenario format versions', () => {
     expect(parseScenario('{"modelId":"iceland","months":3,"events":[]}').version).toBe(1);
     expect(() => parseScenario('{"format":"iceland-inc/scenario@3","modelId":"iceland","months":3,"events":[]}')).toThrow(/unknown scenario format/);
     expect(stringifyScenario({ modelId: 'iceland', events: [], months: 3, version: 1 })).toContain('scenario@1');
-    expect(scenarioVersion({})).toBe(1);
+    // an object without a version is the current format, as Scenario.version says; only a file or
+    // link without a tag is version 1, and the parsers set that explicitly (review m3)
+    expect(scenarioVersion({})).toBe(SCENARIO_VERSION);
+    expect(scenarioVersion({ version: 1 })).toBe(1);
+  });
+
+  test('migrateScenario and engine.load agree on a scenario without a version: the current format, unchanged', () => {
+    const s = { modelId: 'iceland', events: [{ t: 0, lever: 'keyRate', value: 4 }], months: 12 };
+    expect(migrateScenario(iceland, s)).toEqual({ scenario: { ...s, version: SCENARIO_VERSION }, notices: [] });
+    const e = createEngine(iceland, { dev: false });
+    e.load(s);
+    expect(e.events.map((x) => x.lever)).toEqual(['keyRate']);
   });
 
   test('a current scenario comes back unchanged', () => {

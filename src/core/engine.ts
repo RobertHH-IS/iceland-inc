@@ -50,7 +50,7 @@ import { CHECKS, DEFAULT_SIGN_TOLERANCE, DEFAULT_TOLERANCE, measureChecks, measu
 import { ideasAtPlay, influenceOf, type InfluenceSource } from './influence.ts';
 import { toDisplay } from './format.ts';
 import { nodeFor } from './hierarchy.ts';
-import { migrateScenario, SCENARIO_VERSION } from './migrate.ts';
+import { migrateScenario, scenarioVersion, SCENARIO_VERSION } from './migrate.ts';
 
 export interface EngineOptions {
   /** Throw when a rule reads something it did not declare (default true). */
@@ -703,7 +703,7 @@ class KEngine implements KernelEngine {
   load(s: Scenario): void {
     if (s.modelId && s.modelId !== this.model.def.id) throw new Error(`scenario is for model '${s.modelId}', not '${this.model.def.id}'`);
     // a scenario written before padlocks is migrated first (decision 0010)
-    if ((s.version ?? SCENARIO_VERSION) < SCENARIO_VERSION) s = migrateScenario(this.model, s).scenario;
+    if (scenarioVersion(s) < SCENARIO_VERSION) s = migrateScenario(this.model, s).scenario;
     this.reset();
     const evs = [...s.events].map((e) => ({ ...e })).sort((a, b) => a.t - b.t);
     for (const e of evs) {

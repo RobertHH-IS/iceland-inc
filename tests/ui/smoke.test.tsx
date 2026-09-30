@@ -170,6 +170,8 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     const live = f.stabilisers.find((s) => s.id === 'keyRateRule')!.current;
     expect(live).not.toBe(3);
     expect(html).toContain(`>${Number(live.toFixed(2))}%</span>`); // to two decimals while it moves
+    // and read out the same, not to six decimals that change every month (review m7)
+    expect(html).toContain(`aria-label="Key interest rate: ${Number(live.toFixed(2))}%, baseline 3%`);
     expect(html).not.toContain('class="call-dot"');
     expect(html).not.toContain('>Apply</button>');
     const info = client.info;
@@ -211,7 +213,7 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     client.setLever('keyRateLock', 1);
     client.pause();
     client.step(3);
-    expect(panel(noop)).not.toContain('class="lock-note"'); // income tax still unlocked
+    expect(panel(noop)).not.toContain(note); // income tax still unlocked: the key rate's own note instead (below)
     client.setLever('incomeTaxLock', 1);
     client.step(3);
     const html = panel(noop);
@@ -225,7 +227,37 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     // unlocking either hands it back to its rule, and the line goes
     client.setLever('incomeTaxLock', 0);
     client.step(1);
-    expect(panel(noop)).not.toContain('class="lock-note"');
+    expect(panel(noop)).not.toContain(note);
+    client.dispose();
+  });
+
+  test('one lever with a rule locked while the other acts: its note, in the panel and in its padlock’s title (decision 0015)', () => {
+    const client = createEngineClient(iceland);
+    const panel = () => {
+      const f = client.getFrame();
+      return renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />);
+    };
+    const note = (id: string) => client.info.stabilisers.find((s) => s.id === id)!.lockedAloneNote!;
+    // income tax held while the central bank's rule acts: a tax change can run away (ECON-5)
+    client.setLever('incomeTax', -2.5); // moving it locks it
+    client.pause();
+    client.step(3);
+    let html = panel();
+    expect(note('debtRule')).toMatch(/^With income tax locked while the central bank’s rule sets the key rate/);
+    expect(count(html, /class="lock-note"/g)).toBe(1);
+    expect(html).toContain(`<p class="lock-note">${note('debtRule')}</p>`);
+    // the key rate held while the debt rule acts: the debt rule deepens a slump in private spending (ECON-3)
+    client.setLever('incomeTaxLock', 0);
+    client.setLever('keyRateLock', 1);
+    client.step(1);
+    html = panel();
+    expect(html).toContain(`<p class="lock-note">${note('keyRateRule')}</p>`);
+    expect(html).not.toContain(note('debtRule'));
+    expect(html).toContain(`title="Locked: the key interest rate stays where you set it, and Central bank’s inflation rule only suggests. Unlock to hand it back to the rule, which carries on from where it is. ${note('keyRateRule')}"`);
+    // a held key rate off its baseline has a one-click way back that keeps it locked (review m6)
+    client.setLever('keyRate', 4.25);
+    client.step(1);
+    expect(panel()).toContain('aria-label="Set Key interest rate back to its baseline, keeping it locked"');
     client.dispose();
   });
 });

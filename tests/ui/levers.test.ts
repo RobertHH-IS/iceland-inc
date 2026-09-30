@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import type { LeverInfo } from '../../src/ui/model/info.ts';
 import {
   allLockedNote,
+  canResetToBaseline,
   canStep,
-  changedCount,
   changedCountWithLocks,
   clampLever,
   firedCounts,
@@ -14,6 +14,7 @@ import {
   leverStep,
   leverValueLabel,
   lockActionLabel,
+  lockedAloneNotes,
   lockTitle,
   niceStep,
   padlocksByLever,
@@ -60,10 +61,11 @@ describe('sections', () => {
     const values = [10, 0, 0.25, 0, 0, 0, 0];
     const fired = firedCounts([{ t: 3, lever: 'wage', value: 10, fire: true }, { t: 5, lever: 'wage', value: 5, fire: true }]);
     expect(fired.get('wage')).toBe(2);
-    expect(changedCount(sections[0], values, fired)).toBe(1);
-    expect(changedCount(sections[1], values, fired)).toBe(0);
-    expect(changedCount(sections[2], values, fired)).toBe(1);
-    expect(changedCount(sections[2], values, new Map())).toBe(0);
+    const noPads = new Map();
+    expect(changedCountWithLocks(sections[0], values, fired, noPads)).toBe(1);
+    expect(changedCountWithLocks(sections[1], values, fired, noPads)).toBe(0);
+    expect(changedCountWithLocks(sections[2], values, fired, noPads)).toBe(1);
+    expect(changedCountWithLocks(sections[2], values, new Map(), noPads)).toBe(0);
     expect(isChanged(levers[2], 1e-15, fired)).toBe(false);
   });
 });
@@ -157,6 +159,9 @@ describe('padlocks and stabilisers (decisions 0004 and 0010)', () => {
     expect(lockActionLabel(vat, false)).toBe('Lock the VAT rate'); // an acronym keeps its capitals
     expect(lockTitle(rate, { label: 'Central bank’s rule', locked: false })).toBe('Unlocked: Central bank’s rule sets the key interest rate, and the lever follows it. Lock to hold it where it is; moving the lever locks it too.');
     expect(lockTitle(rate, { label: 'Central bank’s rule', locked: true })).toContain('Locked: the key interest rate stays where you set it');
+    // a locked-alone note (decision 0015) follows while locked, never while unlocked
+    expect(lockTitle(rate, { label: 'Central bank’s rule', locked: true }, 'Holding it alone does this.')).toEndWith('carries on from where it is. Holding it alone does this.');
+    expect(lockTitle(rate, { label: 'Central bank’s rule', locked: false }, 'Holding it alone does this.')).not.toContain('Holding it alone');
     expect(leverValueLabel(lock, 1)).toBe('Locked');
   });
 
@@ -178,7 +183,18 @@ describe('padlocks and stabilisers (decisions 0004 and 0010)', () => {
     expect(changedCountWithLocks(bank, [3, 0, 0, 0], none, pads)).toBe(0);
     expect(changedCountWithLocks(bank, [3, 1, 0, 0], none, padlocksByLever([state({ locked: true })]))).toBe(1);
     expect(changedCountWithLocks(gov, [3, 0, 1, 0.5], none, pads)).toBe(2);
-    expect(changedCount(gov, [3, 0, 1, 0.5], none)).toBe(2);
+    expect(changedCountWithLocks(gov, [3, 0, 1, 0.5], none, new Map())).toBe(2);
+  });
+
+  test('back to baseline: a lever off its default, and one with a padlock only while it is locked (it stays locked); never a one-off', () => {
+    expect(canResetToBaseline(vat, 1)).toBe(true);
+    expect(canResetToBaseline(vat, 0)).toBe(false);
+    // a key rate held at 4.25%: one click back to 3%, still held (review m6)
+    expect(canResetToBaseline(rate, 4.25, state({ locked: true, current: 4.25 }))).toBe(true);
+    expect(canResetToBaseline(rate, 3, state({ locked: true, current: 3 }))).toBe(false);
+    // unlocked, the rule moves it: unlocking was the hand-back, and there is nothing of the user's to undo
+    expect(canResetToBaseline(rate, 3.4, state())).toBe(false);
+    expect(canResetToBaseline(lever({ id: 'wage', kind: 'oneoff', default: 10 }), 5)).toBe(false);
   });
 
   test('Apply rounds the suggestion to the lever’s step grid, within its range', () => {
@@ -223,5 +239,15 @@ describe('padlocks and stabilisers (decisions 0004 and 0010)', () => {
     expect(allLockedNote([], byId)).toBeNull();
     expect(allLockedNote([state({ locked: true })], byId)).toBe('With the key interest rate locked, nothing pulls prices back over the long run.');
     expect(allLockedNote([state({ locked: true }), debt, { lever: 'vat', locked: true }], byId)).toBe('With the key interest rate, the income-tax rate and the VAT rate all locked, nothing pulls prices back over the long run.');
+  });
+
+  test('a stabiliser locked while another is unlocked shows its note, if it has one (decision 0015); all locked or all unlocked: none', () => {
+    const debt = { id: 'debt', lever: 'tax', locked: true };
+    const notes = new Map([['debt', 'Tax held alone.'], ['rule', 'Key rate held alone.']]);
+    expect([...lockedAloneNotes([state(), debt], notes)]).toEqual([['tax', 'Tax held alone.']]);
+    expect([...lockedAloneNotes([state({ locked: true }), { ...debt, locked: false }], notes)]).toEqual([['rate', 'Key rate held alone.']]);
+    expect(lockedAloneNotes([state({ locked: true }), debt], notes).size).toBe(0);
+    expect(lockedAloneNotes([state(), { ...debt, locked: false }], notes).size).toBe(0);
+    expect(lockedAloneNotes([state(), debt], new Map()).size).toBe(0);
   });
 });

@@ -56,7 +56,7 @@ class ClientPool {
 export interface AppProps {
   /** Models to offer (default: the registry in src/models/index.ts). */
   models?: ModelDef[];
-  /** The URL hash at start-up, e.g. '#m=reference&t=24&e=0:keyRateAddon:1'. */
+  /** The URL hash at start-up, e.g. '#m=reference&v=2&t=24&e=0:keyRate:4' (the key rate held at 4%). */
   initialHash?: string;
   /** Open this model (overrides the hash's model). */
   initialModelId?: Id;
