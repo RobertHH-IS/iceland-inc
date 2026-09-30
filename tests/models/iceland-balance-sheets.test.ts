@@ -226,7 +226,7 @@ describe('Iceland model: balance sheets stay possible', () => {
     // steeper as non-residents ran short (about 4% per 1% of GDP once they owed 3%). So the króna
     // strengthens less (the term is at −0.13 log points at month 240, two-thirds of its limit), the
     // surplus of 20 points of pension assets brought home and a tourism boom lasts, and they keep
-    // borrowing to pay for Iceland's exports: 3.1% of GDP by month 36 and 6.0% by month 240, still
+    // borrowing to pay for Iceland's exports: 3.2% of GDP by month 36 and 6.0% by month 240, still
     // rising but ever more slowly. Non-residents borrowing krónur for decades is what króna stage 2
     // is for (a home for net foreign assets and one slow closure on them). Tripwire: the growth
     // slows every two years from month 24, and stays below 7% of GDP.
@@ -283,7 +283,7 @@ describe('Iceland model: balance sheets stay possible', () => {
     // firms call on the funds only for deposits above their buffer, the overdraft started in month
     // 248, not 228; with the fix branches merged (bounded portfolio balance, bonds that reprice as
     // they mature, market rents, a higher import elasticity) in month 288 (292 at two steps a
-    // month); with the flow-priced króna (decision 0013) in month 380, so the run is 35 years.
+    // month); with the flow-priced króna (decision 0013) in month 379, so the run is 35 years.
     expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 360)).toEqual([]);
     expect(wrongSigns([['publicInvestment', -3], ['foreignDemand', 20], ['incomeTax', 10]], false, 420)).toEqual(['deposits/PF']);
   });

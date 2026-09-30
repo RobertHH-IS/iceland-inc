@@ -464,6 +464,7 @@ const vars: VarDef[] = [
   { id: 'output', label: 'Output (real GDP)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base('output'), description: 'Everything produced in a year, at baseline prices.' },
   { id: 'nominalGDP', label: 'GDP (nominal)', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('nominalGDP'), description: 'Everything produced in a year, at today’s prices (100 at baseline).' },
   { id: 'gdpTrailing12', label: 'GDP over the past 12 months', unit: '% of GDP/yr', kind: 'flow', scale: 'nominal', initial: base('nominalGDP'), description: 'What was produced over the past 12 months, at each month’s prices: what debt ratios divide by, as in official statistics (100 at baseline).' },
+  { id: 'outputTrailing12', label: 'Output over the past 12 months (real)', unit: '% of GDP/yr', kind: 'quantity', scale: 'real', initial: base('output'), description: 'What was produced over the past 12 months, at baseline prices (100 at baseline): what the central bank’s reserve target is a share of.' },
 ];
 
 const DIV_W = dividendsTo('W');
@@ -611,6 +612,23 @@ export const firms: ModuleDef = {
       explain: {
         what: 'GDP over the past 12 months. Official statistics divide debts by the GDP of the past year, not by this month’s pace, which runs ahead of it while prices are rising.',
         rule: 'Trailing GDP = the average of GDP (at an annual rate) over the past 12 months, this month included: over every step of them, two a month.',
+      },
+    },
+    {
+      id: 'outputTrailing12',
+      target: 'outputTrailing12',
+      category: 'IDENTITY',
+      inputs: ['output'],
+      lagInputs: ['output'],
+      compute: (c) => {
+        const n = stepsIn(c, 1);
+        let total = c.v('output');
+        for (let k = 1; k < n; k++) total += c.lag('output', k);
+        return total / n;
+      },
+      explain: {
+        what: 'Real GDP over the past 12 months, at baseline prices. The central bank sets its reserve target as a share of it (decision 0013).',
+        rule: 'Trailing output = the average of output (at an annual rate, at baseline prices) over the past 12 months, this month included: over every step of them, two a month. Each month is measured at baseline prices before it is averaged, so a rise in prices does not count as more output.',
       },
     },
   ],
