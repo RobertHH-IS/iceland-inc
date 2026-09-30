@@ -8,7 +8,8 @@
     "typescript": "^7.0.2"
   },
   "description": "An explorable, stock-flow-consistent economy of Iceland: money flowing between balance sheets, with every rule explained.",
-  "license": "MIT",
+  "license": "Apache-2.0",
+  "author": "Robert Helgason",
   "private": true,
   "scripts": {
     "test": "bun test",
