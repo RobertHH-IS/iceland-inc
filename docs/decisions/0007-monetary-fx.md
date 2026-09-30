@@ -34,7 +34,7 @@ On Automatic from the start nothing changes: the anchor is the rule's own rate, 
 
 **Imports are paid at border prices.** `borderImportPrice` = exchange rate × world prices, an identity. Every import rule and the import volume use it (and builders' value added deflates their imports by it). `importPrice`, still smoothed at `lamPm`, is now the wholesale price importers charge at home; it feeds `deliveredImportPrice`, unit cost and the CPI as before. The difference lands in the margins of whoever imports (retail, builders, exporters). A −10% sentiment shock now worsens the current account by 1.8 pp of GDP in month 1 and improves it by 0.8 pp at month 12 (a J-curve); world prices +10 worsen it by 2.6 pp in month 1.
 
-**Portfolio balance nets out the carry trade and is bounded.** (Superseded by [decision 0013](0013-krona-stage-1.md): the term is now linear up to a smooth limit of 0.2 log points, prices the flow of krónur net of the carry trade's as well as the holdings, and `betaH` and `fxDepth` are gone. What follows is the form this decision adopted.) The term was
+**Portfolio balance nets out the carry trade and is bounded.** (Superseded by [decision 0013](0013-krona-stage-1.md): the term is now linear up to a smooth limit of 0.2 log points, prices the flow of krónur as well as the holdings, and `betaH` and `fxDepth` are gone. What follows is the form this decision adopted.) The term was
 
 > betaH × log((max(net holdings, −fxDepth ÷ 2) + fxDepth) ÷ (wanted + fxDepth))
 
