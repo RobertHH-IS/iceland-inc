@@ -179,8 +179,9 @@ const LeverRow = memo(function LeverRow({
   const [showInfo, setShowInfo] = useState(false);
   const value = shownValue(stored, pad);
   const auto = !!pad && !pad.locked;
-  // An unlocked lever follows its rule's live value: shown, and read out, to two decimals.
-  const shown = auto ? Number(value.toFixed(2)) : value;
+  // A lever with a rule can hold its rule's live value, unlocked or frozen by its padlock
+  // (for example 4.368867%): shown, and read out, to two decimals.
+  const shown = pad ? Number(value.toFixed(2)) : value;
   const changed = isLeverChanged(l, value, new Map<Id, number>([[l.id, fired]]), pad);
   const infoId = `lever-info-${l.id}`;
   const calling = mark?.kind === 'calling' ? mark : undefined;

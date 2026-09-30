@@ -183,6 +183,22 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     client.dispose();
   });
 
+  test('a padlock closed on a moving rate shows the frozen value to two decimals', () => {
+    const client = createEngineClient(iceland);
+    client.fire('wageSettlement', 10);
+    client.pause();
+    client.step(18);
+    client.setLever('keyRateLock', 1); // freezes the key rate at the rule's live value
+    client.pause();
+    const f = client.getFrame();
+    const frozen = f.levers[client.info.levers.findIndex((l) => l.id === 'keyRate')];
+    expect(Number(frozen.toFixed(2))).not.toBe(frozen); // not a round number
+    const html = renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />);
+    expect(html).toContain(`>${Number(frozen.toFixed(2))}%</span>`);
+    expect(html).not.toContain(`>${Number(frozen.toFixed(6))}%</span>`);
+    client.dispose();
+  });
+
   test('locked: a closed padlock, red calling levers with Apply and red dots on their sections; a lever without a rule has no padlock', () => {
     const client = createEngineClient(iceland);
     client.setLever('keyRateLock', 1);
