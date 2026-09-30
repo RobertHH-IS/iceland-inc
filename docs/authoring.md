@@ -181,7 +181,7 @@ A lever is a setting or a one-off with a precise `definition`: level or growth, 
 ```ts
 {
   id: 'taxRate', label: 'Income-tax rate', group: 'Policy', section: 'Government',
-  kind: 'setting', unit: 'pp', default: 0, min: -2, max: 3, step: 0.5,
+  kind: 'setting', unit: 'pp', default: 0, min: -1, max: 3, step: 0.5,
   binds: { param: 'taxShift', mode: 'add', scale: 0.01 },
   description: 'The tax rate on household income, in points above (or below) its normal rate. Unlocked (the default), the debt rule sets it …',
   definition: 'Level shift in the income-tax rate, in percentage points above (or below) its normal rate. …',

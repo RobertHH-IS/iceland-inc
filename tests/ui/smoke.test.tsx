@@ -194,6 +194,21 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     client.dispose();
   });
 
+  test('every aria-controls names an element on the page: a closed section or info panel controls nothing (review UI-2)', () => {
+    for (const m of models) {
+      const client = createEngineClient(m);
+      client.pause();
+      const f = client.getFrame();
+      const html = renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />);
+      const controls = [...html.matchAll(/aria-controls="([^"]+)"/g)].map((x) => x[1]);
+      expect(controls.length).toBeGreaterThan(0); // the open sections
+      for (const id of controls) expect(html).toContain(`id="${id}"`);
+      // a closed section's header says it is closed and points nowhere
+      if (m.id === 'iceland') expect(html).toContain('class="acc-head" aria-expanded="false">');
+      client.dispose();
+    }
+  });
+
   test('a padlock closed on a moving rate shows the frozen value to two decimals', () => {
     const client = createEngineClient(iceland);
     client.fire('wageSettlement', 10);

@@ -1,7 +1,8 @@
 /**
  * The decision records and the places that summarise them agree: every record from 0004 on has
- * a row in the architecture's decisions table (§9), and króna stage 1's release, decided by the
- * owner on 30 September 2026 with item 4 open, reads the same in every summary.
+ * a row in the architecture's decisions table (§9), the table uses the padlock words, and króna
+ * stage 1's release, decided by the owner on 30 September 2026 with item 4 open, reads the same in
+ * every summary and in the name of the failing test that holds item 4.
  */
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -44,6 +45,14 @@ describe('decision records', () => {
     const item4 = section(doc('audit/lever-vetting.md'), '## Open items', '\n## ').split('\n').find((l) => l.startsWith('4. ')) ?? '';
     expect(item4).toContain("released with it open, by the owner's decision of 30 September 2026");
     for (const text of [status, row19, anchors, item4]) expect(text.toLowerCase()).not.toContain('not releasable');
+    // The failing test that holds item 4 is a phase-5 criterion, not a release criterion.
+    const krona = readFileSync(new URL('./models/iceland-krona.test.ts', import.meta.url), 'utf8');
+    expect(krona).toContain("test.failing('PHASE 5 CRITERION, not met (item 4, released open by decision 0013)");
+    expect(krona).not.toContain('RELEASE CRITERION');
+  });
+
+  test('the decisions table uses the padlock words: Manual and Automatic only where row 16 names what padlocks replaced', () => {
+    for (const row of table.split('\n').filter((l) => /^\| \d+ \|/.test(l) && !l.startsWith('| 16 |'))) expect(row).not.toMatch(/\b(Manual|Automatic)\b/);
   });
 
   test("the long-run anchors' status table names the owner's decisions 0016 and 0017", () => {

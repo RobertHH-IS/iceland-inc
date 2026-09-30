@@ -122,7 +122,7 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
           return (
             <section key={s.id} className={`acc ${isOpen ? 'open' : ''}`}>
               <h3 className="acc-h">
-                <button type="button" className="acc-head" aria-expanded={isOpen} aria-controls={bodyId} onClick={() => toggle(s.id)}>
+                <button type="button" className="acc-head" aria-expanded={isOpen} aria-controls={isOpen ? bodyId : undefined} onClick={() => toggle(s.id)}>
                   <span className="acc-title">{s.title}</span>
                   {calling && <span className="call-dot" role="img" aria-label="A rule would move a lever here" title="A rule would move a lever here" />}
                   {n > 0 && (
@@ -217,7 +217,7 @@ const LeverRow = memo(function LeverRow({
             <Icon name="undo" size={14} />
           </button>
         )}
-        <button type="button" className={`icon-btn tiny ${showInfo ? 'on' : ''}`} aria-expanded={showInfo} aria-controls={infoId} aria-label={`About ${l.label}`} onClick={() => setShowInfo((x) => !x)}>
+        <button type="button" className={`icon-btn tiny ${showInfo ? 'on' : ''}`} aria-expanded={showInfo} aria-controls={showInfo ? infoId : undefined} aria-label={`About ${l.label}`} onClick={() => setShowInfo((x) => !x)}>
           <Icon name="info" size={14} />
         </button>
       </div>

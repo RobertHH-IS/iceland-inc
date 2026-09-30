@@ -389,10 +389,11 @@ describe('flags', () => {
     // weaken the interest-income channel: they shrink the runaway but cannot remove it here, because
     // in these zero-growth baselines debt compounds at about 3.5% a year (r − g) on any lasting
     // deficit, which the Explosive test reads as acceleration, and in Iceland the deficit also
-    // weakens the króna through non-residents' holdings (lever-vetting item 4). What removes it: a
-    // balanced-growth baseline (roadmap v2, r − g near zero), króna stage 2, or a fiscal anchor
-    // while the tax is held; the owner decides. Until then the lever panel says so
-    // (StabiliserDef.lockedAloneNote) and these pin it.
+    // weakens the króna through non-residents' holdings (lever-vetting item 4). Only a fix that acts
+    // on the compounding can make the first test below pass: a balanced-growth baseline (roadmap v2,
+    // r − g near zero) or a fiscal anchor while the tax is held. Króna stage 2 shrinks Iceland's part
+    // of the runaway but leaves the compounding, so on its own it will not (decision 0016). The owner
+    // decides. Until then the lever panel says so (StabiliserDef.lockedAloneNote) and these pin it.
     const moderate = (m: KModel, id: string) => {
       const spec = { ...leverReportSpecs[m.def.id], impliedNeutral: undefined };
       const r = leverReport(m, { months: 240, levers: [id], expectations: null, spec });
@@ -401,8 +402,9 @@ describe('flags', () => {
     const at240 = (run: ReturnType<typeof moderate>[number], id: string) => run.headlines.find((h) => h.id === id)!.at.at(-1)!;
 
     test.failing('OWNER DECISION PENDING: no moderate tax step with the central bank’s rule acting is Explosive within 240 months (Iceland ±2.5, reference −0.5 and +1)', () => {
-      // Expected to fail until one of the fixes above lands; bun reports it as soon as it passes,
-      // and then `.failing` comes off with lever-vetting open item 21.
+      // Expected to fail until a balanced-growth baseline or a fiscal anchor while the tax is held
+      // lands (above); bun reports it as soon as it passes, and then `.failing` comes off with
+      // lever-vetting open item 21.
       for (const run of [...moderate(ice, 'incomeTax'), ...moderate(ref, 'taxRate')]) expect(run.flags.some((f) => f.kind === 'explosive')).toBe(false);
     }, 60_000);
 

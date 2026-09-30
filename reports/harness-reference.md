@@ -44,10 +44,10 @@ All four checks after every step of every run the harness makes, including the f
 
 | Check | Largest residual |
 |---|---|
-| Every flow sums to zero across players | 8.88e-16 |
+| Every flow sums to zero across players | 2.22e-16 |
 | Every financial instrument: assets held = liabilities owed | 1.05e-12 |
-| Change in net worth = saving + revaluations + write-offs | 9.77e-14 |
-| Every position change is explained by its postings | 9.33e-14 |
+| Change in net worth = saving + revaluations + write-offs | 7.95e-14 |
+| Every position change is explained by its postings | 7.90e-14 |
 
 ## 4. Baseline: PASS
 

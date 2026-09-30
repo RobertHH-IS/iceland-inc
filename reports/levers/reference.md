@@ -41,7 +41,7 @@ Number of runs with each flag (comparisons between runs count once per pair; an 
 | [Bank lending appetite](#bank-lending-appetite-lendingappetite) (`lendingAppetite`) | 8 |  |  |  |  |  |  |  |  | 8 |  |  | 2 |  |  | 5 | 10/0 |
 | [Key interest rate](#key-interest-rate-keyrate) (`keyRate`) | 8 |  |  |  |  | 2 |  |  |  | 8 | 1 |  | 2 |  |  | 8 | 16/0 |
 | [Government spending](#government-spending-govspending) (`govSpending`) | 8 |  |  |  |  | 1 |  |  |  | 8 |  |  | 3 |  |  | 6 | 9/0 |
-| [Income-tax rate](#income-tax-rate-taxrate) (`taxRate`) | 8 |  |  |  |  | 1 |  |  |  | 7 | 3 |  | 3 |  |  | 7 | 8/0 |
+| [Income-tax rate](#income-tax-rate-taxrate) (`taxRate`) | 8 |  |  |  |  | 1 |  |  |  | 8 | 3 |  | 3 |  |  | 7 | 8/0 |
 
 The padlocks (`keyRateLock`, `taxRateLock`) are not run as levers: they set up the lock configurations every other lever runs in.
 
@@ -598,7 +598,7 @@ Regimes that differ from the no-change run:
 
 The key interest rate. Unlocked (the default), the Taylor rule sets it and the lever follows the rule. Move the lever, or close its padlock, to hold the rate yourself. A held rise cools the economy for several years; held for longer, its effect reverses, because the interest it pays out is spent.
 
-**Definition.** Level of the key rate in percent a year. Unlocked (the default) the Taylor rule sets it every month, and the lever shows the rule’s rate. Moving the lever, or closing its padlock, locks it: the key rate is then held at the lever’s level from the month it is set until you move it again, and the rule only suggests a rate beside the lever. Closing the padlock holds the rate in force that month. Unlocking hands the key rate back to the rule, which moves from the rate you held a twelfth of the way toward where it is heading each month, so the rate does not jump. The default, 3%, is the neutral rate. Held while the tax lever is unlocked, the debt rule steadies the economy in the central bank’s place: while the key rate is locked it cuts taxes when output is below capacity and raises them above it, and leans on debt only half as hard; and debt never pushes the tax the other way, so the rule raises no tax for debt while output is more than 1% below capacity and cuts none for low debt while it is above (decision 0016). So a higher rate cools the economy while the rule cuts taxes, and pays the higher interest bill back once output has nearly recovered: at 4.75%, output is about 1.5% lower after three years and 0.4% lower after 20, with government debt 16 points of GDP higher, the tax rate 1.2 points higher and the price level 4% lower; at 10%, output ends 0.3% lower with debt 65 points higher. A rate held below neutral does the opposite: at 0%, the rule raises taxes against the boom (0.7 point after three years), output is 1.7% higher after three years and 0.15% after 20, and the price level 3.7% higher. (When the rule leaned on debt alone it amplified both: it raised taxes to pay the higher interest bill, so at 4.75% output ended 13% lower, and it cut taxes as rising prices shrank the debt ratio, so at 0% the price level ran away, 59% higher after 20 years.) With the tax lever locked too, for the first years a higher rate works as textbooks say: at 4.75%, output is about 2.6% lower after three years. Held for longer, the effect reverses, after about eight years (month 102 at 4.75%, sooner for bigger moves: month 85 at 10%): the interest on government bonds and on deposits is income for households, and the higher rate also means more of it on a larger stock of deposits, so they spend more and more of it, while anchored expectations keep inflation from running away. At 4.75% output is about 3% higher after 20 years and inflation about 1.1 points higher; at 10%, 13% and 5.5 points, with the price level 46% higher; at 0%, 2.4% lower. The same stock-flow channel reverses a held Iceland key rate (MON-1). This is the interest-income channel of stock-flow models (Godley and Lavoie’s model PC), at the strong end of the evidence: tightening lowers output for more than a decade in the data (Jordà, Singh and Taylor 2024), and savers spend little of the interest they gain (Auclert 2019). So effects beyond a few years show the interest-income channel of an economy without its policy rules, and with nothing but partial trust in the target to anchor prices, not what a central bank would do.
+**Definition.** Level of the key rate in percent a year. Unlocked (the default) the Taylor rule sets it every month, and the lever shows the rule’s rate. Moving the lever, or closing its padlock, locks it: the key rate is then held at the lever’s level from the month it is set until you move it again, and the rule only suggests a rate beside the lever. Closing the padlock holds the rate in force that month. Unlocking hands the key rate back to the rule, which moves from the rate you held a twelfth of the way toward where it is heading each month, so the rate does not jump. The default, 3%, is the neutral rate. The Taylor rule keeps that neutral rate fixed; it does not learn a new one, as Iceland’s rule does (decision 0009). So after a lasting change in demand, with the rule acting, inflation settles a little off target: the rule holds the key rate away from 3% only while inflation or output is off. After lending appetite −2, inflation is still 0.5 point below target after 20 years, with the key rate at 1.2% and the price level 10% lower; after government spending 3% of GDP lower, inflation is 0.7 point below target and the price level 25% lower. Held while the tax lever is unlocked, the debt rule steadies the economy in the central bank’s place: while the key rate is locked it cuts taxes when output is below capacity and raises them above it, and leans on debt only half as hard; and debt never pushes the tax the other way, so the rule raises no tax for debt while output is more than 1% below capacity and cuts none for low debt while it is above (decision 0016). So a higher rate cools the economy while the rule cuts taxes, and pays the higher interest bill back once output has nearly recovered: at 4.75%, output is about 1.5% lower after three years and 0.4% lower after 20, with government debt 16 points of GDP higher, the tax rate 1.2 points higher and the price level 4% lower; at 10%, output ends 0.3% lower with debt 65 points higher. A rate held below neutral does the opposite: at 0%, the rule raises taxes against the boom (0.7 point after three years), output is 1.7% higher after three years and 0.15% after 20, and the price level 3.7% higher. (When the rule leaned on debt alone it amplified both: it raised taxes to pay the higher interest bill, so at 4.75% output ended 13% lower, and it cut taxes as rising prices shrank the debt ratio, so at 0% the price level ran away, 59% higher after 20 years.) With the tax lever locked too, for the first years a higher rate works as textbooks say: at 4.75%, output is about 2.6% lower after three years. Held for longer, the effect reverses, after about eight years (month 102 at 4.75%, sooner for bigger moves: month 85 at 10%): the interest on government bonds and on deposits is income for households, and the higher rate also means more of it on a larger stock of deposits, so they spend more and more of it, while anchored expectations keep inflation from running away. At 4.75% output is about 3% higher after 20 years and inflation about 1.1 points higher; at 10%, 13% and 5.5 points, with the price level 46% higher; at 0%, 2.4% lower. The same stock-flow channel reverses a held Iceland key rate (MON-1). This is the interest-income channel of stock-flow models (Godley and Lavoie’s model PC), at the strong end of the evidence: tightening lowers output for more than a decade in the data (Jordà, Singh and Taylor 2024), and savers spend little of the interest they gain (Auclert 2019). So effects beyond a few years show the interest-income channel of an economy without its policy rules, and with nothing but partial trust in the target to anchor prices, not what a central bank would do.
 
 Runs: 0 % (min); 2.25 % (down); 4.75 % (up); 10 % (max). Each is set before month 1 and held.
 
@@ -1153,17 +1153,17 @@ Regimes that differ from the no-change run:
 
 ## Income-tax rate (`taxRate`)
 
-*Setting, unit pp, default 0, range -2 to 3 in steps of 0.5.*
+*Setting, unit pp, default 0, range -1 to 3 in steps of 0.5.*
 
 The tax rate on household income, in points above (or below) its normal rate. A cut leaves households more to spend and the government less revenue, so it borrows and its debt rises; a rise does the opposite. Unlocked (the default), the debt rule sets it and the lever follows the rule. Move the lever, or close its padlock, to hold the rate yourself: debt then takes the strain, and the debt rule only suggests.
 
-**Definition.** Level shift in the income-tax rate, in percentage points above (or below) its normal rate. Unlocked (the default) the debt rule sets the rate every month, leaning against government debt, and the lever shows its shift. Moving the lever, or closing its padlock, locks it: the rate is then the normal rate plus the lever’s shift, applied in the month it is set and held until you move it again, and the debt rule only suggests a shift beside the lever. Unlocking hands the rate back to the debt rule, which moves from the rate you held about 4% of the way toward where it is heading each month and gives the change back as debt returns to its level. The first thing a change does is to the budget. A cut of 1 point leaves households about 0.9% of GDP a year more after tax and the government as much less revenue, so it runs a deficit and borrows from the bank: government debt is about 3.9 points of GDP higher after five years and 9 after ten. Households spend most of the extra income, so output is about 1% higher after a year. Second, the Taylor rule leans against the extra demand: the key rate is about 0.4 point higher after a year and 1.6 points after five. A rise mirrors it: debt falls and output is lower. Held while the key rate is unlocked, though, nothing pays a tax cut back, and the Taylor rule cannot steady the economy on its own: in this economy the interest it raises is income that households spend, so a higher key rate adds to demand as well as cooling it (with no fiscal rule and an active monetary rule there is no stable path, Leeper 1991). At −0.5, output is 0.5% higher after a year and still rising after 20 years, 2% higher with the key rate 2.6 points higher; at −2, the economy runs away in the second decade: output 80% and the price level 83% higher after 20 years, the key rate above 60%. That is why the range stops at −2: below it, the run no longer stays finite for 20 years. A rise sinks it the other way: at +1, output is 4% lower after 20 years and still falling, and the key rate reaches zero by then; at +3 the key rate is at or near zero from about the third year and output is 11% lower after 20 years (a liquidity trap). With the key rate locked too, nothing offsets the tax: at +1, output is about 3% lower after five years, and at −2 about 6.6% higher after five, with the price level 48% higher after 20. Setting it back to 0 while locked returns the rate to normal; to lean on the rule without holding the rate, lock it, set it, and unlock it again.
+**Definition.** Level shift in the income-tax rate, in percentage points above (or below) its normal rate. Unlocked (the default) the debt rule sets the rate every month, leaning against government debt, and the lever shows its shift. Moving the lever, or closing its padlock, locks it: the rate is then the normal rate plus the lever’s shift, applied in the month it is set and held until you move it again, and the debt rule only suggests a shift beside the lever. Unlocking hands the rate back to the debt rule, which moves from the rate you held about 4% of the way toward where it is heading each month and gives the change back as debt returns to its level. The first thing a change does is to the budget. A cut of 1 point leaves households about 0.9% of GDP a year more after tax and the government as much less revenue, so it runs a deficit and borrows from the bank: government debt is about 3.9 points of GDP higher after five years and 9 after ten. Households spend most of the extra income, so output is about 1% higher after a year. Second, the Taylor rule leans against the extra demand: the key rate is about 0.4 point higher after a year and 1.6 points after five. A rise mirrors it: debt falls and output is lower. Held while the key rate is unlocked, though, nothing pays a tax cut back, and the Taylor rule cannot steady the economy on its own: in this economy the interest it raises is income that households spend, so a higher key rate adds to demand as well as cooling it (with no fiscal rule and an active monetary rule there is no stable path, Leeper 1991). At −0.5, output is 0.5% higher after a year and still rising after 20 years, 2% higher with the key rate 2.6 points higher; at −1, output is 6% higher after 20 years, the price level 18% higher and the key rate 7 points higher, all still rising, and broad money half as large again. That is why the range stops at −1: bigger cuts run away much faster (at −2, output would be 80% higher after 20 years, with a key rate above 60%). A rise sinks it the other way: at +1, output is 4% lower after 20 years and still falling, and the key rate reaches zero by then; at +3 the key rate is at or near zero from about the third year and output is 11% lower after 20 years (a liquidity trap). With the key rate locked too, nothing offsets the tax: at +1, output is about 3% lower after five years, and at −1 about 3.3% higher after five, with the price level 22% higher after 20. Setting it back to 0 while locked returns the rate to normal; to lean on the rule without holding the rate, lock it, set it, and unlock it again.
 
-Runs: -2 pp (min); -0.5 pp (down); 1 pp (up); 3 pp (max). Each is set before month 1 and held.
+Runs: -1 pp (min); -0.5 pp (down); 1 pp (up); 3 pp (max). Each is set before month 1 and held.
 
 Comparisons between runs:
 
-- **Lock sign**: -2 pp (min): Investment (real) 1.52 locked, -0.06 unlocked.
+- **Lock sign**: -1 pp (min): Investment (real) 0.76 locked, -0.03 unlocked.
 - **Lock sign**: 1 pp (up): Investment (real) -0.75 locked, 0.03 unlocked.
 - **Lock sign**: 3 pp (max): Investment (real) -2.24 locked, 0.09 unlocked.
 
@@ -1178,36 +1178,37 @@ Expectations:
 - ✓ unemployment rises over months 3–24 (up, any): 1, unlocked: 0.42; 1, locked: 0.55. Okun’s law: lower output needs less work. (Okun (1962))
 - ✓ keyRate falls over months 6–36 (up, unlocked): 1, unlocked: -0.82. Taylor rule: the central bank cuts its rate against the negative output gap and lower inflation. (Taylor (1993))
 
-### -2 pp (min), unlocked
+### -1 pp (min), unlocked
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.26 | 0.74 | 1.33 | 2.14 | 2.63 | 2.49 | 2.77 | 5.43 | 79.7 | 79.7 | 240 | 61.4 |
-| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.08 | 0.42 | 0.68 | 0.87 | 1.64 | 14.4 | 14.4 | 240 | 11.8 |
-| Price level (%) | 0 | 0 | 0.01 | 0.08 | 0.50 | 1.19 | 2.89 | 9.65 | 83.0 | 83.0 | 240 | 71.4 |
-| Unemployment rate (pp) | -0.04 | -0.19 | -0.45 | -0.90 | -1.23 | -1.19 | -1.29 | -2.41 | -3.00 | -3.00 | 230 | -3.00 |
-| Key interest rate (pp) | 0 | 0.06 | 0.27 | 0.89 | 2.11 | 2.79 | 3.35 | 6.30 | 61.6 | 61.6 | 240 | 50.1 |
-| Real wage (%) | 0 | 0.01 | 0.03 | 0.13 | 0.33 | 0.44 | 0.53 | 1.01 | 9.53 | 9.53 | 240 | 7.78 |
-| Consumption (real) (%) | 0.38 | 1.06 | 1.90 | 3.14 | 4.33 | 4.62 | 5.39 | 10.4 | 134 | 134 | 240 | 105 |
-| Investment (real) (%) | 0 | 0.08 | 0.20 | -0.06 | -2.26 | -4.47 | -6.12 | -11.1 | -82.0 | -82.0 | 240 | -69.7 |
-| Private debt (pp of GDP) | -0.13 | -0.35 | -0.63 | -1.04 | -1.50 | -1.90 | -3.11 | -7.27 | -35.1 | -35.1 | 240 | -32.1 |
-| Broad money (%) | 0.16 | 0.49 | 0.97 | 1.94 | 4.09 | 6.58 | 12.5 | 34.0 | 325 | 325 | 240 | 266 |
-| Government deficit (to GDP) (pp of GDP) | 1.72 | 1.68 | 1.66 | 1.71 | 2.06 | 2.40 | 2.79 | 4.42 | 44.1 | 44.1 | 240 | 36.1 |
-| Government debt (pp of GDP) | 0 | 0.02 | 0.11 | 0.47 | 1.86 | 3.80 | 7.86 | 19.1 | 50.4 | 51.0 | 234 | 50.8 |
-| Bank equity (to GDP) (pp of GDP) | -0.02 | -0.04 | -0.08 | -0.13 | -0.18 | -0.21 | -0.35 | -0.87 | -4.14 | -4.14 | 240 | -3.79 |
-| Disposable income (real) (%) | 2.56 | 3.00 | 3.80 | 5.37 | 7.30 | 7.95 | 9.13 | 16.7 | 231 | 231 | 240 | 177 |
-| Firms’ cash profit (real) (%) | 1.47 | 3.55 | 5.43 | 7.07 | 7.21 | 6.87 | 8.77 | 18.9 | 378 | 378 | 240 | 283 |
-| Income-tax rate (charged) (pp) | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | 1 | -2.00 |
+| Output (real GDP) (%) | 0.13 | 0.37 | 0.66 | 1.06 | 1.28 | 1.18 | 1.26 | 2.13 | 6.13 | 6.13 | 240 | 5.79 |
+| Inflation (12 months) (pp) | 0 | 0 | 0 | 0.04 | 0.21 | 0.33 | 0.41 | 0.69 | 1.90 | 1.90 | 240 | 1.80 |
+| Price level (%) | 0 | 0 | 0 | 0.04 | 0.25 | 0.58 | 1.38 | 4.27 | 17.9 | 17.9 | 240 | 16.8 |
+| Unemployment rate (pp) | -0.02 | -0.09 | -0.23 | -0.44 | -0.60 | -0.57 | -0.59 | -1.00 | -2.57 | -2.57 | 240 | -2.50 |
+| Key interest rate (pp) | 0 | 0.03 | 0.13 | 0.44 | 1.04 | 1.35 | 1.56 | 2.60 | 7.23 | 7.23 | 240 | 6.85 |
+| Real wage (%) | 0 | 0 | 0.02 | 0.06 | 0.16 | 0.21 | 0.25 | 0.42 | 1.16 | 1.16 | 240 | 1.10 |
+| Consumption (real) (%) | 0.19 | 0.53 | 0.94 | 1.56 | 2.12 | 2.21 | 2.48 | 4.15 | 11.8 | 11.8 | 240 | 11.1 |
+| Investment (real) (%) | 0 | 0.04 | 0.10 | -0.03 | -1.13 | -2.20 | -2.91 | -4.70 | -12.9 | -12.9 | 240 | -12.2 |
+| Private debt (pp of GDP) | -0.06 | -0.18 | -0.32 | -0.52 | -0.74 | -0.93 | -1.49 | -3.28 | -9.35 | -9.35 | 240 | -8.93 |
+| Broad money (%) | 0.08 | 0.24 | 0.48 | 0.96 | 2.01 | 3.20 | 5.91 | 14.8 | 51.4 | 51.4 | 240 | 48.7 |
+| Government deficit (to GDP) (pp of GDP) | 0.86 | 0.84 | 0.83 | 0.85 | 1.01 | 1.16 | 1.30 | 1.76 | 4.34 | 4.34 | 240 | 4.11 |
+| Government debt (pp of GDP) | 0 | 0.01 | 0.06 | 0.24 | 0.93 | 1.90 | 3.87 | 9.14 | 24.9 | 24.9 | 240 | 23.9 |
+| Bank equity (to GDP) (pp of GDP) | -0.01 | -0.02 | -0.04 | -0.06 | -0.09 | -0.10 | -0.17 | -0.39 | -1.13 | -1.13 | 240 | -1.08 |
+| Disposable income (real) (%) | 1.28 | 1.50 | 1.89 | 2.65 | 3.56 | 3.80 | 4.20 | 6.61 | 18.1 | 18.1 | 240 | 17.1 |
+| Firms’ cash profit (real) (%) | 0.73 | 1.77 | 2.70 | 3.49 | 3.48 | 3.21 | 3.91 | 7.04 | 22.7 | 22.7 | 240 | 21.3 |
+| Income-tax rate (charged) (pp) | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | 1 | -1.00 |
 
 Flags:
 
-- **Extreme**: Output (real GDP) 79.7 % at month 240; Price level 83.0 % at month 240; Key interest rate 61.6 pp at month 240; Consumption (real) 134 % at month 240; Investment (real) -82.0 % at month 240; and 6 more.
-- **Explosive**: Output (real GDP): moved 34.4 in the last 12 months, 79.7 at month 240; Inflation (12 months): moved 4.88 in the last 12 months, 14.4 at month 240; Price level: moved 23.0 in the last 12 months, 83.0 at month 240; Key interest rate: moved 22.2 in the last 12 months, 61.6 at month 240; and 10 more.
+- **Extreme**: Broad money 51.4 % at month 240.
+- **Unsettled**: Unemployment rate: moved -0.17 in the last 12 months, -2.57 at month 240.
+- **Explosive**: Output (real GDP): moved 0.72 in the last 12 months, 6.13 at month 240; Inflation (12 months): moved 0.21 in the last 12 months, 1.90 at month 240; Price level: moved 2.20 in the last 12 months, 17.9 at month 240; Key interest rate: moved 0.80 in the last 12 months, 7.23 at month 240; and 10 more.
 - **Regimes**: unemployment.
 
 Regimes that differ from the no-change run:
 
-- `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 99–240; its label changed 1 time(s) in the run
+- `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 204–240; its label changed 1 time(s) in the run
 
 ### -0.5 pp (down), unlocked
 
@@ -1299,36 +1300,35 @@ Regimes that differ from the no-change run:
 - `depositRate`: “Deposit rate at its floor: bank margin squeezed” instead of “–”, months 19–240; its label changed 1 time(s) in the run
 - `ruleTarget`: “Zero lower bound binds” instead of “–”, months 12–240; its label changed 1 time(s) in the run
 
-### -2 pp (min), locked
+### -1 pp (min), locked
 
 | Variable (unit) | m1 | m3 | m6 | m12 | m24 | m36 | m60 | m120 | m240 | Peak | Peak month | Long run |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Output (real GDP) (%) | 0.26 | 0.74 | 1.39 | 2.54 | 4.36 | 5.56 | 6.61 | 6.09 | 4.93 | 6.70 | 72 | 4.95 |
-| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.09 | 0.51 | 1.06 | 1.95 | 2.51 | 2.03 | 2.52 | 110 | 2.04 |
-| Price level (%) | 0 | 0 | 0.01 | 0.09 | 0.60 | 1.66 | 5.25 | 18.7 | 47.9 | 47.9 | 240 | 46.6 |
-| Unemployment rate (pp) | -0.04 | -0.19 | -0.47 | -1.03 | -1.94 | -2.43 | -2.67 | -2.60 | -2.29 | -2.69 | 74 | -2.30 |
-| Real wage (%) | 0 | 0.01 | 0.03 | 0.14 | 0.44 | 0.75 | 1.21 | 1.44 | 1.16 | 1.45 | 104 | 1.17 |
-| Consumption (real) (%) | 0.38 | 1.06 | 1.93 | 3.38 | 5.54 | 6.87 | 7.83 | 6.89 | 5.58 | 7.85 | 65 | 5.60 |
-| Investment (real) (%) | 0 | 0.12 | 0.49 | 1.52 | 3.78 | 5.76 | 8.32 | 9.15 | 7.39 | 9.37 | 96 | 7.43 |
-| Private debt (pp of GDP) | -0.13 | -0.35 | -0.66 | -1.19 | -2.08 | -2.78 | -3.80 | -5.14 | -5.53 | -5.55 | 211 | -5.54 |
-| Broad money (%) | 0.16 | 0.48 | 0.95 | 1.82 | 3.40 | 4.88 | 7.88 | 17.0 | 41.9 | 41.9 | 240 | 40.6 |
-| Government deficit (to GDP) (pp of GDP) | 1.72 | 1.66 | 1.56 | 1.36 | 1.05 | 0.86 | 0.71 | 0.73 | 0.85 | 1.72 | 1 | 0.84 |
-| Government debt (pp of GDP) | 0 | 0.02 | 0.06 | 0.11 | 0.05 | -0.22 | -1.11 | -3.66 | -6.07 | -6.07 | 240 | -6.01 |
-| Bank equity (to GDP) (pp of GDP) | -0.02 | -0.04 | -0.08 | -0.15 | -0.27 | -0.37 | -0.52 | -0.72 | -0.77 | -0.77 | 206 | -0.77 |
-| Disposable income (real) (%) | 2.56 | 2.95 | 3.62 | 4.94 | 7.00 | 8.28 | 9.27 | 8.70 | 7.65 | 9.33 | 70 | 7.66 |
-| Firms’ cash profit (real) (%) | 1.47 | 3.70 | 6.10 | 9.45 | 13.5 | 15.2 | 15.1 | 11.6 | 10.0 | 15.5 | 46 | 10.0 |
-| Income-tax rate (charged) (pp) | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | -2.00 | 1 | -2.00 |
+| Output (real GDP) (%) | 0.13 | 0.37 | 0.69 | 1.26 | 2.15 | 2.74 | 3.27 | 3.06 | 2.42 | 3.32 | 74 | 2.43 |
+| Inflation (12 months) (pp) | 0 | 0 | 0.01 | 0.04 | 0.25 | 0.52 | 0.96 | 1.25 | 1.00 | 1.25 | 112 | 1.01 |
+| Price level (%) | 0 | 0 | 0.01 | 0.04 | 0.30 | 0.82 | 2.56 | 8.86 | 21.5 | 21.5 | 240 | 21.0 |
+| Unemployment rate (pp) | -0.02 | -0.09 | -0.23 | -0.51 | -0.96 | -1.26 | -1.54 | -1.46 | -1.15 | -1.58 | 76 | -1.16 |
+| Real wage (%) | 0 | 0 | 0.02 | 0.07 | 0.22 | 0.37 | 0.60 | 0.72 | 0.57 | 0.72 | 107 | 0.58 |
+| Consumption (real) (%) | 0.19 | 0.53 | 0.96 | 1.68 | 2.74 | 3.39 | 3.87 | 3.46 | 2.74 | 3.89 | 67 | 2.75 |
+| Investment (real) (%) | 0 | 0.06 | 0.25 | 0.76 | 1.87 | 2.84 | 4.11 | 4.58 | 3.64 | 4.67 | 99 | 3.67 |
+| Private debt (pp of GDP) | -0.06 | -0.18 | -0.33 | -0.60 | -1.05 | -1.41 | -1.95 | -2.69 | -2.92 | -2.93 | 208 | -2.92 |
+| Broad money (%) | 0.08 | 0.24 | 0.47 | 0.90 | 1.68 | 2.39 | 3.81 | 7.96 | 18.4 | 18.4 | 240 | 17.9 |
+| Government deficit (to GDP) (pp of GDP) | 0.86 | 0.83 | 0.78 | 0.68 | 0.52 | 0.43 | 0.34 | 0.34 | 0.41 | 0.86 | 1 | 0.41 |
+| Government debt (pp of GDP) | 0 | 0.01 | 0.03 | 0.06 | 0.03 | -0.11 | -0.58 | -2.01 | -3.60 | -3.60 | 240 | -3.56 |
+| Bank equity (to GDP) (pp of GDP) | -0.01 | -0.02 | -0.04 | -0.07 | -0.13 | -0.19 | -0.27 | -0.38 | -0.41 | -0.41 | 205 | -0.41 |
+| Disposable income (real) (%) | 1.28 | 1.47 | 1.80 | 2.45 | 3.45 | 4.07 | 4.56 | 4.33 | 3.75 | 4.60 | 72 | 3.76 |
+| Firms’ cash profit (real) (%) | 0.73 | 1.85 | 3.04 | 4.70 | 6.66 | 7.51 | 7.53 | 5.92 | 4.95 | 7.70 | 47 | 4.96 |
+| Income-tax rate (charged) (pp) | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | -1.00 | 1 | -1.00 |
 
 Unmoved (every effect below 0.005): Key interest rate.
 
 Flags:
 
-- **Unsettled**: Price level: moved 2.94 in the last 12 months, 47.9 at month 240; Broad money: moved 2.77 in the last 12 months, 41.9 at month 240.
-- **Regimes**: unemployment; taxRuleTarget.
+- **Unsettled**: Price level: moved 1.20 in the last 12 months, 21.5 at month 240; Broad money: moved 1.12 in the last 12 months, 18.4 at month 240; Government debt: moved -0.09 in the last 12 months, -3.60 at month 240.
+- **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
 
-- `unemployment`: “Few unemployed left: extra work comes from people joining the labour force and longer hours” instead of “–”, months 25–240; its label changed 1 time(s) in the run
 - `taxRuleTarget`: “–” / “Key rate held: low debt cuts no tax while output is above capacity” instead of “Key rate held: debt adds no tax while output is below capacity” / “–”, months 3–240; its label changed 1 time(s) in the run
 
 ### -0.5 pp (down), locked

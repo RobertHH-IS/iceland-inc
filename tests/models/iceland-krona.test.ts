@@ -335,7 +335,7 @@ describe('Iceland model: króna stage 1, the flow-priced portfolio term and the 
   // months 12–36, %, + weaker (item 4; the proposal's measure, e × world prices ÷ domestic prices).
   const creditBoom = () => meanQ(run('lendingAppetite', 3, true, 36), run('lendingAppetite', 0, true, 36), 12, 36);
 
-  test.failing('RELEASE CRITERION, not met (item 4, decision 0013): a credit boom with the policy rules acting does not weaken the real króna over months 12–36, and a credit or tax-cut boom leaves it no more than 5e-4 weaker in months 1–18', () => {
+  test.failing('PHASE 5 CRITERION, not met (item 4, released open by decision 0013): a credit boom with the policy rules acting does not weaken the real króna over months 12–36, and a credit or tax-cut boom leaves it no more than 5e-4 weaker in months 1–18', () => {
     // Expected to fail until item 4 is fixed in phase 5; bun reports it as soon as it passes, and
     // then `.failing` comes off and item 4 closes. Stage 1 was released with it failing, by the
     // owner's decision of 30 September 2026 (decision 0013), so until then it is a tripwire. The
