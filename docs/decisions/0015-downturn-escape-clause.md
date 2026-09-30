@@ -1,6 +1,6 @@
 # 0015. The debt rule's escape clause also covers a severe downturn
 
-Status: accepted (September 2026). A repair from the verification of phases 1–4 of the [long-run anchors proposal](../design/long-run-anchors.md) (review items ECON-2 to ECON-5). It amends the escape clause of [decision 0009](0009-policy-rules-learn.md). What it leaves open is in the [lever-vetting record](../audit/lever-vetting.md), open items 21 and 22.
+Status: accepted (September 2026). A repair from the verification of phases 1–4 of the [long-run anchors proposal](../design/long-run-anchors.md) (review items ECON-2 to ECON-5). It amends the escape clause of [decision 0009](0009-policy-rules-learn.md). What it leaves open is in the [lever-vetting record](../audit/lever-vetting.md), open items 21 and 22. **Amended by [decision 0016](0016-interest-income.md):** with only the key rate locked, the zero-bound condition now reads the rate held (R4, and only in a slump), and the debt rule leans against the cycle with a slow debt term under it, which closes item 22 and the first two sections of "What this does not fix" below; item 21 (ECON-5) stays open, with the reasons measured there.
 
 ## The problem
 
