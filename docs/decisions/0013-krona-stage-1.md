@@ -77,7 +77,7 @@ The proposal's criterion: with the policy rules acting, lending appetite +3 must
 
 **How it is held.** In `tests/models/iceland-krona.test.ts`:
 
-- The release criterion is a test marked `test.failing`: the credit boom's real króna averages ≤ 0 over months 12–36, and a credit or tax-cut boom leaves it no more than 5e-4 weaker in months 1–18 (decision 0012's bound). It fails now, as expected. Bun reports it as soon as it passes; then `.failing` comes off, and item 4 closes here and in architecture row 19. Until then it is a tripwire: stage 1 was released with it failing, by the owner's decision (above). Neither bound is loosened.
+- The release criterion is a test marked `test.failing`: the credit boom's real króna averages ≤ 0 over months 12–36, and a credit or tax-cut boom leaves it no more than 5e-4 weaker in months 1–18 (decision 0012's bound). It fails now, as expected. Bun reports it as soon as it passes; then `.failing` comes off, and item 4 closes here and in architecture row 19. Until then it is a tripwire: stage 1 was released with it failing, by the owner's decision (above), so since the final repairs before release its name calls it a phase-5 criterion. Neither bound is loosened.
 - A tripwire keeps the measure from growing: 0 < x < 0.14 (now 0.135).
 - The FX-4 test keeps its mechanism check (with the rules acting, the real króna is never weaker than in the same boom with the key rate held, to 1e-6). Its known-gap bound was 5e-4 in decision 0012; stage 1's flow term takes the regression to 0.053% after lending +3 and 0.103% after the tax cut (0.042% and 0.049% with the retune that is removed above), so the test now only stops it growing (1.1e-3, exports 7e-4), and the 5e-4 bound lives on in the failing release test.
 

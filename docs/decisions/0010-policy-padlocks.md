@@ -94,5 +94,5 @@ What differs, by design:
 ## Known gaps
 
 - Ideas at play counts every term upstream of a rule that acts: with only Iceland's key rate locked, the key-rate rule's target terms feed the debt rule's escape clause, so the Taylor rule can show as at play although the clause binds only near the zero bound.
-- A held tax with the central bank's rule acting runs away within twenty years in both models, for the reasons above; the reference tax lever's range stops at −2 so that the lever extremes stay finite.
+- A held tax with the central bank's rule acting runs away within twenty years in both models, for the reasons above; the reference tax lever's range stops at −2 so that the lever extremes stay finite (at −1 since the final repairs after decision 0016, so that they stay readable).
 - The reference economy's `current()` for the debt rule measures the shift in force against the baseline rate, so a fork that overrides the normal tax rate (`forkParams`) shows the unlocked lever's value off by that override; the policy itself is unaffected.
