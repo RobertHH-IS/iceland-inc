@@ -238,6 +238,14 @@ The kernel rejects any attempt to write an instrument position, and a shock to a
 
 Pick lever ranges the model handles: the harness's property tests pull random combinations anywhere within them.
 
+**Fewer levers in the panel.** The lever panel groups levers by `section` (falling back to `group`), in the order the model declares them, so declare each section's most important lever first. A model with many levers can keep its less central ones off the panel with `shown: false` ([decision 0017](decisions/0017-levers-shown.md); Iceland hides seven of its 25, such as the loan-to-value cap and the migration buffer):
+
+```ts
+{ id: 'ltvCap', label: 'Loan-to-value cap', group: 'Policy', section: 'Financial stability', shown: false, … }
+```
+
+A hidden lever is still a lever. Scenarios, share links, calibration, the harness and the lever report use it as before, so it needs a definition and expectations like any other. The panel shows it in its own place while it is off its default or the scenario has an event for it, so a lever a link sets never acts unseen. The compiler rejects a hidden lever with a padlock (hiding it would hide the rule's suggestions) and a section whose levers are all hidden: hide levers to trim a section, never to remove one.
+
 ## 8. Indicators and the feed
 
 Indicators are the charts. `compute` returns the level; `display` turns it into a deviation from baseline:
@@ -404,7 +412,7 @@ How to write them:
 
 **Add a behaviour.** Add a variable and a rule written as terms, with concepts on the terms. To refine an existing rule, put the new rule in a new module with `replaces: '<old rule id>'` and the same `target`; the old module stays for comparison, and removing the new module restores the old behaviour. Two rules for one variable without `replaces` is a compile error.
 
-**Add a lever.** Add a `LeverDef` with a precise `definition`. Bind a setting to a parameter or exogenous variable (with `scale` if the units differ), or let a rule read it through `levers`. For a one-off, write `fire` using only `ShockApi.get` and `setLagged`. Give it a range the model survives: the harness pulls random combinations within it. Add its expectations to `src/models/<id>/expectations.ts` (the harness fails on a lever without any), then run `bun run levers --model <id>`, vet its section of the report and leave the report clean (section 12).
+**Add a lever.** Add a `LeverDef` with a precise `definition`. Bind a setting to a parameter or exogenous variable (with `scale` if the units differ), or let a rule read it through `levers`. For a one-off, write `fire` using only `ShockApi.get` and `setLagged`. Give it a range the model survives: the harness pulls random combinations within it. Declare it where its section's order wants it (the most important first), and set `shown: false` if it is not one of its section's main levers (section 7). Add its expectations to `src/models/<id>/expectations.ts` (the harness fails on a lever without any), then run `bun run levers --model <id>`, vet its section of the report and leave the report clean (section 12).
 
 **Add a policy reaction.** Declare it as a stabiliser (section 7): a shadow value computed locked or not, a suggestion and a value in force in the lever's units, a `StabiliserDef`, and rules that apply it only while its padlock is open and step it from the value in force. Check the model locked too: the harness runs every lever with every padlock closed, and its property tests draw the padlocks like any other lever.
 
