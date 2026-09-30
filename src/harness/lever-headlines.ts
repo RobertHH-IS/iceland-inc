@@ -70,7 +70,8 @@ export interface LeverReportSpec {
  * the bracket where inflation crosses target nearest the rule's estimate. The answer, less the
  * inflation target, is the implied neutral real rate; beside the band it shows how far outside it
  * the rate the economy needs lies. The other rules keep acting, so a fiscal rule's reaction to the
- * held rate is part of the answer, and `tax` reports it.
+ * held rate is part of the answer, and `tax` reports it; `hold` sets parameters for the scan's runs
+ * so that holding the key-rate lever does not also change how those rules act.
  */
 export interface ImpliedNeutralSpec {
   /** The key-rate lever (a setting in %), held at the constant rate. */
@@ -91,6 +92,10 @@ export interface ImpliedNeutralSpec {
   /** Optionally, an indicator (pp) for the fiscal rule's instrument, reported at the final month:
    *  the rule keeps acting against the held rate, so its reaction is part of the answer. */
   tax?: Id;
+  /** Optionally, parameters the scan's runs set (a fork of the no-change engine), so that holding
+   *  the key rate there leaves the other rules in their usual form: holding it locks it, and a rule
+   *  may act differently while it is locked (Iceland's debt rule, decision 0016). */
+  hold?: Record<Id, number>;
 }
 
 const real = (nominal: Id[], price: Id) => (v: (id: Id) => number) => nominal.reduce((a, id) => a + v(id), 0) / v(price);
@@ -191,7 +196,7 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
     // does not react but the budget does (decision 0010).
     configs: [{ label: 'key rate locked', locks: ['keyRateLock'] }],
     // The central bank's neutral-rate estimate is kept within rStarBand of i0 (central-bank.ts).
-    impliedNeutral: { lever: 'keyRate', rule: 'neutralRate', atLimit: 'Estimate at its limit', estimate: 'neutralRate', centre: 'i0', band: 'rStarBand', target: 'piT', inflation: 'inflation', unemployment: 'unemployment', tax: 'incomeTaxRate' },
+    impliedNeutral: { lever: 'keyRate', rule: 'neutralRate', atLimit: 'Estimate at its limit', estimate: 'neutralRate', centre: 'i0', band: 'rStarBand', target: 'piT', inflation: 'inflation', unemployment: 'unemployment', tax: 'incomeTaxRate', hold: { heldRateFiscal: 0 } },
     companions: {
       migration: { lever: 'foreignDemand', value: -20, why: 'the buffer acts only on changes in jobs from the baseline, and there are none without a shock' },
       bondBuyers: { lever: 'publicInvestment', value: 2, why: 'the choice acts only on new bonds, and the baseline budget balances, so none are sold without a deficit' },

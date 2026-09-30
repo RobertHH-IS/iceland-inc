@@ -272,3 +272,52 @@ describe('known limitations, pinned (lever review REF-LA-INTENDED-LONGRUN and RE
     expect(def).toMatch(/reverses, after about eight years/);
   });
 });
+
+describe('the debt rule while only the key rate is locked (REF-KEYRATE-ALONE, decision 0016)', () => {
+  /** The key rate held at `rate` with the debt rule acting, and the no-change run with the key rate locked. */
+  const held = (rate: number, months: number): [KernelEngine, KernelEngine] => [
+    runScenario(base, [{ t: 0, lever: 'keyRate', value: rate }], months).engine,
+    runScenario(base, [{ t: 0, lever: 'keyRateLock', value: 1 }], months).engine,
+  ];
+  const gap = (e: KernelEngine, m: number) => e.valueAt('output', m) / e.baseline('output') - 1;
+  /** The largest month-on-month move of the tax rate against the cycle, in points: up in months
+   *  whose output is more than `band` below capacity, down in months more than `band` above. */
+  const worstAgainstCycle = (e: KernelEngine, band: number, months: number) => {
+    let worst = 0;
+    for (let m = 2; m <= months; m++) {
+      const d = 100 * (e.valueAt('taxRate', m) - e.valueAt('taxRate', m - 1));
+      if (gap(e, m - 1) < -band) worst = Math.max(worst, d);
+      if (gap(e, m - 1) > band) worst = Math.max(worst, -d);
+    }
+    return worst;
+  };
+
+  test('a held key rate does not run away: 0%, 2.25% and 4.75% settle within about 2% of output and 6% of the price level after 20 years', () => {
+    // Before decision 0016 the debt rule leaned on debt alone: 2.25% held raised the price level
+    // 19% and still accelerating, 4.75% cut output 13%, and 0% raised the price level 59%. The first
+    // round of 0016 (a counter-cyclical term and a half-strength debt term) brought them to +4.8%,
+    // −1.6% and +13.9% (price level, output, price level); keeping debt from moving the tax against
+    // the cycle brings them to +1.8%, −0.4% and +3.7%.
+    for (const rate of [0, 2.25, 4.75]) {
+      const [e, r] = held(rate, 240);
+      const out = (m: number) => 100 * (e.valueAt('output', m) / r.valueAt('output', m) - 1);
+      const price = (m: number) => 100 * (e.valueAt('price', m) / r.valueAt('price', m) - 1);
+      expect(Math.abs(out(240))).toBeLessThan(2);
+      expect(Math.abs(price(240))).toBeLessThan(6);
+      // and the price level's last year moves less than 1.2 times its move five years earlier
+      expect(Math.abs(price(240) - price(228))).toBeLessThan(1.2 * Math.abs(price(180) - price(168)) + 0.05);
+    }
+  });
+
+  test('debt never moves the tax rate against the cycle: no rise while output is more than 1% below capacity, no cut while it is more than a quarter point above', () => {
+    // The review of decision 0016: at 4.75% held the rule raised the tax rate 1.7 points by month
+    // 240 with output 1.6% below capacity, and at 0% cut it 1.6 points with output 2% above it.
+    for (const rate of [0, 4.75, 10]) {
+      const [e] = held(rate, 240);
+      expect(worstAgainstCycle(e, 0.01, 240)).toBeLessThan(1e-9);
+    }
+    const [boom, r] = held(0, 240);
+    expect(worstAgainstCycle(boom, 0.0025, 240)).toBeLessThan(1e-9);
+    expect(100 * (boom.valueAt('taxRate', 60) - r.valueAt('taxRate', 60))).toBeGreaterThan(0.5); // +0.71: the rule leans against the boom
+  });
+});

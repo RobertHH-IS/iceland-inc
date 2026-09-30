@@ -289,8 +289,10 @@ describe('flags', () => {
     expect(y.estimate).toBeCloseTo(y.band[1], 9);
     expect(y.band).toEqual([0, 6]);
     expect(y.rate!).toBeGreaterThan(y.band[1] + 1);
-    // held at that rate (the inflation target is 0), inflation over months 180–240 is on target
-    const base = createEngine(ice);
+    // held at that rate (the inflation target is 0), inflation over months 180–240 is on target.
+    // The scan holds the key rate with the debt rule in its usual form (heldRateFiscal 0), not the
+    // form it takes while you hold the key rate (decision 0016), so these runs do too.
+    const base = createEngine(ice).fork({ params: { heldRateFiscal: 0 } });
     const mean = (events: { t: number; lever: string; value: number }[]) => {
       const e = runScenario(base, events, 240).engine;
       let s = 0;
@@ -336,7 +338,7 @@ describe('flags', () => {
     // the crossing nearest the estimate (0%) lies between 1% and 3%, and held there inflation is on target
     expect(y.rate!).toBeGreaterThan(1);
     expect(y.rate!).toBeLessThan(3);
-    const base = createEngine(ice);
+    const base = createEngine(ice).fork({ params: { heldRateFiscal: 0 } });
     const onTarget = (lever: string, value: number, rate: number) => {
       const e = runScenario(base, [{ t: 0, lever, value }, { t: 0, lever: 'keyRate', value: rate }], 240).engine;
       let s = 0;
@@ -381,12 +383,15 @@ describe('flags', () => {
     expect(row.split('|')[2].trim()).toBe(String(2 * key.settings.length));
   }, 60_000);
 
-  describe('known limitation, owner decision pending (review ECON-5, lever-vetting open item 21): a tax lever held while the central bank’s rule acts', () => {
-    // Moving a tax lever locks it; with the key-rate rule still acting, nothing pays a tax cut back
-    // and the higher rates the rule sets add interest income, so no stable path exists (Leeper
-    // 1991). Both teaching models then run away on their moderate steps. The fix needs the owner:
-    // a fiscal backstop while the tax is held, a weaker interest-income channel, or a moved tax
-    // lever that tilts the debt rule instead of holding it. Until then the lever panel says so
+  describe('known limitation (review ECON-5, lever-vetting open item 21, decision 0016): a tax lever held while the central bank’s rule acts', () => {
+    // Moving a tax lever locks it; with the key-rate rule still acting, nothing pays a tax cut back,
+    // so no stable path exists (Leeper 1991). Decision 0016 measured the evidence-based ways to
+    // weaken the interest-income channel: they shrink the runaway but cannot remove it here, because
+    // in these zero-growth baselines debt compounds at about 3.5% a year (r − g) on any lasting
+    // deficit, which the Explosive test reads as acceleration, and in Iceland the deficit also
+    // weakens the króna through non-residents' holdings (lever-vetting item 4). What removes it: a
+    // balanced-growth baseline (roadmap v2, r − g near zero), króna stage 2, or a fiscal anchor
+    // while the tax is held; the owner decides. Until then the lever panel says so
     // (StabiliserDef.lockedAloneNote) and these pin it.
     const moderate = (m: KModel, id: string) => {
       const spec = { ...leverReportSpecs[m.def.id], impliedNeutral: undefined };
@@ -396,7 +401,7 @@ describe('flags', () => {
     const at240 = (run: ReturnType<typeof moderate>[number], id: string) => run.headlines.find((h) => h.id === id)!.at.at(-1)!;
 
     test.failing('OWNER DECISION PENDING: no moderate tax step with the central bank’s rule acting is Explosive within 240 months (Iceland ±2.5, reference −0.5 and +1)', () => {
-      // Expected to fail until the owner's decision lands; bun reports it as soon as it passes,
+      // Expected to fail until one of the fixes above lands; bun reports it as soon as it passes,
       // and then `.failing` comes off with lever-vetting open item 21.
       for (const run of [...moderate(ice, 'incomeTax'), ...moderate(ref, 'taxRate')]) expect(run.flags.some((f) => f.kind === 'explosive')).toBe(false);
     }, 60_000);
