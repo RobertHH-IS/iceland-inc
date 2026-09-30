@@ -281,6 +281,11 @@ export interface LeverDef {
   label: string;
   group: 'Policy' | 'Economy' | 'World' | string;
   section?: string; // UI accordion section, e.g. 'Central bank'
+  /** Is the lever in the lever panel (default true)? false keeps a less central lever off it: it
+   *  still runs everywhere else (the engine, scenarios, share links, the harness and the lever
+   *  report), and the panel shows it in its section while it is off its default or a scenario
+   *  moves it, so nothing acts unseen. A lever with a padlock is always shown (decision 0017). */
+  shown?: boolean;
   /** 'lock' levers are made by the compiler, one per stabiliser (its padlock); models declare
    *  settings, choices and one-offs. */
   kind: 'setting' | 'choice' | 'oneoff' | 'lock';

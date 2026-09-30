@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { LeverInfo } from '../../src/ui/model/info.ts';
+import { models } from '../../src/models/index.ts';
+import { createEngineClient, type EngineClient } from '../../src/ui/engine-client.ts';
 import {
   allLockedNote,
   canResetToBaseline,
@@ -18,7 +20,9 @@ import {
   lockTitle,
   niceStep,
   padlocksByLever,
+  isLeverShown,
   sectionCalling,
+  shownSections,
   shownValue,
   snapToStep,
   stabiliserMarks,
@@ -67,6 +71,78 @@ describe('sections', () => {
     expect(changedCountWithLocks(sections[2], values, fired, noPads)).toBe(1);
     expect(changedCountWithLocks(sections[2], values, new Map(), noPads)).toBe(0);
     expect(isChanged(levers[2], 1e-15, fired)).toBe(false);
+  });
+});
+
+describe('levers kept off the panel (shown: false, decision 0017)', () => {
+  const levers = [
+    lever({ id: 'tax', section: 'Government', index: 0 }),
+    lever({ id: 'schools', section: 'Government', shown: false, index: 1 }),
+    lever({ id: 'spend', section: 'Government', index: 2 }),
+    lever({ id: 'cap', section: 'Stability', default: 80, shown: false, index: 3 }),
+    lever({ id: 'rate', section: 'Central bank', shown: true, index: 4 }),
+  ];
+  const all = leverSections(levers);
+  const ids = (s: ReturnType<typeof shownSections>) => s.map((x) => `${x.title}: ${x.levers.map((l) => l.id).join(', ')}`);
+
+  test('a hidden lever at its default with no event is left out, and a section with nothing left goes; the others are returned as they are', () => {
+    const shown = shownSections(all, [0, 0, 0, 80, 0], []);
+    expect(ids(shown)).toEqual(['Government: tax, spend', 'Central bank: rate']);
+    expect(shown[1]).toBe(all.find((s) => s.title === 'Central bank')!);
+    expect(isLeverShown(levers[4], 0, false)).toBe(true); // shown: true is the default
+    expect(isLeverShown(levers[0], 0, false)).toBe(true);
+  });
+
+  test('it appears in its own place while it is off its default, or while the scenario has an event for it (even back at its default)', () => {
+    expect(ids(shownSections(all, [0, 0.5, 0, 70, 0], []))).toEqual(['Government: tax, schools, spend', 'Stability: cap', 'Central bank: rate']);
+    expect(ids(shownSections(all, [0, 0, 0, 80, 0], [{ t: 12, lever: 'schools', value: 0 }]))).toEqual(['Government: tax, schools, spend', 'Central bank: rate']);
+    expect(isLeverShown(levers[1], 1e-15, false)).toBe(false);
+  });
+});
+
+describe('the levers each model shows (decision 0017)', () => {
+  const panel = (c: EngineClient) => {
+    const f = c.getFrame();
+    return shownSections(leverSections(c.info.levers.filter((l) => l.kind !== 'lock')), f.levers, f.events).map((s) => [s.title, s.levers.map((l) => l.id)] as const);
+  };
+  const iceland = models.find((m) => m.id === 'iceland')!;
+  const HIDDEN = ['ltvCap', 'migration', 'education', 'otherServices', 'oldAgeTransfers', 'familyBenefits', 'aluminiumPrice'];
+
+  test('Iceland shows the 18 main levers, the most important first in each section; the seven others are still levers of the model', () => {
+    const c = createEngineClient(iceland);
+    expect(panel(c)).toEqual([
+      ['Central bank', ['keyRate']],
+      ['Financial stability', ['dstiCap']],
+      ['Government', ['incomeTax', 'vat', 'health', 'publicInvestment', 'unemploymentBenefits', 'bondBuyers']],
+      ['Banks', ['lendingAppetite']],
+      ['Labour market', ['wageSettlement', 'netImmigration']],
+      ['Pension funds', ['pfForeign']],
+      ['World economy', ['tourism', 'fishPrices', 'kronaShock', 'foreignDemand', 'importPrices', 'foreignRate']],
+    ]);
+    expect(panel(c).flatMap(([, l]) => l).length).toBe(18);
+    const declared = c.info.levers.filter((l) => l.kind !== 'lock');
+    expect(declared.length).toBe(25);
+    expect(declared.filter((l) => l.shown === false).map((l) => l.id).sort()).toEqual([...HIDDEN].sort());
+    c.dispose();
+  });
+
+  test('a hidden lever a scenario sets appears in its own place in its section, and stays while the scenario moves it', () => {
+    const c = createEngineClient(iceland);
+    c.load({ modelId: 'iceland', events: [{ t: 0, lever: 'ltvCap', value: 70 }, { t: 0, lever: 'education', value: 1 }, { t: 6, lever: 'aluminiumPrice', value: 10 }, { t: 12, lever: 'aluminiumPrice', value: 0 }], months: 18 });
+    const byTitle = new Map(panel(c));
+    expect(byTitle.get('Financial stability')).toEqual(['dstiCap', 'ltvCap']);
+    expect(byTitle.get('Government')).toEqual(['incomeTax', 'vat', 'health', 'education', 'publicInvestment', 'unemploymentBenefits', 'bondBuyers']);
+    // back at its default at month 12, but the scenario still moves it
+    expect(c.getFrame().levers[c.info.levers.findIndex((l) => l.id === 'aluminiumPrice')]).toBe(0);
+    expect(byTitle.get('World economy')!.at(-1)).toBe('aluminiumPrice');
+    expect(byTitle.get('Labour market')).toEqual(['wageSettlement', 'netImmigration']);
+    c.dispose();
+  });
+
+  test('the reference economy shows all five of its levers', () => {
+    const c = createEngineClient(models.find((m) => m.id === 'reference')!);
+    expect(panel(c).flatMap(([, l]) => l)).toEqual(['keyRate', 'govSpending', 'taxRate', 'wageSettlement', 'lendingAppetite']);
+    c.dispose();
   });
 });
 

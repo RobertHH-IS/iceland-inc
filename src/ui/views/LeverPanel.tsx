@@ -19,6 +19,11 @@
  * lever held off its baseline has a "back to baseline" button; for a lever with a padlock it keeps
  * the lever locked.
  *
+ * Fewer levers (decision 0017): a model may keep its less central levers off the panel
+ * (`LeverDef.shown: false`). Such a lever appears in its own place in its section while it is off
+ * its default or the scenario has an event for it, so a scenario or share link that sets it never
+ * acts unseen.
+ *
  * Changing a lever starts the clock if it is paused: the change then filters through the
  * economy month by month.
  */
@@ -43,6 +48,7 @@ import {
   NOMINAL_ANCHOR_CONCEPT,
   padlocksByLever,
   sectionCalling,
+  shownSections,
   shownValue,
   stabiliserMarks,
   stepLever,
@@ -65,7 +71,9 @@ const NO_STABILISERS: readonly StabiliserState[] = [];
 
 export const LeverPanel = memo(function LeverPanel({ info, client, values, events, stabilisers = NO_STABILISERS, onSelect }: LeverPanelProps) {
   // the padlocks are drawn beside their levers, not as levers of their own
-  const sections = useMemo(() => leverSections(info.levers.filter((l) => l.kind !== 'lock')), [info]);
+  const allSections = useMemo(() => leverSections(info.levers.filter((l) => l.kind !== 'lock')), [info]);
+  // a lever the model keeps off the panel appears once the scenario sets it (decision 0017)
+  const sections = useMemo(() => shownSections(allSections, values, events), [allSections, values, events]);
   const fired = useMemo(() => firedCounts(events), [events]);
   const marks = useMemo(() => stabiliserMarks(stabilisers, info.leverById), [stabilisers, info]);
   const pads = useMemo(() => padlocksByLever(stabilisers), [stabilisers]);

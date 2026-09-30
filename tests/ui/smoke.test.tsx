@@ -142,6 +142,17 @@ test('a link can open one group of the hierarchy and leave the rest closed', () 
   expect(html).not.toContain('<title>Fisheries</title>');
 });
 
+test('a lever Iceland keeps off the panel is not drawn until a shared link sets it; then it is, in its section (decision 0017)', () => {
+  const plain = renderToString(<App models={models} initialHash="#m=iceland" />);
+  expect(plain).toContain('>Debt-service cap<'); // Financial stability is open at the start
+  expect(plain).not.toContain('>Loan-to-value cap<');
+  const hash = '#' + encodeScenarioHash({ modelId: 'iceland', events: [{ t: 0, lever: 'ltvCap', value: 70 }], months: 6, expanded: [] });
+  const html = renderToString(<App models={models} initialHash={hash} />);
+  expect(html).toContain('>Loan-to-value cap<');
+  expect(html.indexOf('>Loan-to-value cap<')).toBeGreaterThan(html.indexOf('>Debt-service cap<'));
+  expect(html).toContain('aria-label="Loan-to-value cap: 70%, baseline 80%');
+});
+
 test('an unknown model in a link falls back to a registered one', () => {
   const html = renderToString(<App models={models} initialHash="#m=no-such-model" />);
   expect(html).toContain('ICELAND');

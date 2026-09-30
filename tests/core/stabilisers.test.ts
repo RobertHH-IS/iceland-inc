@@ -120,6 +120,23 @@ describe('compiler: stabilisers and their padlocks', () => {
     expect(errorsOf(tinyModel([mod])).join()).toContain("lever 'myLock' (module 'policy') has kind 'lock'; padlocks are added by the compiler");
   });
 
+  test('levers kept off the panel (shown: false, decision 0017): never a lever with a padlock, never a whole section, and shown is true or false', () => {
+    const hide = (ids: string[], shown: unknown = false) => {
+      const mod = policyModule();
+      mod.levers = mod.levers!.map((l) => (ids.includes(l.id) ? { ...l, shown: shown as boolean } : l));
+      return tinyModel([mod]);
+    };
+    // 'pressure' and 'kick' share the section World (their group); hiding one leaves the other
+    const m = compile(hide(['pressure']));
+    expect(m.levers.find((l) => l.id === 'pressure')!.shown).toBe(false);
+    expect(m.levers.find((l) => l.id === 'kick')!.shown).toBeUndefined();
+    expect(m.levers.find((l) => l.id === 'rateLock')!.shown).toBeUndefined(); // padlocks are drawn beside their levers
+    expect(errorsOf(hide(['rate'])).join()).toContain("stabiliser 'theRule' (module 'policy') acts on 'rate', which is not shown; a lever with a padlock stays in the lever panel");
+    expect(errorsOf(hide(['pressure', 'kick'])).join()).toContain("every lever of section 'World' has shown: false; a section keeps at least one lever in the lever panel");
+    expect(errorsOf(hide(['pressure'], 'no')).join()).toContain(`lever 'pressure' (module 'policy') has shown = "no"; it must be true or false`);
+    expect(errorsOf(hide(['pressure'], true))).toEqual([]);
+  });
+
   test('a rule reads a padlock with locked(), declared in locks, never as a lever', () => {
     const withRule = (r: Parameters<typeof rule>[0]) => {
       const mod = policyModule();

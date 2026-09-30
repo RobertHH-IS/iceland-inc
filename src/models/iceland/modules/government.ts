@@ -663,6 +663,9 @@ const HELD_RATE =
 const SPENDING = new Set(['health', 'education', 'otherServices', 'publicInvestment']);
 const SPENDING_UNLOCKED =
   ' With the policy levers unlocked, a lasting rise costs output and adds debt in the long run: public services employ many staff for each króna of output, the central bank reads the labour scarcity that brings and holds the key rate higher, and the higher interest bill slows the debt rule. After 20 years at +3% of GDP: health, output 2.5% lower, the key rate 3.9 points and government debt 49 points of GDP higher; education, 3.1% lower, 4.1 points and 50 points; other public services, 1.6% lower, 3.6 points and 47 points; public investment, 0.5% lower, 3.1 points and 43 points. While the central bank measured slack against a fixed capacity, which read slack where there was none, the output losses were about half as large (health 1.2%, education 1.5%) and debt 36–40 points higher (decision 0012). A small open economy would share this adjustment through a stronger real króna, which the model does not yet have, so here it falls on interest rates and debt. A cut mirrors it: output ends higher, with the key rate at zero for long spells.';
+/** Less central spending and transfer levers: off the lever panel unless a scenario sets them
+ *  (LeverDef.shown, decision 0017). Health, public investment and unemployment benefits stay. */
+const LESS_CENTRAL = new Set(['education', 'otherServices', 'oldAgeTransfers', 'familyBenefits']);
 const heldRateNote = (l: LeverDef): LeverDef => {
   const d = `${l.definition}${SPENDING.has(l.id) ? SPENDING_UNLOCKED : ''}${DRIFTS.has(l.id) ? HELD_RATE : ''}`;
   return d === l.definition ? l : { ...l, definition: d };
@@ -880,7 +883,9 @@ export const government: ModuleDef = {
         'Choice, persistent while set: every new bond sold from then on goes to the chosen buyer, or 40/60 to banks and pension funds in the mix. Pension funds and older households buy only what their deposits can pay for that month; banks take the rest. When the budget is in surplus the government buys bonds back from every holder in proportion to what they hold, whatever the choice. Bonds already sold stay where they are, though pension funds and older households slowly sell surplus bonds to banks to restore their portfolio shares. New bonds pay the key rate plus its spread whoever buys, so the choice changes money and who receives the interest, not interest rates. The central bank earns the bond rate on the bonds it buys and hands its profit to the government, but it pays the key rate on the reserves it creates to buy them, so on those bonds the government saves only the bond rate’s spread over the key rate (0.5 points), not the whole interest bill: with both policy levers locked, after 20 years of 2% of GDP more public investment, the budget balance is about 0.1% of GDP better and debt about 0.7 points of GDP lower than with the mix. Non-residents are not an option: they buy and sell bonds with banks on their own, through the carry trade.',
       concepts: ['bond-buyers', 'deficits-and-money', 'endogenous-money'],
     },
-  ] satisfies LeverDef[]).map(heldRateNote),
+  ] satisfies LeverDef[])
+    .map(heldRateNote)
+    .map((l) => (LESS_CENTRAL.has(l.id) ? { ...l, shown: false } : l)),
   stabilisers: [
     {
       id: DEBT_RULE,

@@ -1,5 +1,6 @@
 /**
- * Levers for the lever panel: accordion sections, stepping, the bar, "changed" state, the
+ * Levers for the lever panel: accordion sections (without the levers a model keeps off the panel
+ * until a scenario sets them, decision 0017), stepping, the bar, "changed" state, the
  * padlocks on levers with a rule (decision 0010), the marks of locked stabilisers and the note
  * shown while every padlock is closed (decision 0014).
  * Pure functions over LeverInfo (a LeverDef without its `fire` function).
@@ -41,6 +42,28 @@ export function leverSections(levers: LeverInfo[]): LeverSection[] {
     return k >= 0 ? k : GROUP_ORDER.length + groupSeen.get(g)!;
   };
   return [...sections.values()].sort((a, b) => groupRank(a.group) - groupRank(b.group) || firstSeen.get(a.id)! - firstSeen.get(b.id)!);
+}
+
+/** Is a lever in the panel? Every lever is, unless its model hides it (`shown: false`, decision
+ *  0017); a hidden lever appears while it is off its default or the scenario has an event for it
+ *  (a scenario or a share link set it, even back to its default), so nothing acts unseen. */
+export function isLeverShown(l: Pick<LeverInfo, 'shown' | 'default'>, value: number, hasEvents: boolean): boolean {
+  return l.shown !== false || hasEvents || Math.abs(value - l.default) > 1e-12;
+}
+
+/** The sections as the panel shows them: each with only its levers that are shown (isLeverShown),
+ *  and without a section that has none. Sections keep their order and their levers the order of
+ *  `sections` (from leverSections over every lever), so a hidden lever appears in its own place.
+ *  `values` is by lever index (LeverInfo.index). A section with nothing hidden is returned as is. */
+export function shownSections(sections: readonly LeverSection[], values: readonly number[], events: readonly ScenarioEvent[]): LeverSection[] {
+  const moved = new Set(events.map((e) => e.lever));
+  const out: LeverSection[] = [];
+  for (const s of sections) {
+    const levers = s.levers.filter((l) => isLeverShown(l, values[l.index] ?? l.default, moved.has(l.id)));
+    if (levers.length === s.levers.length) out.push(s);
+    else if (levers.length) out.push({ ...s, levers });
+  }
+  return out;
 }
 
 /** The step a stepper moves by: the lever's own, else a twentieth of its range, else 1. */

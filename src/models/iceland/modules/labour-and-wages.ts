@@ -411,6 +411,7 @@ export const labourAndWages: ModuleDef = {
       label: 'Migration buffer',
       group: 'Economy',
       section: 'Labour market',
+      shown: false, // a less central lever: off the lever panel unless a scenario sets it (decision 0017)
       kind: 'setting',
       unit: '%',
       default: 30,

@@ -479,6 +479,7 @@ export const mortgages: ModuleDef = {
       label: 'Loan-to-value cap',
       group: 'Policy',
       section: 'Financial stability',
+      shown: false, // a less central lever: off the lever panel unless a scenario sets it (decision 0017)
       kind: 'setting',
       unit: '%',
       default: 80,

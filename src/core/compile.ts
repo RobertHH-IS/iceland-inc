@@ -805,6 +805,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     if (l.kind !== 'oneoff' && l.fire) warn(`${where} is a setting but has fire(); fire is only used by one-off levers`);
     if (l.kind === 'choice' && !(l.options ?? []).length) warn(`${where} is a choice without options`);
     if (!Number.isFinite(l.default)) err(`${where} has a non-finite default`);
+    if (l.shown !== undefined && typeof l.shown !== 'boolean') err(`${where} has shown = ${JSON.stringify(l.shown)}; it must be true or false`);
     // The engine snaps a choice to its nearest option within [min, max] (engine.ts, clamp), so a
     // default that is not an option, or an option outside the range, would be moved silently.
     if (l.kind === 'choice' && l.options?.length) {
@@ -838,6 +839,15 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     } else if (l.kind !== 'oneoff' && l.kind !== 'lock' && !leverReadByRule.has(l.id)) warn(`lever '${l.id}' is bound to nothing: it binds no parameter or variable and no rule reads it`);
     return { def: l, bindParam, bindVar, mode, scale };
   });
+  // A lever panel section (`section`, falling back to `group`) keeps at least one lever shown
+  // (decision 0017): hiding levers trims a section, it never removes one.
+  const sectionShown = new Map<string, boolean>();
+  for (const { def: l } of levers) {
+    if (l.kind === 'lock') continue;
+    const title = (l.section ?? '').trim() || l.group;
+    sectionShown.set(title, (sectionShown.get(title) ?? false) || l.shown !== false);
+  }
+  for (const [title, any] of sectionShown) if (!any) err(`every lever of section '${title}' has shown: false; a section keeps at least one lever in the lever panel`);
   /** A lever another declaration refers to: it must exist and be a setting or choice. */
   const settingLever = (id: Id | undefined, where: string, what: string): number => {
     const k = id === undefined ? undefined : leverIndex.get(id);
@@ -860,6 +870,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     if (lever >= 0 && levers[lever].def.kind !== 'setting') err(`${where} acts on '${s.lever}', which is a ${levers[lever].def.kind}; a stabiliser moves a setting`);
     if (lever >= 0 && stabiliserOfLever[lever] >= 0) err(`${where} acts on '${s.lever}', which stabiliser '${stabilisers[stabiliserOfLever[lever]].def.id}' already moves; a lever has one padlock`);
     if (lever >= 0) stabiliserOfLever[lever] = j;
+    if (lever >= 0 && levers[lever].def.shown === false) err(`${where} acts on '${s.lever}', which is not shown; a lever with a padlock stays in the lever panel, with its padlock and its rule's suggestions`);
     const lock = leverIndex.get(lockIdFor(s.lever)) ?? -1;
     const suggestion = varIndex.get(s.suggestion) ?? -1;
     if (suggestion < 0) err(`${where} suggests unknown variable '${s.suggestion}'`);
