@@ -6,8 +6,11 @@
  * proceeds, deficits add to the money households and firms hold. A debt rule sets the tax rate
  * while the tax lever is unlocked (the default), and only suggests while it is locked (decision
  * 0010). Like the Taylor rule it steps from the rate in force, so unlocking carries on from it.
+ * While the key rate is locked, so that the central bank does not react, the debt rule also leans
+ * against the cycle and leans on debt only half as hard (decision 0016).
  */
 import type { Ctx, ModuleDef, ParamDef } from '../../core/types.ts';
+import { TAYLOR_RULE } from './central-bank.ts';
 
 /** The debt rule's stabiliser id: rules that read its padlock declare `locks: [DEBT_RULE]`. */
 export const DEBT_RULE = 'debtRule';
@@ -47,6 +50,28 @@ const params: ParamDef[] = [
     provenance: {
       basis: 'assumed',
       note: 'Deliberately strong, for teaching: with a tax base of about 87% of GDP, 0.3 moves revenue about 0.26% of GDP per point of debt. Estimated fiscal reaction functions give about 0.02–0.1% of GDP (Bohn 1998, 2008; Mauro et al. 2015), so this rule settles debt several times faster than real governments do.',
+    },
+  },
+  {
+    id: 'fiscalCycle',
+    value: 0.5,
+    unit: 'fraction',
+    category: 'POLICY',
+    description: 'While the key rate is locked: tax-rate points the debt rule adds per 1% of output above capacity (and takes off per 1% below).',
+    provenance: {
+      basis: 'assumed',
+      note: 'When monetary policy does not react, fiscal policy must lean against the cycle, with a slow debt term under it (Kirsanova, Leith and Wren-Lewis 2009); a debt-only rule is procyclical then. At 0.5, on a tax base of about 87% of GDP, revenue moves about 0.45% of GDP per 1% of output gap, on top of the automatic stabilisers: about the size of the discretionary responses estimated for OECD governments (Galí and Perotti 2003). Decision 0016.',
+    },
+  },
+  {
+    id: 'fiscalHeldShare',
+    value: 0.5,
+    unit: 'fraction',
+    category: 'POLICY',
+    description: 'While the key rate is locked: how hard the debt rule leans on debt, as a share of its usual strength.',
+    provenance: {
+      basis: 'assumed',
+      note: 'The slow debt term under the counter-cyclical term (Kirsanova, Leith and Wren-Lewis 2009). At full strength a key rate held below neutral ran away: the debt ratio fell as prices rose, so the rule cut taxes into the boom (2.25% held: the price level 19% higher after 20 years and accelerating), and one held above neutral deepened the slump as the rule raised taxes to pay the interest bill (4.75%: output 13% lower). Decision 0016.',
     },
   },
   {
@@ -112,21 +137,28 @@ export const government: ModuleDef = {
       target: 'taxRuleTarget',
       category: 'POLICY',
       label: 'Debt rule: where it is heading',
-      lagInputs: ['debtRatio'],
-      params: ['normalTaxRate', 'fiscalResponse'],
+      lagInputs: ['debtRatio', 'output'],
+      params: ['normalTaxRate', 'fiscalResponse', 'fiscalHeldShare', 'fiscalCycle', 'potentialOutput'],
+      locks: [TAYLOR_RULE],
       terms: [
         { id: 'normal', label: 'Normal tax rate', compute: (c) => c.p('normalTaxRate') },
         {
           id: 'debtRule',
-          label: 'Debt above its starting level',
+          label: 'Debt above its starting level (half as hard while the key rate is locked)',
           concept: 'debt-feedback',
-          compute: (c) => (c.p('fiscalResponse') * (c.lag('debtRatio') - c.base('debtRatio'))) / 100,
+          compute: (c) => ((c.locked(TAYLOR_RULE) ? c.p('fiscalHeldShare') : 1) * c.p('fiscalResponse') * (c.lag('debtRatio') - c.base('debtRatio'))) / 100,
+        },
+        {
+          id: 'cycle',
+          label: 'Output above capacity, while the key rate is locked',
+          concept: 'debt-feedback',
+          compute: (c) => (c.locked(TAYLOR_RULE) ? c.p('fiscalCycle') * (c.lag('output') / c.p('potentialOutput') - 1) : 0),
         },
       ],
       concepts: ['debt-feedback'],
       explain: {
         what: 'Where the government’s debt rule would put the income-tax rate if it moved there at once. The rule itself moves toward it gradually.',
-        rule: 'Target = {normalTaxRate%} + {fiscalResponse} × (debt ratio − its starting level) ÷ 100: 10 more points of debt mean about 3 more points of tax. Without such a rule, interest on a growing debt could feed on itself. Because the rule keeps leaning until debt is back where the tax rate balances the budget, it undoes any lasting change in the end; its strength sets how fast, and how far debt moves meanwhile (the tax change ÷ {fiscalResponse}, in points of GDP). At {fiscalResponse} it is several times stronger than real governments’ estimated reactions, so debt settles within a decade.',
+        rule: 'Target = {normalTaxRate%} + {fiscalResponse} × (debt ratio − its starting level) ÷ 100: 10 more points of debt mean about 3 more points of tax. Without such a rule, interest on a growing debt could feed on itself. Because the rule keeps leaning until debt is back where the tax rate balances the budget, it undoes any lasting change in the end; its strength sets how fast, and how far debt moves meanwhile (the tax change ÷ {fiscalResponse}, in points of GDP). At {fiscalResponse} it is several times stronger than real governments’ estimated reactions, so debt settles within a decade. While you hold the key rate locked, the central bank no longer steadies the economy, and a rule that leaned on debt alone would amplify shocks: it would cut taxes as rising prices shrank the debt ratio in a boom, and raise them to pay a higher interest bill in a slump. So then the rule also adds {fiscalCycle} points of tax per 1% of output above capacity (and cuts as much below it), and leans on debt only {fiscalHeldShare} as hard.',
       },
     },
     {
@@ -357,9 +389,9 @@ export const government: ModuleDef = {
       max: 3,
       step: 0.5,
       binds: { param: 'taxShift', mode: 'add', scale: 0.01 },
-      description: 'The tax rate on household income, in points above (or below) its normal rate. Unlocked (the default), the debt rule sets it and the lever follows the rule. Move the lever, or close its padlock, to hold the rate yourself; the debt rule then only suggests.',
+      description: 'The tax rate on household income, in points above (or below) its normal rate. A cut leaves households more to spend and the government less revenue, so it borrows and its debt rises; a rise does the opposite. Unlocked (the default), the debt rule sets it and the lever follows the rule. Move the lever, or close its padlock, to hold the rate yourself: debt then takes the strain, and the debt rule only suggests.',
       definition:
-        'Level shift in the income-tax rate, in percentage points above (or below) its normal rate. Unlocked (the default) the debt rule sets the rate every month, leaning against government debt, and the lever shows its shift. Moving the lever, or closing its padlock, locks it: the rate is then the normal rate plus the lever’s shift, applied in the month it is set and held until you move it again, and the debt rule only suggests a shift beside the lever. Unlocking hands the rate back to the debt rule, which moves from the rate you held about 4% of the way toward where it is heading each month and gives the change back as debt returns to its level. Held while the key rate is unlocked, nothing pays a tax cut back, and the Taylor rule cannot steady the economy on its own: in this economy the interest it raises is income that households spend, so a higher key rate adds to demand as well as cooling it (with no fiscal rule and an active monetary rule there is no stable path, Leeper 1991). At −0.5, output is 0.5% higher after a year and still rising after 20 years, 2% higher with the key rate 2.6 points higher; at −2, the economy runs away in the second decade: output 80% and the price level 83% higher after 20 years, the key rate above 60%. That is why the range stops at −2: below it, the run no longer stays finite for 20 years. A rise sinks it the other way: at +1, output is 4% lower after 20 years and still falling, and the key rate reaches zero by then; at +3 the key rate is at or near zero from about the third year and output is 11% lower after 20 years (a liquidity trap). With the key rate locked too, nothing offsets the tax: at +1, output is about 3% lower after five years, and at −2 about 6.6% higher after five, with the price level 48% higher after 20. Setting it back to 0 while locked returns the rate to normal; to lean on the rule without holding the rate, lock it, set it, and unlock it again.',
+        'Level shift in the income-tax rate, in percentage points above (or below) its normal rate. Unlocked (the default) the debt rule sets the rate every month, leaning against government debt, and the lever shows its shift. Moving the lever, or closing its padlock, locks it: the rate is then the normal rate plus the lever’s shift, applied in the month it is set and held until you move it again, and the debt rule only suggests a shift beside the lever. Unlocking hands the rate back to the debt rule, which moves from the rate you held about 4% of the way toward where it is heading each month and gives the change back as debt returns to its level. The first thing a change does is to the budget. A cut of 1 point leaves households about 0.9% of GDP a year more after tax and the government as much less revenue, so it runs a deficit and borrows from the bank: government debt is about 3.9 points of GDP higher after five years and 9 after ten. Households spend most of the extra income, so output is about 1% higher after a year. Second, the Taylor rule leans against the extra demand: the key rate is about 0.4 point higher after a year and 1.6 points after five. A rise mirrors it: debt falls and output is lower. Held while the key rate is unlocked, though, nothing pays a tax cut back, and the Taylor rule cannot steady the economy on its own: in this economy the interest it raises is income that households spend, so a higher key rate adds to demand as well as cooling it (with no fiscal rule and an active monetary rule there is no stable path, Leeper 1991). At −0.5, output is 0.5% higher after a year and still rising after 20 years, 2% higher with the key rate 2.6 points higher; at −2, the economy runs away in the second decade: output 80% and the price level 83% higher after 20 years, the key rate above 60%. That is why the range stops at −2: below it, the run no longer stays finite for 20 years. A rise sinks it the other way: at +1, output is 4% lower after 20 years and still falling, and the key rate reaches zero by then; at +3 the key rate is at or near zero from about the third year and output is 11% lower after 20 years (a liquidity trap). With the key rate locked too, nothing offsets the tax: at +1, output is about 3% lower after five years, and at −2 about 6.6% higher after five, with the price level 48% higher after 20. Setting it back to 0 while locked returns the rate to normal; to lean on the rule without holding the rate, lock it, set it, and unlock it again.',
       concepts: ['multiplier', 'debt-feedback'],
     },
   ],
@@ -374,7 +406,7 @@ export const government: ModuleDef = {
       shadow: ['debtRuleRate', 'taxRuleAnchor', 'taxRuleTarget'],
       threshold: 0.25, // half the lever's half-point step: calls when Apply would move the lever
       description:
-        'The government’s debt rule: about 3 points more income tax for 10 points more debt, reached gradually from the rate in force. While the tax lever is unlocked it sets the tax rate. While you hold it locked it suggests a shift for the lever, which turns red when applying it would move the lever.',
+        'The government’s debt rule: about 3 points more income tax for 10 points more debt, reached gradually from the rate in force. While the key rate is locked it also leans against the cycle, cutting taxes when output is below capacity, and leans on debt half as hard. While the tax lever is unlocked it sets the tax rate. While you hold it locked it suggests a shift for the lever, which turns red when applying it would move the lever.',
       concepts: ['debt-feedback', 'policy-lags'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'govDebt' },
       // ECON-5 (lever-vetting open item 21): the owner decides the fix; until then, the panel says it.

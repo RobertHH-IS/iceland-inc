@@ -15,7 +15,7 @@
  */
 import type { Ctx, Id, LeverDef, ModuleDef, RuleDef, VarDef } from '../../../core/types.ts';
 import { ALL_PARAMS, base } from '../steady.ts';
-import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, gapRate, pickParams, terms, lastMonth, DEBT_RULE, lockPolicy } from '../util.ts';
+import { AGE_LABEL, AGES, FIRMS, FIRM_NAME, HH, gapRate, pickParams, terms, lastMonth, DEBT_RULE, KEY_RATE_RULE, lockPolicy } from '../util.ts';
 import { cashToSpend } from './banks.ts';
 import { ruleStep, zeroBoundWeight } from './central-bank.ts';
 import { PF_CASH, pfCashForNewBonds } from './pensions.ts';
@@ -26,8 +26,24 @@ import { stepByStep } from '../testing.ts';
  *  downturnBand). Iceland's fiscal rules, and the EU's, ask for no consolidation in a severe
  *  downturn (lever review ECON-4). */
 const downturnWeight = (c: Ctx): number => Math.min(1, Math.max(0, (-c.v('outputGap') - c.p('downturnGap')) / c.p('downturnBand')));
+/** How far interest rates are stuck at zero in a slump, 0 to 1, for the escape clause: while the key
+ *  rate is unlocked, how far the central bank's rule was heading below zero (zeroBoundWeight), which
+ *  it does only when it wants to cut further; while it is locked, the rate in force, the one you
+ *  hold (R4 of the long-run-anchors proposal, decision 0016): 1 at zero, 0 at escapeBand or above,
+ *  times how far output is below potential, fully once the gap is −downturnBand. A rate held at
+ *  zero in a boom does not stop the debt rule leaning against it. A rule that uses it declares
+ *  inputs ['outputGap'], lagInputs ['ruleTarget', 'keyRate'], params ['escapeBand', 'downturnBand']
+ *  and locks [KEY_RATE_RULE]. */
+const zeroWeight = (c: Ctx): number =>
+  c.locked(KEY_RATE_RULE)
+    ? Math.min(1, Math.max(0, (c.p('escapeBand') - lastMonth(c, 'keyRate')) / c.p('escapeBand'))) * Math.min(1, Math.max(0, -c.v('outputGap') / c.p('downturnBand')))
+    : zeroBoundWeight(c);
 /** The escape clause's weight: the stronger of its two conditions. */
-const escapeWeight = (c: Ctx): number => Math.max(zeroBoundWeight(c), downturnWeight(c));
+const escapeWeight = (c: Ctx): number => Math.max(zeroWeight(c), downturnWeight(c));
+/** While the key rate is locked the central bank does not react, so the debt rule leans against the
+ *  cycle as well as debt, and on debt more slowly (Kirsanova, Leith and Wren-Lewis 2009; decision
+ *  0016). Declare locks [KEY_RATE_RULE]. */
+const heldRate = (c: Ctx) => c.locked(KEY_RATE_RULE);
 
 type Channel = { id: string; label: string; level: Id; share: Id; lever: string; channel: string; what: string };
 const CHANNELS: Channel[] = [
@@ -365,24 +381,28 @@ const rules: RuleDef[] = [
     category: 'POLICY',
     label: 'Debt-tied tax rule: where it is heading',
     inputs: ['debtRatio', 'outputGap'],
-    lagInputs: ['ruleTarget', 'taxRuleAnchor'],
-    params: ['phiTau', 'debtR0', 'escapeBand', 'downturnGap', 'downturnBand'],
-    terms: terms(['debt', 'Debt above its baseline ratio', 'debt-feedback', (c) => c.p('phiTau') * (c.v('debtRatio') - c.p('debtR0'))]),
-    // Escape clause (a stabiliser interaction, decisions 0004, 0009 and 0015): in a severe downturn,
-    // or while the central bank's rule is heading below zero, the debt rule does not raise taxes
-    // above the shift in force. Each condition fades in over a band, so the switch is smooth. The
-    // second reads the rule even while the key rate is locked, not the rate held (R4 of the
-    // long-run-anchors proposal, open: alone it makes the debt rule tighten in slumps with the key
-    // rate held, so it waits for a counter-cyclical term, decision 0015).
-    combine: (t, c) => t.debt - escapeWeight(c) * Math.max(0, t.debt - c.lag('taxRuleAnchor')),
+    lagInputs: ['ruleTarget', 'taxRuleAnchor', 'keyRate'],
+    params: ['phiTau', 'phiTauHeld', 'phiGap', 'debtR0', 'escapeBand', 'downturnGap', 'downturnBand'],
+    locks: [KEY_RATE_RULE],
+    terms: terms(
+      ['debt', 'Debt above its baseline ratio (more slowly while the key rate is locked)', 'debt-feedback', (c) => (heldRate(c) ? c.p('phiTauHeld') : 1) * c.p('phiTau') * (c.v('debtRatio') - c.p('debtR0'))],
+      ['cycle', 'Output above potential, while the key rate is locked', 'debt-feedback', (c) => (heldRate(c) ? c.p('phiGap') * c.v('outputGap') : 0)],
+    ),
+    // Escape clause (a stabiliser interaction, decisions 0004, 0009, 0015 and 0016): in a severe
+    // downturn, or while interest rates are at zero, the debt rule does not raise taxes above the
+    // shift in force. Each condition fades in over a band, so the switch is smooth. While the key rate
+    // is locked the second reads the rate you hold (R4), and the rule leans against the cycle, so it
+    // cuts taxes in a slump rather than only standing still (decision 0016).
+    combine: (t, c) => t.debt + t.cycle - escapeWeight(c) * Math.max(0, t.debt + t.cycle - c.lag('taxRuleAnchor')),
     regime: (c, _v, t) => {
-      if (escapeWeight(c) === 0 || t.debt <= c.lag('taxRuleAnchor')) return null;
-      return downturnWeight(c) >= zeroBoundWeight(c) ? 'Escape clause: no tax rise in a severe downturn' : 'Escape clause: no tax rise while the central bank’s rule is heading below zero';
+      if (escapeWeight(c) === 0 || t.debt + t.cycle <= c.lag('taxRuleAnchor')) return null;
+      if (downturnWeight(c) >= zeroWeight(c)) return 'Escape clause: no tax rise in a severe downturn';
+      return heldRate(c) ? 'Escape clause: no tax rise while the key rate you hold is at zero in a slump' : 'Escape clause: no tax rise while the central bank’s rule is heading below zero';
     },
     concepts: ['debt-feedback'],
     explain: {
       what: 'Where the debt rule would put the income-tax rate, as a shift from its baseline, if it moved there at once. The rule itself moves toward it gradually.',
-      rule: 'Target = {phiTau} × (debt ratio − {debtR0}): ten points more debt means 2.5 points more tax. Escape clause: in two cases the debt rule does not raise the rate above the shift in force; it can still cut it. First, in a severe downturn: once the output gap the central bank reads from unemployment is below −{downturnGap%} (about a point of unemployment above normal), fully once it is a further {downturnBand%} lower, because raising taxes then would deepen the slump. Fiscal rules in Iceland and the EU have such clauses for severe downturns. Second, while the central bank’s inflation rule is heading for a key rate below zero, because interest rates cannot then be cut any further to cushion a tax rise; it phases in over the first {escapeBand%} point of that shortfall. The second reads where the rule is heading even while you hold the key rate locked, not the rate you hold: falling prices can switch it on under a held rate well above zero.',
+      rule: 'Target = {phiTau} × (debt ratio − {debtR0}): ten points more debt means 2.5 points more tax. Escape clause: in two cases the debt rule does not raise the rate above the shift in force; it can still cut it. First, in a severe downturn: once the output gap the central bank reads from unemployment is below −{downturnGap%} (about a point of unemployment above normal), fully once it is a further {downturnBand%} lower, because raising taxes then would deepen the slump. Fiscal rules in Iceland and the EU have such clauses for severe downturns. Second, while the central bank’s inflation rule is heading for a key rate below zero, because interest rates cannot then be cut any further to cushion a tax rise; it phases in over the first {escapeBand%} point of that shortfall. While you hold the key rate locked the second reads the rate you hold instead: it applies only when that is at zero (fully) or within {escapeBand%} point of it, and output is below potential (fully {downturnBand%} below), so a rate held at zero in a boom does not stop the rule. And while you hold the key rate locked the central bank no longer steadies the economy, so the rule also leans against the cycle, as fiscal rules must when monetary policy does not act: it adds {phiGap} points of tax for each 1% of output above potential, and takes as much off below it (a slump brings tax cuts, not rises), and leans on debt only {phiTauHeld} as hard, so debt is still pulled back, but slowly.',
     },
   },
   {
@@ -692,7 +712,7 @@ export const government: ModuleDef = {
   requires: ['structure', 'labour-and-wages', 'prices', 'central-bank', 'banks', 'households', 'firms'],
   params: pickParams(ALL_PARAMS, [
     'gHealth', 'gEdu', 'gOther', 'gInv', 'wsHealth', 'wsEdu', 'wsOther', 'trOA', 'oaShareY', 'oaShareO', 'trFam', 'famShareY', 'famTaxableShare', 'rr', 'rrShift',
-    'vat0', 'vatShift', 'tau0', 'incomeTaxShift', 'phiTau', 'lamTau', 'escapeBand', 'downturnGap', 'downturnBand', 'debtR0', 'css', 'tauF', 'sB', 'bondMaturity', 'rBI0', 'tga', 'treasuryTopUp', 'bondMixBankShare',
+    'vat0', 'vatShift', 'tau0', 'incomeTaxShift', 'phiTau', 'phiTauHeld', 'phiGap', 'lamTau', 'escapeBand', 'downturnGap', 'downturnBand', 'debtR0', 'css', 'tauF', 'sB', 'bondMaturity', 'rBI0', 'tga', 'treasuryTopUp', 'bondMixBankShare',
     'compG', 'ueTarget', 'vatTarget', 'citTarget', 'govDebt', 'govIdxShare',
   ]),
   vars,
@@ -844,12 +864,12 @@ export const government: ModuleDef = {
       -10,
       10,
       0.5,
-      'Changes the average tax rate on wages, benefits and pensions. Unlocked (the default), the debt rule sets the rate and the lever follows it. Move the lever, or close its padlock, to hold the rate yourself; the debt rule then only suggests a value beside the lever.',
-      'Level shift in the income-tax rate, in percentage points from its baseline. Unlocked (the default) the debt rule sets the shift every month, leaning against government debt, and the lever shows it. Moving the lever, or closing its padlock, locks it: the shift is then the lever’s, applied in the month it is set and held until you move it again, and the debt rule only suggests a value beside the lever. Setting it back to 0 while locked returns the rate to its baseline. Unlocking hands the rate back to the debt rule, which moves from the rate you held about 4% of the way toward where it is heading each month. Held while the key rate is unlocked, the central bank leans against the tax change, but nothing pays a tax cut back or spends the surplus of a rise, and the interest on a growing debt is income that is spent, so the central bank cannot steady the economy on its own (with no fiscal rule and an active monetary rule there is no stable path, Leeper 1991): at −2.5 points, output is about 0.5% higher after a year and 3.2% after 20, with government debt 47 points of GDP higher and the key rate 4.8 points higher, all still rising; at +2.5 the mirror, the key rate at zero from about the fifteenth year and output 3.3% lower after 20 years, still falling, with the price level 10.9% lower and the króna 16% stronger. At ±10 these paths run away within 20 years. To lean on the debt rule without holding the rate, lock the lever, set it, and unlock it again: the rule carries on from your rate.',
+      'Changes the average tax rate on wages, benefits and pensions. A cut leaves households more to spend and the government less revenue, so it borrows and its debt rises; a rise does the opposite. Unlocked (the default), the debt rule sets the rate and the lever follows it. Move the lever, or close its padlock, to hold the rate yourself: debt then takes the strain, and the debt rule only suggests a value beside the lever.',
+      'Level shift in the income-tax rate, in percentage points from its baseline. Unlocked (the default) the debt rule sets the shift every month, leaning against government debt, and the lever shows it. Moving the lever, or closing its padlock, locks it: the shift is then the lever’s, applied in the month it is set and held until you move it again, and the debt rule only suggests a value beside the lever. Setting it back to 0 while locked returns the rate to its baseline. Unlocking hands the rate back to the debt rule, which moves from the rate you held about 4% of the way toward where it is heading each month. The first thing a change does is to the budget. A cut of 2.5 points leaves households about 1.6% of GDP a year more after tax and the government as much less revenue, so it runs a deficit and borrows: government debt is about 1.4 points of GDP higher after a year, 6.6 after five and 16 after ten. Households spend most of the extra income, so output is about 0.5% higher after a year, and the automatic stabilisers win a little of the revenue back. Second, the central bank’s rule leans against the extra demand: the key rate is about 0.2 point higher after a year and 1.1 points after five, which slows the boom. A rise mirrors it: debt falls and output is lower. Held for good while the key rate is unlocked, though, nothing pays a cut back, and interest compounds on the growing debt in an economy that does not grow, so the path does not settle (with no fiscal rule and an active monetary rule there is no stable path, Leeper 1991): at −2.5 points output is 3.2% higher after 20 years, with government debt 47 points of GDP higher and the key rate 4.8 points higher, all still rising; at +2.5 the mirror, the key rate at zero from about the fifteenth year and output 3.3% lower after 20 years, with the price level 10.8% lower and the króna 16% stronger. Most of that later drift is the króna: the deficit sends krónur abroad, through imports and the pension funds’ purchases of foreign assets as their income grows, and the króna weakens as non-residents hold more of them than they want (decision 0016). Interest a higher key rate pays is spent only in part: households spend a fifth of theirs at once, as the evidence finds for income from savings, and pension funds credit theirs to members’ rights, which reach pensions over years. At ±10 these paths run away within 20 years. With the key rate locked too, the tax change works undamped: at −2.5 output is 2.1% higher after five years and 3.3% after 20, with debt 14 points of GDP higher. To lean on the debt rule without holding the rate, lock the lever, set it, and unlock it again: the rule carries on from your rate.',
       ['multiplier', 'consumption-function', 'debt-feedback'],
       0.01,
     ),
-    leverFor('vat', 'VAT rate', 'vatShift', 'pp', -10, 10, 0.5, 'Changes the effective VAT rate on consumer spending; shops pass it into prices over a few months.', 'Level shift in the effective VAT rate, in percentage points, applied at once and persistent while set. VAT is paid at the new rate at once; shops pass it into their prices over a few months (about 40% in the first month, nearly all within six), keeping the difference in their margins meanwhile. Consumer prices follow, and indexed debts are revalued with them. Setting it back to 0 removes the shift (prices drop back the same way).', ['cost-pass-through', 'multiplier'], 0.01),
+    leverFor('vat', 'VAT rate', 'vatShift', 'pp', -10, 10, 0.5, 'Changes the effective VAT rate on consumer spending: a rise brings the government more revenue and pays debt down; shops pass it into prices over a few months.', 'Level shift in the effective VAT rate, in percentage points, applied at once and persistent while set. The first thing a change does is to the budget: a rise of 2.5 points brings in about 0.75% of GDP a year more, so the government runs a surplus and pays debt down, about 0.6 point of GDP in the first year and 2.7 points in five with the policy rules acting (the debt rule then gives some of it back as lower income tax, 0.4 point after five years). Second, it raises prices and so cuts what households buy: output is about 0.8% lower after a year. The central bank’s rule looks through most of the jump in prices and then cuts the key rate, about 0.6 point below baseline from the fifth year. VAT is paid at the new rate at once; shops pass it into their prices over a few months (about 40% in the first month, nearly all within six), keeping the difference in their margins meanwhile. Consumer prices follow, and indexed debts are revalued with them. Setting it back to 0 removes the shift (prices drop back the same way).', ['cost-pass-through', 'multiplier'], 0.01),
     leverFor('health', 'Health spending', 'gHealth', '% of GDP', -3, 3, 0.1, 'Real change in public health spending: staff pay and purchases.', 'Level shift in real health spending, % of baseline GDP a year, split between staff and purchases as at baseline; persistent while set. Nominal spending also rises with wages and prices. Setting it back to 0 returns spending to baseline; the debt built up meanwhile remains.', ['multiplier']),
     leverFor('education', 'Education spending', 'gEdu', '% of GDP', -3, 3, 0.1, 'Real change in public education spending.', 'Level shift in real education spending, % of baseline GDP a year, persistent while set, split between staff and purchases as at baseline. Setting it back to 0 returns spending to baseline.', ['multiplier']),
     leverFor('otherServices', 'Other public services', 'gOther', '% of GDP', -3, 3, 0.1, 'Real change in other public services: administration, police, culture, roads.', 'Level shift in real spending on other public services, % of baseline GDP a year, persistent while set, split between staff and purchases as at baseline. Setting it back to 0 returns spending to baseline.', ['multiplier']),
@@ -893,12 +913,12 @@ export const government: ModuleDef = {
       // Half the lever's half-point step: it calls exactly when "Apply" would move the lever.
       threshold: 0.25,
       description:
-        'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually from the rate in force. It raises no taxes in a severe downturn, or while the central bank’s inflation rule is heading below zero (an escape clause). While income tax is unlocked it sets the rate. While you hold income tax locked it suggests a value for the lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step. Unlocking starts the rule from the rate you held.',
+        'A slow rule that leans the income-tax rate against government debt: about 2.5 points more tax for ten points more debt (as a share of GDP), reached gradually from the rate in force. It raises no taxes in a severe downturn, or while interest rates are at zero (an escape clause). While you hold the key rate locked it also leans against the cycle, cutting taxes when output is below potential, and leans on debt only half as hard. While income tax is unlocked it sets the rate. While you hold income tax locked it suggests a value for the lever, which turns red when you are more than a quarter point away, so that applying it would move the lever a half-point step. Unlocking starts the rule from the rate you held.',
       concepts: ['debt-feedback'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'incomeTaxRate' },
-      // ECON-5 (lever-vetting open item 21): the owner decides the fix; until then, the panel says it.
+      // ECON-5 (lever-vetting open item 21, decision 0016): debt takes the strain of a held tax change.
       lockedAloneNote:
-        'With income tax locked while the central bank’s rule sets the key rate, nothing pays government debt back, and a lasting tax change can run away: the higher rates the rule sets add interest income as well as cooling spending. To lean on the debt rule instead, lock income tax, set it and unlock it again.',
+        'With income tax locked while the central bank’s rule sets the key rate, government debt takes the strain of a tax change and nothing pays it back: over decades the interest on it and a weakening króna keep a lasting change from settling. To lean on the debt rule instead, lock income tax, set it and unlock it again.',
     },
   ],
   tests: [

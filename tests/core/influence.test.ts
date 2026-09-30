@@ -404,18 +404,18 @@ describe('stabiliser shadows: declared and checked', () => {
     const echo = { vars: [variable('echo', 3)], rules: [rule({ id: 'echo', target: 'echo', inputs: ['raw'], compute: (c) => c.v('raw') })] };
     expect(errorsOf(withShadow(['raw'], echo)).join()).toContain("declares 'raw' a shadow, but rule 'echo' reads it while the stabiliser is locked");
   });
-  test('a shadow an unlocked rule still reads is at play: Iceland’s key-rate target feeds the debt rule’s escape clause', () => {
+  test('a shadow an unlocked rule still reads is at play: Iceland’s output gap feeds the debt rule while the key rate is locked', () => {
     const e = ice();
     e.setLever('keyRate', 3); // lock the key rate only, at its default
-    e.setLever('tourism', -60); // a slump deep enough for the escape clause
-    // from month 25 (month 13 before króna stage 1, decision 0013: the flow of krónur weakens the
-    // króna further, so inflation holds the rule's target above zero for a year longer); its
-    // downturn part is on too, from month 3 (decision 0015), but the rule's target still feeds it
+    e.setLever('tourism', -60); // a slump: the debt rule leans against it (decision 0016)
     e.step(36);
-    expect(e.influences('taxRuleTarget').regime).toMatch(/Escape clause/);
     const via = e.ideasAtPlay('var:taxRuleTarget').flatMap((x) => x.via);
-    expect(via.some((v) => v.startsWith('ruleTarget'))).toBe(true);
-    expect(via.some((v) => v.startsWith('ruleRate'))).toBe(false); // the key rate's own step is still a shadow
+    // the central bank's reading of the output gap drives the debt rule's counter-cyclical term
+    expect(via.some((v) => v.startsWith('outputGap'))).toBe(true);
+    // while the key rate is locked the escape clause reads the rate held, not the unused rule
+    // (R4, decision 0016), and the key rate's own step is still a shadow
+    expect(via.some((v) => v.startsWith('ruleTarget'))).toBe(false);
+    expect(via.some((v) => v.startsWith('ruleRate'))).toBe(false);
   });
 });
 

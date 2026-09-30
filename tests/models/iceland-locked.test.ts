@@ -177,3 +177,26 @@ describe('decision 0014: what the texts teach about the locked economy', () => {
     }
   });
 });
+
+describe('decision 0016: a tax change is explained first through the budget and debt, the central bank second', () => {
+  const reference = compile(withConcepts(referenceModel));
+  const lever = (m: typeof model, id: string) => m.levers.find((l) => l.id === id)!;
+  test('the tax levers’ texts lead with the budget and debt', () => {
+    for (const [m, id, bank] of [
+      [model, 'incomeTax', 'central bank’s rule'],
+      [model, 'vat', 'central bank’s rule'],
+      [reference, 'taxRate', 'Taylor rule'],
+    ] as const) {
+      const l = lever(m, id);
+      // the description names revenue and debt before anything else the lever does
+      expect(l.description).toMatch(/revenue/);
+      expect(l.description).toMatch(/debt/);
+      // the definition's first account of what a change does is the budget, then the central bank
+      const budget = l.definition.indexOf('The first thing a change does is to the budget');
+      expect(budget).toBeGreaterThan(-1);
+      expect(l.definition.indexOf('debt', budget)).toBeGreaterThan(budget);
+      expect(l.definition.indexOf(bank, budget)).toBeGreaterThan(l.definition.indexOf('debt', budget));
+    }
+  });
+});
+

@@ -581,33 +581,70 @@ describe('the debt rule’s escape clause (lever review ZLB-DEBT-RULE, ECON-4; d
     expect(worst).toBeGreaterThan(-param(base, 'taxRuleTarget', 'downturnGap'));
     expect(r.pp('taxRate', 36)).toBeGreaterThan(0.2);
   });
+});
 
-  test('known limitation (R4, open): with the key rate locked the zero-bound clause reads the central bank’s rule, not the rate held', () => {
-    // The proposal's fix R4 reads the held rate instead. Measured with this rule (decision 0015):
-    // alone it makes the debt rule tighten in slumps with the key rate held (tourism −60 held at
-    // 3%: output −4.76% at month 240 against −0.95%; key rate held at 6%: −3.08% against −1.13%),
-    // so it waits for the counter-cyclical term the proposal requires with it. These pin today's
-    // behaviour, so that the joint design moves them on purpose.
-    // A 6% hold: falling prices send the unused rule below zero from about month 103, and the
-    // clause then stops the debt rule's tax rises although the key rate is held at 6%.
-    const six = twins([['keyRate', 6]], 'key rate locked', 240);
-    expect(six.pp('taxRate', 36)).toBeGreaterThan(0.3); // +0.54: the rule tightens at first
-    expect(Math.abs(six.pp('taxRate', 240) - six.pp('taxRate', 120))).toBeLessThan(0.1); // +3.08 both
-    let first = 0;
-    for (let t = 1; t <= 240 && !first; t++) {
-      six.s.seek(t);
-      if (/heading below zero/.test(six.s.influences('taxRuleTarget').regime ?? '')) first = t;
+describe('the debt rule while only the key rate is locked (decision 0016: R4 and a counter-cyclical term)', () => {
+  /** The months in which the debt rule's target shows each regime label. */
+  const labels = (e: KernelEngine, months: number) => {
+    const out: Record<string, number[]> = {};
+    for (let t = 1; t <= months; t++) {
+      e.seek(t);
+      const r = e.influences('taxRuleTarget').regime;
+      if (r) (out[r] ??= []).push(t);
     }
-    expect(first).toBeGreaterThanOrEqual(90);
-    expect(first).toBeLessThanOrEqual(120);
-    // A 15% hold: a deep, long slump (the output gap below −3% for years) keeps the clause on, so
-    // debt climbs 115 points of GDP by month 100 with income tax 0.14 points higher, then the rule
-    // catches up fast (+14 points by month 120). The run explodes either way (decision 0014).
-    const fifteen = twins([['keyRate', 15]], 'key rate locked', 120);
-    expect(fifteen.pp('taxRate', 96)).toBeLessThan(0.5);
-    expect(fifteen.pp('debtRatio', 96)).toBeGreaterThan(80);
-    expect(fifteen.pp('taxRate', 120)).toBeGreaterThan(8);
+    return out;
+  };
+
+  test('R4: the zero-bound clause reads the rate you hold, and only in a slump', () => {
+    // Before decision 0016 it read where the unused central-bank rule was heading: falling prices
+    // switched it on from about month 103 under a 6% hold, and a 15% hold kept the debt rule idle
+    // for eight years (review ECON-2). Now a held rate above zero never switches it on.
+    const six = twins([['keyRate', 6]], 'key rate locked', 240);
+    expect(Object.keys(labels(six.s, 240))).toEqual([]);
+    // Held at zero in a slump it stands the debt rule aside (tourism −60: from month 36)...
+    const trap = twins([['keyRate', 0], ['tourism', -60]], 'key rate locked', 120);
+    const at = labels(trap.s, 120)['Escape clause: no tax rise while the key rate you hold is at zero in a slump'] ?? [];
+    expect(at.length).toBeGreaterThan(60);
+    // ...but a rate held at zero in a boom does not stop the rule leaning against it: health +3
+    // raises income tax (+1.5 points at month 60), where the clause alone would have held it.
+    const boom = twins([['keyRate', 0], ['health', 3]], 'key rate locked', 60);
+    expect(Object.keys(labels(boom.s, 60))).toEqual([]);
+    expect(boom.pp('taxRate', 60)).toBeGreaterThan(1);
   });
+
+  test('a private-demand slump brings tax cuts, not rises: tourism −60 and lending appetite −3 with the key rate held (reviews ECON-3 and ECON-4)', () => {
+    // A debt-only rule is procyclical when monetary policy does not act (Kirsanova, Leith and
+    // Wren-Lewis 2009). Before decision 0016: tourism −60 held income tax still through the slump
+    // (the downturn clause) with output −6.27% at month 60; lending appetite −3 raised it 0.43 points
+    // by month 60 and 1.14 by month 240, with output −1.28% at month 240.
+    const t = twins([['tourism', -60]], 'key rate locked', 240);
+    let most = -Infinity,
+      least = Infinity;
+    for (let m = 1; m <= 60; m++) {
+      most = Math.max(most, t.pp('taxRate', m));
+      least = Math.min(least, t.pp('taxRate', m));
+    }
+    expect(most).toBeLessThan(0.001); // no rise in the first five years (at most 7e-5 of a point, in month 1)
+    expect(least).toBeLessThan(-0.8); // a cut of about a point (−0.98)
+    expect(t.pct('output', 60)).toBeGreaterThan(-5.5); // −5.38 (−6.27 before)
+    // Later the slow debt term pays the slump's debt back (+4.5 points of tax at month 240, debt
+    // +41 points of GDP); output −1.57% at month 240 (−0.95% before, when the tax rise came in the
+    // second decade too, +3.4 points).
+    expect(t.pct('output', 240)).toBeGreaterThan(-2);
+    const l = twins([['lendingAppetite', -3]], 'key rate locked', 240);
+    expect(l.pp('taxRate', 60)).toBeLessThan(0.1); // −0.03
+    expect(l.pct('output', 240)).toBeGreaterThan(-0.8); // −0.57
+  });
+
+  test('the proposal’s acceptance test: no key rate held 1 to 3 points above neutral turns output positive before month 480', () => {
+    // With the debt rule leaning on debt at full strength and no counter-cyclical term the 6% hold
+    // left output 1.1% lower after 20 years; at a quarter of the strength (phiTauHeld 0.25) it turned
+    // positive before month 480 (decision 0016). Now at most −0.04, −0.07 and −0.11% at its highest.
+    for (const k of [4, 5, 6]) {
+      const r = twins([['keyRate', k]], 'key rate locked', 480);
+      for (let m = 1; m <= 480; m++) expect(r.pct('output', m)).toBeLessThan(0);
+    }
+  }, 30_000);
 });
 
 describe('the fishing fee follows profit both ways (lever review FISHFEE-ONESIDED)', () => {

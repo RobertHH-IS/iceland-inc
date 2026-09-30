@@ -283,10 +283,11 @@ describe('flags', () => {
   test('the implied neutral rate: where the learned estimate ends at its limit, the constant key rate that leaves inflation on target over the final five years (decision 0012)', () => {
     const r = leverReport(ice, { months: 240, levers: ['health'], expectations: null });
     const runs = r.levers[0].runs;
-    const up = runs.find((x) => x.mode === 'unlocked' && x.roles.includes('max'))!;
-    const y = up.impliedNeutral!;
-    // health +3: the estimate is held at the top of its 0–6% band, and the economy needs more
-    expect(y.estimate).toBeCloseTo(y.band[1], 9);
+    // Health −3: the estimate is held at the bottom of its 0–6% band, and the economy needs a rate
+    // above the band: 11.1% (8.95% before decision 0016).
+    const down = runs.find((x) => x.mode === 'unlocked' && x.roles.includes('min'))!;
+    const y = down.impliedNeutral!;
+    expect(y.estimate).toBeCloseTo(y.band[0], 9);
     expect(y.band).toEqual([0, 6]);
     expect(y.rate!).toBeGreaterThan(y.band[1] + 1);
     // held at that rate (the inflation target is 0), inflation over months 180–240 is on target
@@ -297,59 +298,61 @@ describe('flags', () => {
       for (let t = 180; t <= 240; t++) s += e.valueAt('inflation12', t) - base.baseline('inflation12');
       return (100 * s) / 61;
     };
-    const at = (rate: number) => mean([{ t: 0, lever: 'health', value: 3 }, { t: 0, lever: 'keyRate', value: rate }]);
+    const at = (rate: number) => mean([{ t: 0, lever: 'health', value: -3 }, { t: 0, lever: 'keyRate', value: rate }]);
     expect(Math.abs(at(y.rate!))).toBeLessThan(0.01);
-    expect(at(y.rate! - 0.25)).toBeGreaterThan(0);
-    expect(at(y.rate! + 0.25)).toBeLessThan(0);
-    // the textbook direction, one crossing on the grid; the debt rule's reaction is reported
-    expect(y.rising).toBe(false);
+    // one crossing on the grid, where inflation rises with the held rate: holding the key rate
+    // locks it, so the debt rule leans against the cycle and cuts taxes as the held rate slows the
+    // economy (decision 0016), on top of the interest-income channel
     expect(y.crossings).toBe(1);
+    expect(y.rising).toBe(true);
+    expect(at(y.rate! - 0.25)).toBeLessThan(0);
+    expect(at(y.rate! + 0.25)).toBeGreaterThan(0);
     expect(y.runs).toBeGreaterThan(Math.round(15 / IMPLIED_NEUTRAL_GRID));
-    const run = runScenario(base, [{ t: 0, lever: 'health', value: 3 }, { t: 0, lever: 'keyRate', value: y.rate! }], 240).engine;
+    // the debt rule's reaction is reported, held at that rate and in the run itself
+    const run = runScenario(base, [{ t: 0, lever: 'health', value: -3 }, { t: 0, lever: 'keyRate', value: y.rate! }], 240).engine;
     expect(y.tax!).toBeCloseTo(100 * (run.valueAt('taxRate', 240) - base.baseline('taxRate')), 9);
-    expect(y.taxRun!).toBeGreaterThan(0);
-    expect(y.tax!).toBeGreaterThan(y.taxRun!);
+    expect(y.taxRun!).toBeLessThan(0);
+    expect(y.tax!).toBeGreaterThan(0);
+    // Health +3: the estimate ends at the top of its band, and no constant rate in the lever's range
+    // brings inflation to target: the debt rule, leaning against the slump a high held rate brings,
+    // cuts taxes as the rate rises (before decision 0016 it leaned on debt alone, and 8.1% did).
+    const up = runs.find((x) => x.mode === 'unlocked' && x.roles.includes('max'))!.impliedNeutral!;
+    expect(up.estimate).toBeCloseTo(up.band[1], 9);
+    expect(up.rate).toBeNull();
+    expect(up.outside).toBe('above');
     // only unlocked runs whose estimate ends at its limit; a smaller rise stays inside the band
     expect(runs.filter((x) => x.impliedNeutral).every((x) => x.mode === 'unlocked')).toBe(true);
     expect(runs.find((x) => x.mode === 'unlocked' && x.roles.includes('up'))!.impliedNeutral).toBeUndefined();
     const md = renderLeverMarkdown(r);
     expect(md).toContain('## Implied neutral rates');
     expect(md).toContain(`Implied neutral rate: ${y.rate!.toFixed(2)}% real`);
+    expect(md).toContain('inflation stays above target at every rate in the range');
     // the harness gate leaves it out, and a model without the spec has none
     const gate = leverReport(ice, { months: 240, onlyExpected: true, expectations: [{ lever: 'health', setting: 'max', mode: 'unlocked', variable: 'output', fromMonth: 1, toMonth: 12, sign: 1, theory: 't', source: 's' }] });
     expect(gate.levers[0].runs.some((x) => x.impliedNeutral)).toBe(false);
     expect(report().levers.some((s) => s.runs.some((x) => x.impliedNeutral))).toBe(false);
   }, 60_000);
 
-  test('the implied neutral rate is found where inflation crosses target, even when it crosses more than once or rises with the rate (tourism −60 and health −3, decision 0012)', () => {
-    // Held at a constant rate after tourism −60, inflation over months 180–240 crosses target more
-    // than once across the key rate's range, so comparing the ends of the range alone would wrongly
-    // say no rate works. (Before decision 0015 it also rose with the rate near the crossing; with
-    // the debt rule's taxes held through the slump it now falls there.)
-    const r = leverReport(ice, { months: 240, levers: ['tourism', 'health'], expectations: null });
+  test('the implied neutral rate is found where inflation crosses target, even when it rises with the rate (tourism −60, decision 0012)', () => {
+    // Held at a constant rate after tourism −60, inflation over months 180–240 crosses target once,
+    // at about 6.9%, where it rises with the rate: holding the key rate turns the debt rule
+    // counter-cyclical (decision 0016), so a higher held rate brings tax cuts. (Before, it crossed
+    // four times, nearest the estimate at about 1.65%, where it fell with the rate.) Comparing the
+    // ends of the range alone would not find it: the scan brackets the crossing and bisects.
+    const r = leverReport(ice, { months: 240, levers: ['tourism'], expectations: null });
     const min = r.levers[0].runs.find((x) => x.mode === 'unlocked' && x.roles.includes('min'))!;
     const y = min.impliedNeutral!;
     expect(y.estimate).toBeCloseTo(y.band[0], 9);
     expect(y.rate).not.toBeNull();
     expect(y.outside).toBeUndefined();
-    expect(y.crossings).toBeGreaterThan(1);
-    // the crossing nearest the estimate (0%) lies between 1% and 3%, and held there inflation is on target
-    expect(y.rate!).toBeGreaterThan(1);
-    expect(y.rate!).toBeLessThan(3);
+    expect(y.crossings).toBeGreaterThanOrEqual(1);
+    expect(y.rising).toBe(true);
+    expect(y.rate!).toBeGreaterThan(y.band[1]);
     const base = createEngine(ice);
-    const onTarget = (lever: string, value: number, rate: number) => {
-      const e = runScenario(base, [{ t: 0, lever, value }, { t: 0, lever: 'keyRate', value: rate }], 240).engine;
-      let s = 0;
-      for (let t = 180; t <= 240; t++) s += e.valueAt('inflation12', t) - base.baseline('inflation12');
-      expect(Math.abs((100 * s) / 61)).toBeLessThan(0.01);
-    };
-    onTarget('tourism', -60, y.rate!);
-    // Health −3 with the rules acting: inflation rises with a held key rate near the crossing
-    // (about 9%), the interest-income channel at work, and the report says so.
-    const cut = r.levers[1].runs.find((x) => x.mode === 'unlocked' && x.roles.includes('min'))!.impliedNeutral!;
-    expect(cut.rising).toBe(true);
-    expect(cut.rate!).toBeGreaterThan(cut.band[1]);
-    onTarget('health', -3, cut.rate!);
+    const e = runScenario(base, [{ t: 0, lever: 'tourism', value: -60 }, { t: 0, lever: 'keyRate', value: y.rate! }], 240).engine;
+    let s = 0;
+    for (let t = 180; t <= 240; t++) s += e.valueAt('inflation12', t) - base.baseline('inflation12');
+    expect(Math.abs((100 * s) / 61)).toBeLessThan(0.01);
     const md = renderLeverMarkdown(r);
     expect(md).toContain('there, inflation rises with the key rate rather than falls');
     expect(md).not.toContain('does not fall as the rate rises');
@@ -381,12 +384,15 @@ describe('flags', () => {
     expect(row.split('|')[2].trim()).toBe(String(2 * key.settings.length));
   }, 60_000);
 
-  describe('known limitation, owner decision pending (review ECON-5, lever-vetting open item 21): a tax lever held while the central bank’s rule acts', () => {
-    // Moving a tax lever locks it; with the key-rate rule still acting, nothing pays a tax cut back
-    // and the higher rates the rule sets add interest income, so no stable path exists (Leeper
-    // 1991). Both teaching models then run away on their moderate steps. The fix needs the owner:
-    // a fiscal backstop while the tax is held, a weaker interest-income channel, or a moved tax
-    // lever that tilts the debt rule instead of holding it. Until then the lever panel says so
+  describe('known limitation (review ECON-5, lever-vetting open item 21, decision 0016): a tax lever held while the central bank’s rule acts', () => {
+    // Moving a tax lever locks it; with the key-rate rule still acting, nothing pays a tax cut back,
+    // so no stable path exists (Leeper 1991). Decision 0016 measured the evidence-based ways to
+    // weaken the interest-income channel: they shrink the runaway but cannot remove it here, because
+    // in these zero-growth baselines debt compounds at about 3.5% a year (r − g) on any lasting
+    // deficit, which the Explosive test reads as acceleration, and in Iceland the deficit also
+    // weakens the króna through non-residents' holdings (lever-vetting item 4). What removes it: a
+    // balanced-growth baseline (roadmap v2, r − g near zero), króna stage 2, or a fiscal anchor
+    // while the tax is held; the owner decides. Until then the lever panel says so
     // (StabiliserDef.lockedAloneNote) and these pin it.
     const moderate = (m: KModel, id: string) => {
       const spec = { ...leverReportSpecs[m.def.id], impliedNeutral: undefined };
@@ -396,7 +402,7 @@ describe('flags', () => {
     const at240 = (run: ReturnType<typeof moderate>[number], id: string) => run.headlines.find((h) => h.id === id)!.at.at(-1)!;
 
     test.failing('OWNER DECISION PENDING: no moderate tax step with the central bank’s rule acting is Explosive within 240 months (Iceland ±2.5, reference −0.5 and +1)', () => {
-      // Expected to fail until the owner's decision lands; bun reports it as soon as it passes,
+      // Expected to fail until one of the fixes above lands; bun reports it as soon as it passes,
       // and then `.failing` comes off with lever-vetting open item 21.
       for (const run of [...moderate(ice, 'incomeTax'), ...moderate(ref, 'taxRate')]) expect(run.flags.some((f) => f.kind === 'explosive')).toBe(false);
     }, 60_000);

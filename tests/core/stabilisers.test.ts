@@ -375,12 +375,16 @@ describe('Iceland: a locked policy lever is held', () => {
     expect(Math.abs(f.value('taxRate') - tax)).toBeLessThan(0.005);
   });
 
-  test('locking the key rate alone leaves the debt rule acting, and the key-rate rule’s target still feeds its escape clause', () => {
+  test('locking the key rate alone leaves the debt rule acting, and the key-rate rule’s output gap still feeds it', () => {
     const m = e.model;
     const j = m.stabilisers.findIndex((s) => s.id === 'keyRateRule');
     const inert = [...m.inertByMask[1 << j]].map((v) => m.vars[v].id);
     expect(inert).toContain('ruleRate');
-    expect(inert).not.toContain('ruleTarget'); // the debt rule's escape clause reads it
+    // Since decision 0016 the escape clause reads the rate held while the key rate is locked (R4),
+    // not where the unused rule is heading, so the rule's target drives nothing then; its output gap
+    // does, through the debt rule's counter-cyclical term and its downturn clause.
+    expect(inert).toContain('ruleTarget');
+    expect(inert).not.toContain('outputGap');
     expect(inert).not.toContain('taxRuleAdjustment');
     const all = [...m.inertByMask[(1 << m.stabilisers.length) - 1]].map((v) => m.vars[v].id);
     expect(all).toEqual(expect.arrayContaining(['ruleRate', 'ruleTarget', 'neutralRate', 'taxRuleAdjustment', 'taxRuleTarget']));
