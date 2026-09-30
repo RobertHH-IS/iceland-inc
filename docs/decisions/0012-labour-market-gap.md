@@ -1,6 +1,6 @@
 # 0012. The central bank reads its output gap from the labour market
 
-Status: accepted (September 2026). Phase 2 of the long-run anchors proposal (section B), with the owner's decisions 5, 7, 8 and 10. It answers the part of open items 2 and 19 of the lever-vetting record that belongs to potential output; item 14 stays open for the joint refit of the wage checks.
+Status: accepted (September 2026). Phase 2 of the [long-run anchors proposal](../design/long-run-anchors.md) (section B), with the owner's decisions 5, 7, 8 and 10. It answers the part of open items 2 and 19 of the lever-vetting record that belongs to potential output; item 14 stays open for the joint refit of the wage checks.
 
 ## The problem
 

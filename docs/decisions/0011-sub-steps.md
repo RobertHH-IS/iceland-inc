@@ -1,6 +1,6 @@
 # 0011. Two kernel steps a month, a display contract that does not depend on them, and a half-step test that asks for the converged answer
 
-Status: accepted (September 2026). Phase 1 of the long-run anchors proposal (section A), with the owner's decisions 4 and 6: two sub-steps a month, the run-time budgets, and the half-step test judged on the range width with a Richardson limit that must lie in range. It closes open item 12 of the lever-vetting record and unblocks item 14.
+Status: accepted (September 2026). Phase 1 of the [long-run anchors proposal](../design/long-run-anchors.md) (section A), with the owner's decisions 4 and 6: two sub-steps a month, the run-time budgets, and the half-step test judged on the range width with a Richardson limit that must lie in range. It closes open item 12 of the lever-vetting record and unblocks item 14.
 
 ## The problem
 
