@@ -31,6 +31,11 @@ export const expectations: LeverExpectation[] = [
   { lever: 'keyRate', setting: 'up', mode: 'locked', variable: 'mortgageDebt', fromMonth: 12, toMonth: 60, sign: -1, theory: 'Credit/bank-lending channel: dearer credit slows new borrowing, so the debt ratio falls over years.', source: 'Bernanke and Gertler (1995); Bank of England Quarterly Bulletin 2014 Q1' },
   { lever: 'keyRate', setting: 'up', mode: 'locked', variable: 'investment', fromMonth: 1, toMonth: 24, sign: -1, theory: 'A higher real borrowing cost lowers investment, with a lag.', source: 'Christiano, Eichenbaum and Evans (2005), Journal of Political Economy 113' },
   { lever: 'keyRate', setting: 'up', mode: 'locked', variable: 'output', fromMonth: 1, toMonth: 24, sign: -1, theory: 'Monetary tightening lowers output within two years.', source: 'Christiano, Eichenbaum and Evans (2005), Journal of Political Economy 113' },
+  // Decision 0014 (phase 4 of the long-run-anchors proposal): with every policy lever locked only
+  // signs are gated, over the months the model can defend. A hold 3 points up (6%) turns output
+  // positive in month 126 through the interest-income channel, so the window stops at month 96;
+  // the reversal month itself is a tripwire in tests/models/iceland-locked.test.ts.
+  { lever: 'keyRate', setting: 'up', mode: 'locked', variable: 'output', fromMonth: 1, toMonth: 96, sign: -1, theory: 'A key rate held above the neutral rate cools demand for years; tightening lowers output for more than a decade in the data. The model’s later reversal, through interest income with tax rates held, is at the strong end of the evidence and is not gated.', source: 'Jordà, Singh and Taylor (2024), The long-run effects of monetary policy, REStat; Christiano, Eichenbaum and Evans (2005); decision 0014' },
 
   // ------------------------------------ the key rate held, the debt rule acting (unlocked)
   // Until padlocks (decision 0010) these were expectations on an offset added to the rule, which
@@ -237,6 +242,7 @@ export const expectations: LeverExpectation[] = [
   { lever: 'incomeTax', setting: 'up', mode: 'locked', variable: 'currentAccount', fromMonth: 3, toMonth: 36, sign: 1, theory: 'Sectoral balances and twin deficits: fiscal tightening lowers import demand and improves the current account.', source: 'Godley (1999, Levy Institute); Abbas, Bouhga-Hagbe, Fatás, Mauro and Velloso (2011, IMF Economic Review)' },
   { lever: 'incomeTax', setting: 'max', mode: 'locked', variable: 'keyRate', fromMonth: 1, toMonth: 240, sign: 0, theory: 'A locked POLICY lever never moves unless the user moves it. The Taylor rule only suggests.', source: 'Decisions 0004 and 0010 (model rule 11)' },
   { lever: 'incomeTax', setting: 'max', mode: 'key rate locked', variable: 'keyRate', fromMonth: 1, toMonth: 240, sign: 0, theory: 'With the key rate locked, the central bank’s rule only suggests, whatever the budget does.', source: 'Decision 0010 (model rule 11)' },
+  { lever: 'incomeTax', setting: 'up', mode: 'locked', variable: 'output', fromMonth: 1, toMonth: 240, sign: -1, theory: 'With the key rate held and tax rates fixed there is no nominal anchor (decision 0014): a lasting tax rise leaves the held rate too high for the new economy, so demand stays weak and output below baseline for as long as it is held (Wicksell’s cumulative process). Only the sign is gated; the model’s long run has no level to test against.', source: 'Wicksell (1898), Interest and Prices; Godley and Lavoie (2007), Levy WP 494; decision 0014' },
   { lever: 'incomeTax', setting: 'up', mode: 'locked', variable: 'consumption', fromMonth: 1, toMonth: 24, sign: -1, theory: 'A higher income tax cuts disposable income and so spending (with a cash buffer, gradually).', source: 'Godley and Lavoie (2007), Monetary Economics, ch. 3' },
 
   // ---------------------------------------------------- income tax held, the key rate acting (unlocked)
@@ -260,6 +266,10 @@ export const expectations: LeverExpectation[] = [
   { lever: 'vat', setting: 'up', variable: 'govBalance', fromMonth: 6, toMonth: 36, sign: 1, theory: 'Budget arithmetic: more VAT revenue, only partly offset by a smaller base. From m6 so the one-off indexation accrual has passed.', source: 'Keen and Lockwood (2010, JDE); ESA 2010 §4.47' },
   { lever: 'vat', setting: 'up', variable: 'mortgageDebt', fromMonth: 1, toMonth: 6, sign: 1, theory: 'CPI indexation: most Icelandic mortgages are indexed, so a price-level rise adds to their principal.', source: 'Central Bank of Iceland, Financial Stability (2024); Act 38/2001 on interest and indexation' },
   { lever: 'vat', setting: 'up', mode: 'locked', variable: 'keyRate', fromMonth: 1, toMonth: 240, sign: 0, theory: 'A locked POLICY lever never moves unless the user moves it.', source: 'docs/decisions/0004-stabilisers.md (model rule 11)' },
+  // Decision 0014: with every policy lever locked the long-run sign is not gated. The rise's slack
+  // lowers inflation for as long as it lasts and nothing pulls prices back, so the price level
+  // falls below baseline from month 75 (−6.7% at month 240); only the first three years are gated.
+  { lever: 'vat', setting: 'up', mode: 'locked', variable: 'priceLevel', fromMonth: 1, toMonth: 36, sign: 1, theory: 'VAT pass-through raises consumer prices at once, and with the key rate held the level stays above baseline for the first years while slack pulls inflation down only gradually.', source: 'Benedek, De Mooij, Keen and Wingender (2020), International Tax and Public Finance; decision 0014' },
   { lever: 'vat', setting: 'up', variable: 'output', fromMonth: 1, toMonth: 36, sign: -1, theory: 'A tax increase lowers real disposable income and demand (tax multiplier).', source: 'IMF WEO Oct 2010 ch. 3; Coenen et al. (2012, AEJ: Macro)' },
 
   // ------------------------------------------------------------------ public services: health

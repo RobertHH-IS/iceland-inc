@@ -321,6 +321,13 @@ const ref = {
   publicFinanceAct: {
     title: 'Lög um opinber fjármál nr. 123/2015 (Public Finance Act no. 123/2015), article 7 on the fiscal rules',
   },
+  wicksell1898: {
+    title: 'Wicksell (1898), Geldzins und Güterpreise; English translation (1936), Interest and Prices, Macmillan',
+  },
+  godleyLavoie494: {
+    title: 'Godley & Lavoie (2007), "Fiscal policy in a stock-flow consistent (SFC) model", Levy Economics Institute Working Paper 494',
+    url: 'https://www.levyinstitute.org/pubs/wp_494.pdf',
+  },
 } satisfies Record<string, Ref>;
 
 /* ----------------------------------------------------------------- concepts */
@@ -927,6 +934,20 @@ export const concepts: ConceptDef[] = [
     related: ['taylor-rule', 'anchored-expectations', 'wage-phillips-curve'],
   },
   {
+    id: 'nominal-anchor',
+    title: 'Nominal anchor',
+    oneLiner: 'What pins down prices in the long run. A central bank that reacts to inflation provides one; with every policy lever held, nothing does.',
+    body: p(
+      `A *nominal anchor* is whatever pins down the price level, or inflation, in the long run. Today it is usually a central bank that raises its rate when inflation runs above target and cuts it when below, and people's trust that it will.`,
+      `Hold the key rate fixed and the anchor is gone. Knut Wicksell (1898) described what follows, the *cumulative process*. If a lasting change leaves the held rate above the rate the economy now needs, spending stays weak, unemployment stays up and prices keep falling for as long as the rate is held; a rate held too low does the reverse. Nothing in the rate itself pulls prices back.`,
+      `Trust in the target slows the drift but cannot stop it: with expectations only partly anchored, a lasting gap in unemployment becomes a lasting gap in inflation. Long holds in practice, such as the zero-bound years after 2009, gave quiet inflation, because people trusted central banks to act again and prices reacted little to unemployment.`,
+      `In Iceland Inc., with the key rate and income tax both locked, this is by design, so effects beyond a few years show an economy without one. Godley and Lavoie show that a stock-flow economy with fixed tax rates can still settle in real terms; whether this model's does is an open question.`,
+    ),
+    school: 'monetarist',
+    references: [ref.wicksell1898, ref.friedman1968, ref.godleyLavoie494],
+    related: ['anchored-expectations', 'neutral-rate', 'taylor-rule', 'wage-phillips-curve', 'model-limits'],
+  },
+  {
     id: 'interest-rate-channel',
     title: 'Interest-rate channel',
     oneLiner: 'How a change in the key rate reaches spending: through the rates banks and the government pay and charge, saving and borrowing.',
@@ -1375,7 +1396,7 @@ export const conceptThemes: { theme: string; ids: Id[] }[] = [
       'migration-buffer',
     ],
   },
-  { theme: 'Policy', ids: ['taylor-rule', 'neutral-rate', 'interest-rate-channel', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'debt-feedback', 'macroprudential-policy', 'bond-buyers'] },
+  { theme: 'Policy', ids: ['taylor-rule', 'neutral-rate', 'nominal-anchor', 'interest-rate-channel', 'policy-lags', 'automatic-stabilisers', 'fiscal-rule', 'debt-feedback', 'macroprudential-policy', 'bond-buyers'] },
   {
     theme: 'External',
     ids: [
