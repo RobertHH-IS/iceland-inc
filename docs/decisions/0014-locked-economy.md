@@ -86,7 +86,7 @@ Two tripwires carry the magnitudes, in `tests/models/iceland-locked.test.ts`:
   | Next largest now | | | foreign rate +5 0.32, VAT +10 0.30, other services −3 0.28, income tax +10 0.25 |
   | The 15% hold | 1.44 | 2.12 | 2.16 |
 
-The proposal's other two tripwires, the debt ratio after income tax +2.5 pinned at month 240 and exporters' net assets above zero to month 600, belong to part (b): they pin how the real economy drifts, which the norm test may change. They are left to phase 6.
+The proposal's other two tripwires belong to part (b): they pin how the real economy drifts, which the norm test may change on purpose. They were first left to phase 6; the verification of phases 1–4 asked for them now, so that an unintended change shows before that work lands, and they are in `tests/models/iceland-locked.test.ts`, each saying that phase 6 may move it: the debt ratio after income tax +2.5 is 14.5 points of GDP lower at month 240 (bounds −16 to −13), and exporters' net assets (capital plus deposits less business loans) stay above zero to month 600 after income tax +2.5 (28.8 at baseline, 18.3 at month 600; bound 15), while after +10 they fall below zero in month 507, pinned to months 480–540 as a known limitation (fisheries' loans grow without limit, R2).
 
 ## The interface note
 

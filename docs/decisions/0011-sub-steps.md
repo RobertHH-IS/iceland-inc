@@ -45,6 +45,8 @@ The Iceland terms that are changes per step are summed: the wage rule's growth a
 | `bun run harness` | 14.6 s | 17–21 s | 29 s |
 | `bun run harness --full` | – | about a tenth more than `bun run harness` | – |
 
+**Remeasured after phases 2–4 and decision 0015** (30 September 2026, back to back on one machine, three runs each): `bun run harness` takes 9.3–10.0 s on main and 19.0–20.1 s on this model, about 2.0×, at the budget (the final verification measured 10.4–10.9 against 19.7–20.5 s, 1.9×). The table's 14.6 s for main was measured under heavier load and understated the ratio. The phases after the sub-steps used the headroom: the harness now makes 585 runs, against main's 507 (the lever expectations of phases 2–4 and more calibration checks). The budget is still recorded, not gated, so the next phase (the joint refit) must not add harness runs without buying time back (lever-vetting open item 23).
+
 ## What moved
 
 The accounting is exact at every sub-step (largest residual 2.3e-11 over 510 runs), baseline drift is 3.4e-12 (7.6e-12 before), and every calibration check is in range. Moving from one step a month to two moves each measure about half-way to its continuous-time limit (main, which took one step a month; this decision, at two; and the limit the everyday run estimates):

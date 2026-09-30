@@ -81,7 +81,7 @@ What differs, by design:
 
 - **A padlock beside each lever with a rule** (`LeverPanel.tsx`): an open or closed padlock icon (`common.tsx`, in the style of the other icons), `aria-pressed`, `aria-label` "Lock the key interest rate" or "Unlock the key interest rate", and a `title` that says in plain words what the lock means now and what pressing it does. Levers without a rule have none.
 - **Unlocked** levers look automatic, calmly: a hollow cyan knob, a cyan fill, a small "auto" tag, and the rule's live value to two decimals. A step (− or +) moves from that value and locks the lever there.
-- **Locked** levers are the user's, amber like any changed lever, with an amber closed padlock; the red call, Apply and the red section dot show only while locked. A locked lever counts as changed; the padlock, not the undo button, hands it back.
+- **Locked** levers are the user's, amber like any changed lever, with an amber closed padlock; the red call, Apply and the red section dot show only while locked. A locked lever counts as changed; the padlock, not the undo button, hands it back to its rule. A locked lever off its baseline has the undo button too, which sets the baseline and keeps it locked (added with decision 0015's repairs: without it, a held key rate at 4.25% could only step back one grid step at a time or be handed to the rule, which is not the baseline).
 - The Manual/Automatic control, the offset levers, the "Set by …" note and the client's `keepHiddenAtDefault` are gone. The map still marks a number "rule" while its stabiliser is unlocked.
 
 ## Alternatives considered

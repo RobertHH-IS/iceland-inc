@@ -1,6 +1,6 @@
 # Long-run anchors: fixing the 10- to 20-year behaviour of Iceland Inc.
 
-Status: **approved** (revision 2 of 29 September 2026), with the owner's decisions below. Phases 1 to 4 are implemented; phase 3 is incomplete (its release blocker, item 4, is open). The text after this header is the proposal as approved; only its references to prototype branches, commits and working copies that are not public were replaced by plain descriptions ("the package", "variant 3").
+Status: **approved** (revision 2 of 29 September 2026), with the owner's decisions below. Phases 1 to 4 are implemented; phase 3 is incomplete (its release blocker, item 4, is open), and releasing it with item 4 open waits for the owner's decision. The verification of phases 1–4 added [decision 0015](../decisions/0015-downturn-escape-clause.md): the debt rule's escape clause also covers a severe downturn. The text after this header is the proposal as approved; only its references to prototype branches, commits and working copies that are not public were replaced by plain descriptions ("the package", "variant 3").
 
 **The owner's decisions.**
 
@@ -13,7 +13,7 @@ Status: **approved** (revision 2 of 29 September 2026), with the owner's decisio
 |---|---|---|---|
 | 1. Time-stepping | 0010 | [0011](../decisions/0011-sub-steps.md) | Done: two sub-steps a month, the display contract, the half-step test on the converged answer |
 | 2. Potential output | 0011 | [0012](../decisions/0012-labour-market-gap.md) | Done: the labour-market gap at 0.8, the month-12 wage tripwire, the tourism −15 re-specification, the implied-neutral-rate diagnostic |
-| 3. Króna stage 1 | 0012 | [0013](../decisions/0013-krona-stage-1.md) | Implemented, **not releasable**: its release blocker, the item-4 fix, is not delivered (+0.135% against ≤ 0); it waits for phase 5 or an owner decision |
+| 3. Króna stage 1 | 0012 | [0013](../decisions/0013-krona-stage-1.md) | Implemented, **not releasable**: its release blocker, the item-4 fix, is not delivered (+0.135% against ≤ 0); it waits for phase 5 or the owner's decision to release it with item 4 open, which is pending |
 | 4. Documentation of the locked economy | 0013 (a) | [0014](../decisions/0014-locked-economy.md), part (a) | Done: the decision record, the student texts, the sign expectations and tripwires, and the interface note (shown while every lever with a rule is locked) |
 | 5. Joint refit | amend 0009 and 0011 | | Next |
 | 6. The norm test for the real economy | 0013 (b) | 0014, part (b) | Next |

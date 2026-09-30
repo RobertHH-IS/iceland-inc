@@ -332,7 +332,7 @@ Beyond completeness:
 - **Staleness.** `bun scripts/i18n.ts lock is` records the hash of the English each entry was translated from, after review. When the English changes, for example because the parallel recalibration rewrites "about 13% of GDP", the test names the Icelandic entries to revisit.
 - **Pseudo-locale leak test.** The test builds a locale `xx` in which every catalog string (UI, model and concept) is wrapped as `⟦…⟧`. It then renders `<App locale="xx" />` with `react-dom/server` for every registered model, reusing the harness of `tests/ui/view-model.test.ts`:
   - with groups closed and fully expanded;
-  - in both stabiliser modes;
+  - with every padlock open and every padlock closed;
   - with the inspector on a pipe, a player, a group, a variable, a flow, an indicator and a concept.
 
   It collects text nodes and `aria-label`, `title` and `aria-valuetext` attributes, removes the `⟦…⟧` spans, numbers, unit symbols and ids, and fails on any remaining run of three or more letters. This catches a hard-coded string that a developer adds to a view without a message key, which neither the type checker nor the model walk can see.
