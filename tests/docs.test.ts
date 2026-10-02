@@ -2,12 +2,15 @@
  * The decision records and the places that summarise them agree: every record from 0004 on has
  * a row in the architecture's decisions table (§9), the table uses the padlock words, and króna
  * stage 1's release, decided by the owner on 30 September 2026 with item 4 open, reads the same in
- * every summary and in the name of the failing test that holds item 4.
+ * every summary and in the name of the failing test that holds item 4. And the texts people work
+ * from describe a locked lever as the interface shows it: where the user set it, with nothing to
+ * approve.
  */
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
 
-const doc = (path: string): string => readFileSync(new URL(`../docs/${path}`, import.meta.url), 'utf8');
+const file = (path: string): string => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const doc = (path: string): string => file(`docs/${path}`);
 const section = (text: string, from: string, to: string): string => {
   const start = text.indexOf(from);
   expect(start).toBeGreaterThanOrEqual(0);
@@ -59,5 +62,24 @@ describe('decision records', () => {
     const anchors = section(doc('design/long-run-anchors.md'), 'Status:', '\n---\n');
     expect(anchors).toContain('(../decisions/0016-interest-income.md)');
     expect(anchors).toContain('(../decisions/0017-levers-shown.md)');
+  });
+});
+
+describe('a locked lever, in the texts people work from', () => {
+  // The owner, 2 October 2026: a lever the user sets is locked there and everything else reacts;
+  // the interface suggests nothing and asks for no approval. The decision records and design
+  // notes keep their history; these are the texts that say how things are now.
+  const TEXTS = ['AGENTS.md', 'README.md', 'docs/architecture.md', 'docs/authoring.md', 'docs/interface.md', 'src/core/types.ts'];
+
+  test('none says a locked lever’s rule "only suggests", or that the panel shows a suggestion', () => {
+    const stale = /only suggests?\b|suggests while it is locked|shows the rule[’']s suggestion/;
+    const lines = TEXTS.flatMap((path) => file(path).split('\n').filter((l) => stale.test(l)).map((l) => `${path}: ${l.trim().slice(0, 100)}`));
+    expect(lines).toEqual([]);
+  });
+
+  test('model rule 11 and the padlock’s own comment say it stays where the user set it and everything else reacts', () => {
+    const rule11 = file('AGENTS.md').split('\n').find((l) => l.startsWith('11. ')) ?? '';
+    expect(rule11).toContain('locked, the lever stays where the user set it and everything else reacts');
+    expect(file('src/core/types.ts')).toContain('/** The padlock is closed: the lever stays where the user set it, and everything else reacts. */');
   });
 });

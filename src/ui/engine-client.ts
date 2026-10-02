@@ -16,9 +16,14 @@
  *
  * Padlocks (decision 0010) are levers like any other: locking, unlocking and a lever moved while
  * unlocked (which locks it) are lever events, so they replay, rewind and travel in share links.
+ * A lever is in force once a month has run with it, and its rule steps from the value in force.
+ * So when a padlock is opened in the month its lever was set, setLever runs that month first: the
+ * rule then takes the lever over from the value just set, and the scenario records the unlock a
+ * month after the change.
  * A scenario written before padlocks (format 1) is migrated as it loads, and load() returns the
  * notices of anything the migration could not carry over.
  */
+import { isLocked } from '../core/compile.ts';
 import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
 import type { BalanceSheet, FeedEntry, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent, SignViolation, StabiliserState } from '../core/types.ts';
 import { migrateScenario, scenarioVersion, SCENARIO_VERSION } from '../core/migrate.ts';
@@ -402,8 +407,18 @@ class MainThreadClient implements EngineClient {
 
   /* --------------------------------------------------------------- levers */
 
+  /** Whether setting `id` to `value` opens the padlock of a lever the scenario set this month: a
+   *  value that has not been in force yet, which its rule would not step from. */
+  private opensLeverSetThisMonth(id: Id, value: number): boolean {
+    if (!Number.isFinite(value) || isLocked(value)) return false;
+    const e = this.engine;
+    const s = e.stabilisers().find((x) => x.lock === id);
+    return !!s?.locked && e.events.some((ev) => ev.t === e.t && ev.lever === s.lever);
+  }
+
   setLever(id: Id, value: number): void {
     this.act(() => {
+      if (this.opensLeverSetThisMonth(id, value)) this.advance(1);
       this.engine.setLever(id, value);
       if (!this.playing) this.start();
     });

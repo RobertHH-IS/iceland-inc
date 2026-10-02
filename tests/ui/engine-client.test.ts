@@ -5,7 +5,7 @@
 import { describe, expect, test } from 'bun:test';
 import { models } from '../../src/models/index.ts';
 import { createEngine } from '../../src/core/engine.ts';
-import { createEngineClient, type FeedItem } from '../../src/ui/engine-client.ts';
+import { createEngineClient, type EngineClient, type FeedItem } from '../../src/ui/engine-client.ts';
 
 const reference = models.find((m) => m.id === 'reference')!;
 const base = createEngine(reference);
@@ -257,7 +257,7 @@ describe('engine client: stabilisers and padlocks (decisions 0004 and 0010)', ()
   const iceland = models.find((m) => m.id === 'iceland')!;
   const ibase = createEngine(iceland);
 
-  test('frames carry every stabiliser; locked, the key-rate rule calls and Apply answers it', () => {
+  test('frames carry every stabiliser; locked, the key-rate rule calls, and a lever set where it is heading holds there', () => {
     const c = createEngineClient(createEngine(ibase.model, { baseline: ibase.baselineData }));
     expect(c.getFrame().stabilisers.map((s) => [s.id, s.lock, s.locked, s.calling])).toEqual([
       ['keyRateRule', 'keyRateLock', false, false],
@@ -306,6 +306,72 @@ describe('engine client: stabilisers and padlocks (decisions 0004 and 0010)', ()
     // a threshold message names its rule
     expect(c.getFrame().feed.filter((f) => !f.stabiliser).every((f) => typeof f.rule === 'string')).toBe(true);
     c.dispose();
+  });
+
+  test('a lever set and unlocked before the clock ticks is handed back from the value set: the month runs first, for all four levers with a rule', () => {
+    // A month is two seconds at 1×, so a stepper click and then the padlock land in one month. The
+    // rule steps from the value in force, and a lever set this month has not been in force yet:
+    // without the month in between the key rate went from 5% locked straight back to "auto 3%".
+    const CASES: [client: () => EngineClient, lever: string, share: [number, number]][] = [
+      [() => createEngineClient(createEngine(ibase.model, { baseline: ibase.baselineData })), 'keyRate', [0.1, 0.12]],
+      [() => createEngineClient(createEngine(ibase.model, { baseline: ibase.baselineData })), 'incomeTax', [0.035, 0.045]],
+      [fresh, 'keyRate', [0.08, 0.1]],
+      [fresh, 'taxRate', [0.035, 0.05]],
+    ];
+    for (const [make, id, share] of CASES) {
+      const c = make();
+      const pad = () => c.getFrame().stabilisers.find((s) => s.lever === id)!;
+      c.step(6);
+      const set = c.info.leverById.get(id)!.default + 2;
+      c.setLever(id, set); // moving it locks it
+      expect(pad()).toMatchObject({ locked: true, current: set });
+      c.setLever(pad().lock, 0); // the padlock, pressed in the same month
+      c.pause();
+      expect(c.getFrame().t).toBe(7);
+      expect(pad().locked).toBe(false);
+      expect(pad().current).toBeCloseTo(set, 12); // "auto" at the value set, not back where the rule stood
+      expect(c.scenario().events).toEqual([
+        { t: 6, lever: id, value: set },
+        { t: 7, lever: pad().lock, value: 0 },
+      ]);
+      for (const ind of c.info.indicators) expect(c.series(ind.id)).toHaveLength(8); // the month is recorded like any other
+      const gap = pad().suggested - set;
+      expect(gap).toBeLessThan(-1.5);
+      c.step(1);
+      const first = (pad().current - set) / gap;
+      expect(first).toBeGreaterThan(share[0]); // the rule's first step, from the value set
+      expect(first).toBeLessThan(share[1]);
+      // a shared link replays it
+      const again = make();
+      again.load(c.scenario());
+      expect(again.getFrame().stabilisers.find((s) => s.lever === id)!.current).toBe(pad().current);
+      // a lever already held, moved and unlocked in one month, is handed back from the new value too
+      c.setLever(id, set);
+      c.pause();
+      c.step(12);
+      c.setLever(id, set - 1);
+      c.setLever(pad().lock, 0);
+      c.pause();
+      expect(c.getFrame().t).toBe(21);
+      expect(pad().current).toBeCloseTo(set - 1, 12);
+      c.dispose();
+      again.dispose();
+    }
+    // a padlock closed and opened again in one month froze the value in force: no month is added
+    const k = fresh();
+    k.step(6);
+    k.setLever('keyRateLock', 1);
+    k.setLever('keyRateLock', 0);
+    k.pause();
+    expect(k.getFrame().t).toBe(6);
+    // at the end of the clock no month can run: the padlock still opens, without an error
+    const end = fresh({ maxMonths: 6 });
+    end.step(6);
+    end.setLever('keyRate', 5);
+    end.setLever('keyRateLock', 0);
+    expect([end.getFrame().t, end.getFrame().error, end.getFrame().stabilisers[0].locked]).toEqual([6, null, false]);
+    k.dispose();
+    end.dispose();
   });
 
   test('unlocked, the rules act and nothing calls', () => {

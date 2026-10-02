@@ -12,7 +12,7 @@ import { applicationModels as registryModels, createRegisteredEngine } from '../
 import { createEngineClient, type EngineClient } from './engine-client.ts';
 import type { ReportBasis } from './model/charts.ts';
 import { cleanExpanded, collapseGroup, effectiveExpanded, expandAll, expandGroup, expandableGroups, pipeBetween, reveal, viewKey } from './model/hierarchy.ts';
-import { EMPTY_NAV, navBack, navClear, navCurrent, navForward, navGo, navPush, selectionKey, type NavState, type Selection } from './model/navigation.ts';
+import { EMPTY_NAV, navBack, navClear, navCurrent, navForward, navPush, selectionKey, type NavState, type Selection } from './model/navigation.ts';
 import { linkTarget, pickModel } from './model/registry.ts';
 import { decodeScenarioHash, encodeScenarioHash, hasScenario, type HashState } from './model/scenario-url.ts';
 import { Charts } from './views/Charts.tsx';
@@ -206,7 +206,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
   const expandable = useMemo(() => expandableGroups(info), [info]);
 
   // Going to a player or group hidden inside a closed group (from the inspector, the ledger or
-  // the breadcrumbs) opens the groups around it. Closing a group keeps the selection: the map
+  // Back and Forward) opens the groups around it. Closing a group keeps the selection: the map
   // then highlights the closed group instead.
   const revealSelection = useCallback((s: Selection | null) => {
     if (s && (s.kind === 'player' || s.kind === 'group')) setExpanded((e) => reveal(info, e, s.id));
@@ -231,7 +231,6 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
   const onCloseGroup = useCallback((id: Id) => setExpanded((e) => collapseGroup(info, e, id)), [info]);
   const onBack = useCallback(() => setNav(navBack), []);
   const onForward = useCallback(() => setNav(navForward), []);
-  const onGo = useCallback((i: number) => setNav((n) => navGo(n, i)), []);
   const onClose = useCallback(() => setNav(navClear), []);
   const onShareDone = useCallback(() => setShare({ status: 'idle' }), []);
 
@@ -298,7 +297,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
           )}
         </div>
       )}
-      <LeverPanel info={info} client={client} values={frame.levers} events={frame.events} stabilisers={frame.stabilisers} onSelect={onSelect} />
+      <LeverPanel info={info} client={client} values={frame.levers} events={frame.events} stabilisers={frame.stabilisers} />
       <main className="stage panel" aria-label="The economy">
         <div className="stage-bar">
           <div className="seg-group" role="group" aria-label="View">
@@ -337,7 +336,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
         )}
       </main>
       <div className="side">
-        <Inspector info={info} client={client} frame={frame} nav={nav} expanded={eff} basis={reportBasis} onSelect={onSelect} onBack={onBack} onForward={onForward} onGo={onGo} onClose={onClose} />
+        <Inspector info={info} client={client} frame={frame} nav={nav} expanded={eff} basis={reportBasis} onSelect={onSelect} onBack={onBack} onForward={onForward} onClose={onClose} />
         <IdeasAtPlay info={info} client={client} seq={frame.seq} selection={selection} pipe={selectedPipe} onSelect={onSelect} />
         <Feed info={info} feed={frame.feed} onSelect={onSelect} />
       </div>

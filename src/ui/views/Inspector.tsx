@@ -5,13 +5,15 @@
  *             desired vs actual, terms now vs baseline, parameters with provenance, concepts)
  *   Variable  its influence; clicking a term's input walks upstream to that variable
  *   Player    live balance sheet, net worth, a warning on any position with the wrong sign
- *             (decision 0005), biggest pipes, regimes
+ *             (decision 0005), biggest pipes, the limits in force now
  *   Group     description, members, the balance sheet of all its players, biggest pipes
- *             against the map as it is, regimes
+ *             against the map as it is, the limits in force now
  *   Indicator description, drivers, a big chart and the drivers' influences
  *   Concept   the concept card
  *
- * Breadcrumbs keep the path of clicks, with back and forward.
+ * Back and forward step through what was clicked. The header shows no trail of past clicks: it
+ * grew by a line with every click (the owner's decision, 2 October 2026); the buttons' titles
+ * name where they lead.
  */
 import { memo, useEffect, useRef, type ReactNode } from 'react';
 import type { BalanceSheet, FlowKind, Id, Influence } from '../../core/types.ts';
@@ -24,7 +26,7 @@ import { nodeColor, nodeLabel, nodeMembers, varLabel, type ModelInfo } from '../
 import { cardFamily, GROUP_NOUNS } from '../model/player-cards.ts';
 import { FinancialDetail } from './FinancialDetail.tsx';
 import { labels } from '../labels.ts';
-import { canBack, canForward, navCurrent, selectionKey, selectionLabel, type NavState } from '../model/navigation.ts';
+import { canBack, canForward, navBack, navCurrent, navForward, selectionKey, selectionLabel, type NavState } from '../model/navigation.ts';
 import { POSITION_NOTE, positionWarnings } from '../model/signs.ts';
 import { changeBar, deviation, signTone } from '../model/styling.ts';
 import { ChartSvg } from './ChartSvg.tsx';
@@ -40,14 +42,16 @@ interface InspectorProps {
   onSelect: OnSelect;
   onBack: () => void;
   onForward: () => void;
-  onGo: (index: number) => void;
   onClose: () => void;
   basis?: ReportBasis;
 }
 
-export function Inspector({ info, client, frame, nav, expanded, onSelect, onBack, onForward, onGo, onClose, basis = 'nominal' }: InspectorProps) {
+export function Inspector({ info, client, frame, nav, expanded, onSelect, onBack, onForward, onClose, basis = 'nominal' }: InspectorProps) {
   const sel = navCurrent(nav);
-  const first = Math.max(0, nav.stack.length - 6);
+  const back = navCurrent(navBack(nav));
+  const forward = navCurrent(navForward(nav));
+  const backTitle = canBack(nav) && back ? `Back to ${selectionLabel(back, info)}` : 'Back';
+  const forwardTitle = canForward(nav) && forward ? `Forward to ${selectionLabel(forward, info)}` : 'Forward';
   const body = useRef<HTMLDivElement>(null);
   const key = sel ? selectionKey(sel) : '';
   useEffect(() => {
@@ -59,11 +63,11 @@ export function Inspector({ info, client, frame, nav, expanded, onSelect, onBack
     <section className="inspector panel" aria-labelledby="inspector-title">
       <div className="panel-head">
         <h2 id="inspector-title">Inspector</h2>
-        <div className="crumb-nav">
-          <button type="button" className="icon-btn tiny" onClick={onBack} disabled={!canBack(nav)} aria-label="Back to the previous selection">
+        <div className="insp-nav">
+          <button type="button" className="icon-btn tiny" onClick={onBack} disabled={!canBack(nav)} aria-label={backTitle} title={backTitle}>
             <Icon name="back" size={14} />
           </button>
-          <button type="button" className="icon-btn tiny" onClick={onForward} disabled={!canForward(nav)} aria-label="Forward">
+          <button type="button" className="icon-btn tiny" onClick={onForward} disabled={!canForward(nav)} aria-label={forwardTitle} title={forwardTitle}>
             <Icon name="forward" size={14} />
           </button>
           {sel && (
@@ -73,24 +77,6 @@ export function Inspector({ info, client, frame, nav, expanded, onSelect, onBack
           )}
         </div>
       </div>
-      {nav.stack.length > 0 && (
-        <nav className="crumbs" aria-label="What you clicked">
-          <ol>
-            {first > 0 && <li className="muted">…</li>}
-            {nav.stack.slice(first).map((s, j) => {
-              const i = first + j;
-              const current = i === nav.index;
-              return (
-                <li key={i}>
-                  <button type="button" className={`crumb ${current ? 'current' : ''}`} aria-current={current ? 'page' : undefined} onClick={() => onGo(i)}>
-                    <span className="crumb-kind">{labels.selectionKind[s.kind]}</span> {selectionLabel(s, info)}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-      )}
       <div className="panel-body scroll" ref={body}>
         {!sel && <Intro info={info} />}
         {sel?.kind === 'pipe' && <PipeDetail info={info} client={client} frame={frame} from={sel.from} to={sel.to} kind={sel.flowKind} onSelect={onSelect} />}
@@ -361,7 +347,8 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
     .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
     .slice(0, 8);
   const memberSet = new Set(members);
-  const regimes = [...info.regimeOwners].filter(([, owners]) => owners.some((o) => memberSet.has(o)));
+  // only the rules whose limit, floor or cap is in force now: a list of everything "normal" is noise
+  const active = [...info.regimeOwners].filter(([ruleId, owners]) => frame.regimes[ruleId] && owners.some((o) => memberSet.has(o)));
   const path = info.ancestorsOf.get(id) ?? [];
   const warnings = positionWarnings(info, frame.signViolations).filter((w) => memberSet.has(w.player));
   const warned = (instrument: Id, role: 'holder' | 'issuer') => warnings.some((w) => w.instrument === instrument && w.role === role);
@@ -474,19 +461,18 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
           );
         })}
       </ul>
-      {regimes.length > 0 && (
+      {active.length > 0 && (
         <>
-          <h4 className="sub">Regimes</h4>
+          <h4 className="sub">Limits in force</h4>
           <ul className="regime-list">
-            {regimes.map(([ruleId]) => {
+            {active.map(([ruleId]) => {
               const r = info.ruleById.get(ruleId)!;
-              const active = frame.regimes[ruleId];
               return (
                 <li key={ruleId}>
                   <NavLink selection={{ kind: 'var', id: r.target }} onSelect={onSelect}>
                     {r.label ?? varLabel(info, r.target)}
                   </NavLink>
-                  <span className={`chip ${active ? 'regime' : 'quiet'}`}>{active ?? 'normal'}</span>
+                  <span className="chip regime">{frame.regimes[ruleId]}</span>
                 </li>
               );
             })}

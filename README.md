@@ -14,7 +14,7 @@ The model follows the flow paradigm of Wynne Godley and Steve Keen:
 - **Flows** move money between them. Every flow is recorded twice, as a minus for the payer and a plus for the payee, so nothing leaks.
 - **Stocks** (deposits, loans, bonds, homes) change only because flows post to them. Money is created when banks lend or buy government bonds, and destroyed when loans are repaid. It is never set by a formula.
 - **Rules** decide how big each flow is. Each variable has one rule, labelled as accounting, contract, behaviour or policy, and built from named terms. That makes "why is this moving?" answerable exactly.
-- **Policy has padlocks.** The key rate and income tax have rules behind them: the central bank's inflation rule and the debt rule. Unlocked (the default) the rule moves the lever; move the lever, or close its padlock, and it stays where you set it while the rule only suggests, turning the lever red when it would move it. Every other policy lever stays where you set it.
+- **Policy has padlocks.** The key rate and income tax have rules behind them: the central bank's inflation rule and the debt rule. Unlocked (the default) the rule moves the lever; move the lever, or close its padlock, and it stays where you set it while everything else reacts; open the padlock and the rule takes the lever over from that value. Every other policy lever stays where you set it.
 - **Concepts** such as endogenous money, markup pricing, the Taylor rule and the credit impulse are attached to rules, so the interface can say which ideas are doing the work at any moment.
 
 ## Status

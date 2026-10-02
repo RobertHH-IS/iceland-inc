@@ -18,7 +18,7 @@ interface SparkProps {
 }
 
 /** The line, the reference (zero) line and amber marks at lever events. */
-export const ChartSvg = memo(function ChartSvg({ win, events, info, width = 160, height = 54, axes = false, unit = '' }: SparkProps) {
+export const ChartSvg = memo(function ChartSvg({ win, events, info, width = 160, height = 84, axes = false, unit = '' }: SparkProps) {
   const padL = axes ? 44 : 0,
     padB = axes ? 16 : 0,
     padT = axes ? 18 : 2;

@@ -1,5 +1,5 @@
 /**
- * What the inspector shows, and breadcrumb navigation through what the user clicked.
+ * What the inspector shows, and back/forward navigation through what the user clicked.
  * Pure data and reducers.
  */
 import type { FlowKind, Id } from '../../core/types.ts';
@@ -61,10 +61,6 @@ export function navForward(n: NavState): NavState {
   return canForward(n) ? { ...n, index: n.index + 1 } : n;
 }
 
-export function navGo(n: NavState, index: number): NavState {
-  return index >= 0 && index < n.stack.length ? { ...n, index } : n;
-}
-
 /** Close the inspector. The history up to the closed item is kept, so Back reopens it. */
 export function navClear(n: NavState): NavState {
   return n.index < 0 ? n : { stack: [...n.stack.slice(0, n.index + 1)], index: -1 };
@@ -88,7 +84,7 @@ export function selectionScope(s: Selection | null): Id | undefined {
   }
 }
 
-/** Short label for breadcrumbs and headings. */
+/** Short label for headings and the back and forward buttons. */
 export function selectionLabel(s: Selection, info: ModelInfo): string {
   switch (s.kind) {
     case 'pipe':

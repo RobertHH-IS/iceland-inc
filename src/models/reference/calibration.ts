@@ -10,7 +10,7 @@ const peak = (xs: number[]) => Math.max(...xs);
 const trough = (xs: number[]) => Math.min(...xs);
 /** Mean of months from..to (the series starts at month 0). */
 const mean = (xs: number[], from: number, to: number) => xs.slice(from, to + 1).reduce((s, x) => s + x, 0) / (to - from + 1);
-/** Both policy levers locked (the old Manual setting): the rules only suggest, so nothing offsets
+/** Both policy levers locked (the old Manual setting): the rules do not act, so nothing offsets
  *  the shock (decisions 0004 and 0010). */
 const LOCKED = [
   { t: 0, lever: 'keyRateLock', value: 1 },

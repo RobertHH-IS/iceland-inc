@@ -6,7 +6,7 @@ import { describe, expect, test } from 'bun:test';
 import { models } from '../../src/models/index.ts';
 import { createEngine } from '../../src/core/engine.ts';
 import { describeModel } from '../../src/ui/model/info.ts';
-import { EMPTY_NAV, canBack, canForward, navBack, navClear, navCurrent, navForward, navGo, navPush, selectionScope, selectionValid, viaTarget, type Selection } from '../../src/ui/model/navigation.ts';
+import { EMPTY_NAV, canBack, canForward, navBack, navClear, navCurrent, navForward, navPush, selectionScope, selectionValid, viaTarget, type Selection } from '../../src/ui/model/navigation.ts';
 import { inlineText, parseInline, parseMarkdown, safeHref } from '../../src/ui/model/markdown.ts';
 import { PLAYER_CARDS, resolveCardMetrics } from '../../src/ui/model/player-cards.ts';
 import { staticConcepts, topIdeas } from '../../src/ui/model/ideas.ts';
@@ -17,12 +17,12 @@ const reference = models.find((m) => m.id === 'reference')!;
 const engine = createEngine(reference);
 const info = describeModel(engine.model, (id) => engine.baseline(id));
 
-describe('breadcrumb navigation', () => {
+describe('back and forward navigation', () => {
   const a: Selection = { kind: 'player', id: 'HH' };
   const b: Selection = { kind: 'var', id: 'consumption' };
   const c: Selection = { kind: 'concept', id: 'multiplier' };
 
-  test('push, back, forward, go', () => {
+  test('push, back, forward', () => {
     let n = navPush(navPush(navPush(EMPTY_NAV, a), b), c);
     expect(navCurrent(n)).toEqual(c);
     n = navBack(navBack(n));
@@ -31,7 +31,7 @@ describe('breadcrumb navigation', () => {
     expect(canForward(n)).toBe(true);
     n = navForward(n);
     expect(navCurrent(n)).toEqual(b);
-    expect(navCurrent(navGo(n, 2))).toEqual(c);
+    expect(navCurrent(navForward(n))).toEqual(c);
   });
 
   test('opening something new drops the forward history; re-opening the current item does nothing', () => {

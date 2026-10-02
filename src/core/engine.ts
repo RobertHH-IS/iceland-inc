@@ -20,7 +20,10 @@
  * Padlocks (decision 0010). Each stabiliser's lever has a padlock, a 'lock' lever. Closing it
  * freezes the lever at the value in force (StabiliserDef.current); setting a lever while its
  * padlock is open closes it at the new value. Both happen inside applyEvent, so the interface,
- * scenarios, replays and forks agree.
+ * scenarios, replays and forks agree. Opening it hands the lever back to its rule, which steps
+ * from the value in force. A lever is in force once a month has run with it: one set and unlocked
+ * in the same month never was, and the rule carries on from where it stood (the interface runs the
+ * month first, EngineClient.setLever).
  */
 import type {
   BalanceSheet,
