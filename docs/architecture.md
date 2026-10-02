@@ -142,7 +142,7 @@ The kernel first uses the module's closed-form solver if there is one. It then p
 
 The engine starts every run from the solved baseline. `lag()` before month 0 reads a lag history that `Machine.initHistory` sets up: month 0's values, and optionally earlier months for some variables. From the steady state the history is flat, because a steady state has no past to speak of. A start from today's data will pass its own months before month 0 ([design](design/start-from-today.md) §2.5). The engine's `lagWindow` option reaches the baseline solver too, so a rule may look back further than two years.
 
-The engine is ready for a **balanced-growth baseline**. Variables carry a `scale` of `nominal`, `real` or `none`, so the solver can work on ratios to nominal GDP. That is needed for real growth with 2.5% inflation (roadmap v2), which also fixes v1's overstated pension payouts.
+Variables already carry a `scale` of `nominal`, `real` or `none` for a future **balanced-growth baseline**. The current solver still finds a stationary fixed point; the metadata does not add growth, inflation, population changes or equity appreciation. A dated initial state, historical lags and an evolving no-change reference run are also still proposed in [start from today's data](design/start-from-today.md). The dated observations in the interface are comparisons with the outside world, rather than inputs to the engine.
 
 ### 4.6 Scenarios, time travel and counterfactuals
 

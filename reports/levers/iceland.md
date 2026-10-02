@@ -42,26 +42,26 @@ Number of runs with each flag (comparisons between runs count once per pair; an 
 | [Debt-service cap](#debt-service-cap-dsticap) (`dstiCap`) | 12 |  |  |  |  |  |  |  |  | 3 |  |  |  |  |  | 9 | 5/0 |
 | [Loan-to-value cap](#loan-to-value-cap-ltvcap) (`ltvCap`) | 12 |  |  |  |  |  |  |  |  | 5 |  |  |  |  |  | 9 | 5/0 |
 | [Tourism](#tourism-tourism) (`tourism`) | 12 |  |  |  |  | 3 |  | 6 |  | 12 | 1 |  |  |  |  | 12 | 12/0 |
-| [World fish prices](#world-fish-prices-fishprices) (`fishPrices`) | 12 |  |  |  |  |  |  |  |  | 12 | 1 |  |  |  |  | 12 | 14/0 |
+| [World fish prices](#world-fish-prices-fishprices) (`fishPrices`) | 12 |  |  |  |  |  |  |  |  | 12 | 6 |  |  |  |  | 12 | 14/0 |
 | [Króna sentiment shock](#króna-sentiment-shock-kronashock) (`kronaShock`) | 18 |  |  |  |  |  |  |  |  | 18 |  |  | 3 |  |  | 18 | 8/0 |
 | [Foreign demand](#foreign-demand-foreigndemand) (`foreignDemand`) | 12 |  |  |  |  |  |  |  |  | 12 | 1 |  |  |  |  | 11 | 8/0 |
 | [World prices](#world-prices-importprices) (`importPrices`) | 12 |  |  |  |  | 3 |  |  |  | 12 |  |  | 4 |  |  | 12 | 8/0 |
 | [Foreign interest rate](#foreign-interest-rate-foreignrate) (`foreignRate`) | 12 |  |  |  |  | 1 |  |  |  | 12 | 4 |  |  |  |  | 11 | 7/0 |
-| [World aluminium price](#world-aluminium-price-aluminiumprice) (`aluminiumPrice`) | 12 |  |  |  |  |  |  |  |  | 10 |  |  |  |  |  | 10 | 7/0 |
+| [World aluminium price](#world-aluminium-price-aluminiumprice) (`aluminiumPrice`) | 12 |  |  |  |  |  |  |  |  | 10 | 2 |  |  |  |  | 10 | 7/0 |
 | [Wage settlement](#wage-settlement-wagesettlement) (`wageSettlement`) | 12 |  |  |  |  |  |  |  |  | 6 |  |  |  |  |  | 11 | 10/0 |
 | [Net immigration](#net-immigration-netimmigration) (`netImmigration`) | 15 |  |  |  |  |  |  | 15 |  | 15 |  |  | 5 |  |  | 14 | 5/0 |
-| [Migration buffer](#migration-buffer-migration) (`migration`) | 12 + 12 |  |  |  |  |  |  |  |  | 9 |  |  |  |  | 1 | 12 | 7/0 |
+| [Migration buffer](#migration-buffer-migration) (`migration`) | 12 + 12 |  |  |  |  |  |  |  |  | 10 |  |  |  |  | 1 | 12 | 7/0 |
 | [Income-tax rate](#income-tax-rate-incometax) (`incomeTax`) | 8 |  |  |  |  | 6 |  |  |  | 8 | 5 |  |  |  |  | 8 | 18/0 |
 | [VAT rate](#vat-rate-vat) (`vat`) | 12 |  |  |  |  | 4 |  |  |  | 12 | 1 |  | 4 |  |  | 10 | 9/0 |
 | [Health spending](#health-spending-health) (`health`) | 12 |  |  |  |  | 4 |  | 12 |  | 12 | 3 |  | 2 |  |  | 10 | 8/0 |
 | [Education spending](#education-spending-education) (`education`) | 12 |  |  |  |  | 4 |  | 12 |  | 12 | 3 |  | 4 |  |  | 11 | 6/0 |
 | [Other public services](#other-public-services-otherservices) (`otherServices`) | 12 |  |  |  |  | 4 |  | 12 |  | 12 | 2 |  | 4 |  |  | 9 | 6/0 |
-| [Public investment](#public-investment-publicinvestment) (`publicInvestment`) | 12 |  |  |  |  | 4 |  | 12 |  | 12 | 2 |  |  |  |  | 8 | 8/0 |
+| [Public investment](#public-investment-publicinvestment) (`publicInvestment`) | 12 |  |  |  |  | 4 |  | 12 |  | 12 | 3 |  |  |  |  | 8 | 8/0 |
 | [Old-age and disability transfers](#old-age-and-disability-transfers-oldagetransfers) (`oldAgeTransfers`) | 12 |  |  |  |  |  |  |  |  | 12 |  |  |  |  |  | 3 | 7/0 |
 | [Family and housing benefits](#family-and-housing-benefits-familybenefits) (`familyBenefits`) | 12 |  |  |  |  |  |  |  |  | 12 |  |  |  |  |  | 7 | 7/0 |
 | [Unemployment-benefit rate](#unemployment-benefit-rate-unemploymentbenefits) (`unemploymentBenefits`) | 12 |  |  |  |  |  |  |  |  | 12 |  |  | 2 |  |  |  | 5/0 |
 | [Who buys new government bonds](#who-buys-new-government-bonds-bondbuyers) (`bondBuyers`) | 12 + 12 |  |  |  |  |  |  |  |  | 6 |  |  |  |  | 1 | 7 | 6/0 |
-| [Pension funds’ foreign allocation](#pension-funds-foreign-allocation-pfforeign) (`pfForeign`) | 12 |  |  |  |  | 1 |  |  |  | 12 | 1 |  |  |  |  | 12 | 8/0 |
+| [Pension funds’ foreign allocation](#pension-funds-foreign-allocation-pfforeign) (`pfForeign`) | 12 |  |  |  |  | 1 |  |  |  | 12 | 2 |  |  |  |  | 12 | 8/0 |
 
 The padlocks (`keyRateLock`, `incomeTaxLock`) are not run as levers: they set up the lock configurations every other lever runs in.
 
@@ -143,9 +143,9 @@ The padlocks are checked by closing (1) or opening (0) one at month 0 with no sh
 
 *Setting, unit %, default 3, range 0 to 15 in steps of 0.25.*
 
-The central bank’s key interest rate. Unlocked (the default), the central bank’s inflation rule sets it and the lever follows the rule. Move the lever, or close its padlock, to hold the rate yourself; the rule then stands aside until you unlock it.
+The central bank’s key interest rate. Unlocked (the default), the central bank’s inflation rule sets it and the lever follows the rule. Move the lever, or close its padlock, to hold the rate yourself; the rule then only suggests a rate beside the lever.
 
-**Definition.** Level of the key rate in percent a year. Unlocked (the default) the central bank’s inflation rule sets it every month, and the lever shows the rule’s rate. Moving the lever, or closing its padlock, locks it: the key rate is then held at the lever’s level from the month it is set until you move it again, and the rule stands aside until you unlock it. Closing the padlock holds the rate in force that month. Unlocking hands the key rate back to the rule, which moves from the rate you held about a tenth of the way toward where it is heading each month, so the rate does not jump. The default, 3%, is the neutral rate, so the baseline is unchanged. The rule reads three things: the inflation people expect, inflation over the past year at constant VAT, and the output gap, which it reads from how far unemployment is below normal (decision 0012). So it looks partly through a jump in prices that comes from costs. After a wage settlement of 10%, inflation is 2.6 points higher after a year but the key rate only 0.7 point higher, because jobs are being lost and expected inflation has risen only about 1 point; after world prices 10% higher (inflation +2.0 points) the key rate is 1.2 points higher, and after the króna 10% weaker (+1.8 points) 1.0 point. For a while the real interest rate falls, which softens the blow to jobs. A VAT rise is left out of the inflation the rule reads, but people’s expectations rise with the higher prices, so the rule still leans against it at first, even as output falls: after VAT +2.5 points the key rate is 0.4 point higher after nine months, and it is cut below baseline only from the third year, once expectations have come back down. While the key rate is locked, nothing anchors inflation but people’s partial trust in the target: a lasting change that keeps unemployment off its normal rate keeps inflation off target for as long as you hold the rate, and the price level drifts (Wicksell’s cumulative process; decisions 0002 §6 and 0014). Held while income tax is unlocked, the central bank no longer steadies the economy, so the debt rule does more than lean on debt: it also leans against the cycle, adding income tax when output is above potential and cutting it when output is below (half a point of tax per 1% of output gap), and leans on debt only half as hard, as fiscal rules must when monetary policy does not act (Kirsanova, Leith and Wren-Lewis 2009; decision 0016). And it does not let debt push the tax against the cycle: while output is more than 1% below potential it raises no tax, whatever rate you hold, and while output is above potential it does not hand lower debt back as tax cuts. So a higher rate still cools the economy, and the debt rule pays for the higher interest bill slowly, once the slump has faded: at 6%, output is about 1.4% below baseline after a year and 2.2% below after three, as the rule cuts taxes a little; then output recovers and the rule raises them as debt builds up: 0.3% below after 20 years, with the price level 4% lower, government debt 34 points of GDP higher and income tax 3.5 points higher. Held 5 points above neutral or more, the debt built up in the slump lifts output a little above baseline for a few years in the second decade (at 8%, by up to 0.4% around year ten), the interest-income channel described below, before the rule’s tax rises bring it back down. When private demand falls, the rule cuts taxes instead of deepening the slump: after lending appetite −3, output is 0.4% below baseline after 20 years with income tax 0.6 point higher (before decision 0016, when the rule leaned on debt alone, 1.3% below with income tax 1.1 points higher). At 15% the interest bill runs away: debt ends about 270 points of GDP higher and income tax 33 points higher, rates no government could sustain; treat that run as showing why real central banks do not hold such rates, not as a forecast. Held at 0%, output is 1.4% higher after a year and 2.3% after three; the rule raises taxes against the boom (half a point by year five) and cuts them only once it has passed, so output is 0.4% higher after 20 years and the price level 5.7% higher. With income tax locked too, nothing in the model reacts, and any lasting move reverses its effect on output after about ten years, roughly in proportion to its size. That is the interest-income channel of stock-flow models (Godley and Lavoie’s model PC; decision 0014). A rise first cools the economy, but the government then pays more interest every year, as its bonds are refinanced at the higher rate (about a fifth of them a year) and on a debt that grows with that interest, and with tax rates held that interest is private income. It reaches people two ways: at once, as interest on older households’ bonds and deposits, which they spend; and slowly, through the pension funds, whose extra income is credited to members’ pension rights and raises pensions only as the rights are paid out (at 6%, pensions buy about 0.7% more after a year, 5% more after five years and 13% more after 20). Once enough debt has built up, spending out of that income outweighs the higher rate. That is the strong end of the evidence: tightening does lower output for more than a decade (Jordà, Singh and Taylor 2024), but savers who gain interest income spend little of it (Auclert 2019), so a real economy would reverse later, if at all. At 4%, output is about 0.5% below baseline after a year and about 0.8% below at the trough early in the fourth year, back above it from about month 138 and about 0.7% above after 20 years; bigger moves reverse sooner and much further. At 6%, output is 2.3% lower at the trough, above baseline from month 126 and 2.9% higher after 20 years, with inflation 0.9 point higher. At the top of the range the run becomes explosive: at 15%, output falls 10% by the fourth year, is above baseline from month 110, and after 20 years is 34% higher with unemployment 3 points lower, the price level 61% higher, real wages 38% lower, government debt 320 points of GDP higher and the deficit 42% of GDP, still accelerating. It explodes because interest compounds on a debt that fixed tax rates never pay down, with the interest rate far above the economy’s growth, not because the central bank prints money to pay the bills: the model has no route by which it would, and no risk premium on government debt. In real economies a debt this large would also raise questions of fiscal dominance, which the model leaves out. Nor does the model follow the fiscal theory of the price level, the leading theory for a held rate with fixed taxes, which predicts a one-time jump in prices after which inflation settles: here prices keep trending. A cut mirrors this.
+**Definition.** Level of the key rate in percent a year. Unlocked (the default) the central bank’s inflation rule sets it every month, and the lever shows the rule’s rate. Moving the lever, or closing its padlock, locks it: the key rate is then held at the lever’s level from the month it is set until you move it again, and the rule only suggests a rate beside the lever. Closing the padlock holds the rate in force that month. Unlocking hands the key rate back to the rule, which moves from the rate you held about a tenth of the way toward where it is heading each month, so the rate does not jump. The default, 3%, is the neutral rate, so the baseline is unchanged. The rule reads three things: the inflation people expect, inflation over the past year at constant VAT, and the output gap, which it reads from how far unemployment is below normal (decision 0012). So it looks partly through a jump in prices that comes from costs. After a wage settlement of 10%, inflation is 2.6 points higher after a year but the key rate only 0.7 point higher, because jobs are being lost and expected inflation has risen only about 1 point; after world prices 10% higher (inflation +2.0 points) the key rate is 1.2 points higher, and after the króna 10% weaker (+1.8 points) 1.0 point. For a while the real interest rate falls, which softens the blow to jobs. A VAT rise is left out of the inflation the rule reads, but people’s expectations rise with the higher prices, so the rule still leans against it at first, even as output falls: after VAT +2.5 points the key rate is 0.4 point higher after nine months, and it is cut below baseline only from the third year, once expectations have come back down. While the key rate is locked, nothing anchors inflation but people’s partial trust in the target: a lasting change that keeps unemployment off its normal rate keeps inflation off target for as long as you hold the rate, and the price level drifts (Wicksell’s cumulative process; decisions 0002 §6 and 0014). Held while income tax is unlocked, the central bank no longer steadies the economy, so the debt rule does more than lean on debt: it also leans against the cycle, adding income tax when output is above potential and cutting it when output is below (half a point of tax per 1% of output gap), and leans on debt only half as hard, as fiscal rules must when monetary policy does not act (Kirsanova, Leith and Wren-Lewis 2009; decision 0016). And it does not let debt push the tax against the cycle: while output is more than 1% below potential it raises no tax, whatever rate you hold, and while output is above potential it does not hand lower debt back as tax cuts. So a higher rate still cools the economy, and the debt rule pays for the higher interest bill slowly, once the slump has faded: at 6%, output is about 1.4% below baseline after a year and 2.2% below after three, as the rule cuts taxes a little; then output recovers and the rule raises them as debt builds up: 0.3% below after 20 years, with the price level 4% lower, government debt 34 points of GDP higher and income tax 3.5 points higher. Held 5 points above neutral or more, the debt built up in the slump lifts output a little above baseline for a few years in the second decade (at 8%, by up to 0.4% around year ten), the interest-income channel described below, before the rule’s tax rises bring it back down. When private demand falls, the rule cuts taxes instead of deepening the slump: after lending appetite −3, output is 0.4% below baseline after 20 years with income tax 0.6 point higher (before decision 0016, when the rule leaned on debt alone, 1.3% below with income tax 1.1 points higher). At 15% the interest bill runs away: debt ends about 270 points of GDP higher and income tax 33 points higher, rates no government could sustain; treat that run as showing why real central banks do not hold such rates, not as a forecast. Held at 0%, output is 1.4% higher after a year and 2.3% after three; the rule raises taxes against the boom (half a point by year five) and cuts them only once it has passed, so output is 0.4% higher after 20 years and the price level 5.7% higher. With income tax locked too, nothing in the model reacts, and any lasting move reverses its effect on output after about ten years, roughly in proportion to its size. That is the interest-income channel of stock-flow models (Godley and Lavoie’s model PC; decision 0014). A rise first cools the economy, but the government then pays more interest every year, as its bonds are refinanced at the higher rate (about a fifth of them a year) and on a debt that grows with that interest, and with tax rates held that interest is private income. It reaches people two ways: at once, as interest on older households’ bonds and deposits, which they spend; and slowly, through the pension funds, whose extra income is credited to members’ pension rights and raises pensions only as the rights are paid out (at 6%, pensions buy about 0.7% more after a year, 5% more after five years and 13% more after 20). Once enough debt has built up, spending out of that income outweighs the higher rate. That is the strong end of the evidence: tightening does lower output for more than a decade (Jordà, Singh and Taylor 2024), but savers who gain interest income spend little of it (Auclert 2019), so a real economy would reverse later, if at all. At 4%, output is about 0.5% below baseline after a year and about 0.8% below at the trough early in the fourth year, back above it from about month 138 and about 0.7% above after 20 years; bigger moves reverse sooner and much further. At 6%, output is 2.3% lower at the trough, above baseline from month 126 and 2.9% higher after 20 years, with inflation 0.9 point higher. At the top of the range the run becomes explosive: at 15%, output falls 10% by the fourth year, is above baseline from month 110, and after 20 years is 34% higher with unemployment 3 points lower, the price level 61% higher, real wages 38% lower, government debt 320 points of GDP higher and the deficit 42% of GDP, still accelerating. It explodes because interest compounds on a debt that fixed tax rates never pay down, with the interest rate far above the economy’s growth, not because the central bank prints money to pay the bills: the model has no route by which it would, and no risk premium on government debt. In real economies a debt this large would also raise questions of fiscal dominance, which the model leaves out. Nor does the model follow the fiscal theory of the price level, the leading theory for a held rate with fixed taxes, which predicts a one-time jump in prices after which inflation settles: here prices keep trending. A cut mirrors this.
 
 Runs: 0 % (min); 2.25 % (down); 6 % (up); 15 % (max). Each is set before month 1 and held.
 
@@ -289,7 +289,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Extreme**: Government debt / GDP 34.2 pp of GDP at month 240.
-- **Unsettled**: Króna value: moved 0.12 in the last 12 months, 2.98 at month 240; Real wages: moved 0.03 in the last 12 months, -0.44 at month 240; Household consumption (real): moved 0.13 in the last 12 months, -1.36 at month 240; Exports (real): moved -0.02 in the last 12 months, 0.64 at month 240; and 19 more.
+- **Unsettled**: Króna value: moved 0.12 in the last 12 months, 2.98 at month 240; Real wages: moved 0.03 in the last 12 months, -0.44 at month 240; Household consumption (real): moved 0.13 in the last 12 months, -1.36 at month 240; Exports (real): moved -0.02 in the last 12 months, 0.64 at month 240; and 20 more.
 - **Regimes**: keyRate; stressTestPayment; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -333,7 +333,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Extreme**: Broad money (bank deposits) 125 % at month 240; Government debt / GDP 272 pp of GDP at month 240; Profits, exporters (real) 74.4 % at month 240; Income-tax rate 33.1 pp at month 240.
-- **Unsettled**: Consumer price level: moved 1.86 in the last 12 months, 14.2 at month 240; Króna value: moved -1.05 in the last 12 months, -33.1 at month 240; Mortgage debt / GDP: moved -1.35 in the last 12 months, -24.8 at month 240; Government debt / GDP: moved 10.5 in the last 12 months, 272 at month 240; and 9 more.
+- **Unsettled**: Consumer price level: moved 1.86 in the last 12 months, 14.2 at month 240; Króna value: moved -1.05 in the last 12 months, -33.1 at month 240; Mortgage debt / GDP: moved -1.35 in the last 12 months, -24.8 at month 240; Government debt / GDP: moved 10.5 in the last 12 months, 272 at month 240; and 11 more.
 - **Explosive**: Broad money (bank deposits): moved 10.3 in the last 12 months, 125 at month 240.
 - **Regimes**: neutralRate; keyRateSuggestion; keyRate; loanPremium; stressTestPayment; mortgageLendingY; mortgageLendingW; consumptionW; and 10 more.
 
@@ -390,7 +390,7 @@ Unmoved (every effect below 0.005): Income-tax rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.17 in the last 12 months, -0.66 at month 240; Inflation (12-month CPI): moved -0.06 in the last 12 months, -0.19 at month 240; Consumer price level: moved -0.21 in the last 12 months, 5.90 at month 240; Unemployment rate: moved 0.06 in the last 12 months, 0.14 at month 240; and 33 more.
+- **Unsettled**: Output (real GDP): moved -0.17 in the last 12 months, -0.66 at month 240; Inflation (12-month CPI): moved -0.06 in the last 12 months, -0.19 at month 240; Consumer price level: moved -0.21 in the last 12 months, 5.90 at month 240; Unemployment rate: moved 0.06 in the last 12 months, 0.14 at month 240; and 34 more.
 - **Regimes**: depositRate; consumptionY; consumptionW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -432,7 +432,7 @@ Unmoved (every effect below 0.005): Income-tax rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.04 in the last 12 months, -0.34 at month 240; Consumer price level: moved -0.10 in the last 12 months, 0.55 at month 240; Króna value: moved 0.13 in the last 12 months, -0.23 at month 240; Real wages: moved 0.02 in the last 12 months, 0.29 at month 240; and 23 more.
+- **Unsettled**: Output (real GDP): moved -0.04 in the last 12 months, -0.34 at month 240; Consumer price level: moved -0.10 in the last 12 months, 0.55 at month 240; Króna value: moved 0.13 in the last 12 months, -0.23 at month 240; Real wages: moved 0.02 in the last 12 months, 0.29 at month 240; and 25 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -472,7 +472,7 @@ Unmoved (every effect below 0.005): Income-tax rate, VAT rate (effective).
 Flags:
 
 - **Extreme**: Government debt / GDP 42.5 pp of GDP at month 240.
-- **Unsettled**: Output (real GDP): moved 0.25 in the last 12 months, 2.86 at month 240; Inflation (12-month CPI): moved 0.06 in the last 12 months, 0.88 at month 240; Consumer price level: moved 0.89 in the last 12 months, 2.07 at month 240; Unemployment rate: moved -0.08 in the last 12 months, -0.84 at month 240; and 35 more.
+- **Unsettled**: Output (real GDP): moved 0.25 in the last 12 months, 2.86 at month 240; Inflation (12-month CPI): moved 0.06 in the last 12 months, 0.88 at month 240; Consumer price level: moved 0.89 in the last 12 months, 2.07 at month 240; Unemployment rate: moved -0.08 in the last 12 months, -0.84 at month 240; and 37 more.
 - **Regimes**: stressTestPayment; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -514,8 +514,8 @@ Unmoved (every effect below 0.005): Income-tax rate, VAT rate (effective).
 Flags:
 
 - **Extreme**: Consumer price level 61.3 % at month 240; Króna value -54.0 % (+ stronger) at month 240; Broad money (bank deposits) 312 % at month 240; Government balance -41.7 pp of GDP at month 240; Government debt / GDP 320 pp of GDP at month 240; and 2 more.
-- **Unsettled**: Output (real GDP): moved 3.42 in the last 12 months, 33.5 at month 240; Inflation (12-month CPI): moved 0.40 in the last 12 months, 8.55 at month 240; Króna value: moved -5.64 in the last 12 months, -54.0 at month 240; Household consumption (real): moved 0.66 in the last 12 months, 22.7 at month 240; and 25 more.
-- **Explosive**: Consumer price level: moved 12.7 in the last 12 months, 61.3 at month 240; Real wages: moved -4.74 in the last 12 months, -38.2 at month 240; Exports (real): moved 5.15 in the last 12 months, 38.1 at month 240; Broad money (bank deposits): moved 44.7 in the last 12 months, 312 at month 240; and 14 more.
+- **Unsettled**: Output (real GDP): moved 3.42 in the last 12 months, 33.5 at month 240; Inflation (12-month CPI): moved 0.40 in the last 12 months, 8.55 at month 240; Króna value: moved -5.64 in the last 12 months, -54.0 at month 240; Household consumption (real): moved 0.66 in the last 12 months, 22.7 at month 240; and 26 more.
+- **Explosive**: Consumer price level: moved 12.7 in the last 12 months, 61.3 at month 240; Real wages: moved -4.74 in the last 12 months, -38.2 at month 240; Exports (real): moved 5.15 in the last 12 months, 38.1 at month 240; Broad money (bank deposits): moved 44.7 in the last 12 months, 312 at month 240; and 15 more.
 - **Regimes**: neutralRate; keyRateSuggestion; loanPremium; stressTestPayment; mortgageLendingY; mortgageLendingW; consumptionW; bondPurchasesW; and 10 more.
 
 Regimes that differ from the no-change run:
@@ -609,7 +609,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.03 in the last 12 months, -0.16 at month 240; Real wages: moved -0.03 in the last 12 months, 0.30 at month 240; Investment (real): moved 0.03 in the last 12 months, 0.62 at month 240; Exports (real): moved 0.03 in the last 12 months, -0.47 at month 240; and 13 more.
+- **Unsettled**: Output (real GDP): moved 0.03 in the last 12 months, -0.16 at month 240; Real wages: moved -0.03 in the last 12 months, 0.30 at month 240; Investment (real): moved 0.03 in the last 12 months, 0.62 at month 240; Exports (real): moved 0.03 in the last 12 months, -0.47 at month 240; and 14 more.
 - **Regimes**: consumptionW.
 
 Regimes that differ from the no-change run:
@@ -649,7 +649,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved -0.03 in the last 12 months, -0.28 at month 240; Pension-fund assets (real): moved -0.03 in the last 12 months, -0.67 at month 240; Profits, fisheries (real): moved 0.05 in the last 12 months, -0.14 at month 240; Profits, aluminium smelters (real): moved 0.08 in the last 12 months, -1.68 at month 240.
+- **Unsettled**: Government debt / GDP: moved -0.03 in the last 12 months, -0.28 at month 240; Pension-fund assets (real): moved -0.03 in the last 12 months, -0.67 at month 240; Government debt amount: moved -0.06 in the last 12 months, -1.13 at month 240; Profits, fisheries (real): moved 0.05 in the last 12 months, -0.14 at month 240; and 1 more.
 
 ### 0.75 % of GDP per yr (up), unlocked
 
@@ -684,7 +684,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved 0.03 in the last 12 months, 0.25 at month 240; Pension-fund assets (real): moved 0.03 in the last 12 months, 0.61 at month 240; Profits, fisheries (real): moved -0.05 in the last 12 months, 0.18 at month 240; Profits, aluminium smelters (real): moved -0.07 in the last 12 months, 1.63 at month 240.
+- **Unsettled**: Government debt / GDP: moved 0.03 in the last 12 months, 0.25 at month 240; Pension-fund assets (real): moved 0.03 in the last 12 months, 0.61 at month 240; Government debt amount: moved 0.06 in the last 12 months, 1.04 at month 240; Profits, fisheries (real): moved -0.05 in the last 12 months, 0.18 at month 240; and 1 more.
 
 ### 3 % of GDP per yr (max), unlocked
 
@@ -719,7 +719,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.04 in the last 12 months, 1.89 at month 240; Household consumption (real): moved -0.02 in the last 12 months, -0.13 at month 240; Real house prices: moved -0.06 in the last 12 months, -0.62 at month 240; Government debt / GDP: moved 0.11 in the last 12 months, 0.59 at month 240; and 11 more.
+- **Unsettled**: Consumer price level: moved 0.04 in the last 12 months, 1.89 at month 240; Household consumption (real): moved -0.02 in the last 12 months, -0.13 at month 240; Real house prices: moved -0.06 in the last 12 months, -0.62 at month 240; Government debt / GDP: moved 0.11 in the last 12 months, 0.59 at month 240; and 12 more.
 - **Regimes**: mortgageLendingY; mortgageLendingW.
 
 Regimes that differ from the no-change run:
@@ -758,7 +758,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 0.13 at month 240; Króna value: moved -0.10 in the last 12 months, 3.59 at month 240; Real wages: moved -0.04 in the last 12 months, -0.04 at month 240; Investment (real): moved 0.04 in the last 12 months, 0.03 at month 240; and 19 more.
+- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 0.13 at month 240; Króna value: moved -0.10 in the last 12 months, 3.59 at month 240; Real wages: moved -0.04 in the last 12 months, -0.04 at month 240; Investment (real): moved 0.04 in the last 12 months, 0.03 at month 240; and 20 more.
 - **Regimes**: consumptionW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -798,7 +798,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Broad money (bank deposits): moved 0.07 in the last 12 months, -1.35 at month 240; Government debt / GDP: moved 0.06 in the last 12 months, 1.96 at month 240; Profits, exporters (real): moved 0.03 in the last 12 months, -0.17 at month 240; Profits, fisheries (real): moved 0.07 in the last 12 months, -0.24 at month 240; and 2 more.
+- **Unsettled**: Broad money (bank deposits): moved 0.07 in the last 12 months, -1.35 at month 240; Government debt / GDP: moved 0.06 in the last 12 months, 1.96 at month 240; Profits, exporters (real): moved 0.03 in the last 12 months, -0.17 at month 240; Government debt amount: moved 0.11 in the last 12 months, 2.69 at month 240; and 3 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -836,7 +836,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Broad money (bank deposits): moved -0.06 in the last 12 months, 1.30 at month 240; Government debt / GDP: moved -0.06 in the last 12 months, -1.78 at month 240; Profits, exporters (real): moved -0.03 in the last 12 months, 0.17 at month 240; Profits, fisheries (real): moved -0.07 in the last 12 months, 0.27 at month 240; and 2 more.
+- **Unsettled**: Broad money (bank deposits): moved -0.06 in the last 12 months, 1.30 at month 240; Government debt / GDP: moved -0.06 in the last 12 months, -1.78 at month 240; Profits, exporters (real): moved -0.03 in the last 12 months, 0.17 at month 240; Government debt amount: moved -0.11 in the last 12 months, -2.48 at month 240; and 3 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -874,7 +874,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.03 in the last 12 months, 0.10 at month 240; Real wages: moved 0.02 in the last 12 months, -0.08 at month 240; Household consumption (real): moved -0.03 in the last 12 months, -0.13 at month 240; Investment (real): moved -0.03 in the last 12 months, 0.14 at month 240; and 15 more.
+- **Unsettled**: Output (real GDP): moved -0.03 in the last 12 months, 0.10 at month 240; Real wages: moved 0.02 in the last 12 months, -0.08 at month 240; Household consumption (real): moved -0.03 in the last 12 months, -0.13 at month 240; Investment (real): moved -0.03 in the last 12 months, 0.14 at month 240; and 16 more.
 - **Regimes**: mortgageLendingY; mortgageLendingW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -1034,7 +1034,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.06 in the last 12 months, 1.89 at month 240; Króna value: moved -0.05 in the last 12 months, -2.13 at month 240; Household consumption (real): moved 0.02 in the last 12 months, 0.11 at month 240; Government debt / GDP: moved -0.12 in the last 12 months, -5.19 at month 240; and 11 more.
+- **Unsettled**: Consumer price level: moved 0.06 in the last 12 months, 1.89 at month 240; Króna value: moved -0.05 in the last 12 months, -2.13 at month 240; Household consumption (real): moved 0.02 in the last 12 months, 0.11 at month 240; Government debt / GDP: moved -0.12 in the last 12 months, -5.19 at month 240; and 12 more.
 - **Regimes**: mortgageLendingY; mortgageLendingW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -1094,7 +1094,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.05 in the last 12 months, -1.52 at month 240; Króna value: moved 0.05 in the last 12 months, 1.99 at month 240; Real house prices: moved 0.05 in the last 12 months, 0.34 at month 240; Government debt / GDP: moved -0.07 in the last 12 months, -0.34 at month 240; and 11 more.
+- **Unsettled**: Consumer price level: moved -0.05 in the last 12 months, -1.52 at month 240; Króna value: moved 0.05 in the last 12 months, 1.99 at month 240; Real house prices: moved 0.05 in the last 12 months, 0.34 at month 240; Government debt / GDP: moved -0.07 in the last 12 months, -0.34 at month 240; and 12 more.
 - **Regimes**: mortgageLendingY; mortgageLendingW.
 
 Regimes that differ from the no-change run:
@@ -1226,7 +1226,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.02 in the last 12 months, -0.11 at month 240; Household consumption (real): moved 0.02 in the last 12 months, 0.06 at month 240; Investment (real): moved 0.02 in the last 12 months, -0.12 at month 240; Real house prices: moved 0.04 in the last 12 months, -0.02 at month 240; and 9 more.
+- **Unsettled**: Output (real GDP): moved 0.02 in the last 12 months, -0.11 at month 240; Household consumption (real): moved 0.02 in the last 12 months, 0.06 at month 240; Investment (real): moved 0.02 in the last 12 months, -0.12 at month 240; Real house prices: moved 0.04 in the last 12 months, -0.02 at month 240; and 10 more.
 - **Regimes**: mortgageLendingY; mortgageLendingW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -1375,7 +1375,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.08 in the last 12 months, -1.96 at month 240; Króna value: moved 0.08 in the last 12 months, 2.36 at month 240; Government debt / GDP: moved 0.10 in the last 12 months, 3.44 at month 240; Export revenue, fisheries: moved -0.08 in the last 12 months, -2.39 at month 240; and 3 more.
+- **Unsettled**: Consumer price level: moved -0.08 in the last 12 months, -1.96 at month 240; Króna value: moved 0.08 in the last 12 months, 2.36 at month 240; Government debt / GDP: moved 0.10 in the last 12 months, 3.44 at month 240; Government debt amount: moved 0.09 in the last 12 months, 3.91 at month 240; and 4 more.
 - **Regimes**: mortgageLendingY; mortgageLendingW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -1546,7 +1546,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.02 in the last 12 months, -0.39 at month 240; Consumer price level: moved -0.10 in the last 12 months, -2.60 at month 240; Key interest rate: moved -0.03 in the last 12 months, -1.00 at month 240; Króna value: moved 0.10 in the last 12 months, 3.48 at month 240; and 20 more.
+- **Unsettled**: Output (real GDP): moved 0.02 in the last 12 months, -0.39 at month 240; Consumer price level: moved -0.10 in the last 12 months, -2.60 at month 240; Key interest rate: moved -0.03 in the last 12 months, -1.00 at month 240; Króna value: moved 0.10 in the last 12 months, 3.48 at month 240; and 21 more.
 - **Regimes**: mortgageLendingY; mortgageLendingW; consumptionW.
 
 Regimes that differ from the no-change run:
@@ -1588,7 +1588,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Profits, aluminium smelters (real): moved 0.02 in the last 12 months, -0.53 at month 240.
+- **Unsettled**: Government debt amount: moved -0.02 in the last 12 months, -0.32 at month 240; Profits, aluminium smelters (real): moved 0.02 in the last 12 months, -0.53 at month 240.
 
 ### 85 % (up), unlocked
 
@@ -1679,7 +1679,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, -0.20 at month 240; Real wages: moved -0.02 in the last 12 months, 0.13 at month 240; Household consumption (real): moved 0.04 in the last 12 months, 0.04 at month 240; Investment (real): moved 0.03 in the last 12 months, -0.22 at month 240; and 16 more.
+- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, -0.20 at month 240; Real wages: moved -0.02 in the last 12 months, 0.13 at month 240; Household consumption (real): moved 0.04 in the last 12 months, 0.04 at month 240; Investment (real): moved 0.03 in the last 12 months, -0.22 at month 240; and 17 more.
 - **Regimes**: mortgageLendingY; mortgageLendingW; consumptionW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -1720,7 +1720,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Broad money (bank deposits): moved 0.02 in the last 12 months, -0.43 at month 240; Profits, fisheries (real): moved 0.02 in the last 12 months, -0.10 at month 240; Profits, aluminium smelters (real): moved 0.04 in the last 12 months, -0.17 at month 240.
+- **Unsettled**: Broad money (bank deposits): moved 0.02 in the last 12 months, -0.43 at month 240; Government debt amount: moved 0.04 in the last 12 months, 0.77 at month 240; Profits, fisheries (real): moved 0.02 in the last 12 months, -0.10 at month 240; Profits, aluminium smelters (real): moved 0.04 in the last 12 months, -0.17 at month 240.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -1829,7 +1829,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.12 in the last 12 months, -2.88 at month 240; Króna value: moved 0.13 in the last 12 months, 3.52 at month 240; Government debt / GDP: moved 0.18 in the last 12 months, 5.51 at month 240; Income-tax rate: moved 0.03 in the last 12 months, 0.34 at month 240; and 6 more.
+- **Unsettled**: Consumer price level: moved -0.12 in the last 12 months, -2.88 at month 240; Króna value: moved 0.13 in the last 12 months, 3.52 at month 240; Government debt / GDP: moved 0.18 in the last 12 months, 5.51 at month 240; Income-tax rate: moved 0.03 in the last 12 months, 0.34 at month 240; and 8 more.
 - **Regimes**: mortgageLendingY; mortgageLendingW; consumptionW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -2008,7 +2008,7 @@ Flags:
 
 - **Extreme**: Profits, exporters (real) -62.6 % at month 1.
 - **Month-1 jump**: Output (real GDP): -6.28 in month 1 of a peak -6.34; Exports (real): -19.1 in month 1 of a peak -19.4; Tourism and other exports (real): -28.9 in month 1 of a peak -29.3.
-- **Unsettled**: Inflation (12-month CPI): moved -0.02 in the last 12 months, -0.05 at month 240; Household consumption (real): moved -0.56 in the last 12 months, -18.2 at month 240; Real house prices: moved -0.41 in the last 12 months, -11.2 at month 240; Mortgage debt / GDP: moved -0.36 in the last 12 months, -5.18 at month 240; and 8 more.
+- **Unsettled**: Inflation (12-month CPI): moved -0.02 in the last 12 months, -0.05 at month 240; Household consumption (real): moved -0.56 in the last 12 months, -18.2 at month 240; Real house prices: moved -0.41 in the last 12 months, -11.2 at month 240; Mortgage debt / GDP: moved -0.36 in the last 12 months, -5.18 at month 240; and 9 more.
 - **Regimes**: neutralRate; keyRateSuggestion; keyRate; depositRate; consumptionY; consumptionW; tourismFelt; dividendsFC; and 5 more.
 
 Implied neutral rate: 1.65% real (the rule's estimate ends at 0.00%, the edge of its band of 0.00–6.00%); inflation crosses target 4 times across the lever's range, and this is the crossing nearest the rule's estimate; held there, unemployment is 0.40 pp from the no-change run over the same years and the income-tax rate 1.75 points at the final month (1.02 with the key-rate rule acting; the debt rule keeps reacting to the held rate).
@@ -2063,7 +2063,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Output (real GDP): -1.57 in month 1 of a peak -1.59; Exports (real): -4.78 in month 1 of a peak -4.84; Tourism and other exports (real): -7.23 in month 1 of a peak -7.32.
-- **Unsettled**: Consumer price level: moved 0.04 in the last 12 months, -0.36 at month 240; Króna value: moved -0.12 in the last 12 months, -5.96 at month 240; Real house prices: moved -0.05 in the last 12 months, -2.30 at month 240; Mortgage debt / GDP: moved -0.05 in the last 12 months, -0.76 at month 240; and 7 more.
+- **Unsettled**: Consumer price level: moved 0.04 in the last 12 months, -0.36 at month 240; Króna value: moved -0.12 in the last 12 months, -5.96 at month 240; Real house prices: moved -0.05 in the last 12 months, -2.30 at month 240; Mortgage debt / GDP: moved -0.05 in the last 12 months, -0.76 at month 240; and 8 more.
 - **Regimes**: consumptionW; tourismFelt.
 
 Regimes that differ from the no-change run:
@@ -2104,7 +2104,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.03 in the last 12 months, -0.05 at month 240; Real house prices: moved 0.04 in the last 12 months, 1.74 at month 240; Mortgage debt / GDP: moved 0.04 in the last 12 months, 0.58 at month 240; Government debt / GDP: moved -0.06 in the last 12 months, -0.56 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved -0.03 in the last 12 months, -0.05 at month 240; Real house prices: moved 0.04 in the last 12 months, 1.74 at month 240; Mortgage debt / GDP: moved 0.04 in the last 12 months, 0.58 at month 240; Government debt / GDP: moved -0.06 in the last 12 months, -0.56 at month 240; and 5 more.
 - **Regimes**: bondPurchasesW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -2145,7 +2145,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.08 in the last 12 months, -0.09 at month 240; Key interest rate: moved -0.04 in the last 12 months, 0.45 at month 240; Real house prices: moved 0.12 in the last 12 months, 5.35 at month 240; Mortgage debt / GDP: moved 0.10 in the last 12 months, 1.59 at month 240; and 9 more.
+- **Unsettled**: Consumer price level: moved -0.08 in the last 12 months, -0.09 at month 240; Key interest rate: moved -0.04 in the last 12 months, 0.45 at month 240; Real house prices: moved 0.12 in the last 12 months, 5.35 at month 240; Mortgage debt / GDP: moved 0.10 in the last 12 months, 1.59 at month 240; and 10 more.
 - **Regimes**: bondPurchasesW; kronaBorrowingW; dividendsXF; unemployedO.
 
 Regimes that differ from the no-change run:
@@ -2188,7 +2188,7 @@ Flags:
 
 - **Extreme**: Government debt / GDP 47.9 pp of GDP at month 240; Profits, exporters (real) -62.6 % at month 1.
 - **Month-1 jump**: Output (real GDP): -6.28 in month 1 of a peak -6.34; Exports (real): -19.1 in month 1 of a peak -19.4; Tourism and other exports (real): -28.9 in month 1 of a peak -29.3.
-- **Unsettled**: Output (real GDP): moved 0.20 in the last 12 months, 1.53 at month 240; Inflation (12-month CPI): moved 0.03 in the last 12 months, 0.68 at month 240; Consumer price level: moved 0.66 in the last 12 months, -1.65 at month 240; Unemployment rate: moved -0.09 in the last 12 months, -0.30 at month 240; and 29 more.
+- **Unsettled**: Output (real GDP): moved 0.20 in the last 12 months, 1.53 at month 240; Inflation (12-month CPI): moved 0.03 in the last 12 months, 0.68 at month 240; Consumer price level: moved 0.66 in the last 12 months, -1.65 at month 240; Unemployment rate: moved -0.09 in the last 12 months, -0.30 at month 240; and 30 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionY; consumptionW; tourismFelt; dividendsFC; dividendsFR; dividendsXF; and 3 more.
 
 Regimes that differ from the no-change run:
@@ -2237,7 +2237,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Output (real GDP): -1.57 in month 1 of a peak -1.59; Exports (real): -4.78 in month 1 of a peak -4.84; Tourism and other exports (real): -7.23 in month 1 of a peak -7.32.
-- **Unsettled**: Output (real GDP): moved 0.05 in the last 12 months, 0.51 at month 240; Consumer price level: moved 0.19 in the last 12 months, 0.72 at month 240; Króna value: moved -0.27 in the last 12 months, -7.58 at month 240; Investment (real): moved 0.06 in the last 12 months, 1.30 at month 240; and 11 more.
+- **Unsettled**: Output (real GDP): moved 0.05 in the last 12 months, 0.51 at month 240; Consumer price level: moved 0.19 in the last 12 months, 0.72 at month 240; Króna value: moved -0.27 in the last 12 months, -7.58 at month 240; Investment (real): moved 0.06 in the last 12 months, 1.30 at month 240; and 12 more.
 - **Regimes**: consumptionW; tourismFelt; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -2277,7 +2277,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.03 in the last 12 months, -0.40 at month 240; Consumer price level: moved -0.15 in the last 12 months, -0.79 at month 240; Króna value: moved 0.23 in the last 12 months, 5.51 at month 240; Investment (real): moved -0.04 in the last 12 months, -0.75 at month 240; and 11 more.
+- **Unsettled**: Output (real GDP): moved -0.03 in the last 12 months, -0.40 at month 240; Consumer price level: moved -0.15 in the last 12 months, -0.79 at month 240; Króna value: moved 0.23 in the last 12 months, 5.51 at month 240; Investment (real): moved -0.04 in the last 12 months, -0.75 at month 240; and 13 more.
 - **Regimes**: bondPurchasesW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -2317,7 +2317,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.09 in the last 12 months, -1.17 at month 240; Inflation (12-month CPI): moved -0.03 in the last 12 months, -0.43 at month 240; Unemployment rate: moved 0.04 in the last 12 months, 0.47 at month 240; Króna value: moved 0.73 in the last 12 months, 16.2 at month 240; and 17 more.
+- **Unsettled**: Output (real GDP): moved -0.09 in the last 12 months, -1.17 at month 240; Inflation (12-month CPI): moved -0.03 in the last 12 months, -0.43 at month 240; Unemployment rate: moved 0.04 in the last 12 months, 0.47 at month 240; Króna value: moved 0.73 in the last 12 months, 16.2 at month 240; and 19 more.
 - **Explosive**: Consumer price level: moved -0.43 in the last 12 months, -2.14 at month 240.
 - **Regimes**: bondPurchasesW; kronaBorrowingW; dividendsXF; unemployedO; taxRuleTarget.
 
@@ -2363,7 +2363,7 @@ Flags:
 
 - **Extreme**: Government debt / GDP 46.6 pp of GDP at month 240; Profits, exporters (real) -62.6 % at month 1.
 - **Month-1 jump**: Output (real GDP): -6.28 in month 1 of a peak -6.34; Exports (real): -19.1 in month 1 of a peak -19.4; Tourism and other exports (real): -28.9 in month 1 of a peak -29.3.
-- **Unsettled**: Inflation (12-month CPI): moved 0.08 in the last 12 months, -0.08 at month 240; Consumer price level: moved -0.07 in the last 12 months, -0.26 at month 240; Investment (real): moved 0.15 in the last 12 months, 6.87 at month 240; Mortgage debt / GDP: moved -0.49 in the last 12 months, -9.97 at month 240; and 5 more.
+- **Unsettled**: Inflation (12-month CPI): moved 0.08 in the last 12 months, -0.08 at month 240; Consumer price level: moved -0.07 in the last 12 months, -0.26 at month 240; Investment (real): moved 0.15 in the last 12 months, 6.87 at month 240; Mortgage debt / GDP: moved -0.49 in the last 12 months, -9.97 at month 240; and 6 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionY; consumptionW; tourismFelt; dividendsFC; dividendsFR; dividendsXF; and 4 more.
 
 Regimes that differ from the no-change run:
@@ -2567,7 +2567,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.02 in the last 12 months, -0.30 at month 240; Consumer price level: moved 0.10 in the last 12 months, 3.49 at month 240; Key interest rate: moved 0.04 in the last 12 months, 1.14 at month 240; Mortgage debt / GDP: moved -0.12 in the last 12 months, -2.58 at month 240; and 5 more.
+- **Unsettled**: Output (real GDP): moved -0.02 in the last 12 months, -0.30 at month 240; Consumer price level: moved 0.10 in the last 12 months, 3.49 at month 240; Key interest rate: moved 0.04 in the last 12 months, 1.14 at month 240; Mortgage debt / GDP: moved -0.12 in the last 12 months, -2.58 at month 240; and 7 more.
 - **Regimes**: consumptionW; fishingFee; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -2609,7 +2609,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.02 in the last 12 months, 1.04 at month 240; Mortgage debt / GDP: moved -0.03 in the last 12 months, -0.73 at month 240; Broad money (bank deposits): moved 0.09 in the last 12 months, -1.04 at month 240; Government debt / GDP: moved 0.11 in the last 12 months, 3.55 at month 240; and 2 more.
+- **Unsettled**: Consumer price level: moved 0.02 in the last 12 months, 1.04 at month 240; Mortgage debt / GDP: moved -0.03 in the last 12 months, -0.73 at month 240; Broad money (bank deposits): moved 0.09 in the last 12 months, -1.04 at month 240; Government debt / GDP: moved 0.11 in the last 12 months, 3.55 at month 240; and 4 more.
 - **Regimes**: dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -2649,7 +2649,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Mortgage debt / GDP: moved 0.03 in the last 12 months, 0.70 at month 240; Broad money (bank deposits): moved -0.08 in the last 12 months, 1.02 at month 240; Government debt / GDP: moved -0.09 in the last 12 months, -3.40 at month 240; Income-tax rate: moved -0.03 in the last 12 months, -0.80 at month 240.
+- **Unsettled**: Mortgage debt / GDP: moved 0.03 in the last 12 months, 0.70 at month 240; Broad money (bank deposits): moved -0.08 in the last 12 months, 1.02 at month 240; Government debt / GDP: moved -0.09 in the last 12 months, -3.40 at month 240; Income-tax rate: moved -0.03 in the last 12 months, -0.80 at month 240; and 2 more.
 - **Regimes**: bondPurchasesW.
 
 Regimes that differ from the no-change run:
@@ -2689,7 +2689,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 0.36 at month 240; Mortgage debt / GDP: moved 0.09 in the last 12 months, 2.49 at month 240; Broad money (bank deposits): moved -0.29 in the last 12 months, 3.44 at month 240; Government balance: moved -0.03 in the last 12 months, 0.33 at month 240; and 4 more.
+- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 0.36 at month 240; Mortgage debt / GDP: moved 0.09 in the last 12 months, 2.49 at month 240; Broad money (bank deposits): moved -0.29 in the last 12 months, 3.44 at month 240; Government balance: moved -0.03 in the last 12 months, 0.33 at month 240; and 6 more.
 - **Regimes**: bondPurchasesW; kronaBorrowingW.
 
 Regimes that differ from the no-change run:
@@ -2728,8 +2728,8 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.08 in the last 12 months, 2.63 at month 240; Inflation (12-month CPI): moved 0.02 in the last 12 months, 0.91 at month 240; Consumer price level: moved 1.03 in the last 12 months, 14.1 at month 240; Unemployment rate: moved -0.03 in the last 12 months, -1.06 at month 240; and 20 more.
-- **Explosive**: Broad money (bank deposits): moved 1.36 in the last 12 months, 8.62 at month 240.
+- **Unsettled**: Output (real GDP): moved 0.08 in the last 12 months, 2.63 at month 240; Inflation (12-month CPI): moved 0.02 in the last 12 months, 0.91 at month 240; Consumer price level: moved 1.03 in the last 12 months, 14.1 at month 240; Unemployment rate: moved -0.03 in the last 12 months, -1.06 at month 240; and 21 more.
+- **Explosive**: Broad money (bank deposits): moved 1.36 in the last 12 months, 8.62 at month 240; Household mortgage debt amount: moved 0.80 in the last 12 months, 7.04 at month 240.
 - **Regimes**: neutralRate; consumptionW; fishingFee; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -2771,7 +2771,8 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.26 in the last 12 months, 3.75 at month 240; Króna value: moved -0.27 in the last 12 months, -6.35 at month 240; Investment (real): moved 0.02 in the last 12 months, -0.04 at month 240; Broad money (bank deposits): moved 0.35 in the last 12 months, 2.49 at month 240; and 8 more.
+- **Unsettled**: Consumer price level: moved 0.26 in the last 12 months, 3.75 at month 240; Króna value: moved -0.27 in the last 12 months, -6.35 at month 240; Investment (real): moved 0.02 in the last 12 months, -0.04 at month 240; Broad money (bank deposits): moved 0.35 in the last 12 months, 2.49 at month 240; and 9 more.
+- **Explosive**: Household mortgage debt amount: moved 0.22 in the last 12 months, 2.15 at month 240.
 - **Regimes**: dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -2810,7 +2811,8 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.02 in the last 12 months, -0.72 at month 240; Consumer price level: moved -0.25 in the last 12 months, -3.64 at month 240; Króna value: moved 0.32 in the last 12 months, 6.77 at month 240; Investment (real): moved -0.02 in the last 12 months, 0 at month 240; and 9 more.
+- **Unsettled**: Output (real GDP): moved -0.02 in the last 12 months, -0.72 at month 240; Consumer price level: moved -0.25 in the last 12 months, -3.64 at month 240; Króna value: moved 0.32 in the last 12 months, 6.77 at month 240; Investment (real): moved -0.02 in the last 12 months, 0 at month 240; and 10 more.
+- **Explosive**: Household mortgage debt amount: moved -0.22 in the last 12 months, -2.22 at month 240.
 - **Regimes**: bondPurchasesW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -2849,7 +2851,8 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.08 in the last 12 months, -2.66 at month 240; Inflation (12-month CPI): moved -0.02 in the last 12 months, -0.96 at month 240; Consumer price level: moved -0.84 in the last 12 months, -12.9 at month 240; Unemployment rate: moved 0.03 in the last 12 months, 1.11 at month 240; and 18 more.
+- **Unsettled**: Output (real GDP): moved -0.08 in the last 12 months, -2.66 at month 240; Inflation (12-month CPI): moved -0.02 in the last 12 months, -0.96 at month 240; Consumer price level: moved -0.84 in the last 12 months, -12.9 at month 240; Unemployment rate: moved 0.03 in the last 12 months, 1.11 at month 240; and 19 more.
+- **Explosive**: Household mortgage debt amount: moved -0.79 in the last 12 months, -8.40 at month 240.
 - **Regimes**: neutralRate; keyRateSuggestion; bondPurchasesW; kronaBorrowingW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -2892,7 +2895,8 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.53 in the last 12 months, 8.94 at month 240; Króna value: moved -0.50 in the last 12 months, -17.0 at month 240; Mortgage debt / GDP: moved -0.07 in the last 12 months, -1.41 at month 240; Broad money (bank deposits): moved 0.53 in the last 12 months, 0.51 at month 240; and 6 more.
+- **Unsettled**: Consumer price level: moved 0.53 in the last 12 months, 8.94 at month 240; Króna value: moved -0.50 in the last 12 months, -17.0 at month 240; Mortgage debt / GDP: moved -0.07 in the last 12 months, -1.41 at month 240; Broad money (bank deposits): moved 0.53 in the last 12 months, 0.51 at month 240; and 7 more.
+- **Explosive**: Household mortgage debt amount: moved 0.37 in the last 12 months, 2.05 at month 240.
 - **Regimes**: consumptionW; fishingFee; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -2934,7 +2938,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.14 in the last 12 months, 2.48 at month 240; Króna value: moved -0.15 in the last 12 months, -4.93 at month 240; Broad money (bank deposits): moved 0.16 in the last 12 months, 0.15 at month 240; Government debt / GDP: moved 0.05 in the last 12 months, 2.06 at month 240; and 5 more.
+- **Unsettled**: Consumer price level: moved 0.14 in the last 12 months, 2.48 at month 240; Króna value: moved -0.15 in the last 12 months, -4.93 at month 240; Broad money (bank deposits): moved 0.16 in the last 12 months, 0.15 at month 240; Government debt / GDP: moved 0.05 in the last 12 months, 2.06 at month 240; and 7 more.
 - **Regimes**: dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -2974,7 +2978,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.13 in the last 12 months, -2.42 at month 240; Króna value: moved 0.16 in the last 12 months, 5.14 at month 240; Broad money (bank deposits): moved -0.16 in the last 12 months, -0.13 at month 240; Government debt / GDP: moved -0.05 in the last 12 months, -1.99 at month 240; and 6 more.
+- **Unsettled**: Consumer price level: moved -0.13 in the last 12 months, -2.42 at month 240; Króna value: moved 0.16 in the last 12 months, 5.14 at month 240; Broad money (bank deposits): moved -0.16 in the last 12 months, -0.13 at month 240; Government debt / GDP: moved -0.05 in the last 12 months, -1.99 at month 240; and 8 more.
 - **Regimes**: bondPurchasesW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3014,7 +3018,8 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.47 in the last 12 months, -8.79 at month 240; Króna value: moved 0.71 in the last 12 months, 20.5 at month 240; Mortgage debt / GDP: moved 0.05 in the last 12 months, 1.13 at month 240; Broad money (bank deposits): moved -0.57 in the last 12 months, -0.52 at month 240; and 8 more.
+- **Unsettled**: Consumer price level: moved -0.47 in the last 12 months, -8.79 at month 240; Króna value: moved 0.71 in the last 12 months, 20.5 at month 240; Mortgage debt / GDP: moved 0.05 in the last 12 months, 1.13 at month 240; Broad money (bank deposits): moved -0.57 in the last 12 months, -0.52 at month 240; and 9 more.
+- **Explosive**: Household mortgage debt amount: moved -0.41 in the last 12 months, -3.84 at month 240.
 - **Regimes**: keyRateSuggestion; bondPurchasesW; kronaBorrowingW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3084,7 +3089,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.17 in the last 12 months, 0.71 at month 240; Household consumption (real): moved -0.18 in the last 12 months, 2.93 at month 240; Investment (real): moved 0.04 in the last 12 months, -0.70 at month 240; Mortgage debt / GDP: moved 0.13 in the last 12 months, 0.22 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved -0.17 in the last 12 months, 0.71 at month 240; Household consumption (real): moved -0.18 in the last 12 months, 2.93 at month 240; Investment (real): moved 0.04 in the last 12 months, -0.70 at month 240; Mortgage debt / GDP: moved 0.13 in the last 12 months, 0.22 at month 240; and 5 more.
 - **Regimes**: stressTestPayment; bondPurchasesW; kronaBorrowingW; dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; and 2 more.
 
 Regimes that differ from the no-change run:
@@ -3133,7 +3138,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.05 in the last 12 months, 0.37 at month 240; Mortgage debt / GDP: moved 0.04 in the last 12 months, -0.03 at month 240; Broad money (bank deposits): moved -0.27 in the last 12 months, 2.64 at month 240; Government debt / GDP: moved -0.06 in the last 12 months, 0.52 at month 240.
+- **Unsettled**: Consumer price level: moved -0.05 in the last 12 months, 0.37 at month 240; Mortgage debt / GDP: moved 0.04 in the last 12 months, -0.03 at month 240; Broad money (bank deposits): moved -0.27 in the last 12 months, 2.64 at month 240; Government debt / GDP: moved -0.06 in the last 12 months, 0.52 at month 240; and 1 more.
 - **Regimes**: stressTestPayment; bondPurchasesW.
 
 Regimes that differ from the no-change run:
@@ -3174,7 +3179,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.03 in the last 12 months, 0.21 at month 240; Broad money (bank deposits): moved -0.12 in the last 12 months, 1.31 at month 240; Government debt / GDP: moved -0.03 in the last 12 months, 0.34 at month 240.
+- **Unsettled**: Consumer price level: moved -0.03 in the last 12 months, 0.21 at month 240; Broad money (bank deposits): moved -0.12 in the last 12 months, 1.31 at month 240; Government debt / GDP: moved -0.03 in the last 12 months, 0.34 at month 240; Government debt amount: moved -0.08 in the last 12 months, 0.88 at month 240.
 - **Regimes**: bondPurchasesW.
 
 Regimes that differ from the no-change run:
@@ -3214,7 +3219,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.03 in the last 12 months, -0.22 at month 240; Broad money (bank deposits): moved 0.11 in the last 12 months, -1.27 at month 240; Government debt / GDP: moved 0.03 in the last 12 months, -0.38 at month 240.
+- **Unsettled**: Consumer price level: moved 0.03 in the last 12 months, -0.22 at month 240; Broad money (bank deposits): moved 0.11 in the last 12 months, -1.27 at month 240; Government debt / GDP: moved 0.03 in the last 12 months, -0.38 at month 240; Government debt amount: moved 0.08 in the last 12 months, -0.95 at month 240.
 - **Regimes**: dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -3254,7 +3259,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.05 in the last 12 months, -0.46 at month 240; Mortgage debt / GDP: moved -0.04 in the last 12 months, 0.12 at month 240; Broad money (bank deposits): moved 0.21 in the last 12 months, -2.50 at month 240; Government debt / GDP: moved 0.06 in the last 12 months, -0.78 at month 240.
+- **Unsettled**: Consumer price level: moved 0.05 in the last 12 months, -0.46 at month 240; Mortgage debt / GDP: moved -0.04 in the last 12 months, 0.12 at month 240; Broad money (bank deposits): moved 0.21 in the last 12 months, -2.50 at month 240; Government debt / GDP: moved 0.06 in the last 12 months, -0.78 at month 240; and 1 more.
 - **Regimes**: dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -3294,7 +3299,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.13 in the last 12 months, -1.25 at month 240; Investment (real): moved -0.03 in the last 12 months, 0.60 at month 240; Mortgage debt / GDP: moved -0.09 in the last 12 months, 0.38 at month 240; Broad money (bank deposits): moved 0.44 in the last 12 months, -5.65 at month 240; and 1 more.
+- **Unsettled**: Consumer price level: moved 0.13 in the last 12 months, -1.25 at month 240; Investment (real): moved -0.03 in the last 12 months, 0.60 at month 240; Mortgage debt / GDP: moved -0.09 in the last 12 months, 0.38 at month 240; Broad money (bank deposits): moved 0.44 in the last 12 months, -5.65 at month 240; and 2 more.
 - **Regimes**: keyRateSuggestion; keyRate; depositRate; consumptionW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3337,7 +3342,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.46 in the last 12 months, 1.43 at month 240; Household consumption (real): moved -0.19 in the last 12 months, 1.56 at month 240; Real house prices: moved -0.10 in the last 12 months, -0.25 at month 240; Mortgage debt / GDP: moved 0.07 in the last 12 months, 0.77 at month 240; and 3 more.
+- **Unsettled**: Consumer price level: moved -0.46 in the last 12 months, 1.43 at month 240; Household consumption (real): moved -0.19 in the last 12 months, 1.56 at month 240; Real house prices: moved -0.10 in the last 12 months, -0.25 at month 240; Mortgage debt / GDP: moved 0.07 in the last 12 months, 0.77 at month 240; and 4 more.
 - **Regimes**: bondPurchasesW; kronaBorrowingW; dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; unemployedY; and 3 more.
 
 Regimes that differ from the no-change run:
@@ -3385,7 +3390,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.12 in the last 12 months, 0.68 at month 240; Household consumption (real): moved -0.05 in the last 12 months, 0.37 at month 240; Real house prices: moved -0.03 in the last 12 months, -0.11 at month 240; Broad money (bank deposits): moved -0.33 in the last 12 months, 0.49 at month 240.
+- **Unsettled**: Consumer price level: moved -0.12 in the last 12 months, 0.68 at month 240; Household consumption (real): moved -0.05 in the last 12 months, 0.37 at month 240; Real house prices: moved -0.03 in the last 12 months, -0.11 at month 240; Broad money (bank deposits): moved -0.33 in the last 12 months, 0.49 at month 240; and 1 more.
 - **Regimes**: bondPurchasesW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3425,7 +3430,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.06 in the last 12 months, 0.42 at month 240; Household consumption (real): moved -0.02 in the last 12 months, 0.16 at month 240; Broad money (bank deposits): moved -0.15 in the last 12 months, 0.33 at month 240.
+- **Unsettled**: Consumer price level: moved -0.06 in the last 12 months, 0.42 at month 240; Household consumption (real): moved -0.02 in the last 12 months, 0.16 at month 240; Broad money (bank deposits): moved -0.15 in the last 12 months, 0.33 at month 240; Household mortgage debt amount: moved -0.05 in the last 12 months, 0.61 at month 240.
 - **Regimes**: bondPurchasesW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3464,7 +3469,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.05 in the last 12 months, -0.45 at month 240; Broad money (bank deposits): moved 0.13 in the last 12 months, -0.37 at month 240; Government debt / GDP: moved -0.03 in the last 12 months, 1.14 at month 240.
+- **Unsettled**: Consumer price level: moved 0.05 in the last 12 months, -0.45 at month 240; Broad money (bank deposits): moved 0.13 in the last 12 months, -0.37 at month 240; Government debt / GDP: moved -0.03 in the last 12 months, 1.14 at month 240; Household mortgage debt amount: moved 0.04 in the last 12 months, -0.63 at month 240.
 - **Regimes**: dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3503,7 +3508,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.10 in the last 12 months, -0.91 at month 240; Broad money (bank deposits): moved 0.26 in the last 12 months, -0.76 at month 240; Government debt / GDP: moved -0.05 in the last 12 months, 2.20 at month 240.
+- **Unsettled**: Consumer price level: moved 0.10 in the last 12 months, -0.91 at month 240; Broad money (bank deposits): moved 0.26 in the last 12 months, -0.76 at month 240; Government debt / GDP: moved -0.05 in the last 12 months, 2.20 at month 240; Household mortgage debt amount: moved 0.09 in the last 12 months, -1.25 at month 240.
 - **Regimes**: dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3542,7 +3547,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.22 in the last 12 months, -2.36 at month 240; Real house prices: moved 0.04 in the last 12 months, 0.25 at month 240; Broad money (bank deposits): moved 0.58 in the last 12 months, -1.98 at month 240; Government debt / GDP: moved -0.14 in the last 12 months, 5.04 at month 240; and 3 more.
+- **Unsettled**: Consumer price level: moved 0.22 in the last 12 months, -2.36 at month 240; Real house prices: moved 0.04 in the last 12 months, 0.25 at month 240; Broad money (bank deposits): moved 0.58 in the last 12 months, -1.98 at month 240; Government debt / GDP: moved -0.14 in the last 12 months, 5.04 at month 240; and 4 more.
 - **Regimes**: keyRateSuggestion; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3583,7 +3588,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Household consumption (real): moved -0.32 in the last 12 months, 3.24 at month 240; Imports (real): moved -0.25 in the last 12 months, 2.39 at month 240; Real house prices: moved -0.22 in the last 12 months, 1.64 at month 240; Broad money (bank deposits): moved -0.70 in the last 12 months, 4.73 at month 240; and 12 more.
+- **Unsettled**: Household consumption (real): moved -0.32 in the last 12 months, 3.24 at month 240; Imports (real): moved -0.25 in the last 12 months, 2.39 at month 240; Real house prices: moved -0.22 in the last 12 months, 1.64 at month 240; Broad money (bank deposits): moved -0.70 in the last 12 months, 4.73 at month 240; and 13 more.
 - **Regimes**: bondPurchasesW; kronaBorrowingW; dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; unemployedY; and 3 more.
 
 Regimes that differ from the no-change run:
@@ -3632,7 +3637,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Household consumption (real): moved -0.08 in the last 12 months, 0.78 at month 240; Real house prices: moved -0.06 in the last 12 months, 0.38 at month 240; Broad money (bank deposits): moved -0.19 in the last 12 months, 1.63 at month 240; Government debt / GDP: moved 0.14 in the last 12 months, -1.81 at month 240; and 1 more.
+- **Unsettled**: Household consumption (real): moved -0.08 in the last 12 months, 0.78 at month 240; Real house prices: moved -0.06 in the last 12 months, 0.38 at month 240; Broad money (bank deposits): moved -0.19 in the last 12 months, 1.63 at month 240; Government debt / GDP: moved 0.14 in the last 12 months, -1.81 at month 240; and 3 more.
 - **Regimes**: bondPurchasesW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3672,7 +3677,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Household consumption (real): moved -0.04 in the last 12 months, 0.34 at month 240; Real house prices: moved -0.02 in the last 12 months, 0.17 at month 240; Broad money (bank deposits): moved -0.09 in the last 12 months, 0.88 at month 240; Government debt / GDP: moved 0.06 in the last 12 months, -0.83 at month 240; and 1 more.
+- **Unsettled**: Household consumption (real): moved -0.04 in the last 12 months, 0.34 at month 240; Real house prices: moved -0.02 in the last 12 months, 0.17 at month 240; Broad money (bank deposits): moved -0.09 in the last 12 months, 0.88 at month 240; Government debt / GDP: moved 0.06 in the last 12 months, -0.83 at month 240; and 2 more.
 - **Regimes**: bondPurchasesW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3712,7 +3717,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Household consumption (real): moved 0.03 in the last 12 months, -0.30 at month 240; Real house prices: moved 0.02 in the last 12 months, -0.14 at month 240; Broad money (bank deposits): moved 0.08 in the last 12 months, -1.00 at month 240; Government debt / GDP: moved -0.06 in the last 12 months, 0.72 at month 240.
+- **Unsettled**: Household consumption (real): moved 0.03 in the last 12 months, -0.30 at month 240; Real house prices: moved 0.02 in the last 12 months, -0.14 at month 240; Broad money (bank deposits): moved 0.08 in the last 12 months, -1.00 at month 240; Government debt / GDP: moved -0.06 in the last 12 months, 0.72 at month 240; and 1 more.
 - **Regimes**: dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3752,7 +3757,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Household consumption (real): moved 0.06 in the last 12 months, -0.60 at month 240; Real house prices: moved 0.04 in the last 12 months, -0.29 at month 240; Broad money (bank deposits): moved 0.15 in the last 12 months, -1.87 at month 240; Government debt / GDP: moved -0.12 in the last 12 months, 1.43 at month 240; and 1 more.
+- **Unsettled**: Household consumption (real): moved 0.06 in the last 12 months, -0.60 at month 240; Real house prices: moved 0.04 in the last 12 months, -0.29 at month 240; Broad money (bank deposits): moved 0.15 in the last 12 months, -1.87 at month 240; Government debt / GDP: moved -0.12 in the last 12 months, 1.43 at month 240; and 2 more.
 - **Regimes**: dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3792,7 +3797,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Household consumption (real): moved 0.14 in the last 12 months, -1.44 at month 240; Real house prices: moved 0.09 in the last 12 months, -0.75 at month 240; Broad money (bank deposits): moved 0.31 in the last 12 months, -4.32 at month 240; Government debt / GDP: moved -0.31 in the last 12 months, 3.39 at month 240; and 4 more.
+- **Unsettled**: Household consumption (real): moved 0.14 in the last 12 months, -1.44 at month 240; Real house prices: moved 0.09 in the last 12 months, -0.75 at month 240; Broad money (bank deposits): moved 0.31 in the last 12 months, -4.32 at month 240; Government debt / GDP: moved -0.31 in the last 12 months, 3.39 at month 240; and 5 more.
 - **Regimes**: keyRateSuggestion; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -3896,7 +3901,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Real disposable income, older (67+): moved -0.03 in the last 12 months, -0.88 at month 240; Pension-fund assets (real): moved -0.06 in the last 12 months, -0.88 at month 240; Export revenue, fisheries: moved 0.04 in the last 12 months, 0.91 at month 240.
+- **Unsettled**: Real disposable income, older (67+): moved -0.03 in the last 12 months, -0.88 at month 240; Pension-fund assets (real): moved -0.06 in the last 12 months, -0.88 at month 240; Government debt amount: moved 0.04 in the last 12 months, -0.32 at month 240; Export revenue, fisheries: moved 0.04 in the last 12 months, 0.91 at month 240.
 
 ### 5 % (up), unlocked
 
@@ -3931,7 +3936,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved -0.02 in the last 12 months, -0.30 at month 240; Real disposable income, older (67+): moved 0.03 in the last 12 months, 0.85 at month 240; Pension-fund assets (real): moved 0.05 in the last 12 months, 0.82 at month 240; Export revenue, fisheries: moved -0.04 in the last 12 months, -0.94 at month 240.
+- **Unsettled**: Government debt / GDP: moved -0.02 in the last 12 months, -0.30 at month 240; Real disposable income, older (67+): moved 0.03 in the last 12 months, 0.85 at month 240; Pension-fund assets (real): moved 0.05 in the last 12 months, 0.82 at month 240; Government debt amount: moved -0.05 in the last 12 months, 0.18 at month 240; and 1 more.
 - **Regimes**: dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -3971,7 +3976,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.05 in the last 12 months, -0.11 at month 240; Key interest rate: moved -0.03 in the last 12 months, 0.30 at month 240; Real house prices: moved 0.08 in the last 12 months, 3.50 at month 240; Mortgage debt / GDP: moved 0.07 in the last 12 months, 1.08 at month 240; and 6 more.
+- **Unsettled**: Consumer price level: moved -0.05 in the last 12 months, -0.11 at month 240; Key interest rate: moved -0.03 in the last 12 months, 0.30 at month 240; Real house prices: moved 0.08 in the last 12 months, 3.50 at month 240; Mortgage debt / GDP: moved 0.07 in the last 12 months, 1.08 at month 240; and 7 more.
 - **Regimes**: bondPurchasesW; kronaBorrowingW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -4011,7 +4016,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.07 in the last 12 months, 0.63 at month 240; Consumer price level: moved 0.25 in the last 12 months, 0.90 at month 240; Unemployment rate: moved -0.03 in the last 12 months, -0.24 at month 240; Króna value: moved -0.35 in the last 12 months, -9.31 at month 240; and 17 more.
+- **Unsettled**: Output (real GDP): moved 0.07 in the last 12 months, 0.63 at month 240; Consumer price level: moved 0.25 in the last 12 months, 0.90 at month 240; Unemployment rate: moved -0.03 in the last 12 months, -0.24 at month 240; Króna value: moved -0.35 in the last 12 months, -9.31 at month 240; and 19 more.
 - **Regimes**: consumptionW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -4051,7 +4056,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.07 in the last 12 months, 0.35 at month 240; Króna value: moved -0.10 in the last 12 months, -2.51 at month 240; Broad money (bank deposits): moved 0.15 in the last 12 months, -0.90 at month 240; Government debt / GDP: moved 0.08 in the last 12 months, 2.48 at month 240; and 7 more.
+- **Unsettled**: Consumer price level: moved 0.07 in the last 12 months, 0.35 at month 240; Króna value: moved -0.10 in the last 12 months, -2.51 at month 240; Broad money (bank deposits): moved 0.15 in the last 12 months, -0.90 at month 240; Government debt / GDP: moved 0.08 in the last 12 months, 2.48 at month 240; and 9 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -4089,7 +4094,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.07 in the last 12 months, -0.40 at month 240; Króna value: moved 0.11 in the last 12 months, 2.62 at month 240; Broad money (bank deposits): moved -0.15 in the last 12 months, 0.85 at month 240; Government debt / GDP: moved -0.08 in the last 12 months, -2.37 at month 240; and 8 more.
+- **Unsettled**: Consumer price level: moved -0.07 in the last 12 months, -0.40 at month 240; Króna value: moved 0.11 in the last 12 months, 2.62 at month 240; Broad money (bank deposits): moved -0.15 in the last 12 months, 0.85 at month 240; Government debt / GDP: moved -0.08 in the last 12 months, -2.37 at month 240; and 10 more.
 - **Regimes**: bondPurchasesW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -4129,7 +4134,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.07 in the last 12 months, -0.80 at month 240; Unemployment rate: moved 0.03 in the last 12 months, 0.35 at month 240; Króna value: moved 0.52 in the last 12 months, 11.4 at month 240; Investment (real): moved -0.07 in the last 12 months, -0.64 at month 240; and 15 more.
+- **Unsettled**: Output (real GDP): moved -0.07 in the last 12 months, -0.80 at month 240; Unemployment rate: moved 0.03 in the last 12 months, 0.35 at month 240; Króna value: moved 0.52 in the last 12 months, 11.4 at month 240; Investment (real): moved -0.07 in the last 12 months, -0.64 at month 240; and 17 more.
 - **Explosive**: Consumer price level: moved -0.32 in the last 12 months, -1.94 at month 240.
 - **Regimes**: bondPurchasesW; kronaBorrowingW; dividendsXF; taxRuleTarget.
 
@@ -4544,7 +4549,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Real house prices: moved -0.04 in the last 12 months, 0.76 at month 240; Government debt / GDP: moved -0.31 in the last 12 months, 0.81 at month 240; Real disposable income, older (67+): moved -0.22 in the last 12 months, 3.74 at month 240; Pension-fund assets (real): moved -0.34 in the last 12 months, 4.87 at month 240.
+- **Unsettled**: Real house prices: moved -0.04 in the last 12 months, 0.76 at month 240; Government debt / GDP: moved -0.31 in the last 12 months, 0.81 at month 240; Real disposable income, older (67+): moved -0.22 in the last 12 months, 3.74 at month 240; Pension-fund assets (real): moved -0.34 in the last 12 months, 4.87 at month 240; and 2 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionW; fishingFee; dividendsFC; dividendsFR; dividendsXF; dividendsXT; and 2 more.
 
 Regimes that differ from the no-change run:
@@ -4591,7 +4596,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved -0.06 in the last 12 months, 0.14 at month 240; Real disposable income, older (67+): moved -0.05 in the last 12 months, 0.80 at month 240; Pension-fund assets (real): moved -0.07 in the last 12 months, 1.05 at month 240.
+- **Unsettled**: Government debt / GDP: moved -0.06 in the last 12 months, 0.14 at month 240; Real disposable income, older (67+): moved -0.05 in the last 12 months, 0.80 at month 240; Pension-fund assets (real): moved -0.07 in the last 12 months, 1.05 at month 240; Government debt amount: moved -0.15 in the last 12 months, -2.01 at month 240; and 1 more.
 - **Regimes**: dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -4630,7 +4635,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved 0.11 in the last 12 months, -0.27 at month 240; Real disposable income, older (67+): moved 0.09 in the last 12 months, -1.41 at month 240; Pension-fund assets (real): moved 0.13 in the last 12 months, -1.84 at month 240.
+- **Unsettled**: Government debt / GDP: moved 0.11 in the last 12 months, -0.27 at month 240; Real disposable income, older (67+): moved 0.09 in the last 12 months, -1.41 at month 240; Pension-fund assets (real): moved 0.13 in the last 12 months, -1.84 at month 240; Government debt amount: moved 0.27 in the last 12 months, 3.59 at month 240; and 1 more.
 - **Regimes**: dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -4674,7 +4679,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Extreme**: Profits, exporters (real) 68.2 % at month 16.
-- **Unsettled**: Government debt / GDP: moved 0.34 in the last 12 months, -0.99 at month 240; Real disposable income, older (67+): moved 0.28 in the last 12 months, -4.57 at month 240; Pension-fund assets (real): moved 0.43 in the last 12 months, -5.93 at month 240.
+- **Unsettled**: Government debt / GDP: moved 0.34 in the last 12 months, -0.99 at month 240; Real disposable income, older (67+): moved 0.28 in the last 12 months, -4.57 at month 240; Pension-fund assets (real): moved 0.43 in the last 12 months, -5.93 at month 240; Government debt amount: moved 0.92 in the last 12 months, 11.4 at month 240; and 1 more.
 - **Regimes**: neutralRate; bondPurchasesW; dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; unemployedY; and 3 more.
 
 Regimes that differ from the no-change run:
@@ -4723,7 +4728,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved -0.31 in the last 12 months, 1.91 at month 240; Income-tax rate: moved -0.03 in the last 12 months, 0.06 at month 240; Real disposable income, older (67+): moved -0.18 in the last 12 months, 3.67 at month 240; Pension-fund assets (real): moved -0.34 in the last 12 months, 4.80 at month 240.
+- **Unsettled**: Government debt / GDP: moved -0.31 in the last 12 months, 1.91 at month 240; Income-tax rate: moved -0.03 in the last 12 months, 0.06 at month 240; Real disposable income, older (67+): moved -0.18 in the last 12 months, 3.67 at month 240; Pension-fund assets (real): moved -0.34 in the last 12 months, 4.80 at month 240; and 2 more.
 - **Regimes**: keyRateSuggestion; fishingFee; dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -4769,7 +4774,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved -0.06 in the last 12 months, 0.26 at month 240; Real disposable income, older (67+): moved -0.04 in the last 12 months, 0.80 at month 240; Pension-fund assets (real): moved -0.07 in the last 12 months, 1.04 at month 240.
+- **Unsettled**: Government debt / GDP: moved -0.06 in the last 12 months, 0.26 at month 240; Real disposable income, older (67+): moved -0.04 in the last 12 months, 0.80 at month 240; Pension-fund assets (real): moved -0.07 in the last 12 months, 1.04 at month 240; Government debt amount: moved -0.14 in the last 12 months, -1.59 at month 240; and 1 more.
 - **Regimes**: dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -4809,7 +4814,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved 0.12 in the last 12 months, -0.84 at month 240; Real disposable income, older (67+): moved 0.07 in the last 12 months, -1.40 at month 240; Pension-fund assets (real): moved 0.13 in the last 12 months, -1.81 at month 240.
+- **Unsettled**: Government debt / GDP: moved 0.12 in the last 12 months, -0.84 at month 240; Real disposable income, older (67+): moved 0.07 in the last 12 months, -1.40 at month 240; Pension-fund assets (real): moved 0.13 in the last 12 months, -1.81 at month 240; Government debt amount: moved 0.27 in the last 12 months, 1.68 at month 240; and 1 more.
 - **Regimes**: dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -4854,7 +4859,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Extreme**: Profits, exporters (real) 68.2 % at month 16.
-- **Unsettled**: Government debt / GDP: moved 0.32 in the last 12 months, -3.53 at month 240; Real disposable income, older (67+): moved 0.27 in the last 12 months, -4.71 at month 240; Pension-fund assets (real): moved 0.45 in the last 12 months, -5.78 at month 240.
+- **Unsettled**: Government debt / GDP: moved 0.32 in the last 12 months, -3.53 at month 240; Real disposable income, older (67+): moved 0.27 in the last 12 months, -4.71 at month 240; Pension-fund assets (real): moved 0.45 in the last 12 months, -5.78 at month 240; Government debt amount: moved 0.73 in the last 12 months, 2.83 at month 240.
 - **Regimes**: neutralRate; bondPurchasesW; dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; unemployedY; and 3 more.
 
 Regimes that differ from the no-change run:
@@ -4924,7 +4929,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.06 in the last 12 months, 0.16 at month 240; Key interest rate: moved 0.02 in the last 12 months, 0.14 at month 240; Króna value: moved -0.14 in the last 12 months, -4.29 at month 240; Household consumption (real): moved -0.13 in the last 12 months, -4.98 at month 240; and 23 more.
+- **Unsettled**: Consumer price level: moved 0.06 in the last 12 months, 0.16 at month 240; Key interest rate: moved 0.02 in the last 12 months, 0.14 at month 240; Króna value: moved -0.14 in the last 12 months, -4.29 at month 240; Household consumption (real): moved -0.13 in the last 12 months, -4.98 at month 240; and 25 more.
 - **Regimes**: dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -4964,7 +4969,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Króna value: moved -0.04 in the last 12 months, -1.16 at month 240; Household consumption (real): moved -0.03 in the last 12 months, -1.33 at month 240; Imports (real): moved -0.02 in the last 12 months, -0.88 at month 240; Real house prices: moved -0.03 in the last 12 months, -0.93 at month 240; and 14 more.
+- **Unsettled**: Króna value: moved -0.04 in the last 12 months, -1.16 at month 240; Household consumption (real): moved -0.03 in the last 12 months, -1.33 at month 240; Imports (real): moved -0.02 in the last 12 months, -0.88 at month 240; Real house prices: moved -0.03 in the last 12 months, -0.93 at month 240; and 16 more.
 
 ### 1.25 pp (up), unlocked
 
@@ -4999,7 +5004,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.02 in the last 12 months, -0.10 at month 240; Króna value: moved 0.07 in the last 12 months, 2.07 at month 240; Household consumption (real): moved 0.06 in the last 12 months, 2.34 at month 240; Exports (real): moved -0.02 in the last 12 months, -1.10 at month 240; and 19 more.
+- **Unsettled**: Consumer price level: moved -0.02 in the last 12 months, -0.10 at month 240; Króna value: moved 0.07 in the last 12 months, 2.07 at month 240; Household consumption (real): moved 0.06 in the last 12 months, 2.34 at month 240; Exports (real): moved -0.02 in the last 12 months, -1.10 at month 240; and 21 more.
 - **Regimes**: bondPurchasesW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -5040,7 +5045,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 0.49 at month 240; Consumer price level: moved -0.09 in the last 12 months, -0.34 at month 240; Key interest rate: moved -0.04 in the last 12 months, -0.33 at month 240; Króna value: moved 0.34 in the last 12 months, 9.46 at month 240; and 31 more.
+- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 0.49 at month 240; Consumer price level: moved -0.09 in the last 12 months, -0.34 at month 240; Key interest rate: moved -0.04 in the last 12 months, -0.33 at month 240; Króna value: moved 0.34 in the last 12 months, 9.46 at month 240; and 33 more.
 - **Regimes**: stressTestPayment; bondPurchasesW; kronaBorrowingW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -5081,8 +5086,8 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.10 in the last 12 months, 1.82 at month 240; Inflation (12-month CPI): moved 0.02 in the last 12 months, 0.64 at month 240; Unemployment rate: moved -0.04 in the last 12 months, -0.70 at month 240; Króna value: moved -0.74 in the last 12 months, -9.93 at month 240; and 31 more.
-- **Explosive**: Consumer price level: moved 0.67 in the last 12 months, 5.21 at month 240.
+- **Unsettled**: Output (real GDP): moved 0.10 in the last 12 months, 1.82 at month 240; Inflation (12-month CPI): moved 0.02 in the last 12 months, 0.64 at month 240; Unemployment rate: moved -0.04 in the last 12 months, -0.70 at month 240; Króna value: moved -0.74 in the last 12 months, -9.93 at month 240; and 32 more.
+- **Explosive**: Consumer price level: moved 0.67 in the last 12 months, 5.21 at month 240; Household mortgage debt amount: moved 0.51 in the last 12 months, 3.21 at month 240.
 - **Regimes**: dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5121,7 +5126,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.03 in the last 12 months, 0.49 at month 240; Króna value: moved -0.22 in the last 12 months, -2.78 at month 240; Real wages: moved -0.03 in the last 12 months, -0.72 at month 240; Investment (real): moved 0.03 in the last 12 months, 0.49 at month 240; and 19 more.
+- **Unsettled**: Output (real GDP): moved 0.03 in the last 12 months, 0.49 at month 240; Króna value: moved -0.22 in the last 12 months, -2.78 at month 240; Real wages: moved -0.03 in the last 12 months, -0.72 at month 240; Investment (real): moved 0.03 in the last 12 months, 0.49 at month 240; and 21 more.
 - **Explosive**: Consumer price level: moved 0.18 in the last 12 months, 1.40 at month 240; Broad money (bank deposits): moved 0.30 in the last 12 months, 1.65 at month 240.
 - **Regimes**: taxRuleTarget.
 
@@ -5160,8 +5165,8 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.05 in the last 12 months, -0.88 at month 240; Króna value: moved 0.43 in the last 12 months, 5.19 at month 240; Real wages: moved 0.05 in the last 12 months, 1.22 at month 240; Investment (real): moved -0.05 in the last 12 months, -0.84 at month 240; and 22 more.
-- **Explosive**: Consumer price level: moved -0.30 in the last 12 months, -2.47 at month 240; Broad money (bank deposits): moved -0.51 in the last 12 months, -2.92 at month 240.
+- **Unsettled**: Output (real GDP): moved -0.05 in the last 12 months, -0.88 at month 240; Króna value: moved 0.43 in the last 12 months, 5.19 at month 240; Real wages: moved 0.05 in the last 12 months, 1.22 at month 240; Investment (real): moved -0.05 in the last 12 months, -0.84 at month 240; and 23 more.
+- **Explosive**: Consumer price level: moved -0.30 in the last 12 months, -2.47 at month 240; Broad money (bank deposits): moved -0.51 in the last 12 months, -2.92 at month 240; Household mortgage debt amount: moved -0.24 in the last 12 months, -1.63 at month 240.
 - **Regimes**: bondPurchasesW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5202,8 +5207,8 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Extreme**: Government debt / GDP -33.5 pp of GDP at month 240.
-- **Unsettled**: Output (real GDP): moved -0.21 in the last 12 months, -3.68 at month 240; Inflation (12-month CPI): moved -0.06 in the last 12 months, -1.32 at month 240; Unemployment rate: moved 0.08 in the last 12 months, 1.46 at month 240; Real wages: moved 0.18 in the last 12 months, 4.70 at month 240; and 36 more.
-- **Explosive**: Consumer price level: moved -1.20 in the last 12 months, -10.1 at month 240; Króna value: moved 2.14 in the last 12 months, 24.0 at month 240.
+- **Unsettled**: Output (real GDP): moved -0.21 in the last 12 months, -3.68 at month 240; Inflation (12-month CPI): moved -0.06 in the last 12 months, -1.32 at month 240; Unemployment rate: moved 0.08 in the last 12 months, 1.46 at month 240; Real wages: moved 0.18 in the last 12 months, 4.70 at month 240; and 37 more.
+- **Explosive**: Consumer price level: moved -1.20 in the last 12 months, -10.1 at month 240; Króna value: moved 2.14 in the last 12 months, 24.0 at month 240; Household mortgage debt amount: moved -1.01 in the last 12 months, -6.98 at month 240.
 - **Regimes**: keyRateSuggestion; bondPurchasesHO; bondPurchasesW; kronaBorrowingW; dividendsXF; taxRuleTarget; bondPurchasesPF.
 
 Regimes that differ from the no-change run:
@@ -5248,7 +5253,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.24 in the last 12 months, 1.74 at month 240; Króna value: moved -0.31 in the last 12 months, -6.14 at month 240; Real wages: moved -0.04 in the last 12 months, -1.85 at month 240; Investment (real): moved 0.03 in the last 12 months, 0.80 at month 240; and 21 more.
+- **Unsettled**: Consumer price level: moved 0.24 in the last 12 months, 1.74 at month 240; Króna value: moved -0.31 in the last 12 months, -6.14 at month 240; Real wages: moved -0.04 in the last 12 months, -1.85 at month 240; Investment (real): moved 0.03 in the last 12 months, 0.80 at month 240; and 23 more.
 - **Regimes**: dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5288,7 +5293,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.06 in the last 12 months, 0.45 at month 240; Króna value: moved -0.09 in the last 12 months, -1.66 at month 240; Household consumption (real): moved -0.02 in the last 12 months, -1.13 at month 240; Broad money (bank deposits): moved 0.11 in the last 12 months, -0.21 at month 240; and 13 more.
+- **Unsettled**: Consumer price level: moved 0.06 in the last 12 months, 0.45 at month 240; Króna value: moved -0.09 in the last 12 months, -1.66 at month 240; Household consumption (real): moved -0.02 in the last 12 months, -1.13 at month 240; Broad money (bank deposits): moved 0.11 in the last 12 months, -0.21 at month 240; and 15 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5327,7 +5332,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.11 in the last 12 months, -0.91 at month 240; Króna value: moved 0.17 in the last 12 months, 3.13 at month 240; Household consumption (real): moved 0.04 in the last 12 months, 2.00 at month 240; Exports (real): moved -0.03 in the last 12 months, -1.30 at month 240; and 21 more.
+- **Unsettled**: Consumer price level: moved -0.11 in the last 12 months, -0.91 at month 240; Króna value: moved 0.17 in the last 12 months, 3.13 at month 240; Household consumption (real): moved 0.04 in the last 12 months, 2.00 at month 240; Exports (real): moved -0.03 in the last 12 months, -1.30 at month 240; and 23 more.
 - **Regimes**: bondPurchasesW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5368,7 +5373,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.46 in the last 12 months, -4.10 at month 240; Unemployment rate: moved 0.02 in the last 12 months, 0.61 at month 240; Króna value: moved 0.84 in the last 12 months, 14.8 at month 240; Real wages: moved 0.07 in the last 12 months, 3.16 at month 240; and 30 more.
+- **Unsettled**: Consumer price level: moved -0.46 in the last 12 months, -4.10 at month 240; Unemployment rate: moved 0.02 in the last 12 months, 0.61 at month 240; Króna value: moved 0.84 in the last 12 months, 14.8 at month 240; Real wages: moved 0.07 in the last 12 months, 3.16 at month 240; and 32 more.
 - **Regimes**: bondPurchasesW; kronaBorrowingW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5579,7 +5584,8 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.02 in the last 12 months, 0.63 at month 240; Consumer price level: moved 0.22 in the last 12 months, 2.90 at month 240; Króna value: moved -0.24 in the last 12 months, -4.76 at month 240; Investment (real): moved 0.02 in the last 12 months, -0.25 at month 240; and 12 more.
+- **Unsettled**: Output (real GDP): moved 0.02 in the last 12 months, 0.63 at month 240; Consumer price level: moved 0.22 in the last 12 months, 2.90 at month 240; Króna value: moved -0.24 in the last 12 months, -4.76 at month 240; Investment (real): moved 0.02 in the last 12 months, -0.25 at month 240; and 13 more.
+- **Explosive**: Household mortgage debt amount: moved 0.19 in the last 12 months, 1.87 at month 240.
 - **Regimes**: investmentPlanXA; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5618,7 +5624,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.06 in the last 12 months, 0.74 at month 240; Króna value: moved -0.07 in the last 12 months, -1.31 at month 240; Broad money (bank deposits): moved 0.09 in the last 12 months, 0.58 at month 240; Government debt / GDP: moved 0.05 in the last 12 months, 1.51 at month 240; and 3 more.
+- **Unsettled**: Consumer price level: moved 0.06 in the last 12 months, 0.74 at month 240; Króna value: moved -0.07 in the last 12 months, -1.31 at month 240; Broad money (bank deposits): moved 0.09 in the last 12 months, 0.58 at month 240; Government debt / GDP: moved 0.05 in the last 12 months, 1.51 at month 240; and 5 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5656,7 +5662,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.06 in the last 12 months, -0.75 at month 240; Króna value: moved 0.07 in the last 12 months, 1.33 at month 240; Broad money (bank deposits): moved -0.09 in the last 12 months, -0.61 at month 240; Government debt / GDP: moved -0.05 in the last 12 months, -1.49 at month 240; and 3 more.
+- **Unsettled**: Consumer price level: moved -0.06 in the last 12 months, -0.75 at month 240; Króna value: moved 0.07 in the last 12 months, 1.33 at month 240; Broad money (bank deposits): moved -0.09 in the last 12 months, -0.61 at month 240; Government debt / GDP: moved -0.05 in the last 12 months, -1.49 at month 240; and 5 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5694,7 +5700,8 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.03 in the last 12 months, -0.67 at month 240; Consumer price level: moved -0.22 in the last 12 months, -2.98 at month 240; Króna value: moved 0.29 in the last 12 months, 5.47 at month 240; Exports (real): moved -0.03 in the last 12 months, -1.35 at month 240; and 10 more.
+- **Unsettled**: Output (real GDP): moved -0.03 in the last 12 months, -0.67 at month 240; Consumer price level: moved -0.22 in the last 12 months, -2.98 at month 240; Króna value: moved 0.29 in the last 12 months, 5.47 at month 240; Exports (real): moved -0.03 in the last 12 months, -1.35 at month 240; and 11 more.
+- **Explosive**: Household mortgage debt amount: moved -0.20 in the last 12 months, -1.86 at month 240.
 - **Regimes**: bondPurchasesW; dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5739,7 +5746,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.05 in the last 12 months, 0.97 at month 240; Króna value: moved -0.06 in the last 12 months, -2.56 at month 240; Broad money (bank deposits): moved 0.10 in the last 12 months, -1.00 at month 240; Real disposable income, older (67+): moved -0.02 in the last 12 months, -0.66 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved 0.05 in the last 12 months, 0.97 at month 240; Króna value: moved -0.06 in the last 12 months, -2.56 at month 240; Broad money (bank deposits): moved 0.10 in the last 12 months, -1.00 at month 240; Real disposable income, older (67+): moved -0.02 in the last 12 months, -0.66 at month 240; and 6 more.
 - **Regimes**: investmentPlanXA; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5779,7 +5786,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Broad money (bank deposits): moved 0.03 in the last 12 months, -0.31 at month 240.
+- **Unsettled**: Broad money (bank deposits): moved 0.03 in the last 12 months, -0.31 at month 240; Government debt amount: moved 0.03 in the last 12 months, 1.17 at month 240.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5818,7 +5825,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Broad money (bank deposits): moved -0.03 in the last 12 months, 0.29 at month 240.
+- **Unsettled**: Broad money (bank deposits): moved -0.03 in the last 12 months, 0.29 at month 240; Government debt amount: moved -0.03 in the last 12 months, -1.17 at month 240.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5857,7 +5864,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.06 in the last 12 months, -1.09 at month 240; Króna value: moved 0.08 in the last 12 months, 3.03 at month 240; Broad money (bank deposits): moved -0.11 in the last 12 months, 1.07 at month 240; Real disposable income, older (67+): moved 0.03 in the last 12 months, 0.71 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved -0.06 in the last 12 months, -1.09 at month 240; Króna value: moved 0.08 in the last 12 months, 3.03 at month 240; Broad money (bank deposits): moved -0.11 in the last 12 months, 1.07 at month 240; Real disposable income, older (67+): moved 0.03 in the last 12 months, 0.71 at month 240; and 6 more.
 - **Regimes**: dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -5925,7 +5932,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved 0.05 in the last 12 months, 0.02 at month 240; Pension-fund assets (real): moved 0.02 in the last 12 months, -0.05 at month 240.
+- **Unsettled**: Government debt / GDP: moved 0.05 in the last 12 months, 0.02 at month 240; Pension-fund assets (real): moved 0.02 in the last 12 months, -0.05 at month 240; Government debt amount: moved 0.09 in the last 12 months, -1.40 at month 240.
 
 ### 5 % (half), unlocked
 
@@ -5960,7 +5967,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved -0.05 in the last 12 months, -0.01 at month 240; Pension-fund assets (real): moved -0.02 in the last 12 months, 0.06 at month 240.
+- **Unsettled**: Government debt / GDP: moved -0.05 in the last 12 months, -0.01 at month 240; Pension-fund assets (real): moved -0.02 in the last 12 months, 0.06 at month 240; Government debt amount: moved -0.09 in the last 12 months, 1.40 at month 240.
 - **Regimes**: dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -6000,7 +6007,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Household consumption (real): moved 0.02 in the last 12 months, 0.04 at month 240; Government debt / GDP: moved -0.10 in the last 12 months, 0 at month 240; Income-tax rate: moved -0.03 in the last 12 months, 0.05 at month 240; Pension-fund assets (real): moved -0.04 in the last 12 months, 0.14 at month 240.
+- **Unsettled**: Household consumption (real): moved 0.02 in the last 12 months, 0.04 at month 240; Government debt / GDP: moved -0.10 in the last 12 months, 0 at month 240; Income-tax rate: moved -0.03 in the last 12 months, 0.05 at month 240; Pension-fund assets (real): moved -0.04 in the last 12 months, 0.14 at month 240; and 1 more.
 - **Regimes**: stressTestPayment; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -6041,7 +6048,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Household consumption (real): moved 0.05 in the last 12 months, 0.09 at month 240; Mortgage debt / GDP: moved 0.03 in the last 12 months, 0.31 at month 240; Government debt / GDP: moved -0.20 in the last 12 months, 0.04 at month 240; Income-tax rate: moved -0.06 in the last 12 months, 0.12 at month 240; and 1 more.
+- **Unsettled**: Household consumption (real): moved 0.05 in the last 12 months, 0.09 at month 240; Mortgage debt / GDP: moved 0.03 in the last 12 months, 0.31 at month 240; Government debt / GDP: moved -0.20 in the last 12 months, 0.04 at month 240; Income-tax rate: moved -0.06 in the last 12 months, 0.12 at month 240; and 2 more.
 - **Regimes**: stressTestPayment; mortgageLendingW; bondPurchasesW; dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; and 1 more.
 
 Regimes that differ from the no-change run:
@@ -6432,7 +6439,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -1.46 in month 1 of a peak -1.46.
-- **Unsettled**: Consumer price level: moved -0.08 in the last 12 months, 1.70 at month 240; Króna value: moved 0.16 in the last 12 months, 0.08 at month 240; Exports (real): moved -0.07 in the last 12 months, -2.23 at month 240; Imports (real): moved 0.04 in the last 12 months, -0.58 at month 240; and 18 more.
+- **Unsettled**: Consumer price level: moved -0.08 in the last 12 months, 1.70 at month 240; Króna value: moved 0.16 in the last 12 months, 0.08 at month 240; Exports (real): moved -0.07 in the last 12 months, -2.23 at month 240; Imports (real): moved 0.04 in the last 12 months, -0.58 at month 240; and 19 more.
 - **Regimes**: stressTestPayment; bondPurchasesW; dividendsXF; unemployedY.
 
 Regimes that differ from the no-change run:
@@ -6476,7 +6483,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -0.73 in month 1 of a peak -0.73.
-- **Unsettled**: Consumer price level: moved -0.04 in the last 12 months, 0.82 at month 240; Króna value: moved 0.08 in the last 12 months, 0.06 at month 240; Exports (real): moved -0.04 in the last 12 months, -1.12 at month 240; Imports (real): moved 0.02 in the last 12 months, -0.27 at month 240; and 18 more.
+- **Unsettled**: Consumer price level: moved -0.04 in the last 12 months, 0.82 at month 240; Króna value: moved 0.08 in the last 12 months, 0.06 at month 240; Exports (real): moved -0.04 in the last 12 months, -1.12 at month 240; Imports (real): moved 0.02 in the last 12 months, -0.27 at month 240; and 19 more.
 - **Regimes**: dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -6517,7 +6524,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 0.71 in month 1 of a peak 0.71.
-- **Unsettled**: Consumer price level: moved 0.03 in the last 12 months, -0.77 at month 240; Króna value: moved -0.07 in the last 12 months, -0.10 at month 240; Exports (real): moved 0.03 in the last 12 months, 1.13 at month 240; Imports (real): moved -0.02 in the last 12 months, 0.25 at month 240; and 16 more.
+- **Unsettled**: Consumer price level: moved 0.03 in the last 12 months, -0.77 at month 240; Króna value: moved -0.07 in the last 12 months, -0.10 at month 240; Exports (real): moved 0.03 in the last 12 months, 1.13 at month 240; Imports (real): moved -0.02 in the last 12 months, 0.25 at month 240; and 17 more.
 
 ### 5 thousand people (default), unlocked
 
@@ -6553,7 +6560,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 1.42 in month 1 of a peak 1.42.
-- **Unsettled**: Consumer price level: moved 0.07 in the last 12 months, -1.48 at month 240; Króna value: moved -0.14 in the last 12 months, -0.23 at month 240; Exports (real): moved 0.07 in the last 12 months, 2.27 at month 240; Imports (real): moved -0.04 in the last 12 months, 0.49 at month 240; and 15 more.
+- **Unsettled**: Consumer price level: moved 0.07 in the last 12 months, -1.48 at month 240; Króna value: moved -0.14 in the last 12 months, -0.23 at month 240; Exports (real): moved 0.07 in the last 12 months, 2.27 at month 240; Imports (real): moved -0.04 in the last 12 months, 0.49 at month 240; and 16 more.
 - **Regimes**: unemployedO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -6595,7 +6602,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 2.80 in month 1 of a peak 2.80.
-- **Unsettled**: Króna value: moved -0.10 in the last 12 months, 0.66 at month 240; Exports (real): moved 0.12 in the last 12 months, 4.44 at month 240; Imports (real): moved -0.08 in the last 12 months, 0.47 at month 240; Current account: moved 0.02 in the last 12 months, -0.48 at month 240; and 13 more.
+- **Unsettled**: Króna value: moved -0.10 in the last 12 months, 0.66 at month 240; Exports (real): moved 0.12 in the last 12 months, 4.44 at month 240; Imports (real): moved -0.08 in the last 12 months, 0.47 at month 240; Current account: moved 0.02 in the last 12 months, -0.48 at month 240; and 14 more.
 - **Regimes**: neutralRate; keyRateSuggestion; keyRate; depositRate; consumptionY; unemployedO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -6640,7 +6647,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -1.46 in month 1 of a peak -1.46.
-- **Unsettled**: Consumer price level: moved 0.55 in the last 12 months, 10.6 at month 240; Króna value: moved -0.45 in the last 12 months, -8.74 at month 240; Broad money (bank deposits): moved 0.48 in the last 12 months, 10.8 at month 240; Government debt / GDP: moved 0.13 in the last 12 months, 0.39 at month 240; and 5 more.
+- **Unsettled**: Consumer price level: moved 0.55 in the last 12 months, 10.6 at month 240; Króna value: moved -0.45 in the last 12 months, -8.74 at month 240; Broad money (bank deposits): moved 0.48 in the last 12 months, 10.8 at month 240; Government debt / GDP: moved 0.13 in the last 12 months, 0.39 at month 240; and 7 more.
 - **Regimes**: neutralRate; dividendsXF; unemployedY; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -6682,7 +6689,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -0.73 in month 1 of a peak -0.73.
-- **Unsettled**: Consumer price level: moved 0.26 in the last 12 months, 5.09 at month 240; Króna value: moved -0.23 in the last 12 months, -4.39 at month 240; Broad money (bank deposits): moved 0.22 in the last 12 months, 5.14 at month 240; Government debt / GDP: moved 0.07 in the last 12 months, 0.20 at month 240; and 5 more.
+- **Unsettled**: Consumer price level: moved 0.26 in the last 12 months, 5.09 at month 240; Króna value: moved -0.23 in the last 12 months, -4.39 at month 240; Broad money (bank deposits): moved 0.22 in the last 12 months, 5.14 at month 240; Government debt / GDP: moved 0.07 in the last 12 months, 0.20 at month 240; and 7 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -6721,7 +6728,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 0.71 in month 1 of a peak 0.71.
-- **Unsettled**: Consumer price level: moved -0.23 in the last 12 months, -4.70 at month 240; Króna value: moved 0.24 in the last 12 months, 4.41 at month 240; Broad money (bank deposits): moved -0.19 in the last 12 months, -4.75 at month 240; Government debt / GDP: moved -0.07 in the last 12 months, -0.20 at month 240; and 5 more.
+- **Unsettled**: Consumer price level: moved -0.23 in the last 12 months, -4.70 at month 240; Króna value: moved 0.24 in the last 12 months, 4.41 at month 240; Broad money (bank deposits): moved -0.19 in the last 12 months, -4.75 at month 240; Government debt / GDP: moved -0.07 in the last 12 months, -0.20 at month 240; and 7 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -6760,7 +6767,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 1.42 in month 1 of a peak 1.42.
-- **Unsettled**: Consumer price level: moved -0.42 in the last 12 months, -9.03 at month 240; Króna value: moved 0.49 in the last 12 months, 8.85 at month 240; Broad money (bank deposits): moved -0.35 in the last 12 months, -9.11 at month 240; Government debt / GDP: moved -0.14 in the last 12 months, -0.39 at month 240; and 5 more.
+- **Unsettled**: Consumer price level: moved -0.42 in the last 12 months, -9.03 at month 240; Króna value: moved 0.49 in the last 12 months, 8.85 at month 240; Broad money (bank deposits): moved -0.35 in the last 12 months, -9.11 at month 240; Government debt / GDP: moved -0.14 in the last 12 months, -0.39 at month 240; and 7 more.
 - **Regimes**: neutralRate; keyRateSuggestion; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -6801,7 +6808,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 2.80 in month 1 of a peak 2.80.
-- **Unsettled**: Consumer price level: moved -0.75 in the last 12 months, -16.7 at month 240; Króna value: moved 1.02 in the last 12 months, 17.7 at month 240; Broad money (bank deposits): moved -0.61 in the last 12 months, -16.8 at month 240; Government debt / GDP: moved -0.30 in the last 12 months, -0.77 at month 240; and 5 more.
+- **Unsettled**: Consumer price level: moved -0.75 in the last 12 months, -16.7 at month 240; Króna value: moved 1.02 in the last 12 months, 17.7 at month 240; Broad money (bank deposits): moved -0.61 in the last 12 months, -16.8 at month 240; Government debt / GDP: moved -0.30 in the last 12 months, -0.77 at month 240; and 7 more.
 - **Regimes**: neutralRate; keyRateSuggestion; unemployedO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -6844,7 +6851,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -1.46 in month 1 of a peak -1.46.
-- **Unsettled**: Consumer price level: moved 0.23 in the last 12 months, 6.04 at month 240; Króna value: moved -0.18 in the last 12 months, -4.03 at month 240; Pension-fund assets (real): moved 0.05 in the last 12 months, -0.26 at month 240; Export revenue, fisheries: moved 0.18 in the last 12 months, 3.56 at month 240; and 3 more.
+- **Unsettled**: Consumer price level: moved 0.23 in the last 12 months, 6.04 at month 240; Króna value: moved -0.18 in the last 12 months, -4.03 at month 240; Pension-fund assets (real): moved 0.05 in the last 12 months, -0.26 at month 240; Government debt amount: moved 0.12 in the last 12 months, -1.15 at month 240; and 5 more.
 - **Regimes**: neutralRate; bondPurchasesW; dividendsXF; unemployedY; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -6888,7 +6895,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -0.73 in month 1 of a peak -0.73.
-- **Unsettled**: Consumer price level: moved 0.11 in the last 12 months, 2.92 at month 240; Króna value: moved -0.09 in the last 12 months, -1.99 at month 240; Pension-fund assets (real): moved 0.03 in the last 12 months, -0.13 at month 240; Export revenue, fisheries: moved 0.09 in the last 12 months, 1.71 at month 240; and 3 more.
+- **Unsettled**: Consumer price level: moved 0.11 in the last 12 months, 2.92 at month 240; Króna value: moved -0.09 in the last 12 months, -1.99 at month 240; Pension-fund assets (real): moved 0.03 in the last 12 months, -0.13 at month 240; Government debt amount: moved 0.06 in the last 12 months, -0.59 at month 240; and 5 more.
 - **Regimes**: dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -6929,7 +6936,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 0.71 in month 1 of a peak 0.71.
-- **Unsettled**: Consumer price level: moved -0.16 in the last 12 months, -3.22 at month 240; Króna value: moved 0.16 in the last 12 months, 2.55 at month 240; Broad money (bank deposits): moved -0.10 in the last 12 months, -2.27 at month 240; Government debt / GDP: moved -0.03 in the last 12 months, 1.29 at month 240; and 5 more.
+- **Unsettled**: Consumer price level: moved -0.16 in the last 12 months, -3.22 at month 240; Króna value: moved 0.16 in the last 12 months, 2.55 at month 240; Broad money (bank deposits): moved -0.10 in the last 12 months, -2.27 at month 240; Government debt / GDP: moved -0.03 in the last 12 months, 1.29 at month 240; and 7 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -6969,7 +6976,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 1.42 in month 1 of a peak 1.42.
-- **Unsettled**: Consumer price level: moved -0.22 in the last 12 months, -5.41 at month 240; Króna value: moved 0.22 in the last 12 months, 3.92 at month 240; Mortgage debt / GDP: moved -0.02 in the last 12 months, -0.26 at month 240; Broad money (bank deposits): moved -0.09 in the last 12 months, -2.75 at month 240; and 9 more.
+- **Unsettled**: Consumer price level: moved -0.22 in the last 12 months, -5.41 at month 240; Króna value: moved 0.22 in the last 12 months, 3.92 at month 240; Mortgage debt / GDP: moved -0.02 in the last 12 months, -0.26 at month 240; Broad money (bank deposits): moved -0.09 in the last 12 months, -2.75 at month 240; and 11 more.
 - **Regimes**: keyRateSuggestion; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -7010,7 +7017,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 2.80 in month 1 of a peak 2.80.
-- **Unsettled**: Consumer price level: moved -0.34 in the last 12 months, -9.93 at month 240; Króna value: moved 0.33 in the last 12 months, 7.23 at month 240; Mortgage debt / GDP: moved -0.04 in the last 12 months, -0.57 at month 240; Real disposable income, working-age (35–66): moved 0.03 in the last 12 months, 1.62 at month 240; and 6 more.
+- **Unsettled**: Consumer price level: moved -0.34 in the last 12 months, -9.93 at month 240; Króna value: moved 0.33 in the last 12 months, 7.23 at month 240; Mortgage debt / GDP: moved -0.04 in the last 12 months, -0.57 at month 240; Real disposable income, working-age (35–66): moved 0.03 in the last 12 months, 1.62 at month 240; and 8 more.
 - **Regimes**: neutralRate; keyRateSuggestion; unemployedO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -7151,7 +7158,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Real house prices: moved -0.03 in the last 12 months, 0.08 at month 240; Broad money (bank deposits): moved 0.02 in the last 12 months, -0.18 at month 240; Government debt / GDP: moved 0.05 in the last 12 months, -0.43 at month 240; Profits, construction firms (real): moved -0.04 in the last 12 months, -0.02 at month 240.
+- **Unsettled**: Real house prices: moved -0.03 in the last 12 months, 0.08 at month 240; Broad money (bank deposits): moved 0.02 in the last 12 months, -0.18 at month 240; Government debt / GDP: moved 0.05 in the last 12 months, -0.43 at month 240; Government debt amount: moved 0.10 in the last 12 months, -0.76 at month 240; and 1 more.
 - **Regimes**: consumptionW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -7193,6 +7200,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
+- **Unsettled**: Government debt amount: moved 0.04 in the last 12 months, -0.32 at month 240.
 - **Regimes**: consumptionW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -7233,7 +7241,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved -0.03 in the last 12 months, 0.38 at month 240; Profits, construction firms (real): moved 0.03 in the last 12 months, -0.07 at month 240.
+- **Unsettled**: Government debt / GDP: moved -0.03 in the last 12 months, 0.38 at month 240; Government debt amount: moved -0.06 in the last 12 months, 0.68 at month 240; Profits, construction firms (real): moved 0.03 in the last 12 months, -0.07 at month 240.
 - **Regimes**: consumptionW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -7274,7 +7282,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.02 in the last 12 months, -0.47 at month 240; Consumer price level: moved -0.04 in the last 12 months, 0.18 at month 240; Key interest rate: moved -0.02 in the last 12 months, 0.22 at month 240; Króna value: moved 0.05 in the last 12 months, 0.05 at month 240; and 22 more.
+- **Unsettled**: Output (real GDP): moved 0.02 in the last 12 months, -0.47 at month 240; Consumer price level: moved -0.04 in the last 12 months, 0.18 at month 240; Key interest rate: moved -0.02 in the last 12 months, 0.22 at month 240; Króna value: moved 0.05 in the last 12 months, 0.05 at month 240; and 23 more.
 - **Regimes**: consumptionW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -7313,7 +7321,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.03 in the last 12 months, -0.43 at month 240; Króna value: moved -0.02 in the last 12 months, 0.44 at month 240; Real wages: moved 0.03 in the last 12 months, 0.13 at month 240; Broad money (bank deposits): moved 0.04 in the last 12 months, -0.26 at month 240; and 9 more.
+- **Unsettled**: Consumer price level: moved 0.03 in the last 12 months, -0.43 at month 240; Króna value: moved -0.02 in the last 12 months, 0.44 at month 240; Real wages: moved 0.03 in the last 12 months, 0.13 at month 240; Broad money (bank deposits): moved 0.04 in the last 12 months, -0.26 at month 240; and 10 more.
 - **Regimes**: consumptionW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -7430,7 +7438,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.03 in the last 12 months, -0.01 at month 240; Consumer price level: moved -0.06 in the last 12 months, 1.27 at month 240; Króna value: moved 0.03 in the last 12 months, -1.23 at month 240; Real wages: moved -0.07 in the last 12 months, -0.17 at month 240; and 25 more.
+- **Unsettled**: Output (real GDP): moved 0.03 in the last 12 months, -0.01 at month 240; Consumer price level: moved -0.06 in the last 12 months, 1.27 at month 240; Króna value: moved 0.03 in the last 12 months, -1.23 at month 240; Real wages: moved -0.07 in the last 12 months, -0.17 at month 240; and 26 more.
 - **Regimes**: consumptionW; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -7586,7 +7594,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Króna value: moved -0.04 in the last 12 months, -0.66 at month 240; Real wages: moved -0.04 in the last 12 months, 0.21 at month 240; Investment (real): moved 0.03 in the last 12 months, -0.16 at month 240; Exports (real): moved 0.03 in the last 12 months, -0.15 at month 240; and 19 more.
+- **Unsettled**: Króna value: moved -0.04 in the last 12 months, -0.66 at month 240; Real wages: moved -0.04 in the last 12 months, 0.21 at month 240; Investment (real): moved 0.03 in the last 12 months, -0.16 at month 240; Exports (real): moved 0.03 in the last 12 months, -0.15 at month 240; and 20 more.
 - **Regimes**: consumptionW.
 
 Regimes that differ from the no-change run:
@@ -7597,9 +7605,9 @@ Regimes that differ from the no-change run:
 
 *Setting, unit pp, default 0, range -10 to 10 in steps of 0.5.*
 
-Changes the average tax rate on wages, benefits and pensions. A cut leaves households more to spend and the government less revenue, so it borrows and its debt rises; a rise does the opposite. Unlocked (the default), the debt rule sets the rate and the lever follows it. Move the lever, or close its padlock, to hold the rate yourself: debt then takes the strain, and the debt rule stands aside until you unlock it.
+Changes the average tax rate on wages, benefits and pensions. Government borrowing already adjusts automatically to the cash deficit, whether this lever is locked or unlocked. A cut leaves households more to spend and the government less revenue, so it borrows and its debt rises; a rise does the opposite. Unlocked (the default), the income-tax response to debt sets the rate and the lever follows it. Move the lever, or close its padlock, to hold the rate yourself: borrowing still adjusts automatically, while the tax policy only suggests a different tax setting.
 
-**Definition.** Level shift in the income-tax rate, in percentage points from its baseline. Unlocked (the default) the debt rule sets the shift every month, leaning against government debt, and the lever shows it. Moving the lever, or closing its padlock, locks it: the shift is then the lever’s, applied in the month it is set and held until you move it again, and the debt rule stands aside until you unlock it. Setting it back to 0 while locked returns the rate to its baseline. Unlocking hands the rate back to the debt rule, which moves from the rate you held about 4% of the way toward where it is heading each month. The first thing a change does is to the budget. A cut of 2.5 points leaves households about 1.6% of GDP a year more after tax and the government as much less revenue, so it runs a deficit and borrows: government debt is about 1.4 points of GDP higher after a year, 6.6 after five and 16 after ten. Households spend most of the extra income, so output is about 0.5% higher after a year, and the automatic stabilisers win a little of the revenue back. Second, the central bank’s rule leans against the extra demand: the key rate is about 0.2 point higher after a year and 1.1 points after five, which slows the boom. A rise mirrors it: debt falls and output is lower. Held for good while the key rate is unlocked, though, nothing pays a cut back, and interest compounds on the growing debt in an economy that does not grow, so the path does not settle (with no fiscal rule and an active monetary rule there is no stable path, Leeper 1991): at −2.5 points output is 3.2% higher after 20 years, with government debt 47 points of GDP higher and the key rate 4.8 points higher, all still rising; at +2.5 the mirror, the key rate at zero from about the fifteenth year and output 3.3% lower after 20 years, with the price level 10.8% lower and the króna 16% stronger. Most of that later drift is the króna: the deficit sends krónur abroad, through imports and the pension funds’ purchases of foreign assets as their income grows, and the króna weakens as non-residents hold more of them than they want (decision 0016). Interest a higher key rate pays is spent only in part: households spend a fifth of theirs at once, an assumption in line with the evidence that the savers who receive most interest spend little of an extra króna (decision 0016), and pension funds credit theirs to members’ rights, which reach pensions over years. At ±10 these paths run away within 20 years. With the key rate locked too, the tax change works undamped: at −2.5 output is 2.1% higher after five years and 3.3% after 20, with debt 14 points of GDP higher. To lean on the debt rule without holding the rate, lock the lever, set it, and unlock it again: the rule carries on from your rate. With the key rate held (locked), a lasting change that keeps unemployment off its normal rate keeps inflation off target: after a lasting tax rise, say, the held rate is too high for the new economy, so prices keep falling while unemployment stays up (Wicksell’s cumulative process). With the key rate held and tax rates fixed, nothing but people’s partial trust in the target anchors prices: expectations are only half anchored to it, so the long-run Phillips curve is not vertical (decisions 0002 §6 and 0014), and the króna follows domestic prices. Output and unemployment keep drifting too, for decades; whether they would ever settle is an open question about the model, not a law of economics (decision 0014). After 20 years with both policy levers locked, income tax +2.5 points leaves output about 3.9% lower (0.6% after a year, 2.1% after five) and unemployment 1.2 points higher, both still moving, with the price level 15% lower and the króna 22% stronger; VAT +2.5 points leaves output 2.1% lower and the price level 6.7% lower, so with the key rate held a VAT rise ends up lowering prices; health spending −3% of GDP leaves output 6% lower and unemployment 3.4 points higher; public investment −3% leaves output 9% lower. Treat such effects beyond a few years as a picture of an economy without its nominal anchor. With the policy levers unlocked, the central bank’s rule, which reads slack from unemployment and slowly learns its neutral rate, brings inflation back: after 20 years within about 0.1 point for VAT and 0.05 for transfers, but benefits +30 points leave unemployment about 1 point higher, and public spending ±3% of GDP leaves inflation up to about 0.3 point (a rise) or 0.7 point (a cut) off target and unemployment 0.2–1.3 points off normal, because public services move jobs more than output and the rule’s estimate of the neutral rate reaches its limit (the lever report shows the rate the economy would need, the implied neutral rate, with the debt rule still reacting to it).
+**Definition.** Level shift in the income-tax rate, in percentage points from its baseline. Unlocked (the default) the debt rule sets the shift every month, leaning against government debt, and the lever shows it. Moving the lever, or closing its padlock, locks it: the shift is then the lever’s, applied in the month it is set and held until you move it again, and the debt rule only suggests a value beside the lever. Setting it back to 0 while locked returns the rate to its baseline. Unlocking hands the rate back to the debt rule, which moves from the rate you held about 4% of the way toward where it is heading each month. The first thing a change does is to the budget. A cut of 2.5 points leaves households about 1.6% of GDP a year more after tax and the government as much less revenue, so it runs a deficit and borrows: government debt is about 1.4 points of GDP higher after a year, 6.6 after five and 16 after ten. Households spend most of the extra income, so output is about 0.5% higher after a year, and the automatic stabilisers win a little of the revenue back. Second, the central bank’s rule leans against the extra demand: the key rate is about 0.2 point higher after a year and 1.1 points after five, which slows the boom. A rise mirrors it: debt falls and output is lower. Held for good while the key rate is unlocked, though, nothing pays a cut back, and interest compounds on the growing debt in an economy that does not grow, so the path does not settle (with no fiscal rule and an active monetary rule there is no stable path, Leeper 1991): at −2.5 points output is 3.2% higher after 20 years, with government debt 47 points of GDP higher and the key rate 4.8 points higher, all still rising; at +2.5 the mirror, the key rate at zero from about the fifteenth year and output 3.3% lower after 20 years, with the price level 10.8% lower and the króna 16% stronger. Most of that later drift is the króna: the deficit sends krónur abroad, through imports and the pension funds’ purchases of foreign assets as their income grows, and the króna weakens as non-residents hold more of them than they want (decision 0016). Interest a higher key rate pays is spent only in part: households spend a fifth of theirs at once, an assumption in line with the evidence that the savers who receive most interest spend little of an extra króna (decision 0016), and pension funds credit theirs to members’ rights, which reach pensions over years. At ±10 these paths run away within 20 years. With the key rate locked too, the tax change works undamped: at −2.5 output is 2.1% higher after five years and 3.3% after 20, with debt 14 points of GDP higher. To lean on the debt rule without holding the rate, lock the lever, set it, and unlock it again: the rule carries on from your rate. With the key rate held (locked), a lasting change that keeps unemployment off its normal rate keeps inflation off target: after a lasting tax rise, say, the held rate is too high for the new economy, so prices keep falling while unemployment stays up (Wicksell’s cumulative process). With the key rate held and tax rates fixed, nothing but people’s partial trust in the target anchors prices: expectations are only half anchored to it, so the long-run Phillips curve is not vertical (decisions 0002 §6 and 0014), and the króna follows domestic prices. Output and unemployment keep drifting too, for decades; whether they would ever settle is an open question about the model, not a law of economics (decision 0014). After 20 years with both policy levers locked, income tax +2.5 points leaves output about 3.9% lower (0.6% after a year, 2.1% after five) and unemployment 1.2 points higher, both still moving, with the price level 15% lower and the króna 22% stronger; VAT +2.5 points leaves output 2.1% lower and the price level 6.7% lower, so with the key rate held a VAT rise ends up lowering prices; health spending −3% of GDP leaves output 6% lower and unemployment 3.4 points higher; public investment −3% leaves output 9% lower. Treat such effects beyond a few years as a picture of an economy without its nominal anchor. With the policy levers unlocked, the central bank’s rule, which reads slack from unemployment and slowly learns its neutral rate, brings inflation back: after 20 years within about 0.1 point for VAT and 0.05 for transfers, but benefits +30 points leave unemployment about 1 point higher, and public spending ±3% of GDP leaves inflation up to about 0.3 point (a rise) or 0.7 point (a cut) off target and unemployment 0.2–1.3 points off normal, because public services move jobs more than output and the rule’s estimate of the neutral rate reaches its limit (the lever report shows the rate the economy would need, the implied neutral rate, with the debt rule still reacting to it).
 
 Runs: -10 pp (min); -2.5 pp (down); 2.5 pp (up); 10 pp (max). Each is set before month 1 and held.
 
@@ -7612,8 +7620,8 @@ Expectations:
 - ✓ govBalance rises over months 1–60 (up, locked): 2.5, locked: 1.32. Budget arithmetic: automatic stabilisers win back only part of a tax rise (budget semi-elasticity about 0.4–0.5). (Price, Dang and Botev (2015), OECD Economics Department WP 1275)
 - ✓ govDebt falls over months 12–60 (up, locked): 2.5, locked: -3.28. Government budget constraint: surpluses repay debt. (Bohn (1998, QJE); Godley and Lavoie (2007) ch. 3)
 - ✓ currentAccount rises over months 3–36 (up, locked): 2.5, locked: 0.32. Sectoral balances and twin deficits: fiscal tightening lowers import demand and improves the current account. (Godley (1999, Levy Institute); Abbas, Bouhga-Hagbe, Fatás, Mauro and Velloso (2011, IMF Economic Review))
-- ✓ keyRate does not move over months 1–240 (max, locked): 10, locked: 0. A locked POLICY lever never moves unless the user moves it. The Taylor rule stands aside. (Decisions 0004 and 0010 (model rule 11))
-- ✓ keyRate does not move over months 1–240 (max, key rate locked): 10, key rate locked: 0. With the key rate locked, the central bank’s rule stands aside, whatever the budget does. (Decision 0010 (model rule 11))
+- ✓ keyRate does not move over months 1–240 (max, locked): 10, locked: 0. A locked POLICY lever never moves unless the user moves it. The Taylor rule only suggests. (Decisions 0004 and 0010 (model rule 11))
+- ✓ keyRate does not move over months 1–240 (max, key rate locked): 10, key rate locked: 0. With the key rate locked, the central bank’s rule only suggests, whatever the budget does. (Decision 0010 (model rule 11))
 - ✓ output falls over months 1–240 (up, locked): 2.5, locked: -2.68. With the key rate held and tax rates fixed there is no nominal anchor (decision 0014): a lasting tax rise leaves the held rate too high for the new economy, so demand stays weak and output below baseline for as long as it is held (Wicksell’s cumulative process). Only the sign is gated; the model’s long run has no level to test against. (Wicksell (1898), Interest and Prices; Godley and Lavoie (2007), Levy WP 494; decision 0014)
 - ✓ consumption falls over months 1–24 (up, locked): 2.5, locked: -1.37. A higher income tax cuts disposable income and so spending (with a cash buffer, gradually). (Godley and Lavoie (2007), Monetary Economics, ch. 3)
 - ✓ output falls over months 3–36 (up, unlocked): 2.5, unlocked: -0.72. Tax multiplier, damped by the central bank easing in response. (IMF WEO Oct 2010 ch. 3; Batini, Eyraud, Forni and Weber (2014, IMF TNM/14/04))
@@ -7659,7 +7667,7 @@ Flags:
 
 - **Extreme**: Consumer price level 89.8 % at month 240; Króna value -57.6 % (+ stronger) at month 240; Broad money (bank deposits) 317 % at month 240; Government balance -32.3 pp of GDP at month 240; Government debt / GDP 203 pp of GDP at month 240; and 1 more.
 - **Unsettled**: Key interest rate: moved 0.58 in the last 12 months, 12.3 at month 240; Króna value: moved -3.96 in the last 12 months, -57.6 at month 240; Household consumption (real): moved 0.94 in the last 12 months, 18.0 at month 240; Imports (real): moved -0.58 in the last 12 months, -5.29 at month 240; and 9 more.
-- **Explosive**: Output (real GDP): moved 2.48 in the last 12 months, 24.2 at month 240; Inflation (12-month CPI): moved 0.54 in the last 12 months, 6.58 at month 240; Consumer price level: moved 11.7 in the last 12 months, 89.8 at month 240; Real wages: moved -3.33 in the last 12 months, -27.3 at month 240; and 32 more.
+- **Explosive**: Output (real GDP): moved 2.48 in the last 12 months, 24.2 at month 240; Inflation (12-month CPI): moved 0.54 in the last 12 months, 6.58 at month 240; Consumer price level: moved 11.7 in the last 12 months, 89.8 at month 240; Real wages: moved -3.33 in the last 12 months, -27.3 at month 240; and 34 more.
 - **Regimes**: neutralRate; stressTestPayment; mortgageLendingY; mortgageLendingW; unemployedY; unemployedW; unemployedO; taxRuleAdjustment; and 3 more.
 
 Implied neutral rate: no constant key rate within the lever's range leaves inflation on target over the final five years (inflation stays above target at every rate in the range, scanned every 0.5 points); the rule's estimate ends at 6.00%, the edge of its band of 0.00–6.00%.
@@ -7712,8 +7720,8 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Extreme**: Government debt / GDP 47.4 pp of GDP at month 240.
-- **Unsettled**: Output (real GDP): moved 0.24 in the last 12 months, 3.23 at month 240; Inflation (12-month CPI): moved 0.09 in the last 12 months, 1.06 at month 240; Unemployment rate: moved -0.07 in the last 12 months, -0.96 at month 240; Key interest rate: moved 0.30 in the last 12 months, 4.80 at month 240; and 19 more.
-- **Explosive**: Consumer price level: moved 1.19 in the last 12 months, 13.1 at month 240; Króna value: moved -1.22 in the last 12 months, -14.6 at month 240; Real wages: moved -0.28 in the last 12 months, -3.47 at month 240; Exports (real): moved 0.30 in the last 12 months, 3.49 at month 240; and 20 more.
+- **Unsettled**: Output (real GDP): moved 0.24 in the last 12 months, 3.23 at month 240; Inflation (12-month CPI): moved 0.09 in the last 12 months, 1.06 at month 240; Unemployment rate: moved -0.07 in the last 12 months, -0.96 at month 240; Key interest rate: moved 0.30 in the last 12 months, 4.80 at month 240; and 20 more.
+- **Explosive**: Consumer price level: moved 1.19 in the last 12 months, 13.1 at month 240; Króna value: moved -1.22 in the last 12 months, -14.6 at month 240; Real wages: moved -0.28 in the last 12 months, -3.47 at month 240; Exports (real): moved 0.30 in the last 12 months, 3.49 at month 240; and 21 more.
 - **Regimes**: neutralRate; stressTestPayment; taxRuleAdjustment.
 
 Implied neutral rate: no constant key rate within the lever's range leaves inflation on target over the final five years (inflation stays above target at every rate in the range, scanned every 0.5 points); the rule's estimate ends at 6.00%, the edge of its band of 0.00–6.00%.
@@ -7758,8 +7766,8 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Extreme**: Government debt / GDP -31.8 pp of GDP at month 240.
-- **Unsettled**: Output (real GDP): moved -0.25 in the last 12 months, -3.33 at month 240; Inflation (12-month CPI): moved -0.08 in the last 12 months, -0.96 at month 240; Unemployment rate: moved 0.08 in the last 12 months, 1.01 at month 240; Real wages: moved 0.10 in the last 12 months, 2.33 at month 240; and 29 more.
-- **Explosive**: Consumer price level: moved -0.86 in the last 12 months, -10.8 at month 240; Króna value: moved 1.34 in the last 12 months, 15.8 at month 240; Exports (real): moved -0.17 in the last 12 months, -2.79 at month 240; Profits, exporters (real): moved -0.42 in the last 12 months, -3.24 at month 240; and 9 more.
+- **Unsettled**: Output (real GDP): moved -0.25 in the last 12 months, -3.33 at month 240; Inflation (12-month CPI): moved -0.08 in the last 12 months, -0.96 at month 240; Unemployment rate: moved 0.08 in the last 12 months, 1.01 at month 240; Real wages: moved 0.10 in the last 12 months, 2.33 at month 240; and 30 more.
+- **Explosive**: Consumer price level: moved -0.86 in the last 12 months, -10.8 at month 240; Króna value: moved 1.34 in the last 12 months, 15.8 at month 240; Exports (real): moved -0.17 in the last 12 months, -2.79 at month 240; Profits, exporters (real): moved -0.42 in the last 12 months, -3.24 at month 240; and 10 more.
 - **Regimes**: neutralRate; keyRateSuggestion; keyRate; depositRate; consumptionY; consumptionW; bondPurchasesHO; bondPurchasesW; and 3 more.
 
 Implied neutral rate: 6.73% real (the rule's estimate ends at 0.00%, the edge of its band of 0.00–6.00%); there, inflation rises with the key rate rather than falls; held there, unemployment is 0.22 pp from the no-change run over the same years and the income-tax rate 2.50 points, as in the run itself (the run's own lever holds it).
@@ -7812,7 +7820,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Extreme**: Króna value 106 % (+ stronger) at month 240; Broad money (bank deposits) -61.1 % at month 240; Government debt / GDP -36.5 pp of GDP at month 95.
-- **Unsettled**: Consumer price level: moved -2.22 in the last 12 months, -45.7 at month 240; Investment (real): moved -0.35 in the last 12 months, -9.47 at month 240; Mortgage debt / GDP: moved 0.23 in the last 12 months, 5.70 at month 240; Broad money (bank deposits): moved -1.78 in the last 12 months, -61.1 at month 240; and 12 more.
+- **Unsettled**: Consumer price level: moved -2.22 in the last 12 months, -45.7 at month 240; Investment (real): moved -0.35 in the last 12 months, -9.47 at month 240; Mortgage debt / GDP: moved 0.23 in the last 12 months, 5.70 at month 240; Broad money (bank deposits): moved -1.78 in the last 12 months, -61.1 at month 240; and 13 more.
 - **Explosive**: Króna value: moved 8.50 in the last 12 months, 106 at month 240.
 - **Regimes**: neutralRate; keyRateSuggestion; keyRate; depositRate; consumptionY; consumptionW; bondPurchasesHO; logExchangeRate; and 9 more.
 
@@ -7871,7 +7879,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Extreme**: Consumer price level 65.7 % at month 240; Broad money (bank deposits) 119 % at month 240; Government debt / GDP 46.5 pp of GDP at month 240.
-- **Unsettled**: Consumer price level: moved 4.40 in the last 12 months, 65.7 at month 240; Króna value: moved -1.64 in the last 12 months, -44.8 at month 240; Real wages: moved -0.29 in the last 12 months, -11.2 at month 240; Investment (real): moved 0.24 in the last 12 months, 11.1 at month 240; and 23 more.
+- **Unsettled**: Consumer price level: moved 4.40 in the last 12 months, 65.7 at month 240; Króna value: moved -1.64 in the last 12 months, -44.8 at month 240; Real wages: moved -0.29 in the last 12 months, -11.2 at month 240; Investment (real): moved 0.24 in the last 12 months, 11.1 at month 240; and 25 more.
 - **Regimes**: neutralRate; unemployedY; unemployedW; unemployedO; bondIssuePF.
 
 Regimes that differ from the no-change run:
@@ -7914,7 +7922,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 1.02 in the last 12 months, 15.7 at month 240; Króna value: moved -0.81 in the last 12 months, -15.7 at month 240; Exports (real): moved 0.06 in the last 12 months, 2.64 at month 240; Imports (real): moved -0.02 in the last 12 months, -0.09 at month 240; and 17 more.
+- **Unsettled**: Consumer price level: moved 1.02 in the last 12 months, 15.7 at month 240; Króna value: moved -0.81 in the last 12 months, -15.7 at month 240; Exports (real): moved 0.06 in the last 12 months, 2.64 at month 240; Imports (real): moved -0.02 in the last 12 months, -0.09 at month 240; and 19 more.
 - **Regimes**: neutralRate.
 
 Regimes that differ from the no-change run:
@@ -7953,7 +7961,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.93 in the last 12 months, -15.4 at month 240; Unemployment rate: moved 0.03 in the last 12 months, 1.24 at month 240; Króna value: moved 1.48 in the last 12 months, 22.3 at month 240; Real wages: moved 0.06 in the last 12 months, 2.63 at month 240; and 22 more.
+- **Unsettled**: Consumer price level: moved -0.93 in the last 12 months, -15.4 at month 240; Unemployment rate: moved 0.03 in the last 12 months, 1.24 at month 240; Króna value: moved 1.48 in the last 12 months, 22.3 at month 240; Real wages: moved 0.06 in the last 12 months, 2.63 at month 240; and 24 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionW; bondPurchasesW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -7997,7 +8005,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Extreme**: Consumer price level -50.8 % at month 240; Króna value 131 % (+ stronger) at month 240; Broad money (bank deposits) -61.5 % at month 240; Government debt / GDP -36.4 pp of GDP at month 130.
-- **Unsettled**: Consumer price level: moved -2.16 in the last 12 months, -50.8 at month 240; Investment (real): moved -0.35 in the last 12 months, -12.7 at month 240; Imports (real): moved 0.14 in the last 12 months, -0.01 at month 240; Mortgage debt / GDP: moved 0.16 in the last 12 months, 2.50 at month 240; and 16 more.
+- **Unsettled**: Consumer price level: moved -2.16 in the last 12 months, -50.8 at month 240; Investment (real): moved -0.35 in the last 12 months, -12.7 at month 240; Imports (real): moved 0.14 in the last 12 months, -0.01 at month 240; Mortgage debt / GDP: moved 0.16 in the last 12 months, 2.50 at month 240; and 17 more.
 - **Explosive**: Króna value: moved 10.3 in the last 12 months, 131 at month 240.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionY; consumptionW; bondPurchasesHO; logExchangeRate; bondPurchasesW; kronaBorrowingW; and 6 more.
 
@@ -8096,7 +8104,7 @@ Expectations:
 Flags:
 
 - **Extreme**: Government debt / GDP 40.4 pp of GDP at month 240.
-- **Unsettled**: Output (real GDP): moved -0.11 in the last 12 months, -0.15 at month 240; Unemployment rate: moved 0.04 in the last 12 months, -0.10 at month 240; Real wages: moved 0.17 in the last 12 months, 7.12 at month 240; Exports (real): moved -0.14 in the last 12 months, 1.68 at month 240; and 25 more.
+- **Unsettled**: Output (real GDP): moved -0.11 in the last 12 months, -0.15 at month 240; Unemployment rate: moved 0.04 in the last 12 months, -0.10 at month 240; Real wages: moved 0.17 in the last 12 months, 7.12 at month 240; Exports (real): moved -0.14 in the last 12 months, 1.68 at month 240; and 26 more.
 - **Regimes**: keyRateSuggestion; loanPremium; stressTestPayment; unemployedO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -8139,7 +8147,7 @@ Regimes that differ from the no-change run:
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.02 in the last 12 months, 0 at month 240; Exports (real): moved -0.03 in the last 12 months, 0.34 at month 240; Broad money (bank deposits): moved 0.15 in the last 12 months, 6.04 at month 240; Government balance: moved 0.03 in the last 12 months, -0.12 at month 240; and 12 more.
+- **Unsettled**: Output (real GDP): moved -0.02 in the last 12 months, 0 at month 240; Exports (real): moved -0.03 in the last 12 months, 0.34 at month 240; Broad money (bank deposits): moved 0.15 in the last 12 months, 6.04 at month 240; Government balance: moved 0.03 in the last 12 months, -0.12 at month 240; and 13 more.
 
 ### 2.5 pp (up), unlocked
 
@@ -8253,7 +8261,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate.
 Flags:
 
 - **Extreme**: Broad money (bank deposits) 70.2 % at month 240; Government debt / GDP 35.2 pp of GDP at month 240.
-- **Unsettled**: Consumer price level: moved 2.58 in the last 12 months, 29.1 at month 240; Króna value: moved -1.49 in the last 12 months, -32.6 at month 240; Real wages: moved -0.16 in the last 12 months, 1.61 at month 240; Exports (real): moved 0.16 in the last 12 months, 6.55 at month 240; and 17 more.
+- **Unsettled**: Consumer price level: moved 2.58 in the last 12 months, 29.1 at month 240; Króna value: moved -1.49 in the last 12 months, -32.6 at month 240; Real wages: moved -0.16 in the last 12 months, 1.61 at month 240; Exports (real): moved 0.16 in the last 12 months, 6.55 at month 240; and 19 more.
 - **Regimes**: neutralRate; keyRateSuggestion; loanPremium; stressTestPayment; unemployedY; unemployedW; unemployedO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -8299,7 +8307,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate.
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 1.93 at month 240; Consumer price level: moved 0.57 in the last 12 months, 6.60 at month 240; Króna value: moved -0.53 in the last 12 months, -9.42 at month 240; Real wages: moved -0.03 in the last 12 months, 0.51 at month 240; and 17 more.
+- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 1.93 at month 240; Consumer price level: moved 0.57 in the last 12 months, 6.60 at month 240; Króna value: moved -0.53 in the last 12 months, -9.42 at month 240; Real wages: moved -0.03 in the last 12 months, 0.51 at month 240; and 19 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -8338,7 +8346,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate.
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.57 in the last 12 months, -6.68 at month 240; Króna value: moved 0.74 in the last 12 months, 11.3 at month 240; Real wages: moved 0.04 in the last 12 months, -0.45 at month 240; Exports (real): moved -0.05 in the last 12 months, -1.76 at month 240; and 18 more.
+- **Unsettled**: Consumer price level: moved -0.57 in the last 12 months, -6.68 at month 240; Króna value: moved 0.74 in the last 12 months, 11.3 at month 240; Real wages: moved 0.04 in the last 12 months, -0.45 at month 240; Exports (real): moved -0.05 in the last 12 months, -1.76 at month 240; and 20 more.
 - **Regimes**: keyRateSuggestion; consumptionW; bondPurchasesW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -8382,7 +8390,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate.
 Flags:
 
 - **Extreme**: Króna value 57.4 % (+ stronger) at month 240; Government debt / GDP -32.8 pp of GDP at month 240.
-- **Unsettled**: Output (real GDP): moved -0.17 in the last 12 months, -8.39 at month 240; Consumer price level: moved -1.86 in the last 12 months, -25.7 at month 240; Unemployment rate: moved 0.06 in the last 12 months, 2.79 at month 240; Real wages: moved 0.11 in the last 12 months, -1.97 at month 240; and 22 more.
+- **Unsettled**: Output (real GDP): moved -0.17 in the last 12 months, -8.39 at month 240; Consumer price level: moved -1.86 in the last 12 months, -25.7 at month 240; Unemployment rate: moved 0.06 in the last 12 months, 2.79 at month 240; Real wages: moved 0.11 in the last 12 months, -1.97 at month 240; and 24 more.
 - **Explosive**: Króna value: moved 4.29 in the last 12 months, 57.4 at month 240.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionY; consumptionW; bondPurchasesHO; bondPurchasesW; kronaBorrowingW; dividendsXF; and 2 more.
 
@@ -8432,7 +8440,7 @@ Unmoved (every effect below 0.005): Key interest rate.
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 1.12 in the last 12 months, 13.5 at month 240; Króna value: moved -0.80 in the last 12 months, -21.5 at month 240; Broad money (bank deposits): moved 1.79 in the last 12 months, 39.2 at month 240; Government debt / GDP: moved 0.51 in the last 12 months, 22.7 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved 1.12 in the last 12 months, 13.5 at month 240; Króna value: moved -0.80 in the last 12 months, -21.5 at month 240; Broad money (bank deposits): moved 1.79 in the last 12 months, 39.2 at month 240; Government debt / GDP: moved 0.51 in the last 12 months, 22.7 at month 240; and 6 more.
 - **Regimes**: neutralRate; keyRateSuggestion; loanPremium; stressTestPayment; unemployedO; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -8477,7 +8485,7 @@ Unmoved (every effect below 0.005): Key interest rate.
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.25 in the last 12 months, 3.15 at month 240; Króna value: moved -0.24 in the last 12 months, -5.78 at month 240; Broad money (bank deposits): moved 0.37 in the last 12 months, 8.92 at month 240; Government debt / GDP: moved 0.15 in the last 12 months, 5.79 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved 0.25 in the last 12 months, 3.15 at month 240; Króna value: moved -0.24 in the last 12 months, -5.78 at month 240; Broad money (bank deposits): moved 0.37 in the last 12 months, 8.92 at month 240; Government debt / GDP: moved 0.15 in the last 12 months, 5.79 at month 240; and 6 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -8517,7 +8525,7 @@ Unmoved (every effect below 0.005): Key interest rate.
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.26 in the last 12 months, -3.10 at month 240; Króna value: moved 0.31 in the last 12 months, 6.23 at month 240; Broad money (bank deposits): moved -0.28 in the last 12 months, -8.25 at month 240; Income-tax rate: moved -0.02 in the last 12 months, -0.93 at month 240; and 5 more.
+- **Unsettled**: Consumer price level: moved -0.26 in the last 12 months, -3.10 at month 240; Króna value: moved 0.31 in the last 12 months, 6.23 at month 240; Broad money (bank deposits): moved -0.28 in the last 12 months, -8.25 at month 240; Income-tax rate: moved -0.02 in the last 12 months, -0.93 at month 240; and 7 more.
 - **Regimes**: consumptionW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -8559,7 +8567,7 @@ Unmoved (every effect below 0.005): Key interest rate.
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -1.03 in the last 12 months, -14.4 at month 240; Króna value: moved 1.63 in the last 12 months, 32.0 at month 240; Imports (real): moved 0.04 in the last 12 months, 0.96 at month 240; Broad money (bank deposits): moved -0.98 in the last 12 months, -24.4 at month 240; and 6 more.
+- **Unsettled**: Consumer price level: moved -1.03 in the last 12 months, -14.4 at month 240; Króna value: moved 1.63 in the last 12 months, 32.0 at month 240; Imports (real): moved 0.04 in the last 12 months, 0.96 at month 240; Broad money (bank deposits): moved -0.98 in the last 12 months, -24.4 at month 240; and 8 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionW; bondPurchasesW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -8632,7 +8640,7 @@ Flags:
 
 - **Extreme**: Government debt / GDP -27.3 pp of GDP at month 240.
 - **Month-1 jump**: Output (real GDP): -2.48 in month 1 of a peak -2.51; Unemployment rate: 2.32 in month 1 of a peak 2.40.
-- **Unsettled**: Output (real GDP): moved 0.11 in the last 12 months, 1.25 at month 240; Inflation (12-month CPI): moved 0.02 in the last 12 months, -0.54 at month 240; Consumer price level: moved -0.46 in the last 12 months, -15.4 at month 240; Króna value: moved 0.42 in the last 12 months, 18.6 at month 240; and 19 more.
+- **Unsettled**: Output (real GDP): moved 0.11 in the last 12 months, 1.25 at month 240; Inflation (12-month CPI): moved 0.02 in the last 12 months, -0.54 at month 240; Consumer price level: moved -0.46 in the last 12 months, -15.4 at month 240; Króna value: moved 0.42 in the last 12 months, 18.6 at month 240; and 20 more.
 - **Regimes**: neutralRate; keyRateSuggestion; keyRate; depositRate; consumptionY; consumptionW.
 
 Implied neutral rate: 8.95% real (the rule's estimate ends at 0.00%, the edge of its band of 0.00–6.00%); there, inflation rises with the key rate rather than falls; inflation crosses target 2 times across the lever's range, and this is the crossing nearest the rule's estimate; held there, unemployment is 0.83 pp from the no-change run over the same years and the income-tax rate 4.98 points at the final month (-6.63 with the key-rate rule acting; the debt rule keeps reacting to the held rate).
@@ -8680,7 +8688,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 0.61 in month 1 of a peak 0.63.
-- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 0.91 at month 240; Króna value: moved -0.08 in the last 12 months, 2.40 at month 240; Real wages: moved -0.05 in the last 12 months, -1.59 at month 240; Exports (real): moved 0.05 in the last 12 months, 0.62 at month 240; and 20 more.
+- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 0.91 at month 240; Króna value: moved -0.08 in the last 12 months, 2.40 at month 240; Real wages: moved -0.05 in the last 12 months, -1.59 at month 240; Exports (real): moved 0.05 in the last 12 months, 0.62 at month 240; and 21 more.
 
 ### 0.8 % of GDP (up), unlocked
 
@@ -8716,7 +8724,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -0.61 in month 1 of a peak -0.63.
-- **Unsettled**: Output (real GDP): moved -0.04 in the last 12 months, -0.92 at month 240; Króna value: moved 0.08 in the last 12 months, -2.67 at month 240; Real wages: moved 0.06 in the last 12 months, 1.53 at month 240; Exports (real): moved -0.06 in the last 12 months, -0.50 at month 240; and 24 more.
+- **Unsettled**: Output (real GDP): moved -0.04 in the last 12 months, -0.92 at month 240; Króna value: moved 0.08 in the last 12 months, -2.67 at month 240; Real wages: moved 0.06 in the last 12 months, 1.53 at month 240; Exports (real): moved -0.06 in the last 12 months, -0.50 at month 240; and 25 more.
 - **Explosive**: Profits, aluminium smelters (real): moved -0.77 in the last 12 months, -5.74 at month 240.
 - **Regimes**: stressTestPayment; dividendsXF.
 
@@ -8760,7 +8768,7 @@ Flags:
 
 - **Extreme**: Government debt / GDP 48.6 pp of GDP at month 240.
 - **Month-1 jump**: Output (real GDP): 2.48 in month 1 of a peak 2.52; Unemployment rate: -2.15 in month 1 of a peak -2.20.
-- **Unsettled**: Output (real GDP): moved -0.17 in the last 12 months, -2.46 at month 240; Inflation (12-month CPI): moved -0.04 in the last 12 months, 0.19 at month 240; Unemployment rate: moved 0.06 in the last 12 months, -0.75 at month 240; Real wages: moved 0.24 in the last 12 months, 5.09 at month 240; and 27 more.
+- **Unsettled**: Output (real GDP): moved -0.17 in the last 12 months, -2.46 at month 240; Inflation (12-month CPI): moved -0.04 in the last 12 months, 0.19 at month 240; Unemployment rate: moved 0.06 in the last 12 months, -0.75 at month 240; Real wages: moved 0.24 in the last 12 months, 5.09 at month 240; and 28 more.
 - **Explosive**: Tourism and other exports (real): moved -0.33 in the last 12 months, -1.22 at month 240.
 - **Regimes**: neutralRate; stressTestPayment; mortgageLendingW; dividendsXF; unemployedY; unemployedW; unemployedO.
 
@@ -8809,7 +8817,7 @@ Flags:
 
 - **Extreme**: Króna value 68.4 % (+ stronger) at month 240; Government debt / GDP -29.0 pp of GDP at month 240.
 - **Month-1 jump**: Imports (real): -1.31 in month 1 of a peak -1.38.
-- **Unsettled**: Output (real GDP): moved -0.14 in the last 12 months, -6.21 at month 240; Consumer price level: moved -1.76 in the last 12 months, -36.9 at month 240; Real wages: moved 0.09 in the last 12 months, -0.52 at month 240; Household consumption (real): moved -0.05 in the last 12 months, -1.08 at month 240; and 25 more.
+- **Unsettled**: Output (real GDP): moved -0.14 in the last 12 months, -6.21 at month 240; Consumer price level: moved -1.76 in the last 12 months, -36.9 at month 240; Real wages: moved 0.09 in the last 12 months, -0.52 at month 240; Household consumption (real): moved -0.05 in the last 12 months, -1.08 at month 240; and 27 more.
 - **Explosive**: Króna value: moved 4.91 in the last 12 months, 68.4 at month 240.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionY; consumptionW; bondPurchasesW; dividendsXF.
 
@@ -8854,7 +8862,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Imports (real): -0.35 in month 1 of a peak -0.36.
-- **Unsettled**: Output (real GDP): moved -0.06 in the last 12 months, -1.47 at month 240; Consumer price level: moved -0.59 in the last 12 months, -10.7 at month 240; Króna value: moved 0.80 in the last 12 months, 13.3 at month 240; Real wages: moved 0.02 in the last 12 months, -0.21 at month 240; and 29 more.
+- **Unsettled**: Output (real GDP): moved -0.06 in the last 12 months, -1.47 at month 240; Consumer price level: moved -0.59 in the last 12 months, -10.7 at month 240; Króna value: moved 0.80 in the last 12 months, 13.3 at month 240; Real wages: moved 0.02 in the last 12 months, -0.21 at month 240; and 31 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -8896,7 +8904,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -0.61 in month 1 of a peak -0.80; Imports (real): 0.35 in month 1 of a peak 0.36.
-- **Unsettled**: Consumer price level: moved 0.70 in the last 12 months, 11.8 at month 240; Króna value: moved -0.59 in the last 12 months, -11.5 at month 240; Investment (real): moved 0.02 in the last 12 months, 0.80 at month 240; Exports (real): moved 0.02 in the last 12 months, 0.84 at month 240; and 14 more.
+- **Unsettled**: Consumer price level: moved 0.70 in the last 12 months, 11.8 at month 240; Króna value: moved -0.59 in the last 12 months, -11.5 at month 240; Investment (real): moved 0.02 in the last 12 months, 0.80 at month 240; Exports (real): moved 0.02 in the last 12 months, 0.84 at month 240; and 16 more.
 - **Regimes**: neutralRate.
 
 Regimes that differ from the no-change run:
@@ -8936,7 +8944,7 @@ Flags:
 
 - **Extreme**: Broad money (bank deposits) 69.0 % at month 240.
 - **Month-1 jump**: Unemployment rate: -2.15 in month 1 of a peak -2.55; Imports (real): 1.31 in month 1 of a peak 1.35.
-- **Unsettled**: Consumer price level: moved 3.04 in the last 12 months, 47.1 at month 240; Króna value: moved -1.43 in the last 12 months, -34.8 at month 240; Real wages: moved -0.10 in the last 12 months, -0.16 at month 240; Household consumption (real): moved 0.04 in the last 12 months, 0.69 at month 240; and 22 more.
+- **Unsettled**: Consumer price level: moved 3.04 in the last 12 months, 47.1 at month 240; Króna value: moved -1.43 in the last 12 months, -34.8 at month 240; Real wages: moved -0.10 in the last 12 months, -0.16 at month 240; Household consumption (real): moved 0.04 in the last 12 months, 0.69 at month 240; and 24 more.
 - **Regimes**: neutralRate; unemployedY; unemployedW; unemployedO.
 
 Regimes that differ from the no-change run:
@@ -8979,7 +8987,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Output (real GDP): -2.48 in month 1 of a peak -2.95; Unemployment rate: 2.32 in month 1 of a peak 2.40; Imports (real): -1.31 in month 1 of a peak -1.33.
-- **Unsettled**: Consumer price level: moved -1.06 in the last 12 months, -25.9 at month 240; Króna value: moved 1.91 in the last 12 months, 38.0 at month 240; Household consumption (real): moved 0.07 in the last 12 months, 3.24 at month 240; Investment (real): moved 0.05 in the last 12 months, -0.31 at month 240; and 20 more.
+- **Unsettled**: Consumer price level: moved -1.06 in the last 12 months, -25.9 at month 240; Króna value: moved 1.91 in the last 12 months, 38.0 at month 240; Household consumption (real): moved 0.07 in the last 12 months, 3.24 at month 240; Investment (real): moved 0.05 in the last 12 months, -0.31 at month 240; and 22 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -9022,7 +9030,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Output (real GDP): -0.66 in month 1 of a peak -0.79; Unemployment rate: 0.61 in month 1 of a peak 0.64; Imports (real): -0.35 in month 1 of a peak -0.35.
-- **Unsettled**: Consumer price level: moved -0.35 in the last 12 months, -7.53 at month 240; Króna value: moved 0.40 in the last 12 months, 8.72 at month 240; Broad money (bank deposits): moved -0.35 in the last 12 months, -9.61 at month 240; Government debt / GDP: moved -0.15 in the last 12 months, -3.50 at month 240; and 8 more.
+- **Unsettled**: Consumer price level: moved -0.35 in the last 12 months, -7.53 at month 240; Króna value: moved 0.40 in the last 12 months, 8.72 at month 240; Broad money (bank deposits): moved -0.35 in the last 12 months, -9.61 at month 240; Government debt / GDP: moved -0.15 in the last 12 months, -3.50 at month 240; and 10 more.
 - **Regimes**: keyRateSuggestion.
 
 Regimes that differ from the no-change run:
@@ -9062,7 +9070,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Output (real GDP): 0.66 in month 1 of a peak 0.79; Unemployment rate: -0.61 in month 1 of a peak -0.63; Imports (real): 0.35 in month 1 of a peak 0.35.
-- **Unsettled**: Consumer price level: moved 0.41 in the last 12 months, 8.17 at month 240; Króna value: moved -0.34 in the last 12 months, -8.03 at month 240; Broad money (bank deposits): moved 0.43 in the last 12 months, 10.4 at month 240; Government debt / GDP: moved 0.13 in the last 12 months, 3.18 at month 240; and 8 more.
+- **Unsettled**: Consumer price level: moved 0.41 in the last 12 months, 8.17 at month 240; Króna value: moved -0.34 in the last 12 months, -8.03 at month 240; Broad money (bank deposits): moved 0.43 in the last 12 months, 10.4 at month 240; Government debt / GDP: moved 0.13 in the last 12 months, 3.18 at month 240; and 10 more.
 
 ### 3 % of GDP (max), key rate locked
 
@@ -9097,7 +9105,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Output (real GDP): 2.48 in month 1 of a peak 3.00; Unemployment rate: -2.15 in month 1 of a peak -2.21; Imports (real): 1.31 in month 1 of a peak 1.33.
-- **Unsettled**: Consumer price level: moved 1.89 in the last 12 months, 33.8 at month 240; Króna value: moved -1.04 in the last 12 months, -26.7 at month 240; Exports (real): moved -0.02 in the last 12 months, 0.68 at month 240; Broad money (bank deposits): moved 2.05 in the last 12 months, 43.6 at month 240; and 14 more.
+- **Unsettled**: Consumer price level: moved 1.89 in the last 12 months, 33.8 at month 240; Króna value: moved -1.04 in the last 12 months, -26.7 at month 240; Exports (real): moved -0.02 in the last 12 months, 0.68 at month 240; Broad money (bank deposits): moved 2.05 in the last 12 months, 43.6 at month 240; and 16 more.
 - **Regimes**: neutralRate; unemployedY; unemployedW; unemployedO.
 
 Regimes that differ from the no-change run:
@@ -9168,7 +9176,7 @@ Flags:
 
 - **Extreme**: Government debt / GDP -26.5 pp of GDP at month 240.
 - **Month-1 jump**: Output (real GDP): -2.66 in month 1 of a peak -2.68; Unemployment rate: 2.93 in month 1 of a peak 2.96.
-- **Unsettled**: Output (real GDP): moved 0.13 in the last 12 months, 1.53 at month 240; Inflation (12-month CPI): moved 0.03 in the last 12 months, -0.69 at month 240; Consumer price level: moved -0.56 in the last 12 months, -18.5 at month 240; Króna value: moved 0.59 in the last 12 months, 21.9 at month 240; and 23 more.
+- **Unsettled**: Output (real GDP): moved 0.13 in the last 12 months, 1.53 at month 240; Inflation (12-month CPI): moved 0.03 in the last 12 months, -0.69 at month 240; Consumer price level: moved -0.56 in the last 12 months, -18.5 at month 240; Króna value: moved 0.59 in the last 12 months, 21.9 at month 240; and 24 more.
 - **Regimes**: neutralRate; keyRateSuggestion; keyRate; depositRate; consumptionY; consumptionW; bondPurchasesPF.
 
 Implied neutral rate: 8.75% real (the rule's estimate ends at 0.00%, the edge of its band of 0.00–6.00%); there, inflation rises with the key rate rather than falls; inflation crosses target 2 times across the lever's range, and this is the crossing nearest the rule's estimate; held there, unemployment is 0.95 pp from the no-change run over the same years and the income-tax rate 4.53 points at the final month (-6.41 with the key-rate rule acting; the debt rule keeps reacting to the held rate).
@@ -9217,7 +9225,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 0.77 in month 1 of a peak 0.78.
-- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 1.16 at month 240; Króna value: moved -0.09 in the last 12 months, 2.24 at month 240; Real wages: moved -0.06 in the last 12 months, -2.02 at month 240; Exports (real): moved 0.06 in the last 12 months, 0.94 at month 240; and 20 more.
+- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 1.16 at month 240; Króna value: moved -0.09 in the last 12 months, 2.24 at month 240; Real wages: moved -0.06 in the last 12 months, -2.02 at month 240; Exports (real): moved 0.06 in the last 12 months, 0.94 at month 240; and 21 more.
 
 ### 0.8 % of GDP (up), unlocked
 
@@ -9253,7 +9261,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -0.77 in month 1 of a peak -0.78.
-- **Unsettled**: Output (real GDP): moved -0.05 in the last 12 months, -1.17 at month 240; Króna value: moved 0.10 in the last 12 months, -2.54 at month 240; Real wages: moved 0.06 in the last 12 months, 1.96 at month 240; Exports (real): moved -0.07 in the last 12 months, -0.81 at month 240; and 21 more.
+- **Unsettled**: Output (real GDP): moved -0.05 in the last 12 months, -1.17 at month 240; Króna value: moved 0.10 in the last 12 months, -2.54 at month 240; Real wages: moved 0.06 in the last 12 months, 1.96 at month 240; Exports (real): moved -0.07 in the last 12 months, -0.81 at month 240; and 22 more.
 - **Explosive**: Tourism and other exports (real): moved -0.09 in the last 12 months, -1.14 at month 240; Profits, aluminium smelters (real): moved -0.89 in the last 12 months, -9.99 at month 240.
 - **Regimes**: stressTestPayment; dividendsXF.
 
@@ -9298,7 +9306,7 @@ Flags:
 - **Extreme**: Government debt / GDP 49.6 pp of GDP at month 240.
 - **Month-1 jump**: Unemployment rate: -2.46 in month 1 of a peak -2.48.
 - **Unsettled**: Output (real GDP): moved -0.18 in the last 12 months, -3.05 at month 240; Inflation (12-month CPI): moved -0.04 in the last 12 months, 0.27 at month 240; Unemployment rate: moved 0.07 in the last 12 months, -0.91 at month 240; Key interest rate: moved -0.11 in the last 12 months, 4.12 at month 240; and 25 more.
-- **Explosive**: Exports (real): moved -0.27 in the last 12 months, -1.88 at month 240; Tourism and other exports (real): moved -0.38 in the last 12 months, -2.65 at month 240; Profits, aluminium smelters (real): moved -3.93 in the last 12 months, -25.2 at month 240.
+- **Explosive**: Exports (real): moved -0.27 in the last 12 months, -1.88 at month 240; Tourism and other exports (real): moved -0.38 in the last 12 months, -2.65 at month 240; Household mortgage debt amount: moved 0.30 in the last 12 months, 3.71 at month 240; Profits, aluminium smelters (real): moved -3.93 in the last 12 months, -25.2 at month 240.
 - **Regimes**: neutralRate; stressTestPayment; mortgageLendingW; dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; and 3 more.
 
 Implied neutral rate: 8.69% real (the rule's estimate ends at 6.00%, the edge of its band of 0.00–6.00%); held there, unemployment is -0.68 pp from the no-change run over the same years and the income-tax rate 14.7 points at the final month (12.0 with the key-rate rule acting; the debt rule keeps reacting to the held rate).
@@ -9350,7 +9358,7 @@ Flags:
 
 - **Extreme**: Króna value 67.6 % (+ stronger) at month 240; Government debt / GDP -25.7 pp of GDP at month 240.
 - **Month-1 jump**: Unemployment rate: 2.93 in month 1 of a peak 3.46.
-- **Unsettled**: Output (real GDP): moved -0.11 in the last 12 months, -5.27 at month 240; Consumer price level: moved -1.70 in the last 12 months, -37.7 at month 240; Household consumption (real): moved -0.05 in the last 12 months, -1.11 at month 240; Investment (real): moved -0.09 in the last 12 months, -2.33 at month 240; and 22 more.
+- **Unsettled**: Output (real GDP): moved -0.11 in the last 12 months, -5.27 at month 240; Consumer price level: moved -1.70 in the last 12 months, -37.7 at month 240; Household consumption (real): moved -0.05 in the last 12 months, -1.11 at month 240; Investment (real): moved -0.09 in the last 12 months, -2.33 at month 240; and 24 more.
 - **Explosive**: Króna value: moved 4.70 in the last 12 months, 67.6 at month 240; Jobs, tourism firms: moved -0.09 in the last 12 months, -1.43 at month 240.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionY; consumptionW; bondPurchasesW; dividendsXF.
 
@@ -9395,7 +9403,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 0.77 in month 1 of a peak 0.86; Imports (real): -0.24 in month 1 of a peak -0.30.
-- **Unsettled**: Consumer price level: moved -0.60 in the last 12 months, -11.2 at month 240; Króna value: moved 0.79 in the last 12 months, 13.6 at month 240; Exports (real): moved -0.02 in the last 12 months, -0.59 at month 240; Broad money (bank deposits): moved -0.69 in the last 12 months, -15.3 at month 240; and 14 more.
+- **Unsettled**: Consumer price level: moved -0.60 in the last 12 months, -11.2 at month 240; Króna value: moved 0.79 in the last 12 months, 13.6 at month 240; Exports (real): moved -0.02 in the last 12 months, -0.59 at month 240; Broad money (bank deposits): moved -0.69 in the last 12 months, -15.3 at month 240; and 16 more.
 - **Regimes**: neutralRate; keyRateSuggestion; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -9436,7 +9444,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -0.77 in month 1 of a peak -0.84; Imports (real): 0.24 in month 1 of a peak 0.30.
-- **Unsettled**: Consumer price level: moved 0.73 in the last 12 months, 12.6 at month 240; Króna value: moved -0.60 in the last 12 months, -11.9 at month 240; Broad money (bank deposits): moved 0.88 in the last 12 months, 17.2 at month 240; Government debt / GDP: moved 0.30 in the last 12 months, 5.72 at month 240; and 11 more.
+- **Unsettled**: Consumer price level: moved 0.73 in the last 12 months, 12.6 at month 240; Króna value: moved -0.60 in the last 12 months, -11.9 at month 240; Broad money (bank deposits): moved 0.88 in the last 12 months, 17.2 at month 240; Government debt / GDP: moved 0.30 in the last 12 months, 5.72 at month 240; and 13 more.
 - **Regimes**: neutralRate.
 
 Regimes that differ from the no-change run:
@@ -9476,7 +9484,7 @@ Flags:
 
 - **Extreme**: Broad money (bank deposits) 69.7 % at month 240.
 - **Month-1 jump**: Unemployment rate: -2.46 in month 1 of a peak -2.64; Imports (real): 0.89 in month 1 of a peak 1.12.
-- **Unsettled**: Consumer price level: moved 3.14 in the last 12 months, 49.3 at month 240; Króna value: moved -1.44 in the last 12 months, -35.0 at month 240; Real wages: moved -0.08 in the last 12 months, 0.92 at month 240; Household consumption (real): moved 0.04 in the last 12 months, 1.00 at month 240; and 22 more.
+- **Unsettled**: Consumer price level: moved 3.14 in the last 12 months, 49.3 at month 240; Króna value: moved -1.44 in the last 12 months, -35.0 at month 240; Real wages: moved -0.08 in the last 12 months, 0.92 at month 240; Household consumption (real): moved 0.04 in the last 12 months, 1.00 at month 240; and 24 more.
 - **Regimes**: neutralRate; dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; unemployedY; unemployedW; and 1 more.
 
 Regimes that differ from the no-change run:
@@ -9524,7 +9532,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Output (real GDP): -2.66 in month 1 of a peak -2.96; Unemployment rate: 2.93 in month 1 of a peak 2.96; Imports (real): -0.89 in month 1 of a peak -0.95.
-- **Unsettled**: Consumer price level: moved -1.07 in the last 12 months, -27.2 at month 240; Króna value: moved 1.95 in the last 12 months, 38.3 at month 240; Investment (real): moved 0.06 in the last 12 months, 0.98 at month 240; Exports (real): moved 0.05 in the last 12 months, 0.44 at month 240; and 20 more.
+- **Unsettled**: Consumer price level: moved -1.07 in the last 12 months, -27.2 at month 240; Króna value: moved 1.95 in the last 12 months, 38.3 at month 240; Investment (real): moved 0.06 in the last 12 months, 0.98 at month 240; Exports (real): moved 0.05 in the last 12 months, 0.44 at month 240; and 22 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionY; consumptionW.
 
 Regimes that differ from the no-change run:
@@ -9567,7 +9575,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Output (real GDP): -0.71 in month 1 of a peak -0.79; Unemployment rate: 0.77 in month 1 of a peak 0.78; Imports (real): -0.24 in month 1 of a peak -0.25.
-- **Unsettled**: Consumer price level: moved -0.37 in the last 12 months, -8.13 at month 240; Króna value: moved 0.43 in the last 12 months, 9.05 at month 240; Broad money (bank deposits): moved -0.34 in the last 12 months, -9.83 at month 240; Government debt / GDP: moved -0.15 in the last 12 months, -2.71 at month 240; and 7 more.
+- **Unsettled**: Consumer price level: moved -0.37 in the last 12 months, -8.13 at month 240; Króna value: moved 0.43 in the last 12 months, 9.05 at month 240; Broad money (bank deposits): moved -0.34 in the last 12 months, -9.83 at month 240; Government debt / GDP: moved -0.15 in the last 12 months, -2.71 at month 240; and 9 more.
 - **Regimes**: neutralRate; keyRateSuggestion.
 
 Regimes that differ from the no-change run:
@@ -9608,7 +9616,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Output (real GDP): 0.71 in month 1 of a peak 0.79; Unemployment rate: -0.77 in month 1 of a peak -0.78; Imports (real): 0.24 in month 1 of a peak 0.25.
-- **Unsettled**: Consumer price level: moved 0.44 in the last 12 months, 8.93 at month 240; Króna value: moved -0.37 in the last 12 months, -8.37 at month 240; Broad money (bank deposits): moved 0.43 in the last 12 months, 10.8 at month 240; Government debt / GDP: moved 0.13 in the last 12 months, 2.43 at month 240; and 7 more.
+- **Unsettled**: Consumer price level: moved 0.44 in the last 12 months, 8.93 at month 240; Króna value: moved -0.37 in the last 12 months, -8.37 at month 240; Broad money (bank deposits): moved 0.43 in the last 12 months, 10.8 at month 240; Government debt / GDP: moved 0.13 in the last 12 months, 2.43 at month 240; and 9 more.
 - **Regimes**: neutralRate.
 
 Regimes that differ from the no-change run:
@@ -9648,7 +9656,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Output (real GDP): 2.67 in month 1 of a peak 3.07; Unemployment rate: -2.46 in month 1 of a peak -2.48; Imports (real): 0.89 in month 1 of a peak 0.97.
-- **Unsettled**: Consumer price level: moved 2.08 in the last 12 months, 36.7 at month 240; Króna value: moved -1.10 in the last 12 months, -27.4 at month 240; Investment (real): moved -0.04 in the last 12 months, -0.48 at month 240; Exports (real): moved -0.04 in the last 12 months, -0.18 at month 240; and 15 more.
+- **Unsettled**: Consumer price level: moved 2.08 in the last 12 months, 36.7 at month 240; Króna value: moved -1.10 in the last 12 months, -27.4 at month 240; Investment (real): moved -0.04 in the last 12 months, -0.48 at month 240; Exports (real): moved -0.04 in the last 12 months, -0.18 at month 240; and 17 more.
 - **Regimes**: neutralRate; dividendsFC; dividendsFR; dividendsXF; dividendsXT; dividendsXO; unemployedY; unemployedW; and 1 more.
 
 Regimes that differ from the no-change run:
@@ -9724,7 +9732,7 @@ Flags:
 
 - **Extreme**: Government debt / GDP -28.3 pp of GDP at month 240.
 - **Month-1 jump**: Output (real GDP): -2.23 in month 1 of a peak -2.34; Unemployment rate: 1.48 in month 1 of a peak 1.65; Imports (real): -1.90 in month 1 of a peak -1.91.
-- **Unsettled**: Output (real GDP): moved 0.09 in the last 12 months, 0.89 at month 240; Consumer price level: moved -0.28 in the last 12 months, -10.8 at month 240; Unemployment rate: moved -0.03 in the last 12 months, 0.65 at month 240; Real wages: moved -0.11 in the last 12 months, -3.32 at month 240; and 16 more.
+- **Unsettled**: Output (real GDP): moved 0.09 in the last 12 months, 0.89 at month 240; Consumer price level: moved -0.28 in the last 12 months, -10.8 at month 240; Unemployment rate: moved -0.03 in the last 12 months, 0.65 at month 240; Real wages: moved -0.11 in the last 12 months, -3.32 at month 240; and 17 more.
 - **Regimes**: neutralRate; keyRateSuggestion; keyRate; depositRate; consumptionY; consumptionW; bondPurchasesW.
 
 Implied neutral rate: no constant key rate within the lever's range leaves inflation on target over the final five years (inflation stays below target at every rate in the range, scanned every 0.5 points); the rule's estimate ends at 0.00%, the edge of its band of 0.00–6.00%.
@@ -9773,7 +9781,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Output (real GDP): -0.59 in month 1 of a peak -0.63; Unemployment rate: 0.39 in month 1 of a peak 0.44.
-- **Unsettled**: Output (real GDP): moved 0.03 in the last 12 months, 0.57 at month 240; Króna value: moved -0.06 in the last 12 months, 2.62 at month 240; Real wages: moved -0.04 in the last 12 months, -1.00 at month 240; Exports (real): moved 0.04 in the last 12 months, 0.18 at month 240; and 17 more.
+- **Unsettled**: Output (real GDP): moved 0.03 in the last 12 months, 0.57 at month 240; Króna value: moved -0.06 in the last 12 months, 2.62 at month 240; Real wages: moved -0.04 in the last 12 months, -1.00 at month 240; Exports (real): moved 0.04 in the last 12 months, 0.18 at month 240; and 18 more.
 
 ### 0.8 % of GDP (up), unlocked
 
@@ -9809,7 +9817,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Output (real GDP): 0.59 in month 1 of a peak 0.63; Unemployment rate: -0.39 in month 1 of a peak -0.44.
-- **Unsettled**: Output (real GDP): moved -0.04 in the last 12 months, -0.57 at month 240; Real wages: moved 0.05 in the last 12 months, 0.94 at month 240; Investment (real): moved -0.03 in the last 12 months, -1.32 at month 240; Exports (real): moved -0.05 in the last 12 months, -0.07 at month 240; and 20 more.
+- **Unsettled**: Output (real GDP): moved -0.04 in the last 12 months, -0.57 at month 240; Real wages: moved 0.05 in the last 12 months, 0.94 at month 240; Investment (real): moved -0.03 in the last 12 months, -1.32 at month 240; Exports (real): moved -0.05 in the last 12 months, -0.07 at month 240; and 21 more.
 
 ### 3 % of GDP (max), unlocked
 
@@ -9846,7 +9854,7 @@ Flags:
 
 - **Extreme**: Government debt / GDP 47.0 pp of GDP at month 240.
 - **Month-1 jump**: Output (real GDP): 2.23 in month 1 of a peak 2.35; Unemployment rate: -1.46 in month 1 of a peak -1.63.
-- **Unsettled**: Output (real GDP): moved -0.14 in the last 12 months, -1.60 at month 240; Inflation (12-month CPI): moved -0.04 in the last 12 months, 0.10 at month 240; Unemployment rate: moved 0.05 in the last 12 months, -0.53 at month 240; Real wages: moved 0.20 in the last 12 months, 2.94 at month 240; and 27 more.
+- **Unsettled**: Output (real GDP): moved -0.14 in the last 12 months, -1.60 at month 240; Inflation (12-month CPI): moved -0.04 in the last 12 months, 0.10 at month 240; Unemployment rate: moved 0.05 in the last 12 months, -0.53 at month 240; Real wages: moved 0.20 in the last 12 months, 2.94 at month 240; and 28 more.
 - **Regimes**: neutralRate; stressTestPayment; unemployedY; unemployedO.
 
 Implied neutral rate: 7.31% real (the rule's estimate ends at 6.00%, the edge of its band of 0.00–6.00%); held there, unemployment is -0.45 pp from the no-change run over the same years and the income-tax rate 12.4 points at the final month (11.2 with the key-rate rule acting; the debt rule keeps reacting to the held rate).
@@ -9891,7 +9899,7 @@ Flags:
 
 - **Extreme**: Króna value 68.7 % (+ stronger) at month 240; Government debt / GDP -33.5 pp of GDP at month 240.
 - **Month-1 jump**: Imports (real): -1.90 in month 1 of a peak -1.91.
-- **Unsettled**: Output (real GDP): moved -0.17 in the last 12 months, -7.44 at month 240; Inflation (12-month CPI): moved -0.06 in the last 12 months, -2.76 at month 240; Consumer price level: moved -1.83 in the last 12 months, -35.4 at month 240; Real wages: moved 0.12 in the last 12 months, 1.65 at month 240; and 27 more.
+- **Unsettled**: Output (real GDP): moved -0.17 in the last 12 months, -7.44 at month 240; Inflation (12-month CPI): moved -0.06 in the last 12 months, -2.76 at month 240; Consumer price level: moved -1.83 in the last 12 months, -35.4 at month 240; Real wages: moved 0.12 in the last 12 months, 1.65 at month 240; and 29 more.
 - **Explosive**: Króna value: moved 5.12 in the last 12 months, 68.7 at month 240.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionY; consumptionW; bondPurchasesHO; bondPurchasesW; kronaBorrowingW; dividendsXF.
 
@@ -9938,7 +9946,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Imports (real): -0.51 in month 1 of a peak -0.51.
-- **Unsettled**: Output (real GDP): moved -0.06 in the last 12 months, -1.84 at month 240; Inflation (12-month CPI): moved -0.02 in the last 12 months, -0.68 at month 240; Consumer price level: moved -0.62 in the last 12 months, -9.95 at month 240; Unemployment rate: moved 0.02 in the last 12 months, 0.81 at month 240; and 27 more.
+- **Unsettled**: Output (real GDP): moved -0.06 in the last 12 months, -1.84 at month 240; Inflation (12-month CPI): moved -0.02 in the last 12 months, -0.68 at month 240; Consumer price level: moved -0.62 in the last 12 months, -9.95 at month 240; Unemployment rate: moved 0.02 in the last 12 months, 0.81 at month 240; and 29 more.
 - **Explosive**: Króna value: moved 0.86 in the last 12 months, 13.1 at month 240; Profits, tourism firms (real): moved -0.16 in the last 12 months, -2.43 at month 240.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionW; dividendsXF.
 
@@ -9981,7 +9989,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Imports (real): 0.51 in month 1 of a peak 0.51.
-- **Unsettled**: Consumer price level: moved 0.67 in the last 12 months, 10.7 at month 240; Króna value: moved -0.57 in the last 12 months, -11.1 at month 240; Real wages: moved -0.02 in the last 12 months, -0.34 at month 240; Investment (real): moved 0.03 in the last 12 months, 1.24 at month 240; and 17 more.
+- **Unsettled**: Consumer price level: moved 0.67 in the last 12 months, 10.7 at month 240; Króna value: moved -0.57 in the last 12 months, -11.1 at month 240; Real wages: moved -0.02 in the last 12 months, -0.34 at month 240; Investment (real): moved 0.03 in the last 12 months, 1.24 at month 240; and 19 more.
 - **Regimes**: neutralRate.
 
 Regimes that differ from the no-change run:
@@ -10021,7 +10029,7 @@ Flags:
 
 - **Extreme**: Broad money (bank deposits) 67.0 % at month 240.
 - **Month-1 jump**: Imports (real): 1.91 in month 1 of a peak 1.91.
-- **Unsettled**: Consumer price level: moved 2.87 in the last 12 months, 43.2 at month 240; Króna value: moved -1.43 in the last 12 months, -34.0 at month 240; Real wages: moved -0.12 in the last 12 months, -1.81 at month 240; Household consumption (real): moved 0.04 in the last 12 months, 0.30 at month 240; and 22 more.
+- **Unsettled**: Consumer price level: moved 2.87 in the last 12 months, 43.2 at month 240; Króna value: moved -1.43 in the last 12 months, -34.0 at month 240; Real wages: moved -0.12 in the last 12 months, -1.81 at month 240; Household consumption (real): moved 0.04 in the last 12 months, 0.30 at month 240; and 24 more.
 - **Regimes**: neutralRate; unemployedY; unemployedW; unemployedO.
 
 Regimes that differ from the no-change run:
@@ -10064,7 +10072,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 1.48 in month 1 of a peak 1.91; Imports (real): -1.90 in month 1 of a peak -1.90.
-- **Unsettled**: Consumer price level: moved -1.04 in the last 12 months, -24.0 at month 240; Króna value: moved 1.86 in the last 12 months, 37.5 at month 240; Household consumption (real): moved 0.08 in the last 12 months, 3.75 at month 240; Real house prices: moved 0.09 in the last 12 months, 0.61 at month 240; and 14 more.
+- **Unsettled**: Consumer price level: moved -1.04 in the last 12 months, -24.0 at month 240; Króna value: moved 1.86 in the last 12 months, 37.5 at month 240; Household consumption (real): moved 0.08 in the last 12 months, 3.75 at month 240; Real house prices: moved 0.09 in the last 12 months, 0.61 at month 240; and 16 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionW; bondPurchasesW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -10108,7 +10116,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: 0.39 in month 1 of a peak 0.48; Imports (real): -0.51 in month 1 of a peak -0.51.
-- **Unsettled**: Consumer price level: moved -0.32 in the last 12 months, -6.68 at month 240; Króna value: moved 0.37 in the last 12 months, 8.26 at month 240; Broad money (bank deposits): moved -0.35 in the last 12 months, -9.29 at month 240; Government debt / GDP: moved -0.16 in the last 12 months, -4.57 at month 240; and 6 more.
+- **Unsettled**: Consumer price level: moved -0.32 in the last 12 months, -6.68 at month 240; Króna value: moved 0.37 in the last 12 months, 8.26 at month 240; Broad money (bank deposits): moved -0.35 in the last 12 months, -9.29 at month 240; Government debt / GDP: moved -0.16 in the last 12 months, -4.57 at month 240; and 8 more.
 - **Regimes**: keyRateSuggestion.
 
 Regimes that differ from the no-change run:
@@ -10148,7 +10156,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -0.39 in month 1 of a peak -0.48; Imports (real): 0.51 in month 1 of a peak 0.51.
-- **Unsettled**: Consumer price level: moved 0.36 in the last 12 months, 7.14 at month 240; Króna value: moved -0.31 in the last 12 months, -7.58 at month 240; Broad money (bank deposits): moved 0.42 in the last 12 months, 9.91 at month 240; Government debt / GDP: moved 0.14 in the last 12 months, 4.24 at month 240; and 5 more.
+- **Unsettled**: Consumer price level: moved 0.36 in the last 12 months, 7.14 at month 240; Króna value: moved -0.31 in the last 12 months, -7.58 at month 240; Broad money (bank deposits): moved 0.42 in the last 12 months, 9.91 at month 240; Government debt / GDP: moved 0.14 in the last 12 months, 4.24 at month 240; and 7 more.
 
 ### 3 % of GDP (max), key rate locked
 
@@ -10183,7 +10191,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Unemployment rate: -1.46 in month 1 of a peak -1.77; Imports (real): 1.91 in month 1 of a peak 1.91.
-- **Unsettled**: Consumer price level: moved 1.62 in the last 12 months, 29.3 at month 240; Króna value: moved -0.95 in the last 12 months, -25.4 at month 240; Broad money (bank deposits): moved 1.94 in the last 12 months, 40.9 at month 240; Government debt / GDP: moved 0.43 in the last 12 months, 14.3 at month 240; and 8 more.
+- **Unsettled**: Consumer price level: moved 1.62 in the last 12 months, 29.3 at month 240; Króna value: moved -0.95 in the last 12 months, -25.4 at month 240; Broad money (bank deposits): moved 1.94 in the last 12 months, 40.9 at month 240; Government debt / GDP: moved 0.43 in the last 12 months, 14.3 at month 240; and 10 more.
 - **Regimes**: neutralRate; unemployedY; unemployedO.
 
 Regimes that differ from the no-change run:
@@ -10248,7 +10256,7 @@ Flags:
 
 - **Extreme**: Government debt / GDP -29.7 pp of GDP at month 240.
 - **Month-1 jump**: Investment (real): -14.9 in month 1 of a peak -15.6; Imports (real): -3.40 in month 1 of a peak -3.40.
-- **Unsettled**: Output (real GDP): moved 0.06 in the last 12 months, 0.47 at month 240; Unemployment rate: moved -0.02 in the last 12 months, 0.21 at month 240; Real wages: moved -0.10 in the last 12 months, -0.46 at month 240; Exports (real): moved 0.10 in the last 12 months, -1.98 at month 240; and 12 more.
+- **Unsettled**: Output (real GDP): moved 0.06 in the last 12 months, 0.47 at month 240; Unemployment rate: moved -0.02 in the last 12 months, 0.21 at month 240; Real wages: moved -0.10 in the last 12 months, -0.46 at month 240; Exports (real): moved 0.10 in the last 12 months, -1.98 at month 240; and 13 more.
 - **Regimes**: depositRate; consumptionY; consumptionW; bondPurchasesHO; bondPurchasesW; dividendsXF; bondPurchasesPF.
 
 Regimes that differ from the no-change run:
@@ -10295,7 +10303,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Investment (real): -3.96 in month 1 of a peak -4.17; Imports (real): -0.91 in month 1 of a peak -0.91.
-- **Unsettled**: Output (real GDP): moved 0.02 in the last 12 months, 0.16 at month 240; Real wages: moved -0.03 in the last 12 months, -0.07 at month 240; Exports (real): moved 0.03 in the last 12 months, -0.57 at month 240; Broad money (bank deposits): moved -0.14 in the last 12 months, -5.37 at month 240; and 11 more.
+- **Unsettled**: Output (real GDP): moved 0.02 in the last 12 months, 0.16 at month 240; Real wages: moved -0.03 in the last 12 months, -0.07 at month 240; Exports (real): moved 0.03 in the last 12 months, -0.57 at month 240; Broad money (bank deposits): moved -0.14 in the last 12 months, -5.37 at month 240; and 12 more.
 
 ### 0.8 % of GDP (up), unlocked
 
@@ -10331,7 +10339,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Investment (real): 3.96 in month 1 of a peak 4.17; Imports (real): 0.91 in month 1 of a peak 0.91.
-- **Unsettled**: Output (real GDP): moved -0.03 in the last 12 months, -0.15 at month 240; Real wages: moved 0.03 in the last 12 months, 0 at month 240; Exports (real): moved -0.03 in the last 12 months, 0.67 at month 240; Broad money (bank deposits): moved 0.17 in the last 12 months, 5.85 at month 240; and 12 more.
+- **Unsettled**: Output (real GDP): moved -0.03 in the last 12 months, -0.15 at month 240; Real wages: moved 0.03 in the last 12 months, 0 at month 240; Exports (real): moved -0.03 in the last 12 months, 0.67 at month 240; Broad money (bank deposits): moved 0.17 in the last 12 months, 5.85 at month 240; and 13 more.
 
 ### 3 % of GDP (max), unlocked
 
@@ -10368,7 +10376,7 @@ Flags:
 
 - **Extreme**: Government debt / GDP 42.5 pp of GDP at month 240.
 - **Month-1 jump**: Investment (real): 14.9 in month 1 of a peak 15.6; Imports (real): 3.40 in month 1 of a peak 3.40.
-- **Unsettled**: Output (real GDP): moved -0.12 in the last 12 months, -0.49 at month 240; Inflation (12-month CPI): moved -0.03 in the last 12 months, 0.01 at month 240; Unemployment rate: moved 0.04 in the last 12 months, -0.26 at month 240; Real wages: moved 0.13 in the last 12 months, -0.54 at month 240; and 24 more.
+- **Unsettled**: Output (real GDP): moved -0.12 in the last 12 months, -0.49 at month 240; Inflation (12-month CPI): moved -0.03 in the last 12 months, 0.01 at month 240; Unemployment rate: moved 0.04 in the last 12 months, -0.26 at month 240; Real wages: moved 0.13 in the last 12 months, -0.54 at month 240; and 26 more.
 - **Regimes**: stressTestPayment.
 
 Regimes that differ from the no-change run:
@@ -10408,7 +10416,7 @@ Flags:
 
 - **Extreme**: Króna value 68.5 % (+ stronger) at month 240; Government debt / GDP -36.4 pp of GDP at month 213.
 - **Month-1 jump**: Imports (real): -3.40 in month 1 of a peak -3.40.
-- **Unsettled**: Output (real GDP): moved -0.21 in the last 12 months, -8.72 at month 240; Inflation (12-month CPI): moved -0.06 in the last 12 months, -2.77 at month 240; Consumer price level: moved -1.91 in the last 12 months, -32.9 at month 240; Unemployment rate: moved 0.08 in the last 12 months, 3.21 at month 240; and 30 more.
+- **Unsettled**: Output (real GDP): moved -0.21 in the last 12 months, -8.72 at month 240; Inflation (12-month CPI): moved -0.06 in the last 12 months, -2.77 at month 240; Consumer price level: moved -1.91 in the last 12 months, -32.9 at month 240; Unemployment rate: moved 0.08 in the last 12 months, 3.21 at month 240; and 31 more.
 - **Explosive**: Króna value: moved 5.26 in the last 12 months, 68.5 at month 240.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionY; consumptionW; bondPurchasesHO; bondPurchasesW; kronaBorrowingW; dividendsXF; and 2 more.
 
@@ -10457,8 +10465,8 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Imports (real): -0.91 in month 1 of a peak -0.91.
-- **Unsettled**: Output (real GDP): moved -0.06 in the last 12 months, -2.23 at month 240; Unemployment rate: moved 0.02 in the last 12 months, 0.78 at month 240; Real wages: moved 0.06 in the last 12 months, 1.30 at month 240; Exports (real): moved -0.08 in the last 12 months, -2.17 at month 240; and 22 more.
-- **Explosive**: Consumer price level: moved -0.64 in the last 12 months, -9.06 at month 240; Króna value: moved 0.90 in the last 12 months, 13.2 at month 240; Export revenue, tourism firms: moved -0.72 in the last 12 months, -11.6 at month 240; Export revenue, other exporters: moved -0.70 in the last 12 months, -11.0 at month 240.
+- **Unsettled**: Output (real GDP): moved -0.06 in the last 12 months, -2.23 at month 240; Unemployment rate: moved 0.02 in the last 12 months, 0.78 at month 240; Real wages: moved 0.06 in the last 12 months, 1.30 at month 240; Exports (real): moved -0.08 in the last 12 months, -2.17 at month 240; and 23 more.
+- **Explosive**: Consumer price level: moved -0.64 in the last 12 months, -9.06 at month 240; Króna value: moved 0.90 in the last 12 months, 13.2 at month 240; Household mortgage debt amount: moved -0.61 in the last 12 months, -8.46 at month 240; Export revenue, tourism firms: moved -0.72 in the last 12 months, -11.6 at month 240; and 1 more.
 - **Regimes**: keyRateSuggestion; consumptionW; bondPurchasesW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -10500,7 +10508,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 Flags:
 
 - **Month-1 jump**: Imports (real): 0.91 in month 1 of a peak 0.91.
-- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 1.91 at month 240; Consumer price level: moved 0.63 in the last 12 months, 9.31 at month 240; Króna value: moved -0.57 in the last 12 months, -10.8 at month 240; Real wages: moved -0.04 in the last 12 months, -1.27 at month 240; and 21 more.
+- **Unsettled**: Output (real GDP): moved 0.04 in the last 12 months, 1.91 at month 240; Consumer price level: moved 0.63 in the last 12 months, 9.31 at month 240; Króna value: moved -0.57 in the last 12 months, -10.8 at month 240; Real wages: moved -0.04 in the last 12 months, -1.27 at month 240; and 23 more.
 
 ### 3 % of GDP (max), locked
 
@@ -10535,7 +10543,8 @@ Flags:
 
 - **Extreme**: Broad money (bank deposits) 62.6 % at month 240; Government debt / GDP 31.4 pp of GDP at month 240.
 - **Month-1 jump**: Imports (real): 3.40 in month 1 of a peak 3.40.
-- **Unsettled**: Output (real GDP): moved 0.14 in the last 12 months, 6.92 at month 240; Consumer price level: moved 2.64 in the last 12 months, 37.2 at month 240; Króna value: moved -1.42 in the last 12 months, -33.3 at month 240; Real wages: moved -0.16 in the last 12 months, -5.02 at month 240; and 25 more.
+- **Unsettled**: Output (real GDP): moved 0.14 in the last 12 months, 6.92 at month 240; Consumer price level: moved 2.64 in the last 12 months, 37.2 at month 240; Króna value: moved -1.42 in the last 12 months, -33.3 at month 240; Real wages: moved -0.16 in the last 12 months, -5.02 at month 240; and 26 more.
+- **Explosive**: Household mortgage debt amount: moved 2.44 in the last 12 months, 34.1 at month 240.
 - **Regimes**: neutralRate; unemployedY; unemployedW; unemployedO.
 
 Regimes that differ from the no-change run:
@@ -10578,7 +10587,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Investment (real): -14.9 in month 1 of a peak -18.6; Imports (real): -3.40 in month 1 of a peak -3.40.
-- **Unsettled**: Consumer price level: moved -0.99 in the last 12 months, -20.8 at month 240; Króna value: moved 1.79 in the last 12 months, 37.1 at month 240; Household consumption (real): moved 0.11 in the last 12 months, 5.24 at month 240; Real house prices: moved 0.09 in the last 12 months, 1.81 at month 240; and 14 more.
+- **Unsettled**: Consumer price level: moved -0.99 in the last 12 months, -20.8 at month 240; Króna value: moved 1.79 in the last 12 months, 37.1 at month 240; Household consumption (real): moved 0.11 in the last 12 months, 5.24 at month 240; Real house prices: moved 0.09 in the last 12 months, 1.81 at month 240; and 16 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionW; bondPurchasesW; kronaBorrowingW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -10623,7 +10632,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Investment (real): -3.96 in month 1 of a peak -4.83; Imports (real): -0.91 in month 1 of a peak -0.91.
-- **Unsettled**: Consumer price level: moved -0.27 in the last 12 months, -5.50 at month 240; Króna value: moved 0.32 in the last 12 months, 7.88 at month 240; Real house prices: moved 0.02 in the last 12 months, 0.45 at month 240; Broad money (bank deposits): moved -0.36 in the last 12 months, -8.50 at month 240; and 9 more.
+- **Unsettled**: Consumer price level: moved -0.27 in the last 12 months, -5.50 at month 240; Króna value: moved 0.32 in the last 12 months, 7.88 at month 240; Real house prices: moved 0.02 in the last 12 months, 0.45 at month 240; Broad money (bank deposits): moved -0.36 in the last 12 months, -8.50 at month 240; and 11 more.
 - **Regimes**: dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -10663,7 +10672,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Investment (real): 3.96 in month 1 of a peak 4.84; Imports (real): 0.91 in month 1 of a peak 0.91.
-- **Unsettled**: Consumer price level: moved 0.30 in the last 12 months, 5.76 at month 240; Króna value: moved -0.27 in the last 12 months, -7.20 at month 240; Broad money (bank deposits): moved 0.41 in the last 12 months, 8.93 at month 240; Government debt / GDP: moved 0.15 in the last 12 months, 5.91 at month 240; and 8 more.
+- **Unsettled**: Consumer price level: moved 0.30 in the last 12 months, 5.76 at month 240; Króna value: moved -0.27 in the last 12 months, -7.20 at month 240; Broad money (bank deposits): moved 0.41 in the last 12 months, 8.93 at month 240; Government debt / GDP: moved 0.15 in the last 12 months, 5.91 at month 240; and 10 more.
 
 ### 3 % of GDP (max), key rate locked
 
@@ -10698,7 +10707,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Month-1 jump**: Investment (real): 14.9 in month 1 of a peak 18.2; Imports (real): 3.40 in month 1 of a peak 3.40.
-- **Unsettled**: Consumer price level: moved 1.27 in the last 12 months, 23.0 at month 240; Króna value: moved -0.83 in the last 12 months, -24.1 at month 240; Real house prices: moved -0.06 in the last 12 months, -1.40 at month 240; Mortgage debt / GDP: moved -0.05 in the last 12 months, -2.27 at month 240; and 12 more.
+- **Unsettled**: Consumer price level: moved 1.27 in the last 12 months, 23.0 at month 240; Króna value: moved -0.83 in the last 12 months, -24.1 at month 240; Real house prices: moved -0.06 in the last 12 months, -1.40 at month 240; Mortgage debt / GDP: moved -0.05 in the last 12 months, -2.27 at month 240; and 14 more.
 - **Regimes**: neutralRate; unemployedO.
 
 Regimes that differ from the no-change run:
@@ -10897,7 +10906,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.74 in the last 12 months, -12.1 at month 240; Króna value: moved 1.07 in the last 12 months, 16.8 at month 240; Real wages: moved 0.04 in the last 12 months, 2.03 at month 240; Exports (real): moved -0.06 in the last 12 months, -2.42 at month 240; and 18 more.
+- **Unsettled**: Consumer price level: moved -0.74 in the last 12 months, -12.1 at month 240; Króna value: moved 1.07 in the last 12 months, 16.8 at month 240; Real wages: moved 0.04 in the last 12 months, 2.03 at month 240; Exports (real): moved -0.06 in the last 12 months, -2.42 at month 240; and 20 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionW; bondPurchasesW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -10939,7 +10948,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.18 in the last 12 months, -2.98 at month 240; Króna value: moved 0.21 in the last 12 months, 3.64 at month 240; Broad money (bank deposits): moved -0.25 in the last 12 months, -5.13 at month 240; Government debt / GDP: moved -0.13 in the last 12 months, -2.88 at month 240; and 8 more.
+- **Unsettled**: Consumer price level: moved -0.18 in the last 12 months, -2.98 at month 240; Króna value: moved 0.21 in the last 12 months, 3.64 at month 240; Broad money (bank deposits): moved -0.25 in the last 12 months, -5.13 at month 240; Government debt / GDP: moved -0.13 in the last 12 months, -2.88 at month 240; and 10 more.
 
 ### 0.5 % of GDP (up), locked
 
@@ -10972,7 +10981,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.19 in the last 12 months, 3.05 at month 240; Króna value: moved -0.19 in the last 12 months, -3.47 at month 240; Broad money (bank deposits): moved 0.27 in the last 12 months, 5.25 at month 240; Government debt / GDP: moved 0.12 in the last 12 months, 2.79 at month 240; and 8 more.
+- **Unsettled**: Consumer price level: moved 0.19 in the last 12 months, 3.05 at month 240; Króna value: moved -0.19 in the last 12 months, -3.47 at month 240; Broad money (bank deposits): moved 0.27 in the last 12 months, 5.25 at month 240; Government debt / GDP: moved 0.12 in the last 12 months, 2.79 at month 240; and 10 more.
 
 ### 2 % of GDP (max), locked
 
@@ -11005,7 +11014,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.80 in the last 12 months, 12.6 at month 240; Króna value: moved -0.67 in the last 12 months, -13.0 at month 240; Exports (real): moved 0.05 in the last 12 months, 2.13 at month 240; Mortgage debt / GDP: moved -0.02 in the last 12 months, 0.78 at month 240; and 15 more.
+- **Unsettled**: Consumer price level: moved 0.80 in the last 12 months, 12.6 at month 240; Króna value: moved -0.67 in the last 12 months, -13.0 at month 240; Exports (real): moved 0.05 in the last 12 months, 2.13 at month 240; Mortgage debt / GDP: moved -0.02 in the last 12 months, 0.78 at month 240; and 17 more.
 - **Regimes**: neutralRate.
 
 Regimes that differ from the no-change run:
@@ -11044,7 +11053,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.37 in the last 12 months, -7.76 at month 240; Króna value: moved 0.46 in the last 12 months, 9.93 at month 240; Broad money (bank deposits): moved -0.38 in the last 12 months, -12.6 at month 240; Government debt / GDP: moved -0.15 in the last 12 months, -6.81 at month 240; and 6 more.
+- **Unsettled**: Consumer price level: moved -0.37 in the last 12 months, -7.76 at month 240; Króna value: moved 0.46 in the last 12 months, 9.93 at month 240; Broad money (bank deposits): moved -0.38 in the last 12 months, -12.6 at month 240; Government debt / GDP: moved -0.15 in the last 12 months, -6.81 at month 240; and 8 more.
 - **Regimes**: keyRateSuggestion; consumptionW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -11085,7 +11094,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.09 in the last 12 months, -1.97 at month 240; Króna value: moved 0.10 in the last 12 months, 2.34 at month 240; Broad money (bank deposits): moved -0.11 in the last 12 months, -3.25 at month 240; Government debt / GDP: moved -0.04 in the last 12 months, -1.67 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved -0.09 in the last 12 months, -1.97 at month 240; Króna value: moved 0.10 in the last 12 months, 2.34 at month 240; Broad money (bank deposits): moved -0.11 in the last 12 months, -3.25 at month 240; Government debt / GDP: moved -0.04 in the last 12 months, -1.67 at month 240; and 6 more.
 
 ### 0.5 % of GDP (up), key rate locked
 
@@ -11119,7 +11128,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.09 in the last 12 months, 1.99 at month 240; Króna value: moved -0.09 in the last 12 months, -2.26 at month 240; Broad money (bank deposits): moved 0.12 in the last 12 months, 3.29 at month 240; Government debt / GDP: moved 0.04 in the last 12 months, 1.63 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved 0.09 in the last 12 months, 1.99 at month 240; Króna value: moved -0.09 in the last 12 months, -2.26 at month 240; Broad money (bank deposits): moved 0.12 in the last 12 months, 3.29 at month 240; Government debt / GDP: moved 0.04 in the last 12 months, 1.63 at month 240; and 6 more.
 
 ### 2 % of GDP (max), key rate locked
 
@@ -11153,7 +11162,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.39 in the last 12 months, 8.11 at month 240; Króna value: moved -0.34 in the last 12 months, -8.64 at month 240; Broad money (bank deposits): moved 0.49 in the last 12 months, 13.5 at month 240; Government debt / GDP: moved 0.15 in the last 12 months, 6.31 at month 240; and 5 more.
+- **Unsettled**: Consumer price level: moved 0.39 in the last 12 months, 8.11 at month 240; Króna value: moved -0.34 in the last 12 months, -8.64 at month 240; Broad money (bank deposits): moved 0.49 in the last 12 months, 13.5 at month 240; Government debt / GDP: moved 0.15 in the last 12 months, 6.31 at month 240; and 7 more.
 
 ## Family and housing benefits (`familyBenefits`)
 
@@ -11359,7 +11368,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.97 in the last 12 months, -17.4 at month 240; Króna value: moved 1.60 in the last 12 months, 25.7 at month 240; Exports (real): moved -0.08 in the last 12 months, -3.43 at month 240; Imports (real): moved 0.05 in the last 12 months, 0.38 at month 240; and 18 more.
+- **Unsettled**: Consumer price level: moved -0.97 in the last 12 months, -17.4 at month 240; Króna value: moved 1.60 in the last 12 months, 25.7 at month 240; Exports (real): moved -0.08 in the last 12 months, -3.43 at month 240; Imports (real): moved 0.05 in the last 12 months, 0.38 at month 240; and 20 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionY; consumptionW; bondPurchasesW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -11402,7 +11411,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.25 in the last 12 months, -4.26 at month 240; Króna value: moved 0.30 in the last 12 months, 5.26 at month 240; Broad money (bank deposits): moved -0.34 in the last 12 months, -7.18 at month 240; Government debt / GDP: moved -0.17 in the last 12 months, -3.80 at month 240; and 10 more.
+- **Unsettled**: Consumer price level: moved -0.25 in the last 12 months, -4.26 at month 240; Króna value: moved 0.30 in the last 12 months, 5.26 at month 240; Broad money (bank deposits): moved -0.34 in the last 12 months, -7.18 at month 240; Government debt / GDP: moved -0.17 in the last 12 months, -3.80 at month 240; and 12 more.
 - **Regimes**: dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -11440,7 +11449,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.27 in the last 12 months, 4.39 at month 240; Króna value: moved -0.26 in the last 12 months, -4.93 at month 240; Broad money (bank deposits): moved 0.37 in the last 12 months, 7.45 at month 240; Government debt / GDP: moved 0.16 in the last 12 months, 3.64 at month 240; and 9 more.
+- **Unsettled**: Consumer price level: moved 0.27 in the last 12 months, 4.39 at month 240; Króna value: moved -0.26 in the last 12 months, -4.93 at month 240; Broad money (bank deposits): moved 0.37 in the last 12 months, 7.45 at month 240; Government debt / GDP: moved 0.16 in the last 12 months, 3.64 at month 240; and 11 more.
 
 ### 2 % of GDP (max), locked
 
@@ -11473,7 +11482,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 1.17 in the last 12 months, 18.4 at month 240; Króna value: moved -0.87 in the last 12 months, -18.0 at month 240; Imports (real): moved -0.02 in the last 12 months, -0.14 at month 240; Broad money (bank deposits): moved 1.66 in the last 12 months, 31.6 at month 240; and 10 more.
+- **Unsettled**: Consumer price level: moved 1.17 in the last 12 months, 18.4 at month 240; Króna value: moved -0.87 in the last 12 months, -18.0 at month 240; Imports (real): moved -0.02 in the last 12 months, -0.14 at month 240; Broad money (bank deposits): moved 1.66 in the last 12 months, 31.6 at month 240; and 12 more.
 - **Regimes**: neutralRate; unemployedO.
 
 Regimes that differ from the no-change run:
@@ -11513,7 +11522,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.53 in the last 12 months, -11.7 at month 240; Króna value: moved 0.70 in the last 12 months, 15.7 at month 240; Broad money (bank deposits): moved -0.50 in the last 12 months, -16.5 at month 240; Government debt / GDP: moved -0.22 in the last 12 months, -7.90 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved -0.53 in the last 12 months, -11.7 at month 240; Króna value: moved 0.70 in the last 12 months, 15.7 at month 240; Broad money (bank deposits): moved -0.50 in the last 12 months, -16.5 at month 240; Government debt / GDP: moved -0.22 in the last 12 months, -7.90 at month 240; and 6 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionY; consumptionW; bondPurchasesW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -11557,7 +11566,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.13 in the last 12 months, -2.88 at month 240; Króna value: moved 0.14 in the last 12 months, 3.46 at month 240; Broad money (bank deposits): moved -0.15 in the last 12 months, -4.65 at month 240; Government debt / GDP: moved -0.06 in the last 12 months, -2.14 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved -0.13 in the last 12 months, -2.88 at month 240; Króna value: moved 0.14 in the last 12 months, 3.46 at month 240; Broad money (bank deposits): moved -0.15 in the last 12 months, -4.65 at month 240; Government debt / GDP: moved -0.06 in the last 12 months, -2.14 at month 240; and 6 more.
 
 ### 0.5 % of GDP (up), key rate locked
 
@@ -11591,7 +11600,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.14 in the last 12 months, 2.95 at month 240; Króna value: moved -0.13 in the last 12 months, -3.32 at month 240; Broad money (bank deposits): moved 0.16 in the last 12 months, 4.79 at month 240; Government debt / GDP: moved 0.06 in the last 12 months, 2.08 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved 0.14 in the last 12 months, 2.95 at month 240; Króna value: moved -0.13 in the last 12 months, -3.32 at month 240; Broad money (bank deposits): moved 0.16 in the last 12 months, 4.79 at month 240; Government debt / GDP: moved 0.06 in the last 12 months, 2.08 at month 240; and 6 more.
 
 ### 2 % of GDP (max), key rate locked
 
@@ -11625,7 +11634,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.60 in the last 12 months, 12.2 at month 240; Króna value: moved -0.48 in the last 12 months, -12.5 at month 240; Broad money (bank deposits): moved 0.73 in the last 12 months, 20.1 at month 240; Government debt / GDP: moved 0.20 in the last 12 months, 8.04 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved 0.60 in the last 12 months, 12.2 at month 240; Króna value: moved -0.48 in the last 12 months, -12.5 at month 240; Broad money (bank deposits): moved 0.73 in the last 12 months, 20.1 at month 240; Government debt / GDP: moved 0.20 in the last 12 months, 8.04 at month 240; and 6 more.
 - **Regimes**: neutralRate.
 
 Regimes that differ from the no-change run:
@@ -11826,7 +11835,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.34 in the last 12 months, -6.17 at month 240; Króna value: moved 0.40 in the last 12 months, 7.16 at month 240; Broad money (bank deposits): moved -0.40 in the last 12 months, -9.07 at month 240; Government debt / GDP: moved -0.20 in the last 12 months, -3.63 at month 240; and 10 more.
+- **Unsettled**: Consumer price level: moved -0.34 in the last 12 months, -6.17 at month 240; Króna value: moved 0.40 in the last 12 months, 7.16 at month 240; Broad money (bank deposits): moved -0.40 in the last 12 months, -9.07 at month 240; Government debt / GDP: moved -0.20 in the last 12 months, -3.63 at month 240; and 12 more.
 
 ### -10 pp of wage (down), locked
 
@@ -11859,7 +11868,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.12 in the last 12 months, -2.23 at month 240; Króna value: moved 0.14 in the last 12 months, 2.48 at month 240; Broad money (bank deposits): moved -0.15 in the last 12 months, -3.31 at month 240; Government debt / GDP: moved -0.07 in the last 12 months, -1.29 at month 240; and 6 more.
+- **Unsettled**: Consumer price level: moved -0.12 in the last 12 months, -2.23 at month 240; Króna value: moved 0.14 in the last 12 months, 2.48 at month 240; Broad money (bank deposits): moved -0.15 in the last 12 months, -3.31 at month 240; Government debt / GDP: moved -0.07 in the last 12 months, -1.29 at month 240; and 8 more.
 
 ### 10 pp of wage (up), locked
 
@@ -11892,7 +11901,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.14 in the last 12 months, 2.39 at month 240; Króna value: moved -0.14 in the last 12 months, -2.55 at month 240; Broad money (bank deposits): moved 0.16 in the last 12 months, 3.57 at month 240; Government debt / GDP: moved 0.07 in the last 12 months, 1.35 at month 240; and 6 more.
+- **Unsettled**: Consumer price level: moved 0.14 in the last 12 months, 2.39 at month 240; Króna value: moved -0.14 in the last 12 months, -2.55 at month 240; Broad money (bank deposits): moved 0.16 in the last 12 months, 3.57 at month 240; Government debt / GDP: moved 0.07 in the last 12 months, 1.35 at month 240; and 8 more.
 
 ### 30 pp of wage (max), locked
 
@@ -11925,7 +11934,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.44 in the last 12 months, 7.66 at month 240; Króna value: moved -0.40 in the last 12 months, -7.76 at month 240; Broad money (bank deposits): moved 0.54 in the last 12 months, 11.5 at month 240; Government debt / GDP: moved 0.20 in the last 12 months, 4.19 at month 240; and 10 more.
+- **Unsettled**: Consumer price level: moved 0.44 in the last 12 months, 7.66 at month 240; Króna value: moved -0.40 in the last 12 months, -7.76 at month 240; Broad money (bank deposits): moved 0.54 in the last 12 months, 11.5 at month 240; Government debt / GDP: moved 0.20 in the last 12 months, 4.19 at month 240; and 12 more.
 
 ### -30 pp of wage (min), key rate locked
 
@@ -11959,7 +11968,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.20 in the last 12 months, -4.37 at month 240; Króna value: moved 0.22 in the last 12 months, 4.74 at month 240; Broad money (bank deposits): moved -0.19 in the last 12 months, -5.83 at month 240; Government debt / GDP: moved -0.07 in the last 12 months, -1.52 at month 240; and 5 more.
+- **Unsettled**: Consumer price level: moved -0.20 in the last 12 months, -4.37 at month 240; Króna value: moved 0.22 in the last 12 months, 4.74 at month 240; Broad money (bank deposits): moved -0.19 in the last 12 months, -5.83 at month 240; Government debt / GDP: moved -0.07 in the last 12 months, -1.52 at month 240; and 7 more.
 
 ### -10 pp of wage (down), key rate locked
 
@@ -11993,7 +12002,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.07 in the last 12 months, -1.58 at month 240; Króna value: moved 0.08 in the last 12 months, 1.67 at month 240; Broad money (bank deposits): moved -0.07 in the last 12 months, -2.14 at month 240; Government debt / GDP: moved -0.02 in the last 12 months, -0.57 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved -0.07 in the last 12 months, -1.58 at month 240; Króna value: moved 0.08 in the last 12 months, 1.67 at month 240; Broad money (bank deposits): moved -0.07 in the last 12 months, -2.14 at month 240; Government debt / GDP: moved -0.02 in the last 12 months, -0.57 at month 240; and 6 more.
 
 ### 10 pp of wage (up), key rate locked
 
@@ -12027,7 +12036,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.08 in the last 12 months, 1.69 at month 240; Króna value: moved -0.08 in the last 12 months, -1.75 at month 240; Broad money (bank deposits): moved 0.08 in the last 12 months, 2.33 at month 240; Government debt / GDP: moved 0.03 in the last 12 months, 0.62 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved 0.08 in the last 12 months, 1.69 at month 240; Króna value: moved -0.08 in the last 12 months, -1.75 at month 240; Broad money (bank deposits): moved 0.08 in the last 12 months, 2.33 at month 240; Government debt / GDP: moved 0.03 in the last 12 months, 0.62 at month 240; and 6 more.
 
 ### 30 pp of wage (max), key rate locked
 
@@ -12061,7 +12070,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.26 in the last 12 months, 5.44 at month 240; Króna value: moved -0.24 in the last 12 months, -5.44 at month 240; Broad money (bank deposits): moved 0.27 in the last 12 months, 7.58 at month 240; Government debt / GDP: moved 0.08 in the last 12 months, 1.99 at month 240; and 4 more.
+- **Unsettled**: Consumer price level: moved 0.26 in the last 12 months, 5.44 at month 240; Króna value: moved -0.24 in the last 12 months, -5.44 at month 240; Broad money (bank deposits): moved 0.27 in the last 12 months, 7.58 at month 240; Government debt / GDP: moved 0.08 in the last 12 months, 1.99 at month 240; and 6 more.
 
 ## Who buys new government bonds (`bondBuyers`)
 
@@ -12219,7 +12228,7 @@ Unmoved (every effect below 0.005): Unemployment rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Broad money (bank deposits): moved -0.19 in the last 12 months, 0.95 at month 240; Government debt / GDP: moved -0.05 in the last 12 months, -0.42 at month 240; Real disposable income, young (18–34): moved 0.02 in the last 12 months, 0.14 at month 240; Pension-fund assets (real): moved -0.02 in the last 12 months, -0.19 at month 240; and 1 more.
+- **Unsettled**: Broad money (bank deposits): moved -0.19 in the last 12 months, 0.95 at month 240; Government debt / GDP: moved -0.05 in the last 12 months, -0.42 at month 240; Real disposable income, young (18–34): moved 0.02 in the last 12 months, 0.14 at month 240; Pension-fund assets (real): moved -0.02 in the last 12 months, -0.19 at month 240; and 2 more.
 - **Regimes**: stressTestPayment.
 
 Regimes that differ from the no-change run:
@@ -12344,7 +12353,7 @@ Unmoved (every effect below 0.005): Key interest rate, Current account, Income-t
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.03 in the last 12 months, -0.30 at month 240; Króna value: moved 0.03 in the last 12 months, 0.38 at month 240; Broad money (bank deposits): moved -0.08 in the last 12 months, 1.81 at month 240; Government debt / GDP: moved -0.05 in the last 12 months, -0.79 at month 240; and 6 more.
+- **Unsettled**: Consumer price level: moved -0.03 in the last 12 months, -0.30 at month 240; Króna value: moved 0.03 in the last 12 months, 0.38 at month 240; Broad money (bank deposits): moved -0.08 in the last 12 months, 1.81 at month 240; Government debt / GDP: moved -0.05 in the last 12 months, -0.79 at month 240; and 8 more.
 - **Regimes**: neutralRate; unemployedY; unemployedO.
 
 Regimes that differ from the no-change run:
@@ -12480,7 +12489,7 @@ Unmoved (every effect below 0.005): Key interest rate, Household consumption (re
 
 Flags:
 
-- **Unsettled**: Broad money (bank deposits): moved -0.06 in the last 12 months, 0.91 at month 240; Government debt / GDP: moved -0.02 in the last 12 months, -0.44 at month 240.
+- **Unsettled**: Broad money (bank deposits): moved -0.06 in the last 12 months, 0.91 at month 240; Government debt / GDP: moved -0.02 in the last 12 months, -0.44 at month 240; Government debt amount: moved -0.03 in the last 12 months, -0.72 at month 240.
 
 ### Pension funds, key rate locked, with Public investment 2 % of GDP
 
@@ -12591,7 +12600,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.19 in the last 12 months, -0.64 at month 240; Inflation (12-month CPI): moved 0.05 in the last 12 months, -0.06 at month 240; Unemployment rate: moved -0.09 in the last 12 months, 0.29 at month 240; Króna value: moved -0.65 in the last 12 months, 10.7 at month 240; and 34 more.
+- **Unsettled**: Output (real GDP): moved 0.19 in the last 12 months, -0.64 at month 240; Inflation (12-month CPI): moved 0.05 in the last 12 months, -0.06 at month 240; Unemployment rate: moved -0.09 in the last 12 months, 0.29 at month 240; Króna value: moved -0.65 in the last 12 months, 10.7 at month 240; and 35 more.
 - **Explosive**: Investment (real): moved 0.21 in the last 12 months, 1.75 at month 240.
 - **Regimes**: keyRateSuggestion; keyRate; depositRate; consumptionY; consumptionW; bondPurchasesW; kronaBorrowingW; dividendsXF; and 2 more.
 
@@ -12641,7 +12650,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Mortgage debt / GDP: moved -0.04 in the last 12 months, 1.51 at month 240; Pension-fund assets (real): moved -0.09 in the last 12 months, -2.47 at month 240.
+- **Unsettled**: Mortgage debt / GDP: moved -0.04 in the last 12 months, 1.51 at month 240; Pension-fund assets (real): moved -0.09 in the last 12 months, -2.47 at month 240; Household mortgage debt amount: moved -0.06 in the last 12 months, 0.12 at month 240.
 - **Regimes**: bondPurchasesW; dividendsXF.
 
 Regimes that differ from the no-change run:
@@ -12682,7 +12691,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Government debt / GDP: moved 0.04 in the last 12 months, 2.07 at month 240; Pension-fund assets (real): moved 0.10 in the last 12 months, 1.91 at month 240; Jobs, construction firms: moved -0.05 in the last 12 months, -0.21 at month 240.
+- **Unsettled**: Government debt / GDP: moved 0.04 in the last 12 months, 2.07 at month 240; Pension-fund assets (real): moved 0.10 in the last 12 months, 1.91 at month 240; Household mortgage debt amount: moved 0.06 in the last 12 months, -0.19 at month 240; Jobs, construction firms: moved -0.05 in the last 12 months, -0.21 at month 240.
 - **Regimes**: stressTestPayment.
 
 Regimes that differ from the no-change run:
@@ -12722,7 +12731,7 @@ Unmoved (every effect below 0.005): VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.28 in the last 12 months, 13.2 at month 240; Unemployment rate: moved 0.03 in the last 12 months, -0.46 at month 240; Real wages: moved 0.25 in the last 12 months, -1.64 at month 240; Household consumption (real): moved 0.36 in the last 12 months, 0.21 at month 240; and 21 more.
+- **Unsettled**: Consumer price level: moved 0.28 in the last 12 months, 13.2 at month 240; Unemployment rate: moved 0.03 in the last 12 months, -0.46 at month 240; Real wages: moved 0.25 in the last 12 months, -1.64 at month 240; Household consumption (real): moved 0.36 in the last 12 months, 0.21 at month 240; and 23 more.
 - **Regimes**: neutralRate; stressTestPayment; foreignAssetPurchases; bankBondPurchases.
 
 Implied neutral rate: 9.22% real (the rule's estimate ends at 6.00%, the edge of its band of 0.00–6.00%); held there, unemployment is -0.03 pp from the no-change run over the same years and the income-tax rate 8.55 points at the final month (2.07 with the key-rate rule acting; the debt rule keeps reacting to the held rate).
@@ -12765,7 +12774,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.40 in the last 12 months, -1.62 at month 240; Inflation (12-month CPI): moved 0.13 in the last 12 months, -0.30 at month 240; Unemployment rate: moved -0.15 in the last 12 months, 0.70 at month 240; Króna value: moved -0.67 in the last 12 months, 22.1 at month 240; and 37 more.
+- **Unsettled**: Output (real GDP): moved 0.40 in the last 12 months, -1.62 at month 240; Inflation (12-month CPI): moved 0.13 in the last 12 months, -0.30 at month 240; Unemployment rate: moved -0.15 in the last 12 months, 0.70 at month 240; Króna value: moved -0.67 in the last 12 months, 22.1 at month 240; and 39 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionW; bondPurchasesW; kronaBorrowingW; dividendsXF; taxRuleTarget; foreignAssetPurchases.
 
 Regimes that differ from the no-change run:
@@ -12810,7 +12819,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved 0.05 in the last 12 months, 0.01 at month 240; Real wages: moved -0.05 in the last 12 months, -0.13 at month 240; Investment (real): moved 0.05 in the last 12 months, -0.04 at month 240; Real house prices: moved 0.03 in the last 12 months, 0.31 at month 240; and 6 more.
+- **Unsettled**: Output (real GDP): moved 0.05 in the last 12 months, 0.01 at month 240; Real wages: moved -0.05 in the last 12 months, -0.13 at month 240; Investment (real): moved 0.05 in the last 12 months, -0.04 at month 240; Real house prices: moved 0.03 in the last 12 months, 0.31 at month 240; and 7 more.
 - **Regimes**: bondPurchasesW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -12850,7 +12859,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.05 in the last 12 months, 0 at month 240; Investment (real): moved -0.05 in the last 12 months, 0.05 at month 240; Real house prices: moved -0.04 in the last 12 months, -0.31 at month 240; Mortgage debt / GDP: moved 0.04 in the last 12 months, -0.51 at month 240; and 6 more.
+- **Unsettled**: Output (real GDP): moved -0.05 in the last 12 months, 0 at month 240; Investment (real): moved -0.05 in the last 12 months, 0.05 at month 240; Real house prices: moved -0.04 in the last 12 months, -0.31 at month 240; Mortgage debt / GDP: moved 0.04 in the last 12 months, -0.51 at month 240; and 7 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -12888,7 +12897,7 @@ Unmoved (every effect below 0.005): Key interest rate, Income-tax rate, VAT rate
 
 Flags:
 
-- **Unsettled**: Output (real GDP): moved -0.17 in the last 12 months, 0.31 at month 240; Unemployment rate: moved 0.06 in the last 12 months, -0.13 at month 240; Real wages: moved 0.16 in the last 12 months, 0.11 at month 240; Investment (real): moved -0.18 in the last 12 months, 0.49 at month 240; and 13 more.
+- **Unsettled**: Output (real GDP): moved -0.17 in the last 12 months, 0.31 at month 240; Unemployment rate: moved 0.06 in the last 12 months, -0.13 at month 240; Real wages: moved 0.16 in the last 12 months, 0.11 at month 240; Investment (real): moved -0.18 in the last 12 months, 0.49 at month 240; and 15 more.
 - **Regimes**: neutralRate; stressTestPayment; unemployedY; unemployedO; taxRuleTarget; foreignAssetPurchases; bankBondPurchases; bondPurchasesPF.
 
 Regimes that differ from the no-change run:
@@ -12935,7 +12944,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Extreme**: Government debt / GDP 26.8 pp of GDP at month 240.
-- **Unsettled**: Output (real GDP): moved 0.31 in the last 12 months, -0.37 at month 240; Inflation (12-month CPI): moved 0.06 in the last 12 months, 0.03 at month 240; Unemployment rate: moved -0.14 in the last 12 months, 0.26 at month 240; Króna value: moved -0.95 in the last 12 months, 15.2 at month 240; and 38 more.
+- **Unsettled**: Output (real GDP): moved 0.31 in the last 12 months, -0.37 at month 240; Inflation (12-month CPI): moved 0.06 in the last 12 months, 0.03 at month 240; Unemployment rate: moved -0.14 in the last 12 months, 0.26 at month 240; Króna value: moved -0.95 in the last 12 months, 15.2 at month 240; and 40 more.
 - **Regimes**: neutralRate; keyRateSuggestion; consumptionW; bondPurchasesW; kronaBorrowingW; dividendsXF; taxRuleTarget; foreignAssetPurchases.
 
 Regimes that differ from the no-change run:
@@ -12981,7 +12990,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved -0.09 in the last 12 months, -4.11 at month 240; Mortgage debt / GDP: moved -0.04 in the last 12 months, 0.43 at month 240.
+- **Unsettled**: Consumer price level: moved -0.09 in the last 12 months, -4.11 at month 240; Mortgage debt / GDP: moved -0.04 in the last 12 months, 0.43 at month 240; Household mortgage debt amount: moved -0.16 in the last 12 months, -3.58 at month 240.
 - **Regimes**: bondPurchasesW; dividendsXF; taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -13022,7 +13031,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 
 Flags:
 
-- **Unsettled**: Consumer price level: moved 0.08 in the last 12 months, 3.49 at month 240; Real house prices: moved -0.03 in the last 12 months, 0.42 at month 240; Mortgage debt / GDP: moved 0.05 in the last 12 months, -0.41 at month 240; Real disposable income, older (67+): moved -0.03 in the last 12 months, -0.01 at month 240.
+- **Unsettled**: Consumer price level: moved 0.08 in the last 12 months, 3.49 at month 240; Real house prices: moved -0.03 in the last 12 months, 0.42 at month 240; Mortgage debt / GDP: moved 0.05 in the last 12 months, -0.41 at month 240; Real disposable income, older (67+): moved -0.03 in the last 12 months, -0.01 at month 240; and 1 more.
 - **Regimes**: taxRuleTarget.
 
 Regimes that differ from the no-change run:
@@ -13062,6 +13071,7 @@ Unmoved (every effect below 0.005): Key interest rate, VAT rate (effective).
 Flags:
 
 - **Unsettled**: Output (real GDP): moved 0.10 in the last 12 months, 0.90 at month 240; Consumer price level: moved 0.39 in the last 12 months, 12.3 at month 240; Unemployment rate: moved -0.05 in the last 12 months, -0.19 at month 240; Króna value: moved -0.60 in the last 12 months, -11.0 at month 240; and 35 more.
+- **Explosive**: Household mortgage debt amount: moved 0.83 in the last 12 months, 9.58 at month 240.
 - **Regimes**: neutralRate; stressTestPayment; unemployedY; unemployedO; taxRuleTarget; foreignAssetPurchases; bankBondPurchases; bondPurchasesPF.
 
 Regimes that differ from the no-change run:

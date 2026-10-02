@@ -1,13 +1,12 @@
 /**
- * Charts: tabs from IndicatorDef.group; small multiples of the deviation from baseline over
- * the last 72 months, with a zero line and amber marks at lever events. Click a chart to open
+ * Charts: tabs from IndicatorDef.group; small multiples of actual nominal/real levels or the
+ * legacy deviation over the last 72 months, with a baseline line and amber event marks. Click to open
  * its inspector. Only the open tab renders.
  */
 import { memo, useMemo } from 'react';
 import type { Id, ScenarioEvent } from '../../core/types.ts';
 import type { EngineClient } from '../engine-client.ts';
-import { CHART_SPAN, chartRef, chartTabs, chartWindow } from '../model/charts.ts';
-import { fmtIndicator } from '../model/format.ts';
+import { CHART_SPAN, REPORT_BASES, chartTabs, chartWindow, fmtReport, reportDescription, reportLabel, reportMinRange, reportRef, reportUnit, type ReportBasis } from '../model/charts.ts';
 import type { IndicatorInfo, ModelInfo } from '../model/info.ts';
 import { signTone } from '../model/styling.ts';
 import { ChartSvg } from './ChartSvg.tsx';
@@ -22,11 +21,15 @@ interface ChartsProps {
   onTab: (id: string) => void;
   selected: Id | null;
   onSelect: OnSelect;
+  basis?: ReportBasis;
+  onBasis?: (basis: ReportBasis) => void;
 }
 
-export function Charts({ info, client, t, events, tab, onTab, selected, onSelect }: ChartsProps) {
+export function Charts({ info, client, t, events, tab, onTab, selected, onSelect, basis = 'nominal', onBasis }: ChartsProps) {
   const tabs = useMemo(() => chartTabs(info.indicators), [info]);
   const active = tabs.find((x) => x.id === tab) ?? tabs[0];
+  const hasLevels = info.indicators.some((ind) => ind.level);
+  const measurement: ReportBasis = hasLevels ? basis : 'deviation';
   return (
     <section className="charts panel" aria-labelledby="charts-title">
       <div className="panel-head">
@@ -38,13 +41,25 @@ export function Charts({ info, client, t, events, tab, onTab, selected, onSelect
             </button>
           ))}
         </div>
-        <span className="muted small charts-note">change vs baseline</span>
+        {onBasis && hasLevels && <div className="report-basis" role="group" aria-label="Chart measurement">
+          {REPORT_BASES.map((x) => <button key={x.id} type="button" className={`tab ${basis === x.id ? 'on' : ''}`} aria-pressed={basis === x.id} onClick={() => onBasis(x.id)}>{x.id === 'deviation' && client.comparison === 'no-change' ? 'Effect vs no change' : x.label}</button>)}
+        </div>}
+        {!hasLevels && <span className="muted small charts-note">change vs baseline</span>}
+        {active && <span className="muted small charts-note">{active.indicators.length} charts · scroll for more</span>}
       </div>
       <div className="panel-body scroll">
+        {info.id === 'iceland' && <p className="chart-context muted small">
+          Stationary baseline: 0% real growth · 0% inflation. {measurement === 'deviation'
+            ? 'Effects compared with the unchanged economy; GDP shows the real-output effect.'
+            : 'Simulated levels after your changes; no background growth is added.'}
+        </p>}
+        {client.comparison === 'no-change' && <p className="chart-context muted small">
+          {measurement === 'deviation' ? 'Effects against the no-change economy at the same month.' : 'Solid: your experiment · dashed: the evolving no-change economy.'} Growth assumptions are in Baseline &amp; current data.
+        </p>}
         {active ? (
           <div className="chart-grid" id="charts-grid" role="tabpanel" aria-labelledby={`tab-${active.id}`}>
             {active.indicators.map((ind) => (
-              <SmallChart key={ind.id} info={info} ind={ind} series={client.series(ind.id)} t={t} events={events} selected={selected === ind.id} onSelect={onSelect} />
+              <SmallChart key={ind.id} info={info} ind={ind} basis={measurement} comparison={client.comparison} series={client.reportSeries(ind.id, measurement)} reference={client.referenceReportSeries?.(ind.id, measurement)} t={t} events={events} selected={selected === ind.id} onSelect={onSelect} />
             ))}
           </div>
         ) : (
@@ -59,22 +74,27 @@ interface SmallChartProps {
   info: ModelInfo;
   ind: IndicatorInfo;
   series: readonly number[];
+  reference?: readonly number[];
   t: number;
   events: readonly ScenarioEvent[];
   selected: boolean;
   onSelect: OnSelect;
+  basis: ReportBasis;
+  comparison?: 'opening' | 'no-change';
 }
 
-const SmallChart = memo(function SmallChart({ info, ind, series, t, events, selected, onSelect }: SmallChartProps) {
-  const win = chartWindow(series, t, CHART_SPAN, chartRef(ind, series));
-  const text = fmtIndicator(win.last, ind.unit, ind.display);
+const SmallChart = memo(function SmallChart({ info, ind, series, reference, basis, comparison, t, events, selected, onSelect }: SmallChartProps) {
+  const win = chartWindow(series, t, CHART_SPAN, reportRef(ind, series, basis), reportMinRange(ind, series, basis), reference);
+  const text = fmtReport(win.last, ind, basis);
+  const label = reportLabel(ind, basis), unit = reportUnit(ind, basis, comparison);
   const tone = signTone(win.last - win.ref);
   return (
-    <button type="button" className={`chart${selected ? ' selected' : ''}`} onClick={() => onSelect({ kind: 'indicator', id: ind.id })} aria-label={`${ind.label}: ${text}. Open this chart`} title={ind.description}>
+    <button type="button" className={`chart${selected ? ' selected' : ''}`} data-indicator={ind.id} onClick={() => onSelect({ kind: 'indicator', id: ind.id })} aria-label={`${label}: ${text}, ${unit}. Open this chart`} title={`${reportDescription(ind, basis)} ${comparison === 'no-change' ? 'No change at this month' : 'Baseline'}: ${fmtReport(win.ref, ind, basis)}.`}>
       <span className="chart-head">
-        <span className="chart-label">{ind.label}</span>
+        <span className="chart-label">{label}</span>
         <span className={`chart-val mono tone-${tone}`}>{text}</span>
       </span>
+      <span className="chart-unit muted small">{unit}</span>
       <ChartSvg win={win} events={events} info={info} />
     </button>
   );

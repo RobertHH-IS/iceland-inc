@@ -290,7 +290,8 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     client.pause();
     client.step(3);
     let html = panel();
-    expect(note('debtRule')).toMatch(/^With income tax locked while the central bank’s rule sets the key rate/);
+    expect(note('debtRule')).toMatch(/^Government borrowing and debt already adjust automatically to the cash deficit/);
+    expect(note('debtRule')).toContain('your tax setting stays fixed');
     expect(count(html, /class="lock-note"/g)).toBe(1);
     expect(html).toContain(`<p class="lock-note">${note('debtRule')}</p>`);
     // the key rate held while the debt rule acts: the debt rule deepens a slump in private spending (ECON-3)

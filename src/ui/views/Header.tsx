@@ -42,6 +42,9 @@ interface HeaderProps {
   onShare: () => void;
   share: ShareState;
   onShareDone: () => void;
+  /** Dated economic context and the assumptions of the model's start. */
+  onBaseline?: () => void;
+  baselineOpen?: boolean;
 }
 
 export const Header = memo(function Header(p: HeaderProps) {
@@ -97,6 +100,11 @@ export const Header = memo(function Header(p: HeaderProps) {
             ))}
           </select>
         </label>
+        {p.onBaseline && (
+          <button type="button" className="btn baseline-button" onClick={p.onBaseline} aria-expanded={p.baselineOpen ?? false} aria-controls={p.baselineOpen ? 'baseline-context' : undefined}>
+            Baseline &amp; current data
+          </button>
+        )}
         <ShareButton share={p.share} onShare={p.onShare} onDone={p.onShareDone} />
       </div>
     </header>

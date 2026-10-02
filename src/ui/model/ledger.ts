@@ -106,7 +106,7 @@ export function cellShows(c: Pick<LedgerCell, 'both' | 'external'>): 'gross' | '
 }
 
 /** Build the table for the given leg values (by leg index, as engine.legs() returns them). */
-export function buildLedger(info: ModelInfo, legValues: ArrayLike<number>, level: LedgerColumns = 'player', tol = 1e-9): LedgerTable {
+export function buildLedger(info: ModelInfo, legValues: ArrayLike<number>, level: LedgerColumns = 'player', tol = 1e-9, legBaselines?: ArrayLike<number>): LedgerTable {
   const eff = typeof level === 'object' ? effectiveExpanded(info, level.expanded) : null;
   const colIds = eff ? viewTree(info, eff).nodes.map((n) => n.id) : level === 'group' ? info.roots : info.players.map((p) => p.id);
   const colIndex = new Map<Id, number>(colIds.map((id, i) => [id, i]));
@@ -132,7 +132,7 @@ export function buildLedger(info: ModelInfo, legValues: ArrayLike<number>, level
       nwEffectBaseline = 0;
     for (const l of legs) {
       const v = legValues[l.index] ?? 0,
-        b = l.baseline;
+        b = legBaselines?.[l.index] ?? l.baseline;
       const now = legEffects(l, v),
         base = legEffects(l, b);
       oneSided ||= l.oneSided;

@@ -155,8 +155,8 @@ describe('Iceland model: structure', () => {
     expect(Math.abs(e.value('taxRate') - held)).toBeLessThan(0.005);
   });
 
-  test('v1’s 34 charts, with the same ids, in four tabs, plus all jobs (lever review EXPECTATION-GAPS), the central bank’s potential output (decision 0012) and 17 charts by firm sector in a fifth', () => {
-    expect(model.indicators.map((i) => i.id).sort()).toEqual([...V1_SERIES, 'employment', 'potentialOutputSeen', ...SECTOR_SERIES].sort());
+  test('v1’s chart ids, all jobs, potential output, 17 sector charts and two debt amounts retain five groups', () => {
+    expect(model.indicators.map((i) => i.id).sort()).toEqual([...V1_SERIES, 'employment', 'potentialOutputSeen', 'govDebtAmount', 'mortgageDebtAmount', ...SECTOR_SERIES].sort());
     expect([...new Set(model.indicators.map((i) => i.group))]).toEqual(['Overview', 'People', 'Money and credit', 'Government and world', 'Firms by sector']);
   });
 

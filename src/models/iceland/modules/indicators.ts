@@ -1,15 +1,16 @@
 /**
  * Iceland Inc.: the 34 charts of engine v1 (legacy/v1-engine/src/60_series.js), with the same ids,
  * grouped into four chart tabs, plus a fifth tab of charts by firm sector (decision 0003). Every
- * chart shows a deviation from the steady-state baseline. The v1 charts of domestic firms' and
+ * legacy display shows a deviation from the steady-state baseline; optional level metadata
+ * adds actual nominal/real reporting without changing that legacy series. The v1 charts of domestic firms' and
  * exporters' profits keep their ids and are now sums over the sectors in each group.
  *
  * Charts in "% of GDP" divide by nominal GDP, so they share one scale when prices move: flows by
  * this month's GDP (at an annual rate), debt stocks by GDP over the past 12 months (gdpTrailing12),
  * as official statistics do.
  */
-import type { IndicatorCtx, IndicatorDef, ModuleDef } from '../../../core/types.ts';
-import { AGE_LABEL, AGES, DOMESTIC, EXPORT_OF, EXPORTERS, FIRMS, FIRM_NAME, type Firm } from '../util.ts';
+import type { IndicatorCtx, IndicatorDef, IndicatorLevelDef, ModuleDef } from '../../../core/types.ts';
+import { AGE_LABEL, AGES, DOMESTIC, EXPORT_OF, EXPORTERS, FIRMS, FIRM_NAME, GDP_BN, type Firm, type Exporter } from '../util.ts';
 
 const MONEY_HOLDERS = ['HY', 'HW', 'HO', ...FIRMS, 'PF'];
 /** Real after-tax profit of a set of sectors. */
@@ -31,16 +32,83 @@ const ppGDP = 'pp of GDP';
 
 const I = (x: Omit<IndicatorDef, 'unit'> & { unit?: string }): IndicatorDef => ({ unit: x.display === 'deviation-pct' ? pct : x.display === 'deviation-pp' ? pp : ppGDP, ...x });
 
+/** Reporting conversions only. Model money is scaled by the solved variant's baseline GDP. */
+const isk = (c: IndicatorCtx, amount: number) => amount * GDP_BN / c.base('nominalGDP');
+const profit = (c: IndicatorCtx, firms: readonly Firm[]) => firms.reduce((s, j) => s + c.v(`profits${j}`) - c.v(`corporateTax${j}`), 0);
+const importBill = (c: IndicatorCtx) => ['Consumer', 'Inputs', 'Equipment', 'Public', 'Exporters'].reduce((s, k) => s + c.v(`imports${k}`), 0);
+const govDebtAmount = (c: IndicatorCtx) => c.stock('govBonds', 'G') + c.stock('indexedBonds', 'G');
+const mortgageAmount = (c: IndicatorCtx) => ['HY', 'HW'].reduce((s, p) => s + c.stock('mortgagesN', p) + c.stock('mortgagesI', p), 0);
+
+/** The legacy compute/display pair is untouched; only actual-level metadata is added. */
+function withLevels(ind: IndicatorDef): IndicatorDef {
+  const id = ind.id;
+  let level: IndicatorLevelDef;
+  const money = (label: string, nominal: (c: IndicatorCtx) => number, real: (c: IndicatorCtx) => number, flow = true): IndicatorLevelDef => ({
+    kind: 'amount', unit: flow ? 'bn ISK a year' : 'bn ISK', realUnit: flow ? 'bn ISK a year at baseline prices' : 'bn ISK at baseline prices',
+    nominalLabel: `${label} (nominal)`, realLabel: `${label} (real)`,
+    description: `${label} at current prices, ${flow ? 'at an annual rate' : 'as an outstanding stock'}. Amounts are scaled to ISK billions using the solved baseline GDP and the 2025 GDP calibration.`,
+    realDescription: `${label} at baseline prices. Amounts are scaled to ISK billions using the solved baseline GDP and the 2025 GDP calibration.`,
+    nominal: (c) => isk(c, nominal(c)), real: (c) => isk(c, real(c)),
+  });
+  const index = (label: string, nominal: (c: IndicatorCtx) => number, real?: (c: IndicatorCtx) => number): IndicatorLevelDef => ({
+    kind: 'index', unit: 'index, baseline = 100', rebase: true, nominalLabel: label,
+    ...(real ? { realLabel: `${label.replace(/ \(nominal\)$/, '')} (real)`, real,
+      description: `${label}, with the solved baseline set to 100.`,
+      realDescription: `${label.replace(/ \(nominal\)$/, '')} after removing consumer-price inflation, with the solved baseline set to 100.`,
+    } : {}), nominal,
+  });
+  if (id === 'output') {
+    level = money('GDP', (c) => c.v('nominalGDP'), (c) => c.v('output'));
+    level.description = 'Annual GDP at current prices, from the model’s expenditure identity: household consumption + public services + investment + exports − imports. Each component uses its own prices; consumer-price inflation is not a GDP deflator. Lower nominal GDP can reflect less output, lower prices, or both. This baseline has no background growth or inflation; in a growing economy, slower growth could still mean rising GDP.';
+    level.realDescription = 'Annual GDP at baseline prices, read directly from the model’s real-output measure. This baseline has no background growth; a fall here means less output, rather than slower growth along a growing reference path.';
+  } else if (id === 'potentialOutputSeen') {
+    level = { kind: 'amount', unit: 'bn ISK a year at baseline prices', nominalLabel: 'Potential output (central bank estimate)', nominal: (c) => isk(c, ind.compute(c)), real: (c) => isk(c, ind.compute(c)) };
+  } else if (id === 'consumption') level = money('Household consumption', (c) => c.v('consumption'), (c) => c.v('realConsumption'));
+  else if (id === 'investment') level = money('Investment', (c) => FIRMS.reduce((s, j) => s + c.v(`investmentPurchase${j}`), c.v('publicInvestment')), (c) => c.v('investmentReal'));
+  else if (id === 'exports') {
+    level = money('Exports', (c) => c.v('exportValue'), (c) => c.v('exportVolume'));
+    level.description = 'Export receipts in krónur at an annual rate. Fish and aluminium use their world prices and the exchange rate; tourism and other exports use domestic prices.';
+    level.realDescription = 'Export volumes valued at baseline prices, before movements in world prices, domestic prices and the króna.';
+  } else if (id === 'imports') {
+    level = money('Imports', importBill, (c) => c.v('importVolume'));
+    level.description = 'The annual import bill at border prices, summed across consumer goods, inputs, equipment, public purchases and exporters’ inputs.';
+    level.realDescription = 'Import volumes at baseline prices. The nominal bill uses border prices, including the exchange rate, rather than consumer prices.';
+  } else if (id === 'broadMoney') level = money('Broad money', ind.compute, (c) => ind.compute(c) / c.v('cpi'), false);
+  else if (id === 'pfAssets') level = money('Pension-fund assets', pfAssets, (c) => pfAssets(c) / c.v('cpi'), false);
+  else if (id === 'govDebtAmount') level = money('Government debt', govDebtAmount, (c) => govDebtAmount(c) / c.v('cpi'), false);
+  else if (id === 'mortgageDebtAmount') level = money('Household mortgage debt', mortgageAmount, (c) => mortgageAmount(c) / c.v('cpi'), false);
+  else if (id === 'profitsFD' || id === 'profitsFX' || FIRMS.some((j) => id === `profits${j}`)) {
+    const firms = id === 'profitsFD' ? DOMESTIC : id === 'profitsFX' ? EXPORTERS : [id.slice(7) as Firm];
+    level = money(ind.label.replace(/ \(real\)$/, ''), (c) => profit(c, firms), (c) => profit(c, firms) / c.v('cpi'));
+  } else if (EXPORTERS.some((j) => id === `exports${j}`)) {
+    const sector = EXPORT_OF[id.slice(7) as Exporter];
+    level = money(ind.label.replace('Export revenue', 'Exports'), (c) => c.v(`exports${sector}`), (c) => c.v(`exportVolume${sector}`));
+  } else if (AGES.some((g) => id === `rdi${g}`)) {
+    const age = id.slice(3);
+    level = money(`Total disposable income, ${AGE_LABEL[age as keyof typeof AGE_LABEL]}`, (c) => c.v(`disposableIncome${age}`), (c) => c.v(`disposableIncome${age}`) / c.v('cpi'));
+  } else if (id === 'realWage') level = index('Wage index (nominal)', (c) => c.v('wage'), (c) => c.v('wage') / c.v('cpi'));
+  else if (id === 'realHousePrice') level = index('House-price index (nominal)', (c) => c.v('housePrice'), ind.compute);
+  else if (id === 'priceLevel') level = index('Consumer price index', ind.compute);
+  else if (id === 'krona') level = index('Króna value (up = stronger)', ind.compute);
+  else if (ind.display === 'deviation-pp') level = { kind: id === 'bankCapital' || id === 'pfForeignShare' ? 'ratio' : 'rate', unit: '%', scale: 100 };
+  else if (ind.display === 'deviation') level = { kind: 'ratio', unit: '% of GDP' };
+  else level = { kind: 'index', unit: 'index, baseline = 100', rebase: true,
+    nominalLabel: `${ind.label} (index)`,
+    description: `${ind.description} The level is an index with the baseline set to 100. Employment in the model is measured at baseline wages; this chart does not claim a headcount of people.`,
+  };
+  return { ...ind, level };
+}
+
 export const indicators: ModuleDef = {
   id: 'indicators',
   label: 'Charts',
-  description: 'The 34 headline charts of engine v1, with all jobs and the central bank’s potential output beside them, grouped into Overview, People, Money and credit, and Government and world, and 17 charts by firm sector: exports, profits and jobs, and profits paid abroad.',
+  description: 'The original headline and sector charts, with actual nominal/real level views and separate government and mortgage debt amounts. Legacy effects remain available. Grouped into Overview, People, Money and credit, Government and world, and Firms by sector.',
   requires: ['structure', 'labour-and-wages', 'prices', 'households', 'mortgages', 'firms', 'banks', 'central-bank', 'government', 'pensions', 'external', 'housing'],
   indicators: [
     /* ------------------------------------------------------------ Overview */
     I({ id: 'output', label: 'Output (real GDP)', group: 'Overview', display: 'deviation-pct', compute: (c) => c.v('output'), description: 'Everything produced in Iceland in a year, at baseline prices. Output follows demand; capacity pressure shows up in prices.', drivers: ['output', 'realConsumption', 'investmentReal', 'exportVolume', 'importVolume'], concepts: ['multiplier', 'steady-state-baseline'] }),
     I({ id: 'potentialOutputSeen', label: 'Potential output (the central bank’s estimate from the labour market)', group: 'Overview', display: 'deviation-pct', compute: (c) => c.v('potentialOutputSeen'), description: 'What the central bank estimates the economy can produce at normal unemployment with the workers it has, read from the labour market: output less the output gap, which is Okun’s factor times how far unemployment is below normal. It follows the labour force: newcomers, workers who arrive or leave with the jobs, and spending that shifts toward services that need many staff. The gap between output and it is what the key-rate rule leans against. It is an estimate, not a count of what machines and workers could make, and firms’ pricing and investment still compare output with the fixed baseline capacity.', drivers: ['potentialOutputSeen', 'outputGap', 'output', 'unemployment'], concepts: ['capacity-utilisation', 'okun-law'] }),
-    I({ id: 'inflation', label: 'Inflation (12-month CPI)', group: 'Overview', display: 'deviation-pp', compute: (c) => c.v('inflation12'), description: 'How much consumer prices rose over the past 12 months. The baseline has zero inflation.', drivers: ['inflation12', 'cpi', 'domesticPrice', 'importPrice', 'housingCost'], concepts: ['markup-pricing', 'cost-pass-through', 'exchange-rate-pass-through'] }),
+    I({ id: 'inflation', label: 'Inflation (12-month CPI)', group: 'Overview', display: 'deviation-pp', compute: (c) => c.v('inflation12'), description: 'How much consumer prices rose over the past 12 months. The baseline has zero inflation. Lower positive inflation means prices still rise more slowly; negative inflation means prices fall. The consumer price index chart shows the price level.', drivers: ['inflation12', 'cpi', 'domesticPrice', 'importPrice', 'housingCost'], concepts: ['markup-pricing', 'cost-pass-through', 'exchange-rate-pass-through'] }),
     I({ id: 'keyRate', label: 'Key interest rate', group: 'Overview', display: 'deviation-pp', compute: (c) => c.v('keyRate'), description: 'The central bank’s policy rate: the inflation rule’s rate while the key-rate lever is unlocked (the default), or the level you hold while it is locked.', drivers: ['keyRate', 'ruleRate'], concepts: ['taylor-rule'] }),
     I({ id: 'unemployment', label: 'Unemployment rate', group: 'Overview', display: 'deviation-pp', compute: (c) => c.v('unemployment'), description: 'Share of the labour force without a job. Part of any change in jobs is met by migration.', drivers: ['unemployment', 'employmentTotal'], concepts: ['okun-law', 'migration-buffer'] }),
     I({ id: 'priceLevel', label: 'Consumer price level', group: 'Overview', display: 'deviation-pct', compute: (c) => c.v('cpi'), description: 'The consumer price index.', drivers: ['cpi'], concepts: ['markup-pricing'] }),
@@ -111,6 +179,8 @@ export const indicators: ModuleDef = {
     /* --------------------------------------------------- Government and world */
     I({ id: 'govBalance', label: 'Government balance', group: 'Government and world', display: 'deviation', compute: (c) => (c.v('govBalance') / c.v('nominalGDP')) * 100, description: 'Revenue minus spending, % of GDP, on an accrual basis: indexation of indexed debt counts as spending.', drivers: ['deficit', 'bondIndexation'], concepts: ['sectoral-balances', 'automatic-stabilisers'] }),
     I({ id: 'govDebt', label: 'Government debt / GDP', group: 'Government and world', display: 'deviation', compute: (c) => ((c.stock('govBonds', 'G') + c.stock('indexedBonds', 'G')) / c.v('gdpTrailing12')) * 100, description: 'Government bonds outstanding relative to GDP over the past 12 months, as official statistics measure it. Rises with deficits and with indexation of indexed bonds.', drivers: ['bondIssue', 'deficit', 'bondIndexation', 'gdpTrailing12'], concepts: ['deficits-and-money', 'debt-feedback'] }),
+    I({ id: 'govDebtAmount', label: 'Government debt amount', group: 'Government and world', display: 'deviation-pct', compute: govDebtAmount, description: 'Government bonds outstanding, including CPI-indexed bonds. This is the debt amount; the debt/GDP chart divides it by nominal GDP over the past 12 months.', drivers: ['bondIssue', 'deficit', 'bondIndexation'], concepts: ['deficits-and-money', 'indexation'] }),
+    I({ id: 'mortgageDebtAmount', label: 'Household mortgage debt amount', group: 'Money and credit', display: 'deviation-pct', compute: mortgageAmount, description: 'Non-indexed and CPI-indexed mortgage principal owed by young and working-age households. The debt/GDP chart divides this stock by nominal GDP over the past 12 months.', drivers: ['netMortgageLending', 'indexation_HY_B', 'indexation_HW_B'], concepts: ['indexation', 'endogenous-money'] }),
     I({ id: 'incomeTaxRate', label: 'Income-tax rate', group: 'Government and world', display: 'deviation-pp', compute: (c) => c.v('taxRate'), description: 'Average personal income-tax rate. Unlocked (the default): the baseline rate + the slow debt rule’s adjustment. Locked: the baseline rate + the shift on the income-tax lever.', drivers: ['taxRate', 'taxRuleAdjustment'], concepts: ['debt-feedback'] }),
     I({ id: 'krona', label: 'Króna value', group: 'Government and world', display: 'deviation-pct', unit: '% vs baseline (+ stronger)', compute: (c) => 1 / c.v('exchangeRate'), description: 'What a króna buys in foreign currency. It moves toward a level set by prices, the interest gap with abroad, foreigners’ króna holdings and sentiment.', drivers: ['logExchangeRate'], concepts: ['floating-exchange-rate', 'carry-trade', 'purchasing-power-parity'] }),
     I({ id: 'currentAccount', label: 'Current account', group: 'Government and world', display: 'deviation', compute: (c) => (c.v('currentAccount') / c.v('nominalGDP')) * 100, description: 'Exports minus imports plus net income from abroad, % of GDP. Positive means Iceland lends to the world.', drivers: ['currentAccount', 'exportValue', 'importVolume'], concepts: ['current-account'] }),
@@ -154,5 +224,5 @@ export const indicators: ModuleDef = {
         concepts: ['okun-law'],
       }),
     ),
-  ],
+  ].map(withLevels),
 };

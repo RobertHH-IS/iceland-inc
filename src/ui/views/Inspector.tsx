@@ -17,11 +17,12 @@ import { memo, useEffect, useRef, type ReactNode } from 'react';
 import type { BalanceSheet, FlowKind, Id, Influence } from '../../core/types.ts';
 import { describePosting, postingLabels } from '../../core/format.ts';
 import type { EngineClient, Frame } from '../engine-client.ts';
-import { chartRef, chartWindow } from '../model/charts.ts';
-import { fmtChange, fmtCompact, fmtCompactChange, fmtIndicator, fmtNum, fmtSigned, fmtValue, shortUnit, unitCaption } from '../model/format.ts';
+import { chartWindow, fmtReport, reportDescription, reportLabel, reportMinRange, reportRef, reportUnit, type ReportBasis } from '../model/charts.ts';
+import { fmtChange, fmtCompact, fmtCompactChange, fmtNum, fmtSigned, fmtValue, unitCaption } from '../model/format.ts';
 import { directMembers, memberCount, nodePipes, pipeBetween, type ViewLeg } from '../model/hierarchy.ts';
 import { nodeColor, nodeLabel, nodeMembers, varLabel, type ModelInfo } from '../model/info.ts';
-import { GROUP_NOUNS } from '../model/player-cards.ts';
+import { cardFamily, GROUP_NOUNS } from '../model/player-cards.ts';
+import { FinancialDetail } from './FinancialDetail.tsx';
 import { labels } from '../labels.ts';
 import { canBack, canForward, navCurrent, selectionKey, selectionLabel, type NavState } from '../model/navigation.ts';
 import { POSITION_NOTE, positionWarnings } from '../model/signs.ts';
@@ -41,9 +42,10 @@ interface InspectorProps {
   onForward: () => void;
   onGo: (index: number) => void;
   onClose: () => void;
+  basis?: ReportBasis;
 }
 
-export function Inspector({ info, client, frame, nav, expanded, onSelect, onBack, onForward, onGo, onClose }: InspectorProps) {
+export function Inspector({ info, client, frame, nav, expanded, onSelect, onBack, onForward, onGo, onClose, basis = 'nominal' }: InspectorProps) {
   const sel = navCurrent(nav);
   const first = Math.max(0, nav.stack.length - 6);
   const body = useRef<HTMLDivElement>(null);
@@ -95,7 +97,7 @@ export function Inspector({ info, client, frame, nav, expanded, onSelect, onBack
         {(sel?.kind === 'player' || sel?.kind === 'group') && <NodeDetail info={info} client={client} frame={frame} expanded={expanded} id={sel.id} kind={sel.kind} onSelect={onSelect} />}
         {sel?.kind === 'var' && <VarDetail info={info} client={client} frame={frame} id={sel.id} onSelect={onSelect} />}
         {sel?.kind === 'flow' && <FlowDetail info={info} client={client} id={sel.id} onSelect={onSelect} />}
-        {sel?.kind === 'indicator' && <IndicatorDetail info={info} client={client} frame={frame} id={sel.id} onSelect={onSelect} />}
+        {sel?.kind === 'indicator' && <IndicatorDetail info={info} client={client} frame={frame} id={sel.id} onSelect={onSelect} basis={basis} />}
         {sel?.kind === 'concept' && <ConceptDetail info={info} id={sel.id} onSelect={onSelect} />}
       </div>
     </section>
@@ -144,7 +146,7 @@ export function InfluenceView({ info, client, id, onSelect, compact = false }: {
           </span>
         )}
         <span className="inf-now mono">{fmtValue(inf.value, unit)}</span>
-        <Delta text={dev.tone === 'flat' ? 'at baseline' : fmtChange(inf.value - inf.baseline, unit, inf.baseline)} tone={dev.tone} />
+        <Delta text={dev.tone === 'flat' ? client.comparison === 'no-change' ? 'on the no-change path' : 'at baseline' : fmtChange(inf.value - inf.baseline, unit, inf.baseline)} tone={dev.tone} />
       </div>
       {inf.rule && !compact && <p className="inf-what">{inf.rule.what}</p>}
       {inf.rule && <p className="inf-rule">{inf.rule.rule}</p>}
@@ -153,7 +155,7 @@ export function InfluenceView({ info, client, id, onSelect, compact = false }: {
         <div className="terms">
           <div className="terms-head">
             <span>{isFlow ? 'Legs' : 'Terms'}</span>
-            <span className="muted small">now · baseline · change{unit ? ` (${unitCaption(unit)})` : ''}</span>
+            <span className="muted small">now · {client.comparison === 'no-change' ? 'no change at this month' : 'baseline'} · change{unit ? ` (${unitCaption(unit)})` : ''}</span>
           </div>
           <ul>
             {inf.terms.map((t) => (
@@ -266,14 +268,14 @@ function flowWhat(client: EngineClient, id: Id, declared: string): string {
 const nodeSelection = (info: ModelInfo, id: Id) => (info.playerById.has(id) ? ({ kind: 'player', id } as const) : ({ kind: 'group', id } as const));
 
 function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: ModelInfo; client: EngineClient; frame: Frame; from: Id; to: Id; kind: FlowKind; onSelect: OnSelect }) {
-  const pipe = pipeBetween(info, frame.legs, from, to, kind);
+  const pipe = pipeBetween(info, frame.legs, from, to, kind, frame.legBaselines);
   if (!pipe) return <p className="muted">No flow of this kind runs between these two.</p>;
   const dev = deviation(pipe.value, pipe.baseline);
   const byFlow = new Map<Id, ViewLeg[]>();
   for (const l of pipe.legs) byFlow.set(l.flow, [...(byFlow.get(l.flow) ?? []), l]);
   let shown = 0;
   return (
-    <div className="detail">
+    <div className="detail pipe-detail">
       <h3 className="detail-title">
         <NavLink selection={nodeSelection(info, from)} onSelect={onSelect}>
           <Swatch color={nodeColor(info, from)} /> {nodeLabel(info, from)}
@@ -290,8 +292,8 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
       {from === to && info.groupById.has(from) && <p className="muted small">Flows between the members of {nodeLabel(info, from)}, drawn as a loop on its card while it is closed.</p>}
       <div className="bignum">
         <span className="mono big">{fmtNum(pipe.value)}</span>
-        <span className="muted small">% of GDP a year · baseline {fmtNum(pipe.baseline)}</span>
-        <Delta text={dev.tone === 'flat' ? 'at baseline' : fmtSigned(pipe.value - pipe.baseline)} tone={dev.tone} />
+        <span className="muted small">% of opening GDP a year · {client.comparison === 'no-change' ? 'no change at this month' : 'baseline'} {fmtNum(pipe.baseline)}</span>
+        <Delta text={dev.tone === 'flat' ? client.comparison === 'no-change' ? 'on the no-change path' : 'at baseline' : fmtSigned(pipe.value - pipe.baseline)} tone={dev.tone} />
         <span className={`chip kind kind-${pipe.kind}`}>{labels.flowKind[pipe.kind]}</span>
       </div>
       {[...byFlow].map(([flowId, legs]) => {
@@ -355,7 +357,7 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
   } catch (err) {
     return <p className="error">{err instanceof Error ? err.message : String(err)}</p>;
   }
-  const pipes = nodePipes(info, frame.legs, expanded, id)
+  const pipes = nodePipes(info, frame.legs, expanded, id, frame.legBaselines)
     .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
     .slice(0, 8);
   const memberSet = new Set(members);
@@ -397,7 +399,7 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
                   <button type="button" className="member-row" onClick={() => onSelect({ kind: m.kind, id: m.id })}>
                     <Swatch color={nodeColor(info, m.id)} />
                     <span className="member-name">{nodeLabel(info, m.id)}</span>
-                    {sub && <span className="muted small">{memberCount(info, m.id, GROUP_NOUNS[info.id])}</span>}
+                    {sub && <span className="muted small">{memberCount(info, m.id, GROUP_NOUNS[cardFamily(info)])}</span>}
                   </button>
                 </li>
               );
@@ -405,8 +407,9 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
           </ul>
         </>
       )}
+      <FinancialDetail client={client} members={members} onSelect={onSelect} />
       <h4 className="sub">Balance sheet{group ? ' of all its players' : ''}</h4>
-      <p className="muted small">% of GDP · now · baseline · change{group ? ' · not netted between members' : ''}</p>
+      <p className="muted small">% of opening GDP · now · {client.comparison === 'no-change' ? 'no change at this month' : 'baseline'} · change{group ? ' · not netted between members' : ''}</p>
       {warnings.length > 0 && (
         <div className="bs-warning" role="status">
           <ul>
@@ -524,8 +527,9 @@ function VarDetail({ info, client, frame, id, onSelect }: { info: ModelInfo; cli
   if (!v) return <p className="muted">Unknown variable '{id}'.</p>;
   const from = Math.max(0, frame.t - 72);
   const raw = client.varSeries(id, from, frame.t);
+  const reference = client.referenceVarSeries?.(id, from, frame.t);
   const base = client.baseline(id);
-  const scaled = raw.map((x) => x - base);
+  const scaled = raw.map((x, i) => x - (reference?.length === raw.length ? reference[i] : base));
   const win = chartWindow(padSeries(scaled, from), frame.t, 72, 0, 1e-6 * Math.max(1, Math.abs(base)));
   const legs = info.legs.filter((l) => l.amount === id);
   const readers = info.rules.filter((r) => r.inputs.includes(id) || r.lagInputs.includes(id)).slice(0, 12);
@@ -535,7 +539,7 @@ function VarDetail({ info, client, frame, id, onSelect }: { info: ModelInfo; cli
       {v.description && <p className="inf-what">{v.description}</p>}
       <div className="var-chart">
         <ChartSvg win={win} events={frame.events} info={info} width={360} height={70} />
-        <span className="muted small">change from baseline, last {Math.min(72, frame.t)} months · unit {v.unit}</span>
+        <span className="muted small">{client.comparison === 'no-change' ? 'effect vs no change at each month' : 'change from baseline'}, last {Math.min(72, frame.t)} months · unit {v.unit}</span>
       </div>
       <InfluenceView info={info} client={client} id={`var:${id}`} onSelect={onSelect} />
       {legs.length > 0 && (
@@ -574,7 +578,7 @@ function FlowDetail({ info, client, id, onSelect }: { info: ModelInfo; client: E
   const f = info.flowById.get(id);
   if (!f) return <p className="muted">Unknown flow '{id}'.</p>;
   return (
-    <div className="detail">
+    <div className="detail flow-detail">
       <h3 className="detail-title">{f.label}</h3>
       <p className="inf-what">{flowWhat(client, id, f.explain.what)}</p>
       <p className="muted small">
@@ -587,25 +591,30 @@ function FlowDetail({ info, client, id, onSelect }: { info: ModelInfo; client: E
 
 /* ------------------------------------------------------------- indicator */
 
-function IndicatorDetail({ info, client, frame, id, onSelect }: { info: ModelInfo; client: EngineClient; frame: Frame; id: Id; onSelect: OnSelect }) {
+function IndicatorDetail({ info, client, frame, id, onSelect, basis }: { info: ModelInfo; client: EngineClient; frame: Frame; id: Id; onSelect: OnSelect; basis: ReportBasis }) {
   const ind = info.indicatorById.get(id);
   if (!ind) return <p className="muted">Unknown chart '{id}'.</p>;
-  const series = client.series(id);
-  const win = chartWindow(series, frame.t, 120, chartRef(ind, series));
+  if (!ind.level) basis = 'deviation';
+  const series = client.reportSeries(id, basis);
+  const win = chartWindow(series, frame.t, 120, reportRef(ind, series, basis), reportMinRange(ind, series, basis), client.referenceReportSeries?.(id, basis));
+  const unit = reportUnit(ind, basis, client.comparison);
   const now = series.length ? series[series.length - 1] : 0;
   const drivers = (ind.drivers ?? []).filter((d) => info.varById.has(d));
   return (
     <div className="detail">
-      <h3 className="detail-title">{ind.label}</h3>
+      <h3 className="detail-title">{reportLabel(ind, basis)}</h3>
       <div className="bignum">
-        <span className={`mono big tone-${signTone(now - win.ref)}`}>{fmtIndicator(now, ind.unit, ind.display)}</span>
+        <span className={`mono big tone-${signTone(now - win.ref)}`}>{fmtReport(now, ind, basis)}</span>
         <span className="muted small">
-          {ind.unit} · {ind.group}
+          {unit} · {ind.group}
         </span>
       </div>
-      <p className="inf-what">{ind.description}</p>
+      <p className="inf-what">{reportDescription(ind, basis)}</p>
+      <p className="muted small">{client.comparison === 'no-change' ? 'No change at this month' : 'Baseline'}: {fmtReport(win.ref, ind, basis)} · {unit}. {client.comparison === 'no-change'
+        ? basis === 'deviation' ? 'The line shows your experiment’s effect against the evolving economy at the same month.' : 'Solid: your experiment. Dashed: the evolving no-change economy. Rates and GDP ratios keep their actual definitions.'
+        : basis === 'deviation' ? 'The line shows the change from the solved baseline.' : 'The reference line marks the solved baseline level. Rates and GDP ratios keep their actual definitions in both level views.'}</p>
       <div className="bigchart">
-        <ChartSvg win={win} events={frame.events} info={info} width={380} height={170} axes unit={shortUnit(ind.unit)} />
+        <ChartSvg win={win} events={frame.events} info={info} width={380} height={170} axes unit={unit} />
       </div>
       <ConceptChips info={info} ids={ind.concepts ?? []} onSelect={onSelect} />
       {drivers.length > 0 && (

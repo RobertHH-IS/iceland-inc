@@ -36,6 +36,11 @@ describe('compile: valid models', () => {
 });
 
 describe('compile: errors', () => {
+  test('unknown explicit regime owner is rejected before execution', () => {
+    const extra: ModuleDef = { id: 'x', label: 'x', description: 'x', vars: [variable('owned')], rules: [rule({ id: 'owned', target: 'owned', compute: () => 1, owners: ['nonexistent-player'] })] };
+    expect(errorsOf(tinyModel([extra])).some((e) => e.includes("unknown regime owner 'nonexistent-player'"))).toBe(true);
+  });
+
   test('duplicate rule for one variable', () => {
     const extra: ModuleDef = { id: 'x', label: 'x', description: 'x', rules: [rule({ id: 'tax2', target: 'tax', compute: () => 1 })] };
     const errs = errorsOf(tinyModel([extra]));

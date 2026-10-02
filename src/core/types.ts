@@ -198,6 +198,9 @@ export interface RuleDef {
   adjust?: { speed: Id | number; form?: 'linear' | 'exponential' };
   /** Name the active branch, e.g. "Debt-service cap binds". Null when nothing special. */
   regime?: (c: Ctx, value: number, terms: Record<Id, number>) => string | null;
+  /** Players whose cards show this regime. [] keeps a global regime in the equation inspector;
+   * omitted uses the UI's existing stock/flow ownership inference. Reporting metadata only. */
+  owners?: Id[];
   concepts?: Id[];
   explain: {
     what: string; // plain English: what this quantity is
@@ -412,6 +415,22 @@ export interface IndicatorCtx {
   baseStock(instrument: Id, player: Id): number;
 }
 
+/** Reporting only: these functions read recorded values and never set economic state. */
+export type IndicatorBasis = 'nominal' | 'real';
+export interface IndicatorLevelDef {
+  kind: 'rate' | 'ratio' | 'amount' | 'index';
+  unit: string;
+  realUnit?: string;
+  nominalLabel?: string;
+  realLabel?: string;
+  description?: string;
+  realDescription?: string;
+  scale?: number;
+  rebase?: boolean;
+  nominal?: (c: IndicatorCtx) => number;
+  real?: (c: IndicatorCtx) => number;
+}
+
 export interface IndicatorDef {
   id: Id;
   label: string;
@@ -425,6 +444,8 @@ export interface IndicatorDef {
    *   'deviation':     level − baseline               (levels already in display units, e.g. % of GDP)
    *   'level':         level                                                                   */
   display: 'deviation-pct' | 'deviation-pp' | 'deviation' | 'level';
+  /** Optional actual-level views; compute/display remain the legacy effect contract. */
+  level?: IndicatorLevelDef;
   description: string;
   /** The variable(s) behind it, so the inspector can open their rules. */
   drivers?: Id[];
@@ -717,6 +738,9 @@ export interface Engine {
   value(varId: Id): number;
   baseline(varId: Id): number;
   indicator(id: Id): number; // current, in display units
+  /** Reporting levels from recorded months; callbacks never alter economic state. */
+  levelAt(id: Id, month: number, basis?: IndicatorBasis): number;
+  levels(id: Id, basis?: IndicatorBasis): number[];
   series(id: Id): { t: number; v: number }[]; // indicator in display units (or a variable's raw values), full history
   legs(): LegSnapshot[];
   /**

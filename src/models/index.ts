@@ -7,6 +7,9 @@
 import type { ConceptDef, ModelDef } from '../core/types.ts';
 import { referenceModel } from './reference/index.ts';
 import { icelandModel } from './iceland/index.ts';
+import { growingFinancialModel } from './iceland/growing-financial.ts';
+import { initialBaselineForGrowingModel } from './iceland/growth.ts';
+import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
 
 /** The shared concept library, if it is present (it is written separately). Without it the
  *  models still run; the compiler just warns that their concept ids are undefined. */
@@ -34,3 +37,14 @@ export function withConcepts(model: ModelDef, library: ConceptDef[] = conceptLib
 }
 
 export const models: ModelDef[] = [withConcepts(referenceModel), withConcepts(icelandModel)];
+
+/** Fixed-point controls stay in `models`; the evolving variant has its own growth/stress checks. */
+export const applicationModels: ModelDef[] = [withConcepts(growingFinancialModel), ...models];
+
+export function createRegisteredEngine(model: ModelDef, options: EngineOptions = {}): KernelEngine {
+  return createEngine(model, {
+    ...options,
+    ...(model.modules.some((m) => m.id === 'growth') && !options.baseline
+      ? { baseline: initialBaselineForGrowingModel(model, options) } : {}),
+  });
+}

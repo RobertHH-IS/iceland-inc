@@ -15,6 +15,7 @@ import type {
   FlowKind,
   Id,
   IndicatorDef,
+  IndicatorLevelDef,
   InstrumentDef,
   LeverDef,
   ParamDef,
@@ -26,7 +27,7 @@ import type {
 import type { KModel } from '../../core/compile.ts';
 
 export type LeverInfo = Omit<LeverDef, 'fire'> & { index: number };
-export type IndicatorInfo = Omit<IndicatorDef, 'compute'> & { index: number };
+export type IndicatorInfo = Omit<IndicatorDef, 'compute' | 'level'> & { index: number; level?: Omit<IndicatorLevelDef, 'nominal' | 'real'> };
 /** A stabiliser as plain data: its `current` function stays in the engine. */
 export type StabiliserInfo = Omit<StabiliserDef, 'current'>;
 export type FlowInfo = FlowDef & { index: number };
@@ -67,6 +68,7 @@ export interface RuleInfo {
   lagInputs: Id[];
   stocks: [Id, Id][];
   hasRegime: boolean;
+  owners?: Id[];
   nonAdditive: boolean;
   adjusts: boolean;
 }
@@ -157,6 +159,7 @@ export function describeModel(m: KModel, baseline: (varId: Id) => number, warnin
     lagInputs: [...(r.lagInputs ?? [])],
     stocks: (r.stocks ?? []).map(([i, p]) => [i, p] as [Id, Id]),
     hasRegime: !!r.regime,
+    owners: r.owners ? [...r.owners] : undefined,
     nonAdditive: !!r.combine,
     adjusts: !!r.adjust,
   }));
@@ -165,8 +168,10 @@ export function describeModel(m: KModel, baseline: (varId: Id) => number, warnin
     return { ...rest, index };
   });
   const indicators: IndicatorInfo[] = m.indicators.map((ind, index) => {
-    const { compute: _compute, ...rest } = ind;
-    return { ...rest, index };
+    const { compute: _compute, level, ...rest } = ind;
+    if (!level) return { ...rest, index };
+    const { nominal: _nominal, real: _real, ...metadata } = level;
+    return { ...rest, level: metadata, index };
   });
   const groups: GroupInfo[] = m.groups.map((g) => ({ ...g, children: [...g.children], players: [...g.players], allPlayers: [...g.allPlayers], ...(g.layout ? { layout: { ...g.layout } } : {}) }));
   const groupIds = new Set(groups.map((g) => g.id));
@@ -253,6 +258,10 @@ export function regimeOwners(rules: RuleInfo[], legs: LegInfo[]): Map<Id, Id[]> 
   const out = new Map<Id, Id[]>();
   for (const r of rules) {
     if (!r.hasRegime) continue;
+    if (r.owners) {
+      out.set(r.id, [...r.owners]);
+      continue;
+    }
     const owners = new Set<Id>(r.stocks.map(([, p]) => p));
     let frontier = new Set<Id>([r.target]);
     const seen = new Set<Id>(frontier);

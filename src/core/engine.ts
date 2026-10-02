@@ -31,6 +31,7 @@ import type {
   Id,
   Influence,
   IndicatorCtx,
+  IndicatorBasis,
   LegSnapshot,
   ModelDef,
   Pipe,
@@ -107,6 +108,11 @@ export interface KernelEngine extends Engine {
   baseStock(instrument: Id, player: Id): number;
   /** A variable's value at a past month of the current history. */
   valueAt(varId: Id, month: number): number;
+  /** An indicator at a recorded month, optionally compared with the same month's no-change run.
+   *  This is read-only; neither engine is advanced by a reporting query. */
+  indicatorAt(indicatorId: Id, month: number, reference?: KernelEngine): number;
+  influences(id: Id, reference?: KernelEngine): Influence;
+  ideasAtPlay(scope?: Id, reference?: KernelEngine): { concept: Id; weight: number; via: Id[] }[];
   /** Signed positions at a past month ([instrument * NP + player], asset +). */
   positionsAt(month: number): Float64Array;
   /** Every rule's regime label at a past month of the current history, in rule order
@@ -831,6 +837,39 @@ class KEngine implements KernelEngine {
     return toDisplay(this.model.indicators[i].display, this.hInd[this.month][i], this.baseInd[i]);
   }
 
+  /** An actual level from the recorded month. Reporting cannot advance or mutate the model. */
+  levelAt(id: Id, month: number, basis: IndicatorBasis = 'nominal'): number {
+    const i = this.indIndex(id);
+    const ind = this.model.indicators[i];
+    const vars = this.hVars[month], pos = this.hPos[month];
+    if (!vars || !pos) throw new Error(`no history at month ${month} (now at ${this.month})`);
+    if (!ind.level) return toDisplay(ind.display, this.hInd[month][i], this.baseInd[i]);
+    const m = this.model;
+    const ctx: IndicatorCtx = {
+      v: (v) => vars[this.vIndex(v)],
+      base: this.baseCtx.base,
+      stock: (instrument, player) => {
+        const ins = m.instrumentIndex.get(instrument), p = m.playerIndex.get(player);
+        if (ins === undefined || p === undefined) throw new Error(`unknown stock ('${instrument}', '${player}')`);
+        const k = ins * m.NP + p;
+        return m.role[k] === ROLE_ISSUER ? -pos[k] : pos[k];
+      },
+      baseStock: this.baseCtx.baseStock,
+    };
+    const compute = ind.level[basis] ?? ind.compute;
+    const raw = compute(ctx);
+    if (ind.level.rebase) {
+      const start = compute(this.baseCtx);
+      return Math.abs(start) > 1e-12 ? raw / start * 100 : raw;
+    }
+    return raw * (ind.level.scale ?? 1);
+  }
+
+  /** Detached actual-level history. Indicators without level metadata keep their display. */
+  levels(id: Id, basis: IndicatorBasis = 'nominal'): number[] {
+    return this.hInd.map((_, month) => this.levelAt(id, month, basis));
+  }
+
   series(id: Id): { t: number; v: number }[] {
     const i = this.model.indicatorIndex.get(id);
     if (i !== undefined) {
@@ -946,12 +985,37 @@ class KEngine implements KernelEngine {
 
   /* -------------------------------------------------------- explanations */
 
-  influences(id: Id): Influence {
-    return influenceOf(this.src, id);
+  private comparisonSource(reference?: KernelEngine): InfluenceSource {
+    if (!reference) return this.src;
+    if (!(reference instanceof KEngine) || reference.model !== this.model || reference.t !== this.t)
+      throw new Error('An explanation needs the same compiled model at the same comparison month');
+    return {
+      ...this.src,
+      baseVars: reference.M.cur,
+      baseTerms: reference.hTerms[reference.t],
+      baseDesired: reference.hDesired[reference.t],
+      baseLegs: reference.hLegs[reference.t],
+      indicatorBase: (i) => reference.hInd[reference.t][i],
+    };
   }
 
-  ideasAtPlay(scope?: Id): { concept: Id; weight: number; via: Id[] }[] {
-    return ideasAtPlay(this.src, scope);
+  indicatorAt(id: Id, month: number, reference?: KernelEngine): number {
+    const i = this.model.indicatorIndex.get(id);
+    if (i === undefined) throw new Error(`unknown indicator '${id}'`);
+    if (!Number.isInteger(month) || month < 0 || month > this.t) throw new Error(`unrecorded month '${month}'`);
+    if (reference && (!(reference instanceof KEngine) || reference.model !== this.model || month > reference.t))
+      throw new Error('An indicator needs the same compiled model and a recorded comparison month');
+    const base = reference ? (reference as KEngine).hInd[month][i] : this.baseInd[i];
+    const display = this.model.indicators[i].display;
+    return reference && display === 'level' ? this.hInd[month][i] - base : toDisplay(display, this.hInd[month][i], base);
+  }
+
+  influences(id: Id, reference?: KernelEngine): Influence {
+    return influenceOf(this.comparisonSource(reference), id);
+  }
+
+  ideasAtPlay(scope?: Id, reference?: KernelEngine): { concept: Id; weight: number; via: Id[] }[] {
+    return ideasAtPlay(this.comparisonSource(reference), scope);
   }
 
   checks(): CheckReport {

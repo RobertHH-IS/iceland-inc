@@ -5,7 +5,7 @@
 import type { Id } from '../../core/types.ts';
 
 /** Models the interface prefers to open, in order. */
-export const PREFERRED_MODELS: Id[] = ['iceland', 'reference'];
+export const PREFERRED_MODELS: Id[] = ['iceland-growing', 'iceland', 'reference'];
 
 /** The model to open: the one a link asks for if it exists, else the first preferred one present, else the first. */
 export function pickModel(ids: Id[], requested?: Id | null): Id | undefined {

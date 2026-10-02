@@ -26,14 +26,14 @@ interface LedgerProps {
   onSelect: OnSelect;
 }
 
-export const LedgerView = memo(function LedgerView({ info, legs, columns, onSelect }: LedgerProps) {
-  const table = buildLedger(info, legs, columns);
+export const LedgerView = memo(function LedgerView({ info, client, legs, columns, onSelect }: LedgerProps) {
+  const table = buildLedger(info, legs, columns, 1e-9, client.getFrame().legBaselines);
   const nodeKind = (id: string) => (info.playerById.has(id) ? 'player' : 'group');
   return (
     <div className="ledger">
       <div className="ledger-cap">
         <span>
-          % of GDP a year. <strong>−</strong> pays, <strong>+</strong> receives; small numbers: change from baseline.
+          % of baseline GDP a year. <strong>−</strong> pays, <strong>+</strong> receives; small numbers: {client.comparison === 'no-change' ? 'effect vs no change at this month' : 'change from baseline'}.
         </span>
         {!table.allBalanced && <span className="books bad">A row does not balance</span>}
       </div>

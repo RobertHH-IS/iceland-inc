@@ -1,0 +1,48 @@
+# Current economic reference context
+
+The interface now separates the **solved stationary model start** from a **dated reference snapshot of the real economy**. The snapshot was verified on **30 September 2026**. It supplies labels and source links only: no parameter override, lever event, initial position, rule or reference path is changed. The figures are not fetched when the app runs.
+
+`src/ui/model/economic-context.ts` owns the compact reference context and its status, observation period, source and publication date. `src/ui/model/current-data.ts` imports the full dated catalogue from `data/iceland/observations-2026-09-30.json`; `CurrentDataAudit.tsx` compares all 55 chart starts with published references, measurement bridges and explicit gaps inside the existing dialog. See the [complete current-data review](reviews/2026-09-30-current-data/current-data-review.md), [parameter/input inventory](reviews/2026-09-30-current-data/inventory.md) and [dated-start workflow](reviews/2026-09-30-current-data/remediation-workflow.md).
+
+`src/ui/views/BaselineContext.tsx` provides the visible summary strip and detailed dialog. Model-rate rows read the selected client's solved baseline; moving a lever does not rewrite them. The strip explicitly labels annual GDP projections as forecasts. The dialog handles initial focus, Tab containment, Escape and focus restoration, including native expandable source groups. Small screens stack each comparison with labeled model/reference values.
+
+## Iceland
+
+| Reference | Value and period | Published | Primary evidence |
+|---|---|---|---|
+| CBI key rate | 8.00%, seven-day term deposits; verified in force on 30 September | 19 August 2026 | [MPC decision](https://cb.is/news-and-publications/article/statement-of-the-monetary-policy-committee-august-19th-2026); [2026 MPC calendar](https://cb.is/monetary-policy/monetary-policy-committee/?year=2026), next decision 7 October |
+| Actual annual real GDP growth | +1.0857%, rounded to +1.1%, 2025 versus 2024 | Revised 31 August 2026; table verified 30 September | [THJ01103](https://px.hagstofa.is/pxen/api/v1/en/Efnahagur/thjodhagsreikningar/landsframl/1_landsframleidsla/THJ01103.px), GDP constant-price values 3,600,738 / 3,562,064; [revision release](https://statice.is/publications/news-archive/national-accounts/national-accounts-2nd-quarter-2026/) |
+| Latest quarterly real GDP growth | −1.1%, Q2 2026 versus Q2 2025, preliminary and not seasonally adjusted | 31 August 2026 | [Statistics Iceland release](https://statice.is/publications/news-archive/national-accounts/national-accounts-2nd-quarter-2026/); H1 +1.3% year on year; seasonally adjusted Q2 −3.0% versus Q1 |
+| Annual real GDP growth forecast | 2026 +1.4%; 2027 +1.9% | 19 August 2026 | [CBI Monetary Bulletin 2026/3](https://indicators.cb.is/news-and-publications/article/monetary-bulletin-2026-3), [appendix table 1](https://indicators.cb.is/library/?itemid=427c0b99-87a6-42c3-bce7-2d8ae742d943) |
+| Latest CPI inflation | 5.9%, September 2026 versus September 2025; monthly change +0.39% | 29 September 2026 | [Statistics Iceland CPI release](https://statice.is/publications/news-archive/prices/consumer-price-index-in-september-2026/) |
+| Annual CPI inflation forecast | 2026 average 5.4%; 2027 average 3.6% | 19 August 2026 | [CBI appendix table 4](https://indicators.cb.is/library/?itemid=427c0b99-87a6-42c3-bce7-2d8ae742d943); an annual average, not September's twelve-month rate |
+| General-government securities and loans / GDP | End-2025: 37.4% + 19.3% = 56.7%; ISK 1,849.178 bn + 951.516 bn | 15 September 2026; table verified 30 September | [THJ05181](https://px.hagstofa.is/pxen/api/v1/en/Efnahagur/fjaropinber/fjarmal_opinber/fjarmal_opinber/THJ05181.px), category codes 7 and 8, year 2025 |
+| General-government total liabilities / GDP | End-2025: 88.3%; ISK 4,360.703 bn | 15 September 2026 | [Statistics Iceland release](https://statice.is/publications/news-archive/public-finance/general-government-finances-2025/), [THJ05181](https://px.hagstofa.is/pxen/api/v1/en/Efnahagur/fjaropinber/fjarmal_opinber/fjarmal_opinber/THJ05181.px) |
+| Resident population | 396,500, end-Q2 2026; +1,450 during Q2 | 31 July 2026 | [Statistics Iceland population release](https://statice.is/publications/news-archive/inhabitants/population-in-the-2nd-quarter-2026/) |
+
+The August CBI bulletin's 2025 GDP observation (+1.3%) predates the national-accounts revision. September inflation supersedes the earlier August observation (5.6%) quoted in the existing design proposal. Neither older document is rewritten by this change.
+
+Debt scope matters: 88.3% includes pension insurance liabilities (25.2% of GDP) and other payables (6.4%), while the model's `govDebt` calibration is securities plus loans, rounded to 56.7%, represented as bonds. THJ05181 reports this borrowing measure on its own accounting basis; it must not be relabelled as Maastricht debt or as central-government Treasury bonds. No separate latest Maastricht figure was verified for this snapshot. The official quarterly finance releases concern revenue, expenditure and balances; the debt observation here is annual end-2025, not September 2026 debt.
+
+The PX API's `updated` fields are old metadata (THJ01103 says 2005, THJ05181 says 2017), even though their observation data include 2025. The snapshot therefore distinguishes the linked release date from the actual verification date and does not use that metadata as a publication timestamp.
+
+## World and named foreign rate
+
+| Reference | Value and period | Published | Primary evidence |
+|---|---|---|---|
+| World actual real GDP growth | 2025 +3.5%, IMF estimate subject to revision | 8 July 2026 | [IMF July WEO update](https://www.imf.org/en/publications/weo/issues/2026/07/08/world-economic-outlook-update-july-2026), [table 1](https://www.imf.org/-/media/files/publications/weo/2026/update/july/english/text.pdf) |
+| World real GDP growth forecast | 2026 +3.0%; 2027 +3.4%, PPP weights | 8 July 2026 | [IMF July WEO update](https://www.imf.org/en/publications/weo/issues/2026/07/08/world-economic-outlook-update-july-2026) |
+| Main trading partners' real GDP growth forecast | 2026 +1.5% | 19 August 2026 | [CBI appendix table 2](https://indicators.cb.is/library/?itemid=427c0b99-87a6-42c3-bce7-2d8ae742d943) |
+| ECB deposit facility rate | 2.50%, effective 16 September 2026 | 10 September 2026 | [ECB decision](https://www.ecb.europa.eu/press/pr/date/2026/html/ecb.mp260910~314e508016.en.html) |
+
+PPP means purchasing power parity: the country output weights adjust for differences in price levels. The IMF world measure, Iceland's trading-partner aggregate and growth of Iceland's export demand are different concepts. The ECB rate is a named foreign policy-rate reference, not a single world rate, portfolio yield or asset-price return. A global population path and observed foreign equity return are not supplied by this snapshot.
+
+## Model assumptions and scope
+
+The current model is a fixed point, not a growing balanced path: real GDP growth and CPI inflation are zero before events. Its ordinary cash flows continue. At the solved start, saving, investment, ageing transfers, payouts and revaluations are reconciled so the stock state stays unchanged. Rules can react once shocks move the economy; migration responses do not imply a background population-growth assumption.
+
+The Iceland source contract is in `src/models/iceland/index.ts` (model description and steady-state targets), `params.ts` (`i0 = 0.03`, `piT = 0`, `iFnow = 0.02`, `govDebt = 56.7`) and `util.ts` (`GDP_BN = 4941.211`). The nominal starting key rate is 3% = assumed neutral real rate plus zero model inflation target. Iceland's actual inflation target is [2.5%](https://cb.is/monetary-policy/). The model's foreign interest rate is not an assumed equity appreciation rate. Monetary units remain percentages of baseline 2025 annual nominal GDP: 100 units = ISK 4,941.211 bn, so one unit = ISK 49.41211 bn; flow units additionally specify per year.
+
+The model debt indicator in `src/models/iceland/modules/indicators.ts` divides its government bonds by trailing twelve-month simulated GDP. The observed annual ratios above divide their stated debt scope by actual 2025 annual GDP. Level charts and outside observations therefore require distinct labels and denominators; the reference snapshot never silently replaces one with the other.
+
+The existing [start-from-today design](design/start-from-today.md) specifies a possible future start and no-change path. It is a proposal, not implemented by this reference panel. A future growing start must supply stock-consistent investment and saving, demographic and productivity paths, nominal price/indexation paths and external assumptions, then compare shocks with the same month's unshocked run. Merely compounding level charts or setting the key rate to today's market rate would not provide that contract.

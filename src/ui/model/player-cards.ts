@@ -79,6 +79,11 @@ export const GROUP_NOUNS: Record<Id, Record<Id, [one: string, many: string]>> = 
   },
 };
 
+/** An evolving Iceland variant keeps the same familiar map cards and group vocabulary. */
+export function cardFamily(info: ModelInfo): Id {
+  return info.paramById.has('growthReal') && info.playerById.has('HY') ? 'iceland' : info.id;
+}
+
 export type ResolvedMetric =
   | { key: string; kind: 'indicator'; id: Id; label: string; stabiliser?: Id }
   | { key: string; kind: 'variable'; id: Id; label: string; stabiliser?: Id }
@@ -86,7 +91,7 @@ export type ResolvedMetric =
   | { key: string; kind: 'cashIn'; label: string };
 
 /** The metrics a node's card shows: the model's mapping where it resolves, else the fallback. */
-export function resolveCardMetrics(info: ModelInfo, nodeId: Id, mapping: CardMapping | undefined = PLAYER_CARDS[info.id], max = 2): ResolvedMetric[] {
+export function resolveCardMetrics(info: ModelInfo, nodeId: Id, mapping: CardMapping | undefined = PLAYER_CARDS[cardFamily(info)], max = 2): ResolvedMetric[] {
   const out: ResolvedMetric[] = [];
   const group = info.playerById.has(nodeId) ? undefined : info.groupById.get(nodeId);
   const specs = mapping?.[nodeId] ?? (group ? mapping?.[group.label] : undefined) ?? [];

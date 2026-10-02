@@ -8,13 +8,15 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Id, ModelDef } from '../core/types.ts';
-import { models as registryModels } from '../models/index.ts';
+import { applicationModels as registryModels, createRegisteredEngine } from '../models/index.ts';
 import { createEngineClient, type EngineClient } from './engine-client.ts';
+import type { ReportBasis } from './model/charts.ts';
 import { cleanExpanded, collapseGroup, effectiveExpanded, expandAll, expandGroup, expandableGroups, pipeBetween, reveal, viewKey } from './model/hierarchy.ts';
 import { EMPTY_NAV, navBack, navClear, navCurrent, navForward, navGo, navPush, selectionKey, type NavState, type Selection } from './model/navigation.ts';
 import { linkTarget, pickModel } from './model/registry.ts';
 import { decodeScenarioHash, encodeScenarioHash, hasScenario, type HashState } from './model/scenario-url.ts';
 import { Charts } from './views/Charts.tsx';
+import { BaselineContext, EconomicContextSummary } from './views/BaselineContext.tsx';
 import { Feed } from './views/Feed.tsx';
 import { FlowMap } from './views/FlowMap.tsx';
 import { Header, type ShareState } from './views/Header.tsx';
@@ -39,7 +41,7 @@ class ClientPool {
       const def = this.defs.find((d) => d.id === id);
       try {
         if (!def) throw new Error(`no model '${id}' in the registry`);
-        e = { client: createEngineClient(def) };
+        e = { client: createEngineClient(createRegisteredEngine(def), { comparison: def.modules.some((m) => m.id === 'growth') ? 'no-change' : 'opening' }) };
       } catch (err) {
         e = { error: err instanceof Error ? err.message : String(err) };
       }
@@ -190,6 +192,8 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
   const [ledgerCols, setLedgerCols] = useState<'players' | 'map'>('players');
   const [nav, setNav] = useState<NavState>(EMPTY_NAV);
   const [chartTab, setChartTab] = useState<string | null>(null);
+  const [reportBasis, setReportBasis] = useState<ReportBasis>('nominal');
+  const [contextOpen, setContextOpen] = useState(false);
   const [share, setShare] = useState<ShareState>({ status: 'idle' });
   const selection = navCurrent(nav);
 
@@ -246,7 +250,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
   // Space plays and pauses, unless focus is in a control that uses it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== ' ' || e.defaultPrevented) return;
+      if (e.key !== ' ' || e.defaultPrevented || contextOpen) return;
       const el = e.target as HTMLElement | null;
       if (el && el !== document.body && el.closest('button, input, select, textarea, a, [role="button"], [contenteditable="true"]')) return;
       e.preventDefault();
@@ -254,9 +258,9 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [client]);
+  }, [client, contextOpen]);
 
-  const selectedPipe = selection?.kind === 'pipe' ? (pipeBetween(info, frame.legs, selection.from, selection.to, selection.flowKind) ?? undefined) : undefined;
+  const selectedPipe = selection?.kind === 'pipe' ? (pipeBetween(info, frame.legs, selection.from, selection.to, selection.flowKind, frame.legBaselines) ?? undefined) : undefined;
   const allOpen = expandable.every((id) => expanded.has(id));
   const noneOpen = !expandable.some((id) => expanded.has(id));
 
@@ -279,7 +283,11 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
         onShare={onShare}
         share={share}
         onShareDone={onShareDone}
+        onBaseline={() => setContextOpen(true)}
+        baselineOpen={contextOpen}
       />
+      <EconomicContextSummary client={client} />
+      {contextOpen && <BaselineContext client={client} onClose={() => setContextOpen(false)} />}
       {(notice || frame.error || frame.ended) && (
         <div className="banner" role="alert">
           <span>{notice ?? frame.error ?? `The clock stopped at month ${frame.maxMonths}. Reset, or drag the timeline back to explore.`}</span>
@@ -329,11 +337,11 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
         )}
       </main>
       <div className="side">
-        <Inspector info={info} client={client} frame={frame} nav={nav} expanded={eff} onSelect={onSelect} onBack={onBack} onForward={onForward} onGo={onGo} onClose={onClose} />
+        <Inspector info={info} client={client} frame={frame} nav={nav} expanded={eff} basis={reportBasis} onSelect={onSelect} onBack={onBack} onForward={onForward} onGo={onGo} onClose={onClose} />
         <IdeasAtPlay info={info} client={client} seq={frame.seq} selection={selection} pipe={selectedPipe} onSelect={onSelect} />
         <Feed info={info} feed={frame.feed} onSelect={onSelect} />
       </div>
-      <Charts info={info} client={client} t={frame.t} events={frame.events} tab={chartTab} onTab={setChartTab} selected={selection?.kind === 'indicator' ? selection.id : null} onSelect={onSelect} />
+      <Charts info={info} client={client} t={frame.t} events={frame.events} tab={chartTab} onTab={setChartTab} basis={reportBasis} onBasis={setReportBasis} selected={selection?.kind === 'indicator' ? selection.id : null} onSelect={onSelect} />
     </div>
   );
 }

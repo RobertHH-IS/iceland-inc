@@ -45,6 +45,8 @@ export interface InfluenceSource {
   regimeSwitches: readonly number[];
   /** The month's legs, by leg index: its total ÷ dt (the average of its sub-steps). */
   legs: Float64Array;
+  /** Same-month comparison legs, when explaining an evolving no-change run. */
+  baseLegs?: Float64Array;
   pEff: Float64Array;
   /** The padlocks when termVal and desired were computed, as a lock mask (bit j set: stabiliser j
    *  locked; 0 for a model without stabilisers). */
@@ -75,7 +77,7 @@ export function influenceOf(S: InfluenceSource, rawId: Id): Influence {
       const l = m.clegs[j];
       const amt = m.vars[l.amount];
       const value = S.legs[j];
-      const baseline = S.baseVars[l.amount];
+      const baseline = S.baseLegs?.[j] ?? S.baseVars[l.amount];
       return { id: amt.id, label: `${m.players[l.from].label} → ${m.players[l.to].label}`, value, baseline, change: value - baseline, inputs: [amt.id] };
     });
     let value = 0,
@@ -326,7 +328,7 @@ export function ideasAtPlay(S: InfluenceSource, scope?: Id): { concept: Id; weig
   const legNow = S.legs;
   for (const j of legs) {
     const l = m.clegs[j];
-    flowChange.set(l.flow, (flowChange.get(l.flow) ?? 0) + legNow[j] - S.baseVars[l.amount]);
+    flowChange.set(l.flow, (flowChange.get(l.flow) ?? 0) + legNow[j] - (S.baseLegs?.[j] ?? S.baseVars[l.amount]));
   }
   for (const [f, d] of flowChange) for (const c of m.flows[f].concepts ?? []) add(c, Math.abs(d), m.flows[f].id);
   return [...acc.entries()]

@@ -67,6 +67,8 @@ export interface Frame {
   levers: readonly number[];
   /** Current leg values, by LegInfo.index (engine.legs() order). */
   legs: Float64Array;
+  /** Opening amounts, or the no-change run's exact same-month legs. */
+  legBaselines?: Float64Array;
   pipes: { player: Pipe[]; group: Pipe[] };
   checks: ChecksSummary;
   /** Positions that took the wrong sign since the last reset, oldest first (checks().signViolations):
@@ -85,6 +87,7 @@ export interface Frame {
 
 export interface EngineClient {
   readonly info: ModelInfo;
+  readonly comparison?: 'opening' | 'no-change';
   subscribe(listener: () => void): () => void;
   getFrame(): Frame;
   /* the clock */
@@ -112,15 +115,23 @@ export interface EngineClient {
   pipes(view: 'player' | 'group' | PipeView): Pipe[];
   /** An indicator in display units, months 0..t. */
   series(indicatorId: Id): readonly number[];
+  /** Actual nominal/real levels, or the unchanged legacy deviation history. */
+  reportSeries(indicatorId: Id, basis?: 'nominal' | 'real' | 'deviation'): readonly number[];
+  referenceReportSeries?(indicatorId: Id, basis?: 'nominal' | 'real' | 'deviation'): readonly number[];
   /** A variable's raw values for months from..to (inclusive, clamped to 0..t). */
   varSeries(varId: Id, from: number, to: number): number[];
+  /** Matching raw variable history from the unchanged experiment configuration. */
+  referenceVarSeries?(varId: Id, from: number, to: number): number[];
   value(varId: Id): number;
   baseline(varId: Id): number;
+  /** The immutable calibrated opening state, even when baseline() compares with a moving run. */
+  opening?(varId: Id): number;
   dispose(): void;
 }
 
 export interface ClientOptions {
   engine?: EngineOptions;
+  comparison?: 'opening' | 'no-change';
   maxMonths?: number;
   tickMs?: number;
 }
@@ -138,7 +149,11 @@ const sameStabilisers = (a: readonly StabiliserState[], b: readonly StabiliserSt
 
 class MainThreadClient implements EngineClient {
   readonly info: ModelInfo;
+  readonly comparison: 'opening' | 'no-change';
   private readonly engine: KernelEngine;
+  private readonly reference?: KernelEngine;
+  private comparisonFeed: FeedItem[] = [];
+  private feedOn = new Set<Id>();
   private readonly listeners = new Set<() => void>();
   private readonly maxMonths: number;
   private readonly tickMs: number;
@@ -150,6 +165,7 @@ class MainThreadClient implements EngineClient {
   private seq = 0;
   private error: string | null = null;
   private hist: number[][] = [];
+  private reports = new Map<string, { seq: number; values: number[] }>();
   private frame!: Frame;
   private readonly regimeRules: { id: Id; target: Id }[];
   /** Each rule's regime at the baseline: a badge only appears when the regime differs from it. */
@@ -158,12 +174,19 @@ class MainThreadClient implements EngineClient {
   constructor(source: ModelDef | KernelEngine, opts: ClientOptions = {}) {
     this.engine = 'baselineData' in source ? source : createEngine(source, opts.engine);
     const e = this.engine;
-    this.info = describeModel(e.model, (id) => e.baseline(id), e.warnings);
+    this.comparison = opts.comparison ?? 'opening';
+    if (this.comparison === 'no-change') {
+      this.reference = createEngine(e.model, { ...e.options, baseline: e.baselineData, testHooks: undefined });
+      this.reference.step(e.t);
+    }
+    const description = describeModel(e.model, (id) => e.baseline(id), e.warnings);
+    const params = e.model.params.map((p, j) => ({ ...p, value: e.options.forkParams?.[p.id] ?? e.baselineData.pBase[j] }));
+    this.info = { ...description, params, paramById: new Map(params.map((p) => [p.id, p])) };
     this.maxMonths = opts.maxMonths ?? MAX_MONTHS;
     this.tickMs = opts.tickMs ?? TICK_MS;
     this.regimeRules = this.info.rules.filter((r) => r.hasRegime).map((r) => ({ id: r.id, target: r.target }));
     if (this.regimeRules.length) {
-      const base = createEngine(e.model.def, { dev: false });
+      const base = createEngine(e.model, { ...e.options, baseline: e.baselineData, dev: false, testHooks: undefined });
       for (const r of this.regimeRules) {
         try {
           this.baseRegimes[r.id] = base.influences(`var:${r.target}`).regime ?? null;
@@ -194,12 +217,13 @@ class MainThreadClient implements EngineClient {
     const legList = e.legs();
     const legs = new Float64Array(legList.length);
     legList.forEach((l, i) => (legs[i] = l.value));
+    const legBaselines = new Float64Array(this.reference ? this.reference.legs().map((l) => l.value) : legList.map((l) => l.baseline));
     const ck = e.checks();
     const tolerance = ck.tolerance ?? 1e-9;
     const failures = ck.failures?.length ?? 0;
     const checks: ChecksSummary = { ok: failures === 0 && ck.maxResidual <= tolerance, maxResidual: ck.maxResidual, tolerance, failures, items: ck.items };
     const violations = ck.signViolations ?? [];
-    const rawFeed = e.feed();
+    const rawFeed = this.reference ? [...this.comparisonFeed, ...e.feed().filter((f) => f.stabiliser)].sort((a, b) => a.t - b.t) : e.feed();
     const feed =
       prev && prev.feed.length === rawFeed.length && (rawFeed.length === 0 || (prev.feed[0].t === rawFeed[rawFeed.length - 1].t && prev.feed[0].message === rawFeed[rawFeed.length - 1].message))
         ? prev.feed
@@ -227,7 +251,8 @@ class MainThreadClient implements EngineClient {
       events: prev && sameEvents(prev.events, events) ? prev.events : events,
       levers: prev && sameNumbers(prev.levers, levers) ? prev.levers : levers,
       legs,
-      pipes: { player: e.pipes('player'), group: e.pipes('group') },
+      legBaselines,
+      pipes: { player: this.pipes('player'), group: this.pipes('group') },
       checks,
       signViolations: prev && sameViolations(prev.signViolations, violations) ? prev.signViolations : violations,
       feed,
@@ -245,6 +270,7 @@ class MainThreadClient implements EngineClient {
       this.error = null;
     } catch (err) {
       this.error = err instanceof Error ? err.message : String(err);
+      this.halt();
     }
     this.publish();
   }
@@ -252,7 +278,20 @@ class MainThreadClient implements EngineClient {
   /* -------------------------------------------------------------- history */
 
   private rebuildHistory(): void {
-    this.hist = this.info.indicators.map((ind) => this.engine.series(ind.id).map((p) => p.v));
+    this.hist = this.info.indicators.map((ind) => Array.from({ length: this.engine.t + 1 }, (_, m) => this.engine.indicatorAt(ind.id, m, this.reference)));
+    this.comparisonFeed = [];
+    this.feedOn.clear();
+    if (this.reference) for (let m = 0; m <= this.engine.t; m++) this.recordFeed(m);
+  }
+
+  private recordFeed(month: number): void {
+    if (!this.reference) return;
+    for (const f of this.engine.model.feed) {
+      const value = this.hist[this.info.indicatorById.get(f.indicator)!.index][month];
+      const on = (f.above !== undefined && value > f.above) || (f.below !== undefined && value < f.below);
+      if (month > 0 && on && !this.feedOn.has(f.id)) this.comparisonFeed.push({ t: month, message: f.message, indicator: f.indicator, concept: f.concept, rule: f.id });
+      if (on) this.feedOn.add(f.id); else this.feedOn.delete(f.id);
+    }
   }
 
   private record(): void {
@@ -260,8 +299,9 @@ class MainThreadClient implements EngineClient {
     this.info.indicators.forEach((ind, i) => {
       const h = this.hist[i];
       h.length = t;
-      h.push(this.engine.indicator(ind.id));
+      h.push(this.engine.indicatorAt(ind.id, t, this.reference));
     });
+    this.recordFeed(t);
   }
 
   /** Step month by month (recording every indicator), stopping at maxMonths. */
@@ -274,6 +314,7 @@ class MainThreadClient implements EngineClient {
         break;
       }
       this.engine.step(1);
+      this.reference?.step(1);
       this.record();
       if (this.engine.t > this.horizon) this.horizon = this.engine.t;
     }
@@ -338,6 +379,7 @@ class MainThreadClient implements EngineClient {
     this.halt();
     this.act(() => {
       this.engine.reset();
+      this.reference?.reset();
       this.horizon = 0;
       this.ended = false;
       this.rebuildHistory();
@@ -351,7 +393,8 @@ class MainThreadClient implements EngineClient {
     this.act(() => {
       if (target < this.engine.t) {
         this.engine.seek(target);
-        for (const h of this.hist) h.length = target + 1;
+        this.reference?.seek(target);
+        this.rebuildHistory();
         this.ended = false;
       } else this.advance(target - this.engine.t);
     });
@@ -389,11 +432,13 @@ class MainThreadClient implements EngineClient {
         this.engine.load({ ...now.scenario, months: Math.min(s.months, this.maxMonths) });
       } catch (err) {
         this.engine.reset();
+        this.reference?.reset();
         this.horizon = 0;
         this.ended = false;
         this.rebuildHistory();
         throw err;
       }
+      if (this.reference) { this.reference.reset(); this.reference.step(this.engine.t); }
       this.horizon = this.engine.t;
       this.ended = this.engine.t >= this.maxMonths;
       this.rebuildHistory();
@@ -404,29 +449,60 @@ class MainThreadClient implements EngineClient {
   /* -------------------------------------------------------------- details */
 
   influences(id: Id): Influence {
-    return this.engine.influences(id);
+    return this.engine.influences(id, this.reference);
   }
 
   ideasAtPlay(scope?: Id): IdeaWeight[] {
     try {
-      return this.engine.ideasAtPlay(scope);
+      return this.engine.ideasAtPlay(scope, this.reference);
     } catch {
-      return this.engine.ideasAtPlay();
+      return this.engine.ideasAtPlay(undefined, this.reference);
     }
   }
 
   balanceSheet(playerOrGroup: Id): BalanceSheet {
-    return this.engine.balanceSheet(playerOrGroup);
+    const now = this.engine.balanceSheet(playerOrGroup);
+    if (!this.reference) return now;
+    const ref = this.reference.balanceSheet(playerOrGroup);
+    return { ...now,
+      assets: now.assets.map((a) => ({ ...a, baseline: ref.assets.find((r) => r.instrument === a.instrument)?.value ?? 0 })),
+      liabilities: now.liabilities.map((a) => ({ ...a, baseline: ref.liabilities.find((r) => r.instrument === a.instrument)?.value ?? 0 })),
+      netWorthBaseline: ref.netWorth,
+    };
   }
 
   pipes(view: 'player' | 'group' | PipeView): Pipe[] {
-    return this.engine.pipes(view);
+    const now = this.engine.pipes(view);
+    if (!this.reference) return now;
+    const ref = this.reference.pipes(view);
+    return now.map((p, i) => ({ ...p, baseline: ref[i].value, legs: p.legs.map((l, j) => ({ ...l, baseline: ref[i].legs[j].value })) }));
   }
 
   series(indicatorId: Id): readonly number[] {
     const i = this.info.indicatorById.get(indicatorId)?.index;
     if (i === undefined) throw new Error(`unknown indicator '${indicatorId}'`);
     return this.hist[i];
+  }
+
+  reportSeries(id: Id, basis: 'nominal' | 'real' | 'deviation' = 'nominal'): readonly number[] {
+    if (basis === 'deviation') return this.series(id);
+    const key = `${id}\u0000${basis}`;
+    const cached = this.reports.get(key);
+    if (cached?.seq === this.frame.seq) return cached.values;
+    const values = this.engine.levels(id, basis);
+    this.reports.set(key, { seq: this.frame.seq, values });
+    return values;
+  }
+
+  referenceReportSeries(id: Id, basis: 'nominal' | 'real' | 'deviation' = 'nominal'): readonly number[] {
+    if (!this.reference) return [];
+    if (basis === 'deviation') return [];
+    const key = `reference\u0000${id}\u0000${basis}`;
+    const cached = this.reports.get(key);
+    if (cached?.seq === this.frame.seq) return cached.values;
+    const values = this.reference.levels(id, basis);
+    this.reports.set(key, { seq: this.frame.seq, values });
+    return values;
   }
 
   varSeries(varId: Id, from: number, to: number): number[] {
@@ -437,11 +513,23 @@ class MainThreadClient implements EngineClient {
     return out;
   }
 
+  referenceVarSeries(varId: Id, from: number, to: number): number[] {
+    if (!this.reference) return [];
+    const a = Math.max(0, Math.round(from)), b = Math.min(this.reference.t, Math.round(to));
+    const out: number[] = [];
+    for (let m = a; m <= b; m++) out.push(this.reference.valueAt(varId, m));
+    return out;
+  }
+
   value(varId: Id): number {
     return this.engine.value(varId);
   }
 
   baseline(varId: Id): number {
+    return this.reference?.value(varId) ?? this.engine.baseline(varId);
+  }
+
+  opening(varId: Id): number {
     return this.engine.baseline(varId);
   }
 

@@ -8,6 +8,48 @@
 import type { Id, ScenarioEvent } from '../../core/types.ts';
 import type { IndicatorInfo, ModelInfo } from './info.ts';
 import { leverValueLabel } from './levers.ts';
+import { adaptiveDigits, fmtIndicator, fmtNum } from './format.ts';
+
+export type ReportBasis = 'nominal' | 'real' | 'deviation';
+export const REPORT_BASES: { id: ReportBasis; label: string }[] = [
+  { id: 'nominal', label: 'Nominal levels' },
+  { id: 'real', label: 'Real levels' },
+  { id: 'deviation', label: 'Change vs baseline' },
+];
+
+export function reportLabel(ind: IndicatorInfo, basis: ReportBasis): string {
+  return basis === 'deviation' ? ind.label : (basis === 'real' ? ind.level?.realLabel ?? ind.level?.nominalLabel : ind.level?.nominalLabel) ?? ind.label;
+}
+
+export function reportUnit(ind: IndicatorInfo, basis: ReportBasis, comparison: 'opening' | 'no-change' = 'opening'): string {
+  const unit = basis === 'deviation' || !ind.level ? ind.unit : basis === 'real' ? ind.level.realUnit ?? ind.level.unit : ind.level.unit;
+  return basis === 'deviation' && comparison === 'no-change' ? unit.replace('vs baseline', 'vs no change') : unit;
+}
+
+export function reportDescription(ind: IndicatorInfo, basis: ReportBasis): string {
+  return basis === 'deviation' ? ind.description : (basis === 'real' ? ind.level?.realDescription ?? ind.level?.description : ind.level?.description) ?? ind.description;
+}
+
+export function fmtReport(value: number, ind: IndicatorInfo, basis: ReportBasis): string {
+  if (basis === 'deviation' || !ind.level) return fmtIndicator(value, ind.unit, ind.display);
+  const level = ind.level;
+  if (level.kind === 'rate' || level.kind === 'ratio') return `${fmtNum(value, level.kind === 'rate' ? 2 : 1)}%`;
+  if (level.kind === 'index') return fmtNum(value, 1);
+  if (!Number.isFinite(value)) return fmtNum(value);
+  const digits = adaptiveDigits(value);
+  const n = new Intl.NumberFormat('en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Math.abs(value) < 1e-9 ? 0 : value).replace('-', '−');
+  return `${n} ${level.unit.includes('a year') ? 'bn ISK/yr' : 'bn ISK'}`;
+}
+
+export function reportRef(ind: IndicatorInfo, series: ArrayLike<number>, basis: ReportBasis): number {
+  return basis !== 'deviation' && ind.level ? series[0] ?? 0 : chartRef(ind, series);
+}
+
+/** Keep trivial changes on a large level from filling the chart. Rates are in actual %. */
+export function reportMinRange(ind: IndicatorInfo, series: ArrayLike<number>, basis: ReportBasis): number {
+  if (basis === 'deviation' || !ind.level) return 0.02;
+  return ind.level.kind === 'rate' ? 0.5 : ind.level.kind === 'ratio' ? 1 : ind.level.kind === 'index' ? 2 : Math.max(0.1, Math.abs(series[0] ?? 0) * 0.01);
+}
 
 export const CHART_SPAN = 72;
 
@@ -17,6 +59,8 @@ export interface ChartWindow {
   to: number;
   span: number;
   values: number[];
+  /** Matching months of an evolving no-change path, if supplied. */
+  referenceValues?: number[];
   /** Reference line: 0 for deviations, the baseline level for 'level' indicators. */
   ref: number;
   /** y-range, always containing the reference line, padded and at least `minRange` tall. */
@@ -29,14 +73,16 @@ export interface ChartWindow {
  * The window of `series` (month-indexed, display units) ending at month `t`.
  * `minRange` stops a flat baseline from amplifying floating-point dust into a wiggle.
  */
-export function chartWindow(series: ArrayLike<number>, t: number, span = CHART_SPAN, ref = 0, minRange = 0.02): ChartWindow {
+export function chartWindow(series: ArrayLike<number>, t: number, span = CHART_SPAN, ref = 0, minRange = 0.02, reference?: ArrayLike<number>): ChartWindow {
   const to = Math.max(0, Math.min(Math.round(t), series.length - 1));
   const from = Math.max(0, to - span);
   const values: number[] = [];
   for (let m = from; m <= to; m++) values.push(series[m]);
+  const referenceValues = reference?.length ? Array.from({ length: to - from + 1 }, (_, i) => reference[from + i]) : undefined;
+  if (referenceValues) ref = referenceValues.at(-1) ?? ref;
   let lo = ref,
     hi = ref;
-  for (const v of values)
+  for (const v of [...values, ...(referenceValues ?? [])])
     if (Number.isFinite(v)) {
       lo = Math.min(lo, v);
       hi = Math.max(hi, v);
@@ -49,7 +95,7 @@ export function chartWindow(series: ArrayLike<number>, t: number, span = CHART_S
     if (ref > hi) hi = ref;
   }
   const pad = (hi - lo) * 0.08;
-  return { from, to, span, values, ref, lo: lo - pad, hi: hi + pad, last: values.length ? values[values.length - 1] : ref };
+  return { from, to, span, values, ...(referenceValues ? { referenceValues } : {}), ref, lo: lo - pad, hi: hi + pad, last: values.length ? values[values.length - 1] : ref };
 }
 
 export function xAt(w: ChartWindow, month: number, width: number): number {
@@ -83,6 +129,12 @@ export function linePath(w: ChartWindow, width: number, height: number): string 
 /** Closed area between the line and the reference line (for a soft fill). */
 export function areaPath(w: ChartWindow, width: number, height: number): string {
   if (w.values.length < 2) return '';
+  if (w.referenceValues) {
+    const point = (v: number, i: number) => `${r1(xAt(w, w.from + i, width))},${r1(yAt(w, Number.isFinite(v) ? v : w.ref, height))}`;
+    const actual = w.values.map(point);
+    const reference = w.referenceValues.map(point).reverse();
+    return `M${actual.join(' L')} L${reference.join(' L')} Z`;
+  }
   const y0 = r1(yAt(w, w.ref, height));
   const pts = w.values.map((v, i) => `${r1(xAt(w, w.from + i, width))},${r1(yAt(w, Number.isFinite(v) ? v : w.ref, height))}`);
   const x0 = r1(xAt(w, w.from, width)),
@@ -143,6 +195,20 @@ export function chartTabs(indicators: IndicatorInfo[]): ChartTab[] {
     }
     tab.indicators.push(ind);
   }
+  // Headlines also belong in Overview; their original specialist tabs stay available.
+  const overview = tabs.get('Overview');
+  if (overview && indicators.some((ind) => ind.id === 'output')) {
+    const featured = ['govDebtAmount', 'govDebt', 'mortgageDebt', 'broadMoney', 'exports', 'imports', 'currentAccount', 'govBalance', 'pfAssets', 'krona', 'businessCreditApproved', 'businessArrearsAmount', 'ponziDebtShare'];
+    for (const id of featured) {
+      const ind = indicators.find((x) => x.id === id);
+      if (ind && !overview.indicators.some((x) => x.id === id)) overview.indicators.push(ind);
+    }
+    const first = ['output', 'keyRate', 'inflation', 'govDebtAmount', 'govDebt', 'unemployment', 'consumption', 'investment', 'broadMoney', 'mortgageDebt'];
+    overview.indicators = [
+      ...first.flatMap((id) => overview.indicators.filter((ind) => ind.id === id)),
+      ...overview.indicators.filter((ind) => !first.includes(ind.id)),
+    ];
+  }
   return [...tabs.values()];
 }
 
@@ -155,7 +221,7 @@ export function chartRef(ind: Pick<IndicatorInfo, 'display'>, series: ArrayLike<
 export function yTicks(w: ChartWindow): number[] {
   let lo = Infinity,
     hi = -Infinity;
-  for (const v of w.values)
+  for (const v of [...w.values, ...(w.referenceValues ?? [])])
     if (Number.isFinite(v)) {
       lo = Math.min(lo, v);
       hi = Math.max(hi, v);

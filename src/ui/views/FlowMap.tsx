@@ -23,7 +23,8 @@ import { directMembers, memberCount, viewKey, viewTree, visibleNode, type ViewTr
 import type { ModelInfo } from '../model/info.ts';
 import { nodeColor, nodeLabel } from '../model/info.ts';
 import type { Selection } from '../model/navigation.ts';
-import { GROUP_NOUNS, resolveCardMetrics, type ResolvedMetric } from '../model/player-cards.ts';
+import { cardFamily, GROUP_NOUNS, resolveCardMetrics, type ResolvedMetric } from '../model/player-cards.ts';
+import { financialHealth } from '../model/financial-health.ts';
 import { deviation, pipeStyle, signTone, topChanged, type Tone } from '../model/styling.ts';
 import type { OnSelect } from './common.tsx';
 import { usePrefersReducedMotion } from './hooks.ts';
@@ -232,7 +233,7 @@ export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, le
               const g = geom.get(k);
               if (!g) return null;
               const related = focus.pipe ? k === focus.pipe : focus.nodes.has(p.from) || focus.nodes.has(p.to);
-              return <PipeView key={k} info={info} geom={g} pipe={p} width={pipeWidth(p.value, scale)} selected={k === focus.pipe} related={related} entering={!!anim?.newPipes.has(k)} onSelect={onSelect} />;
+              return <PipeView key={k} info={info} geom={g} pipe={p} width={pipeWidth(p.value, scale)} selected={k === focus.pipe} related={related} entering={!!anim?.newPipes.has(k)} moving={client.comparison === 'no-change'} onSelect={onSelect} />;
             })}
           </g>
           <g className="frame-tabs">
@@ -281,7 +282,7 @@ export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, le
           </g>
         </svg>
       </div>
-      <Legend grouped={info.groups.some((g) => g.allPlayers.length > 1)} />
+      <Legend grouped={info.groups.some((g) => g.allPlayers.length > 1)} moving={client.comparison === 'no-change'} financial={info.instrumentById.has('businessArrears')} />
     </div>
   );
 });
@@ -354,11 +355,12 @@ interface PipeViewProps {
   selected: boolean;
   related: boolean;
   entering: boolean;
+  moving?: boolean;
   onSelect: OnSelect;
 }
 
 const PipeView = memo(
-  function PipeView({ info, geom, pipe, width, selected, related, entering, onSelect }: PipeViewProps) {
+  function PipeView({ info, geom, pipe, width, selected, related, entering, moving, onSelect }: PipeViewProps) {
     const st = pipeStyle(pipe.kind, pipe.value, pipe.baseline, width);
     const particles = useRef<SVGPathElement>(null);
     const rate = Math.round(st.rate * 100) / 100;
@@ -372,7 +374,7 @@ const PipeView = memo(
     }, [rate, st.reverse, st.particles]);
     const flows = [...new Set(pipe.legs.map((l) => l.flow))].map((f) => info.flowById.get(f)?.label ?? f);
     const ends = pipe.from === pipe.to ? `Within ${nodeLabel(info, pipe.from)}` : `${nodeLabel(info, pipe.from)} to ${nodeLabel(info, pipe.to)}`;
-    const label = `${ends}, ${labels.flowKindPhrase[pipe.kind]}: ${flows.join(', ')}. ${fmtNum(pipe.value)} now, ${fmtNum(pipe.baseline)} at baseline (% of GDP a year).`;
+    const label = `${ends}, ${labels.flowKindPhrase[pipe.kind]}: ${flows.join(', ')}. ${fmtNum(pipe.value)} now, ${fmtNum(pipe.baseline)} ${moving ? 'without your changes at this month (% of opening GDP a year)' : 'at baseline (% of GDP a year)'}.`;
     const open = () => onSelect({ kind: 'pipe', from: pipe.from, to: pipe.to, flowKind: pipe.kind });
     return (
       <g className={`pipe kind-${pipe.kind} tone-${st.tone}${selected ? ' selected' : ''}${related ? ' related' : ''}${entering ? ' enter' : ''}`} role="button" tabIndex={0} aria-label={label} onClick={open} onKeyDown={(e) => activate(e, open)}>
@@ -390,6 +392,7 @@ const PipeView = memo(
     a.selected === b.selected &&
     a.related === b.related &&
     a.entering === b.entering &&
+    a.moving === b.moving &&
     a.pipe.value === b.pipe.value &&
     a.pipe.baseline === b.pipe.baseline &&
     a.info === b.info &&
@@ -460,7 +463,7 @@ function evalMetric(m: ResolvedMetric, info: ModelInfo, client: EngineClient, no
         for (const l of info.legs)
           if (l.kind === 'cash' && set.has(l.to) && !set.has(l.from)) {
             v += legs[l.index];
-            b += l.baseline;
+            b += client.getFrame().legBaselines?.[l.index] ?? l.baseline;
           }
         const tone = deviation(v, b).tone;
         return { key: m.key, label: m.label, text: tone === 'flat' ? fmtNum(v) : `${fmtNum(v)} ${fmtSigned(v - b)}`, tone };
@@ -497,10 +500,11 @@ function NodeCardLive({ info, client, node, px, py, lines, legs, regimes, rulesA
     return [...info.regimeOwners].filter(([, owners]) => owners.some((o) => members.has(o))).map(([rule]) => rule);
   }, [info, node.members]);
   const group = node.kind === 'group';
-  const count = useMemo(() => (group ? memberCount(info, node.id, GROUP_NOUNS[info.id]) : ''), [info, node.id, group]);
+  const count = useMemo(() => (group ? memberCount(info, node.id, GROUP_NOUNS[cardFamily(info)]) : ''), [info, node.id, group]);
   const dots = useMemo(() => (group ? directMembers(info, node.id).map((m) => nodeColor(info, m.id)).join(' ') : ''), [info, node.id, group]);
   const values = metrics.map((m) => evalMetric(m, info, client, node, legs));
   const binding = owned.map((r) => regimes[r]).filter((x): x is string => !!x);
+  const health = financialHealth(client, node.members);
   const acting = rulesActing ? rulesActing.split(' ') : [];
   const byRule = (m: ResolvedMetric | undefined) => !!m && 'stabiliser' in m && !!m.stabiliser && acting.includes(m.stabiliser);
   return (
@@ -518,8 +522,9 @@ function NodeCardLive({ info, client, node, px, py, lines, legs, regimes, rulesA
       t2={values[1]?.tone ?? 'flat'}
       r1={byRule(metrics[0])}
       r2={byRule(metrics[1])}
-      regime={binding[0] ?? null}
+      regime={health?.label ?? binding[0] ?? null}
       regimeCount={binding.length}
+      severity={health?.severity}
       selected={selected}
       dim={dim}
       entering={entering}
@@ -547,6 +552,7 @@ interface NodeCardProps {
   r2: boolean;
   regime: string | null;
   regimeCount: number;
+  severity?: 'warning' | 'critical';
   selected: boolean;
   dim: boolean;
   entering: boolean;
@@ -554,7 +560,7 @@ interface NodeCardProps {
   onOpenGroup: (id: Id) => void;
 }
 
-const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, t1, m2, v2, t2, r1, r2, regime, regimeCount, selected, dim, entering, onSelect, onOpenGroup }: NodeCardProps) {
+const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, t1, m2, v2, t2, r1, r2, regime, regimeCount, severity, selected, dim, entering, onSelect, onOpenGroup }: NodeCardProps) {
   const group = n.kind === 'group';
   const x = px - n.w / 2,
     y = py - n.h / 2;
@@ -582,7 +588,7 @@ const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, 
   const titleY = compact ? 18 : 20;
   return (
     <g
-      className={`node${group ? ' group' : ''}${selected ? ' selected' : ''}${dim ? ' dim' : ''}${entering ? ' enter' : ''}`}
+      className={`node${group ? ' group' : ''}${selected ? ' selected' : ''}${dim ? ' dim' : ''}${entering ? ' enter' : ''}${severity ? ` financial-${severity}` : ''}`}
       style={{ transform: `translate(${Math.round(x)}px, ${Math.round(y)}px)` }}
       role="button"
       tabIndex={0}
@@ -647,7 +653,7 @@ function GhostCard({ node: n, at, gone }: { node: NodeBox; at: Pt; gone: boolean
 
 /* ----------------------------------------------------------------- legend */
 
-const Legend = memo(function Legend({ grouped }: { grouped: boolean }) {
+const Legend = memo(function Legend({ grouped, moving, financial }: { grouped: boolean; moving?: boolean; financial?: boolean }) {
   return (
     <div className="legend" aria-label="How to read the map">
       <span className="lg">
@@ -661,14 +667,16 @@ const Legend = memo(function Legend({ grouped }: { grouped: boolean }) {
         <svg width="34" height="10" aria-hidden="true">
           <line x1="2" y1="5" x2="32" y2="5" className="lg-up" />
         </svg>
-        above baseline
+        ↑ {moving ? 'Above no-change path' : 'More than baseline'}
       </span>
       <span className="lg">
         <svg width="34" height="10" aria-hidden="true">
           <line x1="2" y1="5" x2="32" y2="5" className="lg-down" />
         </svg>
-        below baseline
+        ↓ {moving ? 'Below no-change path' : 'Less than baseline'}
       </span>
+      <span className="lg">Grey ≈ unchanged</span>
+      {financial && <span className="lg financial-legend">Red pulse: unpaid debt or low bank capital · click the card</span>}
       <span className="lg">
         <svg width="34" height="10" aria-hidden="true">
           <line x1="2" y1="5" x2="32" y2="5" className="lg-dashed" />

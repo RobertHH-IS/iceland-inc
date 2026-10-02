@@ -188,8 +188,8 @@ export interface ViewPipe extends Pipe {
 }
 
 /** Legs as the engine reports them, from the model description and a frame's leg values. */
-export function legSnapshots(info: ModelInfo, legValues: ArrayLike<number>): ViewLeg[] {
-  return info.legs.map((l) => ({ flow: l.flow, from: l.from, to: l.to, kind: l.kind, value: legValues[l.index] ?? 0, baseline: l.baseline, index: l.index }));
+export function legSnapshots(info: ModelInfo, legValues: ArrayLike<number>, legBaselines?: ArrayLike<number>): ViewLeg[] {
+  return info.legs.map((l) => ({ flow: l.flow, from: l.from, to: l.to, kind: l.kind, value: legValues[l.index] ?? 0, baseline: legBaselines?.[l.index] ?? l.baseline, index: l.index }));
 }
 
 /** Players a node stands for: the player, or every player of a group. */
@@ -207,11 +207,11 @@ export function membersOf(info: ModelInfo, id: Id): Id[] {
  * 'inside' pipe, which nodePipes lists separately. Groups are either nested or disjoint, so
  * the pipe is then exactly the legs between the inner node and the rest of the outer one.
  */
-export function pipeBetween(info: ModelInfo, legValues: ArrayLike<number>, from: Id, to: Id, kind: FlowKind): ViewPipe | null {
+export function pipeBetween(info: ModelInfo, legValues: ArrayLike<number>, from: Id, to: Id, kind: FlowKind, legBaselines?: ArrayLike<number>): ViewPipe | null {
   const A = new Set(membersOf(info, from)),
     B = new Set(membersOf(info, to));
   const both = from === to ? null : new Set([...A].filter((p) => B.has(p)));
-  const legs = legSnapshots(info, legValues).filter((l) => l.kind === kind && A.has(l.from) && B.has(l.to) && !(both?.has(l.from) && both.has(l.to)));
+  const legs = legSnapshots(info, legValues, legBaselines).filter((l) => l.kind === kind && A.has(l.from) && B.has(l.to) && !(both?.has(l.from) && both.has(l.to)));
   if (!legs.length) return null;
   return { from, to, kind, value: legs.reduce((s, l) => s + l.value, 0), baseline: legs.reduce((s, l) => s + l.baseline, 0), legs };
 }
@@ -240,12 +240,12 @@ export function aggregatePipes<L extends LegSnapshot>(legs: L[], node: (player: 
  * (or both), the other end drawn as its visible node. A node that is hidden inside a closed
  * group still gets its own pipes, with itself as the end.
  */
-export function nodePipes(info: ModelInfo, legValues: ArrayLike<number>, eff: ReadonlySet<Id>, id: Id): ViewPipe[] {
+export function nodePipes(info: ModelInfo, legValues: ArrayLike<number>, eff: ReadonlySet<Id>, id: Id, legBaselines?: ArrayLike<number>): ViewPipe[] {
   const members = new Set(membersOf(info, id));
   const hidden = isHidden(info, id, eff);
   const node = (p: Id) => (hidden && members.has(p) ? id : nodeOfPlayer(info, p, eff));
   return aggregatePipes(
-    legSnapshots(info, legValues).filter((l) => members.has(l.from) || members.has(l.to)),
+    legSnapshots(info, legValues, legBaselines).filter((l) => members.has(l.from) || members.has(l.to)),
     node,
   );
 }

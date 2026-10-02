@@ -570,6 +570,7 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
 
   rules.forEach(({ def: r, module }, j) => {
     const where = `rule '${r.id}' (module '${module}')`;
+    for (const owner of r.owners ?? []) if (!playerIndex.has(owner)) err(`${where} names unknown regime owner '${owner}'`);
     if (!CATS.has(r.category)) err(`${where} has no valid category (IDENTITY, CONTRACT, BEHAVIOUR or POLICY)`);
     if (!r.explain || !r.explain.what || !r.explain.rule) err(`${where} needs explain.what and explain.rule`);
     const hasTerms = Array.isArray(r.terms);
@@ -894,6 +895,11 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     const where = `indicator '${ind.id}' (module '${module}')`;
     if (typeof ind.compute !== 'function') err(`${where} has no compute function`);
     if (!['deviation-pct', 'deviation-pp', 'deviation', 'level'].includes(ind.display)) err(`${where} has unknown display '${ind.display}'`);
+    if (ind.level) {
+      if (!['rate', 'ratio', 'amount', 'index'].includes(ind.level.kind)) err(`${where} has unknown level kind '${ind.level.kind}'`);
+      if (!ind.level.unit.trim()) err(`${where} needs a level unit`);
+      if (ind.level.scale !== undefined && !Number.isFinite(ind.level.scale)) err(`${where} has a non-finite level scale`);
+    }
     for (const d of ind.drivers ?? []) if (!varIndex.has(d)) err(`${where} lists unknown driver '${d}'`);
   });
   feed.forEach(({ def: f, module }) => {
@@ -1157,6 +1163,8 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
     };
     try {
       if (typeof ind.compute === 'function') ind.compute(ictx);
+      ind.level?.nominal?.(ictx);
+      ind.level?.real?.(ictx);
     } catch (e) {
       warn(`${where} threw during the compile-time dry run: ${(e as Error).message}`);
     }
