@@ -6,7 +6,6 @@ import { describe, expect, test } from 'bun:test';
 import { models } from '../../src/models/index.ts';
 import { createEngine } from '../../src/core/engine.ts';
 import { createEngineClient, type FeedItem } from '../../src/ui/engine-client.ts';
-import { stabiliserMarks } from '../../src/ui/model/levers.ts';
 
 const reference = models.find((m) => m.id === 'reference')!;
 const base = createEngine(reference);
@@ -276,17 +275,15 @@ describe('engine client: stabilisers and padlocks (decisions 0004 and 0010)', ()
     const rule = c.getFrame().stabilisers.find((s) => s.id === 'keyRateRule')!;
     expect(rule.calling).toBe(true);
     expect(c.value('keyRate')).toBe(0.03);
-    const mark = stabiliserMarks(c.getFrame().stabilisers, c.info.leverById).get('keyRate');
-    expect(mark?.kind).toBe('calling');
-    if (mark?.kind !== 'calling') return;
-    c.setLever('keyRate', mark.apply); // the Apply button
+    // setting the locked lever to where the rule is heading keeps it locked, and it holds there
+    const target = Math.round(rule.suggested * 4) / 4;
+    c.setLever('keyRate', target);
     c.pause();
     const after = c.getFrame().stabilisers.find((s) => s.id === 'keyRateRule')!;
-    expect(after.current).toBe(mark.apply);
+    expect(after.current).toBe(target);
     expect(after.locked).toBe(true);
-    expect(after.calling).toBe(false);
     c.step(1);
-    expect(c.value('keyRate')).toBe(mark.apply / 100);
+    expect(c.value('keyRate')).toBe(target / 100);
     c.dispose();
   });
 

@@ -1,13 +1,16 @@
 /**
  * Feed: engine.feed(), newest first. Narration only: threshold crossings of indicators.
- * Clicking an item opens its indicator.
+ * Clicking an item opens its indicator. The kernel also reports what a locked lever's rule would
+ * do; the feed leaves those out, because a locked lever is the user's decision and needs no prompt
+ * (the owner's decision, 2 October 2026).
  */
 import { memo } from 'react';
 import type { FeedItem } from '../engine-client.ts';
 import type { ModelInfo } from '../model/info.ts';
 import { ConceptChip, type OnSelect } from './common.tsx';
 
-export const Feed = memo(function Feed({ info, feed, onSelect }: { info: ModelInfo; feed: readonly FeedItem[]; onSelect: OnSelect }) {
+export const Feed = memo(function Feed({ info, feed: all, onSelect }: { info: ModelInfo; feed: readonly FeedItem[]; onSelect: OnSelect }) {
+  const feed = all.filter((f) => !f.stabiliser);
   return (
     <section className="feed panel" aria-labelledby="feed-title">
       <div className="panel-head">

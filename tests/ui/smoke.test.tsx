@@ -19,6 +19,7 @@ import { IdeasAtPlay } from '../../src/ui/views/IdeasAtPlay.tsx';
 import { LedgerView } from '../../src/ui/views/LedgerView.tsx';
 import { FlowMap } from '../../src/ui/views/FlowMap.tsx';
 import { LeverPanel } from '../../src/ui/views/LeverPanel.tsx';
+import { Feed } from '../../src/ui/views/Feed.tsx';
 import { hierarchyModel } from '../fixtures/hierarchy.ts';
 
 const all: ModelDef[] = [...models, hierarchyModel()];
@@ -225,22 +226,26 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     client.dispose();
   });
 
-  test('locked: a closed padlock, red calling levers with Apply and red dots on their sections; a lever without a rule has no padlock', () => {
+  test('locked: a closed padlock and the held value, with nothing to approve: no Apply, no red mark, no red dot, and no “the rule would” line in the feed (owner’s decision, 2 October 2026)', () => {
     const client = createEngineClient(iceland);
     client.setLever('keyRateLock', 1);
     client.setLever('incomeTax', 1); // moving it locks it
     client.pause();
     client.step(12);
     const f = client.getFrame();
+    // the kernel still knows what the rules would do (the padlock hands the lever back to them)
     expect(f.stabilisers.every((s) => s.locked && s.calling)).toBe(true);
+    expect(f.feed.some((x) => x.stabiliser)).toBe(true);
     const html = renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />);
-    expect(html).toMatch(/aria-pressed="true" aria-label="Unlock the key interest rate" title="Locked: the key interest rate stays where you set it/);
+    expect(html).toMatch(/aria-pressed="true" aria-label="Unlock the key interest rate" title="Locked: the key interest rate stays where you set it, and everything else reacts to it\./);
     expect(html).not.toContain('>auto</span>');
-    expect(count(html, /class="lever [^"]*calling"/g)).toBe(1); // the Government section is closed
-    expect(html).toMatch(/class="stab-call"><span>Central bank’s inflation rule: 2\.\d\d%<\/span>/);
-    expect(html).toContain('>Apply</button>');
-    expect(count(html, /class="call-dot"/g)).toBe(2); // Central bank and Government
+    expect(html).not.toMatch(/class="lever [^"]*calling"/);
+    expect(html).not.toContain('class="stab-call"');
+    expect(html).not.toContain('>Apply</button>');
+    expect(html).not.toContain('class="call-dot"');
     expect(html).toContain('>3%</span>'); // held where it is
+    const feed = renderToString(<Feed info={client.info} feed={f.feed} onSelect={noop} />);
+    for (const x of f.feed.filter((y) => y.stabiliser)) expect(feed).not.toContain(x.message);
     client.dispose();
   });
 
@@ -295,7 +300,7 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     html = panel();
     expect(html).toContain(`<p class="lock-note">${note('keyRateRule')}</p>`);
     expect(html).not.toContain(note('debtRule'));
-    expect(html).toContain(`title="Locked: the key interest rate stays where you set it, and Central bank’s inflation rule only suggests. Unlock to hand it back to the rule, which carries on from where it is. ${note('keyRateRule')}"`);
+    expect(html).toContain(`title="Locked: the key interest rate stays where you set it, and everything else reacts to it. Unlock to hand it back to Central bank’s inflation rule, which carries on from where it is. ${note('keyRateRule')}"`);
     // a held key rate off its baseline has a one-click way back that keeps it locked (review m6)
     client.setLever('keyRate', 4.25);
     client.step(1);

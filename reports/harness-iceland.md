@@ -394,7 +394,7 @@ A ± entry is paid and received inside one sector, such as firms buying machines
 | `ruleTarget` | Key rate the rule is heading for | 0.030000 | fraction/yr |
 | `ruleAnchor` | Key rate the rule steps from | 0.030000 | fraction/yr |
 | `ruleRate` | Key rate the rule calls for | 0.030000 | fraction/yr |
-| `keyRateSuggestion` | Key rate the rule suggests | 3.000000 | %/yr |
+| `keyRateSuggestion` | Key rate the rule is heading for | 3.000000 | %/yr |
 | `keyRate` | Key interest rate | 0.030000 | fraction/yr |
 | `reserveInterest` | Interest on reserves | 0.360000 | % of GDP/yr |
 | `fxReserveIncome` | Income on foreign reserves | 0.360000 | % of GDP/yr |

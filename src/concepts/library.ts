@@ -914,7 +914,7 @@ export const concepts: ConceptDef[] = [
       `*key rate = neutral real rate + inflation + 0.5 × (inflation − target) + 0.5 × output gap*`,
       `The *neutral real rate* is the inflation-adjusted rate that neither stimulates nor restrains the economy; the *output gap* is how far output is above or below its sustainable level. The key feature is that the rate moves more than one-for-one with inflation, so the *real* rate rises when inflation climbs.`,
       `Many central-bank models, including the Central Bank of Iceland's QMM, describe policy with rules of this kind. In 2026 the Bank estimated its neutral real rate at about 2¼%, against an inflation target of 2.5%, and the key rate stood at 7.75% after rises in the spring.`,
-      `A Taylor rule is a description, not an instruction. The Monetary Policy Committee weighs many indicators, and the Federal Reserve notes that different rules can give quite different answers. Post-Keynesians add that rate changes redistribute income as much as they curb demand. In Iceland Inc., the rule sets the key rate while the key-rate lever is unlocked; when you lock the lever, it only suggests one.`,
+      `A Taylor rule is a description, not an instruction. The Monetary Policy Committee weighs many indicators, and the Federal Reserve notes that different rules can give quite different answers. Post-Keynesians add that rate changes redistribute income as much as they curb demand. In Iceland Inc., the rule sets the key rate while the key-rate lever is unlocked; when you lock the lever, it stands aside.`,
     ),
     school: 'new-keynesian',
     references: [ref.taylor1993, ref.fedRules, ref.cbiMb2026],
@@ -1012,7 +1012,7 @@ export const concepts: ConceptDef[] = [
     body: p(
       `A *fiscal reaction function* describes how a government's budget responds to its debt. Bohn (1998) showed that if the primary balance (taxes minus spending, before interest) rises whenever the debt ratio rises, debt stays sustainable. Estimated responses are small, roughly 0.02–0.1% of GDP of primary balance per point of debt (Mauro et al. 2015).`,
       `Iceland's legal anchor is the debt rule in article 7 of the Public Finance Act (123/2015): debt, net of cash and deposits, of at most 30% of GDP, with any excess cut by at least a twentieth a year. Since 2026 a stability rule on spending growth sits beside it (see the fiscal stability rule).`,
-      `Both economies in Iceland Inc. use a stylised stand-in, not the law: it works only through the income-tax rate, anchors debt at its baseline ratio (about 57% of GDP in Iceland), and moves the tax rate toward 0.25 points per point of debt above it (0.3 in the reference economy), several times stronger than estimated reactions. It acts while the tax lever is unlocked; locked, it only suggests.`,
+      `Both economies in Iceland Inc. use a stylised stand-in, not the law: it works only through the income-tax rate, anchors debt at its baseline ratio (about 57% of GDP in Iceland), and moves the tax rate toward 0.25 points per point of debt above it (0.3 in the reference economy), several times stronger than estimated reactions. It acts while the tax lever is unlocked; locked, it stands aside.`,
       `While the key rate is locked, so monetary policy does not act, it also leans against the cycle, half a point of tax per point of output gap, and on debt half as hard, never against the cycle (Kirsanova, Leith and Wren-Lewis 2009).`,
     ),
     school: 'institutional',

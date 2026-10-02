@@ -21,11 +21,9 @@ import {
   niceStep,
   padlocksByLever,
   isLeverShown,
-  sectionCalling,
   shownSections,
   shownValue,
   snapToStep,
-  stabiliserMarks,
   stepDecimals,
   stepLever,
 } from '../../src/ui/model/levers.ts';
@@ -273,38 +271,12 @@ describe('padlocks and stabilisers (decisions 0004 and 0010)', () => {
     expect(canResetToBaseline(lever({ id: 'wage', kind: 'oneoff', default: 10 }), 5)).toBe(false);
   });
 
-  test('Apply rounds the suggestion to the lever’s step grid, within its range', () => {
+  test('snapToStep rounds a value to the lever’s step grid, within its range', () => {
     expect(snapToStep(rate, 4.27)).toBe(4.25);
     expect(snapToStep(rate, 4.38)).toBe(4.5);
     expect(snapToStep(rate, -1)).toBe(0);
     expect(snapToStep(tax, 0.83)).toBe(1);
     expect(snapToStep(tax, -0.07)).toBe(0);
-  });
-
-  test('locked: a calling stabiliser marks its lever red with its suggestion; unlocked: nothing, the lever follows the rule', () => {
-    const locked = stabiliserMarks([state({ locked: true, current: 3, calling: true })], byId);
-    expect(locked.get('rate')).toEqual({ kind: 'calling', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Central bank’s rule: 4.27%', suggested: 4.2713, apply: 4.25 });
-    expect(sectionCalling(bank, locked)).toBe(true);
-    expect(sectionCalling(gov, locked)).toBe(false);
-    expect(stabiliserMarks([state({ locked: true, current: 3 })], byId).size).toBe(0);
-    // an unlocked rule never shows a call, even if the engine were to report one
-    expect(stabiliserMarks([state({ calling: true })], byId).size).toBe(0);
-    const debt = stabiliserMarks([{ id: 'debt', label: 'Debt rule', lever: 'tax', suggested: 0.834, current: 0, calling: true, locked: true }], byId);
-    expect(debt.get('tax')).toMatchObject({ text: 'Debt rule: +0.83 pp', apply: 1 });
-  });
-
-  test('a rule that wants more than the lever’s range: at the bound, no Apply and no red dot; short of it, Apply goes to the bound', () => {
-    const s = state({ locked: true, suggested: 17.2, current: 15, calling: true });
-    const atMax = stabiliserMarks([s], byId);
-    expect(atMax.get('rate')).toEqual({ kind: 'beyond', stabiliser: 'rule', label: 'Central bank’s rule', text: 'Central bank’s rule: 17.2% (beyond the lever’s range)', suggested: 17.2 });
-    expect(sectionCalling(bank, atMax)).toBe(false);
-    const below = stabiliserMarks([{ ...s, current: 12 }], byId);
-    expect(below.get('rate')).toMatchObject({ kind: 'calling', apply: 15 });
-    expect(sectionCalling(bank, below)).toBe(true);
-    // The same at the lower bound.
-    expect(stabiliserMarks([{ ...s, suggested: -0.8, current: 0 }], byId).get('rate')).toMatchObject({ kind: 'beyond' });
-    // Within half a step of where the lever is, Apply would not move it either.
-    expect(stabiliserMarks([{ ...s, suggested: 4.3, current: 4.25 }], byId).get('rate')).toMatchObject({ kind: 'beyond', text: 'Central bank’s rule: 4.3% (the nearest step is where the lever is)' });
   });
 
   test('every lever with a rule locked: one calm line that nothing pulls prices back (decision 0014); any padlock open, or no padlocks: none', () => {

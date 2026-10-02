@@ -19,8 +19,6 @@
   --cat-contract: #c3a6ff;
   --cat-behaviour: #ffb454;
   --cat-policy: #7fe3ff;
-  /* A locked stabiliser calling for action: 6.3:1 on the cards, never used without text. */
-  --alert: #ff6b6b;
   color-scheme: dark;
 }
 
@@ -795,7 +793,7 @@ button.chip {
 }
 /* Padlocks (decisions 0004 and 0010): an unlocked lever follows its rule, shown calmly in cyan
    (a hollow knob, a cyan fill and an "auto" tag); a locked one is the user's, amber like any
-   changed lever; a locked lever whose rule is calling for action gets a red edge, tint and text. */
+   changed lever, with nothing to approve. */
 .auto-tag {
   font-size: 10.5px;
   letter-spacing: 0.04em;
@@ -821,49 +819,10 @@ button.chip {
   color: var(--amber);
   border-color: rgba(255, 180, 84, 0.5);
 }
-.lever.calling {
-  border-color: rgba(255, 107, 107, 0.5);
-  border-left: 3px solid var(--alert);
-  background: rgba(255, 107, 107, 0.08);
-  box-shadow: none;
-}
-.stab-call {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  color: var(--alert);
-  font-size: 12.5px;
-}
-.stab-call span {
-  flex: 1;
-}
-.btn.stab-apply {
-  border-color: rgba(255, 107, 107, 0.55);
-  color: var(--alert);
-  background: rgba(255, 107, 107, 0.08);
-}
-.btn.stab-apply:hover {
-  background: rgba(255, 107, 107, 0.18);
-  border-color: var(--alert);
-}
-.stab-note {
-  margin-top: 8px;
-  color: var(--accent);
-  font-size: 12.5px;
-}
 .lock-note {
   margin: 0 0 10px;
   color: var(--muted);
   font-size: 12.5px;
-}
-.call-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--alert);
-  box-shadow: 0 0 8px rgba(255, 107, 107, 0.6);
 }
 .lever-info {
   margin-top: 8px;

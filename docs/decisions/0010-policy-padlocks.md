@@ -1,6 +1,8 @@
 # 0010. Policy padlocks: a lock on each lever with a rule
 
-Status: accepted (September 2026). Supersedes the global stabiliser setting of [decision 0004](0004-stabilisers.md); the rest of 0004 (stabilisers are declared, a locked rule suggests, "Apply", the narration, shadows) stands.
+Status: accepted (September 2026); amended 2 October 2026. Supersedes the global stabiliser setting of [decision 0004](0004-stabilisers.md); the rest of 0004 (stabilisers are declared, shadows) stands.
+
+**Amendment (the owner, 2 October 2026): nothing to approve.** "If I change a lever, we are locking it to that value. All other values can change. No Apply button." A locked lever is the user's decision. The interface therefore shows no suggestion beside it, no red mark, no red dot on its section, no "Apply" button and no "the rule would…" line in the feed. The engine still works out where each rule is heading (`suggested`, `calling`), because unlocking hands the lever back to the rule from the value in force, and the harness and the lever report read it. Point 2 below is superseded where it describes the red marker, the Apply button and the feed message.
 
 ## The request
 

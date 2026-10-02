@@ -216,7 +216,7 @@ export function lockActionLabel(l: Pick<LeverInfo, 'label'>, locked: boolean): s
 export function lockTitle(l: Pick<LeverInfo, 'label'>, pad: Pick<PadlockState, 'label' | 'locked'>, note?: string): string {
   const name = inSentence(l.label);
   return pad.locked
-    ? `Locked: ${name} stays where you set it, and ${pad.label} only suggests. Unlock to hand it back to the rule, which carries on from where it is.${note ? ` ${note}` : ''}`
+    ? `Locked: ${name} stays where you set it, and everything else reacts to it. Unlock to hand it back to ${pad.label}, which carries on from where it is.${note ? ` ${note}` : ''}`
     : `Unlocked: ${pad.label} sets ${name}, and the lever follows it. Lock to hold it where it is; moving the lever locks it too.`;
 }
 
@@ -248,8 +248,8 @@ export function allLockedNote(states: readonly Pick<PadlockState, 'lever' | 'loc
   return `With ${held}, nothing pulls prices back over the long run.`;
 }
 
-/** The value the "Apply" button sets: the nearest point of the lever's step grid (anchored at
- *  its default), clamped to its range and free of floating-point dust. */
+/** The nearest point of the lever's step grid (anchored at its default), clamped to its range and
+ *  free of floating-point dust. */
 export function snapToStep(l: Pick<LeverInfo, 'step' | 'min' | 'max' | 'default'>, v: number): number {
   const step = leverStep(l);
   const k = Math.round((v - l.default) / step);
@@ -257,41 +257,3 @@ export function snapToStep(l: Pick<LeverInfo, 'step' | 'min' | 'max' | 'default'
   return clampLever(l, Number((l.default + k * step).toFixed(Math.min(12, d))));
 }
 
-export type StabiliserMark =
-  /** Locked: the stabiliser would move this lever. `text` is "<label>: <suggestion>". */
-  | { kind: 'calling'; stabiliser: Id; label: string; text: string; suggested: number; apply: number }
-  /** Locked: the stabiliser calls, but "Apply" could not move the lever: the suggestion is beyond
-   *  the lever's range (or within half a step of where it is). A note, not a call: no Apply. */
-  | { kind: 'beyond'; stabiliser: Id; label: string; text: string; suggested: number };
-
-/**
- * What the lever panel shows for each locked stabiliser, on its lever:
- *   calling: a red mark with its suggestion and "Apply";
- *   calling but Apply would not move the lever: the suggestion as a note, without Apply.
- * An unlocked stabiliser shows nothing here: its rule moves the lever, which shows the live value.
- * Values are in the lever's units, to two decimals. The engine's `calling` is left as it is (the
- * feed still says the rule calls); only the panel's call depends on Apply.
- */
-export function stabiliserMarks(
-  states: readonly { id: Id; label: string; lever: Id; suggested: number; current: number; calling: boolean; locked: boolean }[],
-  byId: ReadonlyMap<Id, LeverInfo>,
-): Map<Id, StabiliserMark> {
-  const out = new Map<Id, StabiliserMark>();
-  for (const s of states) {
-    const l = byId.get(s.lever);
-    if (!l || !s.locked || !s.calling || !Number.isFinite(s.suggested)) continue;
-    const shown = leverValueLabel(l, Number(s.suggested.toFixed(2)));
-    const apply = snapToStep(l, s.suggested);
-    if (Math.abs(apply - s.current) >= 1e-12) out.set(s.lever, { kind: 'calling', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown}`, suggested: s.suggested, apply });
-    else {
-      const outside = (l.min !== undefined && s.suggested < l.min) || (l.max !== undefined && s.suggested > l.max);
-      out.set(s.lever, { kind: 'beyond', stabiliser: s.id, label: s.label, text: `${s.label}: ${shown} (${outside ? 'beyond the lever’s range' : 'the nearest step is where the lever is'})`, suggested: s.suggested });
-    }
-  }
-  return out;
-}
-
-/** Does any lever of a section have a stabiliser calling that Apply would answer (the red dot on its header)? */
-export function sectionCalling(section: LeverSection, marks: ReadonlyMap<Id, StabiliserMark>): boolean {
-  return section.levers.some((l) => marks.get(l.id)?.kind === 'calling');
-}

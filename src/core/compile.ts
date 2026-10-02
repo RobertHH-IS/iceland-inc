@@ -363,8 +363,8 @@ export function compile(def: ModelDef, opts: CompileOptions = {}): KModel {
           { value: 1, label: 'Locked' },
         ],
         locks: { lever: s.lever, stabiliser: s.id },
-        description: `Unlocked (the default): ${s.label} moves the ${name} lever by itself, and the lever shows where it is. Locked: the lever stays where it is until you move it, and the rule only suggests. Moving the lever locks it.`,
-        definition: `Padlock, persistent while set, taking effect in the month it is set. 0 (unlocked, the default): ${s.label} sets the policy every month, and the ${name} lever follows it. 1 (locked): the lever holds the value in force in the month you lock it, or the value you then set, until you move it; the rule keeps working out what it would do, shown as a suggestion. Setting the lever while it is unlocked locks it at the new value. Unlocking hands the lever back to the rule, which carries on from the value in force.`,
+        description: `Unlocked (the default): ${s.label} moves the ${name} lever by itself, and the lever shows where it is. Locked: the lever stays where it is until you move it, and the rule stands aside. Moving the lever locks it.`,
+        definition: `Padlock, persistent while set, taking effect in the month it is set. 0 (unlocked, the default): ${s.label} sets the policy every month, and the ${name} lever follows it. 1 (locked): the lever holds the value in force in the month you lock it, or the value you then set, until you move it; the rule stands aside. Setting the lever while it is unlocked locks it at the new value. Unlocking hands the lever back to the rule, which carries on from the value in force.`,
         concepts: s.concepts,
       },
     });

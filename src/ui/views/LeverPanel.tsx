@@ -7,10 +7,9 @@
  * Padlocks (decision 0010): a lever with a rule behind it (a stabiliser) has a small padlock
  * beside it. Unlocked, the default, the rule moves the lever: its knob and value follow the live
  * value, marked "auto", and a step from there locks it at the new value. Locked, the lever holds
- * where it is; when its rule calls for action the lever turns red, says what the rule would set it
- * to and offers "Apply", and its section header gets a red dot. When Apply could not move the
- * lever (the rule wants a value beyond its range), the suggestion is a plain note, without Apply
- * or a red dot. Pressing the padlock locks the lever where it is, or hands it back to its rule.
+ * where the user put it and everything else reacts: the panel shows no suggestion, no red mark and
+ * nothing to approve (the owner's decision, 2 October 2026). Pressing the padlock locks the lever
+ * where it is, or hands it back to its rule.
  * Levers without a rule have no padlock and never move by themselves. While every lever with a
  * rule is locked, one calm line at the top of the panel says that nothing then pulls prices back
  * over the long run, with a link to the idea that explains why (decision 0014). While one is locked
@@ -47,12 +46,9 @@ import {
   lockTitle,
   NOMINAL_ANCHOR_CONCEPT,
   padlocksByLever,
-  sectionCalling,
   shownSections,
   shownValue,
-  stabiliserMarks,
   stepLever,
-  type StabiliserMark,
 } from '../model/levers.ts';
 import { Icon } from './common.tsx';
 
@@ -75,7 +71,6 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
   // a lever the model keeps off the panel appears once the scenario sets it (decision 0017)
   const sections = useMemo(() => shownSections(allSections, values, events), [allSections, values, events]);
   const fired = useMemo(() => firedCounts(events), [events]);
-  const marks = useMemo(() => stabiliserMarks(stabilisers, info.leverById), [stabilisers, info]);
   const pads = useMemo(() => padlocksByLever(stabilisers), [stabilisers]);
   const lockedNote = useMemo(() => allLockedNote(stabilisers, info.leverById), [stabilisers, info]);
   const aloneNotes = useMemo(() => lockedAloneNotes(stabilisers, new Map(info.stabilisers.map((s) => [s.id, s.lockedAloneNote]))), [stabilisers, info]);
@@ -116,7 +111,6 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
         ))}
         {sections.map((s) => {
           const n = changedCountWithLocks(s, values, fired, pads);
-          const calling = sectionCalling(s, marks);
           const isOpen = open.has(s.id);
           const bodyId = `levers-${s.id.replace(/\W+/g, '-')}`;
           return (
@@ -124,7 +118,6 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
               <h3 className="acc-h">
                 <button type="button" className="acc-head" aria-expanded={isOpen} aria-controls={isOpen ? bodyId : undefined} onClick={() => toggle(s.id)}>
                   <span className="acc-title">{s.title}</span>
-                  {calling && <span className="call-dot" role="img" aria-label="A rule would move a lever here" title="A rule would move a lever here" />}
                   {n > 0 && (
                     <span className="count" aria-label={`${n} changed`}>
                       {n}
@@ -138,7 +131,7 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
               {isOpen && (
                 <div className="acc-body" id={bodyId}>
                   {s.levers.map((l) => (
-                    <LeverRow key={l.id} lever={l} value={values[l.index] ?? l.default} fired={fired.get(l.id) ?? 0} client={client} mark={marks.get(l.id)} pad={pads.get(l.id)} note={aloneNotes.get(l.id)} />
+                    <LeverRow key={l.id} lever={l} value={values[l.index] ?? l.default} fired={fired.get(l.id) ?? 0} client={client} pad={pads.get(l.id)} note={aloneNotes.get(l.id)} />
                   ))}
                 </div>
               )}
@@ -171,7 +164,6 @@ const LeverRow = memo(function LeverRow({
   value: stored,
   fired,
   client,
-  mark,
   pad,
   note,
 }: {
@@ -179,7 +171,6 @@ const LeverRow = memo(function LeverRow({
   value: number;
   fired: number;
   client: EngineClient;
-  mark?: StabiliserMark;
   pad?: StabiliserState;
   /** The lever's locked-alone note (lockedAloneNotes), for its padlock's title. */
   note?: string;
@@ -192,9 +183,8 @@ const LeverRow = memo(function LeverRow({
   const shown = pad ? Number(value.toFixed(2)) : value;
   const changed = isLeverChanged(l, value, new Map<Id, number>([[l.id, fired]]), pad);
   const infoId = `lever-info-${l.id}`;
-  const calling = mark?.kind === 'calling' ? mark : undefined;
   return (
-    <div className={['lever', changed && 'changed', calling && 'calling', auto && 'auto'].filter(Boolean).join(' ')}>
+    <div className={['lever', changed && 'changed', auto && 'auto'].filter(Boolean).join(' ')}>
       <div className="lever-head">
         <span className="lever-label" id={`lever-label-${l.id}`}>
           {l.label}
@@ -224,15 +214,6 @@ const LeverRow = memo(function LeverRow({
       {l.kind === 'setting' && <SettingControl lever={l} value={value} shown={shown} client={client} />}
       {l.kind === 'choice' && <ChoiceControl lever={l} value={value} client={client} />}
       {l.kind === 'oneoff' && <OneOffControl lever={l} fired={fired} client={client} />}
-      {calling && (
-        <div className="stab-call">
-          <span>{calling.text}</span>
-          <button type="button" className="btn small stab-apply" onClick={() => calling.apply !== value && client.setLever(l.id, calling.apply)} aria-label={`Apply: set ${l.label} to ${leverValueLabel(l, calling.apply)}`} title={`Set to ${leverValueLabel(l, calling.apply)}`}>
-            Apply
-          </button>
-        </div>
-      )}
-      {mark?.kind === 'beyond' && <div className="stab-note">{mark.text}</div>}
       {showInfo && (
         <div className="lever-info" id={infoId}>
           <p>{l.description}</p>
