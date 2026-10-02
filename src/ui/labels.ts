@@ -5,7 +5,6 @@
  * another table of the same shape (docs/i18n/inventory.md §2 item 4).
  */
 import type { Account, Category, FlowKind, School } from '../core/types.ts';
-import type { Selection } from './model/navigation.ts';
 
 export interface LabelTable {
   /** Rule categories, for the chip next to every rule. */
@@ -20,8 +19,6 @@ export interface LabelTable {
   account: Record<Account, string>;
   /** An account as a section of the ledger, with what it holds. */
   accountSection: Record<Account, string>;
-  /** What a breadcrumb points to. */
-  selectionKind: Record<Selection['kind'], string>;
 }
 
 export const EN: LabelTable = {
@@ -63,15 +60,6 @@ export const EN: LabelTable = {
     capital: 'Capital account: investment',
     financial: 'Financial account: lending, repaying and trading claims',
     other: 'Other changes: accruals, revaluations and write-offs',
-  },
-  selectionKind: {
-    pipe: 'Pipe',
-    player: 'Player',
-    group: 'Group',
-    var: 'Variable',
-    flow: 'Flow',
-    indicator: 'Chart',
-    concept: 'Idea',
   },
 };
 
