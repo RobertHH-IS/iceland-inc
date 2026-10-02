@@ -118,8 +118,20 @@ export const BASIS_LABEL: Record<Provenance['basis'], string> = {
   placeholder: 'Placeholder',
 };
 
+/** Where a note's first sentence ends, if the note is long enough to be worth shortening. */
+export function noteLead(note: string, limit = 160): string | null {
+  if (note.length <= limit) return null;
+  const end = note.search(/[.;:](\s|$)/);
+  const cut = end >= 40 && end < limit ? end + 1 : note.lastIndexOf(' ', limit);
+  return `${note.slice(0, cut > 0 ? cut : limit).trimEnd()}${end >= 40 && end < limit ? '' : '…'}`;
+}
+
+/** A parameter's basis, source and vintage, and its note. A long note (calibration history) shows
+ *  its first sentence, with "more" to read the rest. */
 export function ProvenanceNote({ p }: { p: Provenance }) {
   const isUrl = p.source && /^https?:\/\//.test(p.source);
+  const [open, setOpen] = useState(false);
+  const lead = p.note ? noteLead(p.note) : null;
   return (
     <span className="prov">
       <span className={`chip basis basis-${p.basis}`}>{BASIS_LABEL[p.basis]}</span>
@@ -132,7 +144,12 @@ export function ProvenanceNote({ p }: { p: Provenance }) {
           <span className="prov-src">{p.source}</span>
         ))}
       {p.vintage && <span className="prov-vintage">{p.vintage}</span>}
-      {p.note && <span className="prov-note">{p.note}</span>}
+      {p.note && <span className="prov-note">{lead && !open ? lead : p.note}</span>}
+      {lead && (
+        <button type="button" className="navlink prov-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {open ? 'less' : 'more'}
+        </button>
+      )}
     </span>
   );
 }

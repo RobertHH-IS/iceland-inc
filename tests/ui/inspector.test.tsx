@@ -14,7 +14,7 @@ import { effectiveExpanded } from '../../src/ui/model/hierarchy.ts';
 import { varLabel } from '../../src/ui/model/info.ts';
 import { EMPTY_NAV, navPush, type NavState, type Selection } from '../../src/ui/model/navigation.ts';
 import { positionBadge, positionWarnings } from '../../src/ui/model/signs.ts';
-import { CategoryChip } from '../../src/ui/views/common.tsx';
+import { CategoryChip, ProvenanceNote, noteLead } from '../../src/ui/views/common.tsx';
 import { FlowMap } from '../../src/ui/views/FlowMap.tsx';
 import { Header } from '../../src/ui/views/Header.tsx';
 import { InfluenceView, Inspector } from '../../src/ui/views/Inspector.tsx';
@@ -30,7 +30,7 @@ const client = createEngineClient(iceland);
 const info = client.info;
 const frame = client.getFrame();
 const inspect = (nav: NavState, c = client) =>
-  text(renderToString(<Inspector info={c.info} client={c} frame={c.getFrame()} nav={nav} expanded={effectiveExpanded(c.info, [])} onSelect={noop} onBack={noop} onForward={noop} onGo={noop} onClose={noop} />));
+  text(renderToString(<Inspector info={c.info} client={c} frame={c.getFrame()} nav={nav} expanded={effectiveExpanded(c.info, [])} onSelect={noop} onBack={noop} onForward={noop} onClose={noop} />));
 const open = (...s: Selection[]) => s.reduce((n, x) => navPush(n, x), EMPTY_NAV);
 
 describe('labels instead of raw ids', () => {
@@ -45,11 +45,46 @@ describe('labels instead of raw ids', () => {
     expect(html).toContain('>Behaviour<');
   });
 
-  test('breadcrumbs name what each item is', () => {
+  test('the header keeps no trail of past clicks, however many; Back names where it leads (owner’s decision, 2 October 2026)', () => {
     const flow = info.flows[0];
-    const html = inspect(open({ kind: 'var', id: 'keyRate' }, { kind: 'flow', id: flow.id }, { kind: 'indicator', id: info.indicators[0].id }, { kind: 'concept', id: info.concepts[0].id }, { kind: 'group', id: 'firms' }));
-    for (const w of ['Variable', 'Flow', 'Chart', 'Idea', 'Group']) expect(html).toContain(`<span class="crumb-kind">${w}</span>`);
-    expect(html).not.toMatch(/crumb-kind">(var|flow|indicator|concept|group)</);
+    const nav = open({ kind: 'var', id: 'keyRate' }, { kind: 'flow', id: flow.id }, { kind: 'indicator', id: info.indicators[0].id }, { kind: 'concept', id: info.concepts[0].id }, { kind: 'group', id: 'firms' });
+    const html = renderToString(<Inspector info={info} client={client} frame={frame} nav={nav} expanded={effectiveExpanded(info, [])} onSelect={noop} onBack={noop} onForward={noop} onClose={noop} />);
+    expect(html).not.toContain('class="crumbs"');
+    expect(html).not.toContain('class="crumb');
+    expect(html).toContain(`aria-label="Back to ${info.concepts[0].title}"`);
+    expect(html).toContain('aria-label="Forward"');
+  });
+
+  test('a player or group lists only the limits in force, never a row of rules that are “normal”', () => {
+    const html = inspect(open({ kind: 'group', id: 'firms' }));
+    expect(html).not.toContain('>normal<');
+    expect(html).not.toContain('Limits in force'); // nothing binds at baseline
+    const c = createEngineClient(models.find((m) => m.id === 'iceland')!);
+    c.setLever('keyRate', 15);
+    c.pause();
+    c.step(36);
+    const f = c.getFrame();
+    const binding = Object.keys(f.regimes).filter((id) => f.regimes[id]);
+    expect(binding.length).toBeGreaterThan(0);
+    const owner = binding.map((id) => c.info.regimeOwners.get(id)?.[0]).find((o) => o)!;
+    const node = text(renderToString(<Inspector info={c.info} client={c} frame={f} nav={open({ kind: 'player', id: owner })} expanded={effectiveExpanded(c.info, [])} onSelect={noop} onBack={noop} onForward={noop} onClose={noop} />));
+    expect(node).toContain('Limits in force');
+    expect(node).not.toContain('normal');
+    c.dispose();
+  });
+
+  test('a long parameter note shows its first sentence and “more”; a short one shows whole', () => {
+    const long = 'Within the 0.5–1 range of import price elasticities estimated for small open economies. Raised from 0.6 to 0.75 when imports came to be paid at border prices, and to 0.84 when the fix branches were merged, so that consumption stays in range after a wage settlement.';
+    expect(noteLead(long)).toBe('Within the 0.5–1 range of import price elasticities estimated for small open economies.');
+    expect(noteLead('Assumed.')).toBeNull();
+    const noStop = 'word '.repeat(60).trim();
+    expect(noteLead(noStop)!.endsWith('…')).toBe(true);
+    expect(noteLead(noStop)!.length).toBeLessThanOrEqual(161);
+    const html = renderToString(<ProvenanceNote p={{ basis: 'calibrated', note: long }} />);
+    expect(html).toContain('estimated for small open economies.</span>');
+    expect(html).not.toContain('fix branches');
+    expect(html).toMatch(/aria-expanded="false"[^>]*>more<\/button>/);
+    expect(renderToString(<ProvenanceNote p={{ basis: 'assumed', note: 'Assumed.' }} />)).not.toContain('>more<');
   });
 
   test('a pipe names its kind and each flow’s account; a flow and a concept card too', () => {
