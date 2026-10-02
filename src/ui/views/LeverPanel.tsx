@@ -133,7 +133,7 @@ function Padlock({ lever: l, pad, client }: { lever: LeverInfo; pad: StabiliserS
   );
 }
 
-const LeverRow = memo(function LeverRow({
+export const LeverRow = memo(function LeverRow({
   lever: l,
   value: stored,
   fired,

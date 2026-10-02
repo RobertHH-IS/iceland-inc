@@ -12,14 +12,14 @@ import { models } from '../../src/models/index.ts';
 import type { Id, ModelDef } from '../../src/core/types.ts';
 import { createEngineClient } from '../../src/ui/engine-client.ts';
 import { effectiveExpanded, expandAll, viewTree } from '../../src/ui/model/hierarchy.ts';
-import { lockedAloneNotes } from '../../src/ui/model/levers.ts';
+import { leverValueLabel, lockedAloneNotes } from '../../src/ui/model/levers.ts';
 import { encodeScenarioHash } from '../../src/ui/model/scenario-url.ts';
 import { EMPTY_NAV, navPush, type Selection } from '../../src/ui/model/navigation.ts';
 import { Inspector } from '../../src/ui/views/Inspector.tsx';
 import { IdeasAtPlay } from '../../src/ui/views/IdeasAtPlay.tsx';
 import { LedgerView } from '../../src/ui/views/LedgerView.tsx';
 import { FlowMap } from '../../src/ui/views/FlowMap.tsx';
-import { LeverAbout, LeverPanel } from '../../src/ui/views/LeverPanel.tsx';
+import { LeverAbout, LeverPanel, LeverRow } from '../../src/ui/views/LeverPanel.tsx';
 import { Feed } from '../../src/ui/views/Feed.tsx';
 import { hierarchyModel } from '../fixtures/hierarchy.ts';
 
@@ -307,5 +307,56 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     const f = client.getFrame();
     expect(renderToString(<LeverPanel info={info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />)).toContain('aria-label="Set Key interest rate back to its baseline, keeping it locked"');
     client.dispose();
+  });
+
+  test('unlocking hands the lever back at once: in the frame right after, the lever is "auto" at the value held, with nothing else to click, and a month later it has moved', () => {
+    const CASES: [model: string, lever: string, held: number, label: string][] = [
+      ['iceland', 'keyRate', 5, '5%'],
+      ['iceland', 'incomeTax', 2, '+2 pp'],
+      ['reference', 'keyRate', 5, '5%'],
+      ['reference', 'taxRate', 2, '+2 pp'],
+    ];
+    for (const [modelId, id, held, label] of CASES) {
+      const client = createEngineClient(models.find((m) => m.id === modelId)!);
+      const lever = client.info.leverById.get(id)!;
+      const row = () => {
+        const f = client.getFrame();
+        const pad = f.stabilisers.find((s) => s.lever === id)!;
+        return { pad, html: renderToString(<LeverRow lever={lever} value={f.levers[lever.index]} fired={0} client={client} pad={pad} />) };
+      };
+      client.setLever(id, held); // moving it locks it
+      client.pause();
+      client.step(12);
+      const before = row();
+      expect(before.pad.locked).toBe(true);
+      expect(before.html).toContain('class="lever changed"');
+      expect(Math.abs(before.pad.suggested - held)).toBeGreaterThan(1); // the rule is heading elsewhere
+      const t = client.getFrame().t;
+      client.setLever(before.pad.lock, 0); // the padlock, pressed
+      client.pause();
+      // the same month, before anything has moved: automatic already
+      const { pad, html } = row();
+      expect(client.getFrame().t).toBe(t);
+      expect(pad.locked).toBe(false);
+      expect(pad.calling).toBe(false);
+      expect(pad.current).toBeCloseTo(held, 12);
+      expect(html).toContain('class="lever auto"');
+      expect(html).toContain('>auto</span>');
+      expect(html).toContain(`<span class="lever-value mono">${label}</span>`);
+      expect(html).toMatch(/aria-pressed="false" aria-label="Lock the [^"]+" title="Unlocked: /);
+      // the padlock, the info toggle and the two steppers: no way back to click, nothing to approve
+      expect(count(html, /<button /g)).toBe(4);
+      expect(html).not.toContain('back to its baseline');
+      // the next month the lever shows the rule's first step from the value held
+      client.step(1);
+      const after = row();
+      expect(after.pad.locked).toBe(false);
+      expect(Math.sign(after.pad.current - held)).toBe(Math.sign(before.pad.suggested - held));
+      expect(Math.abs(after.pad.current - held)).toBeGreaterThan(0.05);
+      expect(after.html).toContain('class="lever auto"');
+      expect(after.html).toContain(`<span class="lever-value mono">${leverValueLabel(lever, Number(after.pad.current.toFixed(2)))}</span>`);
+      expect(after.html).not.toContain(`<span class="lever-value mono">${label}</span>`);
+      client.dispose();
+    }
   });
 });
