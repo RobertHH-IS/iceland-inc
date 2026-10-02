@@ -207,7 +207,7 @@ A POLICY setting never changes unless the user changes it, or a declared rule mo
 ```
 
    Let the rule step from the value actually in force, not from its own shadow: `adjust` always anchors on the variable's last value, which while locked is a path the rule was never in charge of, so unlocking would jump onto it. Both models keep the rate in force as a variable of its own (`ruleAnchor`: the rule's own rate while unlocked, the held key rate while locked) and step from it (decisions 0007 and 0010). In a model that takes several steps a month (decision 0011), write the step as its own term: taken at every kernel step and shown summed over the month while unlocked (`month: 'sum'`), and a whole month's step at once while locked, so the value shown on a locked lever is where the rule would stand after its first month in charge, whatever the step (the Iceland model's `ruleStep`).
-3. **The suggestion,** a variable in the lever's own units, so it can be compared with the lever and "Apply" can set it: `keyRateSuggestion = 100 × ruleTarget` (%), where the rule is heading, so the lever calls as soon as the rule would lean one way. For a rule that adds to a lever (a tax shift), suggest the whole shift the rule would set, not the rule's addition on top of the user's setting: otherwise each "Apply" would ratchet.
+3. **The suggestion,** a variable in the lever's own units, so it can be compared with the lever: `keyRateSuggestion = 100 × ruleTarget` (%), where the rule is heading, so the stabiliser calls as soon as the rule would lean one way. For a rule that adds to a lever (a tax shift), suggest the whole shift the rule would set, not the rule's addition on top of the user's setting, so that a lever already set there satisfies it.
 4. **The value in force,** `current`, in the lever's units: what closing the padlock freezes the lever at, and what the lever shows while unlocked. At the baseline it must equal the lever's default.
 5. **The declaration,** in the module with the rules:
 
@@ -218,7 +218,7 @@ stabilisers: [{
   suggestion: 'keyRateSuggestion',
   current: (c) => 100 * c.v('keyRate'),  // the value in force, in the lever's units
   shadow: ['ruleRate', 'ruleAnchor', 'ruleTarget'],  // variables that only feed the suggestion while locked
-  threshold: 0.125,               // lever units; half the lever's step calls exactly when Apply would move it
+  threshold: 0.125,               // lever units: half the lever's step
   description: 'The central bank’s Taylor rule: …',
   feed: { raise: 'The Taylor rule would raise the key rate to {value}%', lower: 'The Taylor rule would cut the key rate to {value}%', indicator: 'keyRate' },
 }],

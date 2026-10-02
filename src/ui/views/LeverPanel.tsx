@@ -54,11 +54,14 @@ interface LeverPanelProps {
   events: readonly ScenarioEvent[];
   /** Every stabiliser now (Frame.stabilisers); empty for a model without them. */
   stabilisers?: readonly StabiliserState[];
+  /** Levers whose info panel starts open, with their sections (none by default). */
+  initialInfo?: readonly Id[];
 }
 
 const NO_STABILISERS: readonly StabiliserState[] = [];
+const NO_LEVERS: readonly Id[] = [];
 
-export const LeverPanel = memo(function LeverPanel({ info, client, values, events, stabilisers = NO_STABILISERS }: LeverPanelProps) {
+export const LeverPanel = memo(function LeverPanel({ info, client, values, events, stabilisers = NO_STABILISERS, initialInfo = NO_LEVERS }: LeverPanelProps) {
   // the padlocks are drawn beside their levers, not as levers of their own
   const allSections = useMemo(() => leverSections(info.levers.filter((l) => l.kind !== 'lock')), [info]);
   // a lever the model keeps off the panel appears once the scenario sets it (decision 0017)
@@ -66,7 +69,9 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
   const fired = useMemo(() => firedCounts(events), [events]);
   const pads = useMemo(() => padlocksByLever(stabilisers), [stabilisers]);
   const aloneNotes = useMemo(() => lockedAloneNotes(stabilisers, new Map(info.stabilisers.map((s) => [s.id, s.lockedAloneNote]))), [stabilisers, info]);
-  const [open, setOpen] = useState<Set<string>>(() => new Set(info.levers.length <= 8 ? sections.map((s) => s.id) : sections.slice(0, 2).map((s) => s.id)));
+  const [open, setOpen] = useState<Set<string>>(
+    () => new Set([...(info.levers.length <= 8 ? sections : sections.slice(0, 2)), ...sections.filter((s) => s.levers.some((l) => initialInfo.includes(l.id)))].map((s) => s.id)),
+  );
   const total = sections.reduce((n, s) => n + changedCountWithLocks(s, values, fired, pads), 0);
   const toggle = (id: string) =>
     setOpen((o) => {
@@ -105,7 +110,7 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
               {isOpen && (
                 <div className="acc-body" id={bodyId}>
                   {s.levers.map((l) => (
-                    <LeverRow key={l.id} lever={l} value={values[l.index] ?? l.default} fired={fired.get(l.id) ?? 0} client={client} pad={pads.get(l.id)} note={aloneNotes.get(l.id)} />
+                    <LeverRow key={l.id} lever={l} value={values[l.index] ?? l.default} fired={fired.get(l.id) ?? 0} client={client} pad={pads.get(l.id)} note={aloneNotes.get(l.id)} initialInfo={initialInfo.includes(l.id)} />
                   ))}
                 </div>
               )}
@@ -140,6 +145,7 @@ export const LeverRow = memo(function LeverRow({
   client,
   pad,
   note,
+  initialInfo = false,
 }: {
   lever: LeverInfo;
   value: number;
@@ -148,8 +154,10 @@ export const LeverRow = memo(function LeverRow({
   pad?: StabiliserState;
   /** The lever's locked-alone note (lockedAloneNotes), for its info panel. */
   note?: string;
+  /** Whether the info panel starts open. */
+  initialInfo?: boolean;
 }) {
-  const [showInfo, setShowInfo] = useState(false);
+  const [showInfo, setShowInfo] = useState(initialInfo);
   const value = shownValue(stored, pad);
   const auto = !!pad && !pad.locked;
   // A lever with a rule can hold its rule's live value, unlocked or frozen by its padlock
@@ -195,7 +203,7 @@ export const LeverRow = memo(function LeverRow({
 
 /** A lever's info panel (its info toggle): the description, the precise definition and, while
  *  the lever is locked alone, its stabiliser's note (lockedAloneNotes). */
-export function LeverAbout({ lever: l, id, note }: { lever: LeverInfo; id: string; note?: string }) {
+function LeverAbout({ lever: l, id, note }: { lever: LeverInfo; id: string; note?: string }) {
   return (
     <div className="lever-info" id={id}>
       <p>{l.description}</p>

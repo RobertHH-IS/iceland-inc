@@ -298,7 +298,7 @@ export const centralBank: ModuleDef = {
       suggestion: 'keyRateSuggestion',
       current: (c) => 100 * c.v('keyRate'),
       shadow: ['ruleRate', 'ruleAnchor', 'ruleTarget'],
-      threshold: 0.125, // half the lever's quarter-point step: calls when Apply would move the lever
+      threshold: 0.125, // half the lever's quarter-point step
       description:
         'The central bank’s Taylor rule: the key rate it would set from inflation and the output gap, reached gradually from the rate in force. While the key rate is unlocked it sets it. While you hold the key rate locked it stands aside: your rate holds and everything else reacts to it.',
       concepts: ['taylor-rule', 'policy-lags'],

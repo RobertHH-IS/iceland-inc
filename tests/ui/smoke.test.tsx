@@ -12,14 +12,14 @@ import { models } from '../../src/models/index.ts';
 import type { Id, ModelDef } from '../../src/core/types.ts';
 import { createEngineClient } from '../../src/ui/engine-client.ts';
 import { effectiveExpanded, expandAll, viewTree } from '../../src/ui/model/hierarchy.ts';
-import { leverValueLabel, lockedAloneNotes } from '../../src/ui/model/levers.ts';
+import { leverValueLabel } from '../../src/ui/model/levers.ts';
 import { encodeScenarioHash } from '../../src/ui/model/scenario-url.ts';
 import { EMPTY_NAV, navPush, type Selection } from '../../src/ui/model/navigation.ts';
 import { Inspector } from '../../src/ui/views/Inspector.tsx';
 import { IdeasAtPlay } from '../../src/ui/views/IdeasAtPlay.tsx';
 import { LedgerView } from '../../src/ui/views/LedgerView.tsx';
 import { FlowMap } from '../../src/ui/views/FlowMap.tsx';
-import { LeverAbout, LeverPanel, LeverRow } from '../../src/ui/views/LeverPanel.tsx';
+import { LeverPanel, LeverRow } from '../../src/ui/views/LeverPanel.tsx';
 import { Feed } from '../../src/ui/views/Feed.tsx';
 import { hierarchyModel } from '../fixtures/hierarchy.ts';
 
@@ -280,43 +280,60 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     const client = createEngineClient(iceland);
     const info = client.info;
     const defNote = (id: string) => info.stabilisers.find((s) => s.id === id)!.lockedAloneNote!;
-    const notes = () => lockedAloneNotes(client.getFrame().stabilisers, new Map(info.stabilisers.map((s) => [s.id, s.lockedAloneNote])));
-    const about = (lever: string) => renderToString(<LeverAbout lever={info.leverById.get(lever)!} id="about" note={notes().get(lever)} />);
-    expect(notes().size).toBe(0); // unlocked, the default
-    expect(about('incomeTax')).toMatch(/^<div class="lever-info" id="about"><p>.*<\/p><p><strong>Definition\.<\/strong>.*<\/p><\/div>$/);
+    /** The lever panel with these levers' info panels open. */
+    const panel = (open: Id[]) => {
+      const f = client.getFrame();
+      return renderToString(<LeverPanel info={info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} initialInfo={open} />);
+    };
+    /** What a lever's info panel holds, in the panel with it open. */
+    const about = (lever: string) => panel([lever]).match(new RegExp(`<div class="lever-info" id="lever-info-${lever}">(.*?)</div>`))![1];
+    const PLAIN = /^<p>.*<\/p><p><strong>Definition\.<\/strong>.*<\/p>$/;
+    // unlocked, the default: the description and the definition, nothing more
+    expect(about('incomeTax')).toMatch(PLAIN);
+    expect(about('incomeTax')).not.toContain(defNote('debtRule'));
     // income tax held while the central bank's rule acts: a tax change can run away (ECON-5)
     client.setLever('incomeTax', -2.5); // moving it locks it
     client.pause();
     client.step(3);
     expect(defNote('debtRule')).toMatch(/^With income tax locked while the central bank’s rule sets the key rate/);
-    expect(about('incomeTax')).toEndWith(`<p>${defNote('debtRule')}</p></div>`);
+    expect(about('incomeTax')).toEndWith(`<p>${defNote('debtRule')}</p>`);
+    expect(about('keyRate')).toMatch(PLAIN);
     expect(about('keyRate')).not.toContain(defNote('keyRateRule'));
+    // only there: with the info panel closed the note is nowhere in the panel, and with every
+    // info panel open it is there once
+    expect(panel([])).not.toContain(defNote('debtRule'));
+    expect(panel([])).not.toContain('class="lever-info"');
+    expect(panel(info.levers.map((l) => l.id)).split(defNote('debtRule'))).toHaveLength(2);
     // the key rate held while the debt rule acts: the debt rule steadies the economy in its place (ECON-3)
     client.setLever('incomeTaxLock', 0);
     client.setLever('keyRateLock', 1);
     client.step(1);
-    expect(about('keyRate')).toEndWith(`<p>${defNote('keyRateRule')}</p></div>`);
+    expect(about('keyRate')).toEndWith(`<p>${defNote('keyRateRule')}</p>`);
+    expect(about('incomeTax')).toMatch(PLAIN);
     expect(about('incomeTax')).not.toContain(defNote('debtRule'));
     // both held: neither is locked alone
     client.setLever('incomeTaxLock', 1);
     client.step(1);
-    expect(notes().size).toBe(0);
+    for (const html of [about('incomeTax'), about('keyRate')]) {
+      expect(html).toMatch(PLAIN);
+      for (const id of ['debtRule', 'keyRateRule']) expect(html).not.toContain(defNote(id));
+    }
     // a held key rate off its baseline has a one-click way back that keeps it locked (review m6)
     client.setLever('keyRate', 4.25);
     client.step(1);
-    const f = client.getFrame();
-    expect(renderToString(<LeverPanel info={info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />)).toContain('aria-label="Set Key interest rate back to its baseline, keeping it locked"');
+    expect(panel([])).toContain('aria-label="Set Key interest rate back to its baseline, keeping it locked"');
     client.dispose();
   });
 
-  test('unlocking hands the lever back at once: in the frame right after, the lever is "auto" at the value held, with nothing else to click, and a month later it has moved', () => {
+  test('unlocking hands the lever back at once: in the frame right after, the lever is "auto" at the value held, with nothing else to click, and a month later it has moved; after a year’s hold, or with the padlock pressed before the clock ticks', () => {
     const CASES: [model: string, lever: string, held: number, label: string][] = [
       ['iceland', 'keyRate', 5, '5%'],
       ['iceland', 'incomeTax', 2, '+2 pp'],
       ['reference', 'keyRate', 5, '5%'],
       ['reference', 'taxRate', 2, '+2 pp'],
     ];
-    for (const [modelId, id, held, label] of CASES) {
+    // held for a year, or not at all: a stepper click and then the padlock within one month
+    for (const [modelId, id, held, label, months] of CASES.flatMap((c) => [[...c, 12] as const, [...c, 0] as const])) {
       const client = createEngineClient(models.find((m) => m.id === modelId)!);
       const lever = client.info.leverById.get(id)!;
       const row = () => {
@@ -326,7 +343,7 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
       };
       client.setLever(id, held); // moving it locks it
       client.pause();
-      client.step(12);
+      if (months) client.step(months);
       const before = row();
       expect(before.pad.locked).toBe(true);
       expect(before.html).toContain('class="lever changed"');
@@ -334,9 +351,10 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
       const t = client.getFrame().t;
       client.setLever(before.pad.lock, 0); // the padlock, pressed
       client.pause();
-      // the same month, before anything has moved: automatic already
+      // the same month, before anything has moved: automatic already (a lever set this month
+      // has its month first, so the rule takes it over from the value set)
       const { pad, html } = row();
-      expect(client.getFrame().t).toBe(t);
+      expect(client.getFrame().t).toBe(months ? t : t + 1);
       expect(pad.locked).toBe(false);
       expect(pad.calling).toBe(false);
       expect(pad.current).toBeCloseTo(held, 12);
