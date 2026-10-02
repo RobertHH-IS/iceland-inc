@@ -596,9 +596,11 @@ function IndicatorDetail({ info, client, frame, id, onSelect, basis }: { info: M
         </span>
       </div>
       <p className="inf-what">{reportDescription(ind, basis)}</p>
-      <p className="muted small">{client.comparison === 'no-change' ? 'No change at this month' : 'Baseline'}: {fmtReport(win.ref, ind, basis)} · {unit}. {client.comparison === 'no-change'
-        ? basis === 'deviation' ? 'The line shows your experiment’s effect against the evolving economy at the same month.' : 'Solid: your experiment. Dashed: the evolving no-change economy. Rates and GDP ratios keep their actual definitions.'
-        : basis === 'deviation' ? 'The line shows the change from the solved baseline.' : 'The reference line marks the solved baseline level. Rates and GDP ratios keep their actual definitions in both level views.'}</p>
+      {basis !== 'deviation' && (
+        <p className="muted small">
+          Dashed: {client.comparison === 'no-change' ? 'no change at this month' : 'the baseline'}, {fmtReport(win.ref, ind, basis)}
+        </p>
+      )}
       <div className="bigchart">
         <ChartSvg win={win} events={frame.events} info={info} width={380} height={170} axes unit={unit} />
       </div>

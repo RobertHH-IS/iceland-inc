@@ -1,7 +1,8 @@
 /**
  * Charts: tabs from IndicatorDef.group; small multiples of actual nominal/real levels or the
  * legacy deviation over the last 72 months, with a baseline line and amber event marks. Click to open
- * its inspector. Only the open tab renders.
+ * its inspector. Only the open tab renders. The panel carries no notes: the measurement buttons say
+ * what is drawn, and each chart names its own unit.
  */
 import { memo, useMemo } from 'react';
 import type { Id, ScenarioEvent } from '../../core/types.ts';
@@ -45,17 +46,8 @@ export function Charts({ info, client, t, events, tab, onTab, selected, onSelect
           {REPORT_BASES.map((x) => <button key={x.id} type="button" className={`tab ${basis === x.id ? 'on' : ''}`} aria-pressed={basis === x.id} onClick={() => onBasis(x.id)}>{x.id === 'deviation' && client.comparison === 'no-change' ? 'Effect vs no change' : x.label}</button>)}
         </div>}
         {!hasLevels && <span className="muted small charts-note">change vs baseline</span>}
-        {active && <span className="muted small charts-note">{active.indicators.length} charts · scroll for more</span>}
       </div>
       <div className="panel-body scroll">
-        {info.id === 'iceland' && <p className="chart-context muted small">
-          Stationary baseline: 0% real growth · 0% inflation. {measurement === 'deviation'
-            ? 'Effects compared with the unchanged economy; GDP shows the real-output effect.'
-            : 'Simulated levels after your changes; no background growth is added.'}
-        </p>}
-        {client.comparison === 'no-change' && <p className="chart-context muted small">
-          {measurement === 'deviation' ? 'Effects against the no-change economy at the same month.' : 'Solid: your experiment · dashed: the evolving no-change economy.'} Growth assumptions are in Baseline &amp; current data.
-        </p>}
         {active ? (
           <div className="chart-grid" id="charts-grid" role="tabpanel" aria-labelledby={`tab-${active.id}`}>
             {active.indicators.map((ind) => (

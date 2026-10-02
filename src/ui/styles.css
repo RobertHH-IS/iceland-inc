@@ -204,8 +204,6 @@ dl.context-list { margin: 0; }
 .context-observation { margin-bottom: 10px; }
 .context-observation strong { display: block; margin: 3px 0; font-weight: 500; color: var(--accent); }
 .context-audit-qualification { margin: 5px 0 0; }
-.context-source-catalogue > p, .context-source-catalogue > details { margin-left: 12px; margin-right: 12px; }
-.context-source-records { padding: 0 12px; }
 @media (max-width: 620px) {
   .context-audit-table, .context-audit-table tbody { display: block; }
   .context-audit-table thead { display: none; }
@@ -1261,26 +1259,24 @@ button.chip {
   font-weight: 600;
   fill: #1b1204;
 }
+/* Unpaid debt or low bank capital: a steady outline and the badge that names it; nothing pulses. */
 .node.financial-critical .node-card {
   stroke: var(--flow-down);
   stroke-width: 2.5;
-  animation: financial-pulse 1.6s ease-in-out infinite;
 }
 .node.financial-critical .regime-badge rect { fill: var(--flow-down); }
 .node.financial-critical .regime-badge text { fill: #fff; }
 .node.financial-warning .node-card { stroke: var(--amber); stroke-width: 2; }
-@keyframes financial-pulse {
-  0%, 100% { stroke-opacity: 1; filter: drop-shadow(0 0 5px rgba(255, 95, 105, 0.65)); }
-  50% { stroke-opacity: 0.45; filter: drop-shadow(0 0 1px rgba(255, 95, 105, 0.2)); }
-}
-.financial-detail { padding: 10px; margin: 10px 0; border: 1px solid var(--border); border-radius: 9px; }
+.financial-detail { padding: 10px; margin: 10px 0; border: 1px solid var(--line); border-radius: 9px; }
 .financial-detail.financial-critical { border-color: var(--flow-down); }
 .financial-detail.financial-warning { border-color: var(--amber); }
 .financial-detail h4 { margin-top: 0; }
-.financial-borrower h5 { display: flex; flex-wrap: wrap; gap: 5px 12px; margin: 14px 0 6px; }
+.financial-detail > p { margin: 0 0 6px; }
+.financial-detail h5 { margin: 10px 0 4px; font-size: 12px; font-weight: 500; }
 .financial-rows { list-style: none; margin: 0; padding: 0; }
-.financial-driver { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; width: 100%; padding: 6px 0; background: none; border: none; border-bottom: 1px solid var(--border); text-align: left; font-size: 11px; color: var(--text); cursor: pointer; }
-.financial-driver:hover { color: var(--cyan); }
+.financial-driver { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; width: 100%; padding: 6px 0; background: none; border: none; border-bottom: 1px solid var(--line-soft); text-align: left; font-size: 11px; color: var(--text); cursor: pointer; }
+.financial-rows li:last-child .financial-driver { border-bottom: none; }
+.financial-driver:hover { color: var(--accent); }
 .financial-driver small { display: block; font-size: 10px; }
 
 .lg-stack {
@@ -2037,7 +2033,6 @@ button.via:hover {
 .charts-note {
   margin-left: auto;
 }
-.chart-context { margin: 0 0 8px; }
 .report-basis {
   display: flex;
   flex-wrap: wrap;
@@ -2232,7 +2227,6 @@ button.via:hover {
 /* ---------------------------------------------------------------- motion */
 
 @media (prefers-reduced-motion: reduce) {
-  .node.financial-critical .node-card { animation: none; }
   .pipe-particles,
   .lg-dots,
   .frame,

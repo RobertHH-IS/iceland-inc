@@ -83,7 +83,7 @@ describe('evolving no-change reporting', () => {
     expect(c.getFrame()).toBe(frame); expect(c.scenario()).toEqual(scenario);
     const html = renderToStaticMarkup(<Charts info={c.info} client={c} t={frame.t} events={frame.events} tab="Overview" onTab={() => {}} selected={null} onSelect={() => {}} />);
     expect(html).toContain('reference-line');
-    expect(html).toContain('evolving no-change economy');
+    expect(html).toContain('<title>No-change path at the same month</title>');
     const effectsHtml = renderToStaticMarkup(<Charts info={c.info} client={c} t={frame.t} events={frame.events} tab="Overview" onTab={() => {}} selected={null} onSelect={() => {}} basis="deviation" onBasis={() => {}} />);
     expect(effectsHtml).toContain('% vs no change');
     const starting = startingDataComparison(c);
@@ -97,7 +97,7 @@ describe('evolving no-change reporting', () => {
     c.dispose();
   });
 
-  test('actual missed obligations have a critical marker and an inspector explaining real funding and responses', () => {
+  test('actual missed obligations have a critical marker, and the inspector shows the funding refused and the responses in force', () => {
     const c = fresh();
     c.setLever('tourism', -80); c.pause();
     c.step(48);
@@ -106,7 +106,9 @@ describe('evolving no-change reporting', () => {
     expect(health?.severity).toBe('critical');
     const html = renderToStaticMarkup(<FinancialDetail client={c} members={['XT']} onSelect={() => {}} />);
     expect(html).toContain('Unpaid business obligations');
-    for (const text of ['Gross credit approved', 'Unpaid interest', 'Principal newly overdue', 'Claims written off', 'Owner cash support', 'Funded investment', 'Funded jobs', 'not additive estimates']) expect(html).toContain(text);
+    for (const text of ['Operating cash / debt service', 'Gross credit refused', 'Principal refinancing refused', 'Owner cash support', 'Funded investment', 'Funded jobs', 'vs no change']) expect(html).toContain(text);
+    // amounts that are zero now are left out (tests/ui/application-model.test.tsx)
+    for (const text of ['Unpaid interest', 'Claims written off']) expect(html).not.toContain(text);
     c.dispose();
   });
 

@@ -282,7 +282,7 @@ export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, le
           </g>
         </svg>
       </div>
-      <Legend grouped={info.groups.some((g) => g.allPlayers.length > 1)} moving={client.comparison === 'no-change'} financial={info.instrumentById.has('businessArrears')} />
+      <Legend grouped={info.groups.some((g) => g.allPlayers.length > 1)} moving={client.comparison === 'no-change'} />
     </div>
   );
 });
@@ -653,7 +653,7 @@ function GhostCard({ node: n, at, gone }: { node: NodeBox; at: Pt; gone: boolean
 
 /* ----------------------------------------------------------------- legend */
 
-const Legend = memo(function Legend({ grouped, moving, financial }: { grouped: boolean; moving?: boolean; financial?: boolean }) {
+const Legend = memo(function Legend({ grouped, moving }: { grouped: boolean; moving?: boolean }) {
   return (
     <div className="legend" aria-label="How to read the map">
       <span className="lg">
@@ -675,8 +675,6 @@ const Legend = memo(function Legend({ grouped, moving, financial }: { grouped: b
         </svg>
         ↓ {moving ? 'Below no-change path' : 'Less than baseline'}
       </span>
-      <span className="lg">Grey ≈ unchanged</span>
-      {financial && <span className="lg financial-legend">Red pulse: unpaid debt or low bank capital · click the card</span>}
       <span className="lg">
         <svg width="34" height="10" aria-hidden="true">
           <line x1="2" y1="5" x2="32" y2="5" className="lg-dashed" />
