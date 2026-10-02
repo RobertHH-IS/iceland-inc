@@ -749,7 +749,7 @@ export const concepts: ConceptDef[] = [
     ),
     school: 'new-keynesian',
     references: [ref.bernanke2007, ref.imfInflationTargeting, ref.imf2024si],
-    related: ['adaptive-expectations', 'taylor-rule', 'exchange-rate-pass-through', 'wage-bargaining', 'policy-lags'],
+    related: ['adaptive-expectations', 'taylor-rule', 'exchange-rate-pass-through', 'wage-bargaining', 'policy-lags', 'nominal-anchor'],
   },
   {
     id: 'profit-squeeze',
@@ -918,7 +918,7 @@ export const concepts: ConceptDef[] = [
     ),
     school: 'new-keynesian',
     references: [ref.taylor1993, ref.fedRules, ref.cbiMb2026],
-    related: ['policy-lags', 'anchored-expectations', 'interest-distribution', 'capacity-utilisation', 'adaptive-expectations', 'carry-trade', 'neutral-rate'],
+    related: ['policy-lags', 'anchored-expectations', 'interest-distribution', 'capacity-utilisation', 'adaptive-expectations', 'carry-trade', 'neutral-rate', 'nominal-anchor'],
   },
   {
     id: 'neutral-rate',

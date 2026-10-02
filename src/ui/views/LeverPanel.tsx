@@ -10,13 +10,11 @@
  * where the user put it and everything else reacts: the panel shows no suggestion, no red mark and
  * nothing to approve (the owner's decision, 2 October 2026). Pressing the padlock locks the lever
  * where it is, or hands it back to its rule.
- * Levers without a rule have no padlock and never move by themselves. While every lever with a
- * rule is locked, one calm line at the top of the panel says that nothing then pulls prices back
- * over the long run, with a link to the idea that explains why (decision 0014). While one is locked
- * and another unlocked, the locked one's note, if its stabiliser has one, says what holding it
- * alone does (StabiliserDef.lockedAloneNote, decision 0015), there and in its padlock's title. A
- * lever held off its baseline has a "back to baseline" button; for a lever with a padlock it keeps
- * the lever locked.
+ * Levers without a rule have no padlock and never move by themselves. The panel carries no notes
+ * about the locks (the owner's decision, 2 October 2026). While one lever with a rule is locked
+ * and another unlocked, the locked one's info panel adds its stabiliser's note, if it has one, on
+ * what holding it alone does (StabiliserDef.lockedAloneNote, decision 0015). A lever held off its
+ * baseline has a "back to baseline" button; for a lever with a padlock it keeps the lever locked.
  *
  * Fewer levers (decision 0017): a model may keep its less central levers off the panel
  * (`LeverDef.shown: false`). Such a lever appears in its own place in its section while it is off
@@ -30,9 +28,7 @@ import { memo, useMemo, useState } from 'react';
 import type { Id, ScenarioEvent, StabiliserState } from '../../core/types.ts';
 import type { EngineClient } from '../engine-client.ts';
 import type { LeverInfo, ModelInfo } from '../model/info.ts';
-import type { Selection } from '../model/navigation.ts';
 import {
-  allLockedNote,
   canResetToBaseline,
   canStep,
   changedCountWithLocks,
@@ -44,7 +40,6 @@ import {
   lockActionLabel,
   lockedAloneNotes,
   lockTitle,
-  NOMINAL_ANCHOR_CONCEPT,
   padlocksByLever,
   shownSections,
   shownValue,
@@ -59,22 +54,24 @@ interface LeverPanelProps {
   events: readonly ScenarioEvent[];
   /** Every stabiliser now (Frame.stabilisers); empty for a model without them. */
   stabilisers?: readonly StabiliserState[];
-  /** Open a selection in the inspector (the locked-economy note's link to its idea). */
-  onSelect?: (s: Selection) => void;
+  /** Levers whose info panel starts open, with their sections (none by default). */
+  initialInfo?: readonly Id[];
 }
 
 const NO_STABILISERS: readonly StabiliserState[] = [];
+const NO_LEVERS: readonly Id[] = [];
 
-export const LeverPanel = memo(function LeverPanel({ info, client, values, events, stabilisers = NO_STABILISERS, onSelect }: LeverPanelProps) {
+export const LeverPanel = memo(function LeverPanel({ info, client, values, events, stabilisers = NO_STABILISERS, initialInfo = NO_LEVERS }: LeverPanelProps) {
   // the padlocks are drawn beside their levers, not as levers of their own
   const allSections = useMemo(() => leverSections(info.levers.filter((l) => l.kind !== 'lock')), [info]);
   // a lever the model keeps off the panel appears once the scenario sets it (decision 0017)
   const sections = useMemo(() => shownSections(allSections, values, events), [allSections, values, events]);
   const fired = useMemo(() => firedCounts(events), [events]);
   const pads = useMemo(() => padlocksByLever(stabilisers), [stabilisers]);
-  const lockedNote = useMemo(() => allLockedNote(stabilisers, info.leverById), [stabilisers, info]);
   const aloneNotes = useMemo(() => lockedAloneNotes(stabilisers, new Map(info.stabilisers.map((s) => [s.id, s.lockedAloneNote]))), [stabilisers, info]);
-  const [open, setOpen] = useState<Set<string>>(() => new Set(info.levers.length <= 8 ? sections.map((s) => s.id) : sections.slice(0, 2).map((s) => s.id)));
+  const [open, setOpen] = useState<Set<string>>(
+    () => new Set([...(info.levers.length <= 8 ? sections : sections.slice(0, 2)), ...sections.filter((s) => s.levers.some((l) => initialInfo.includes(l.id)))].map((s) => s.id)),
+  );
   const total = sections.reduce((n, s) => n + changedCountWithLocks(s, values, fired, pads), 0);
   const toggle = (id: string) =>
     setOpen((o) => {
@@ -91,24 +88,6 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
       </div>
       <div className="panel-body scroll">
         {sections.length === 0 && <p className="muted">This model has no levers.</p>}
-        {lockedNote && (
-          <p className="lock-note">
-            {lockedNote}
-            {onSelect && info.conceptById.has(NOMINAL_ANCHOR_CONCEPT) && (
-              <>
-                {' '}
-                <button type="button" className="navlink" onClick={() => onSelect({ kind: 'concept', id: NOMINAL_ANCHOR_CONCEPT })} aria-label={`Why? Open the idea: ${info.conceptById.get(NOMINAL_ANCHOR_CONCEPT)!.title}`}>
-                  Why?
-                </button>
-              </>
-            )}
-          </p>
-        )}
-        {[...aloneNotes.values()].map((note) => (
-          <p key={note} className="lock-note">
-            {note}
-          </p>
-        ))}
         {sections.map((s) => {
           const n = changedCountWithLocks(s, values, fired, pads);
           const isOpen = open.has(s.id);
@@ -131,7 +110,7 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
               {isOpen && (
                 <div className="acc-body" id={bodyId}>
                   {s.levers.map((l) => (
-                    <LeverRow key={l.id} lever={l} value={values[l.index] ?? l.default} fired={fired.get(l.id) ?? 0} client={client} pad={pads.get(l.id)} note={aloneNotes.get(l.id)} />
+                    <LeverRow key={l.id} lever={l} value={values[l.index] ?? l.default} fired={fired.get(l.id) ?? 0} client={client} pad={pads.get(l.id)} note={aloneNotes.get(l.id)} initialInfo={initialInfo.includes(l.id)} />
                   ))}
                 </div>
               )}
@@ -144,14 +123,14 @@ export const LeverPanel = memo(function LeverPanel({ info, client, values, event
 });
 
 /** The padlock beside a lever with a rule: closed (locked) or open (unlocked, the rule moves it). */
-function Padlock({ lever: l, pad, client, note }: { lever: LeverInfo; pad: StabiliserState; client: EngineClient; note?: string }) {
+function Padlock({ lever: l, pad, client }: { lever: LeverInfo; pad: StabiliserState; client: EngineClient }) {
   return (
     <button
       type="button"
       className={`icon-btn tiny padlock${pad.locked ? ' on' : ''}`}
       aria-pressed={pad.locked}
       aria-label={lockActionLabel(l, pad.locked)}
-      title={lockTitle(l, pad, note)}
+      title={lockTitle(l, pad)}
       onClick={() => client.setLever(pad.lock, pad.locked ? 0 : 1)}
     >
       <Icon name={pad.locked ? 'lock' : 'unlock'} size={14} />
@@ -159,23 +138,26 @@ function Padlock({ lever: l, pad, client, note }: { lever: LeverInfo; pad: Stabi
   );
 }
 
-const LeverRow = memo(function LeverRow({
+export const LeverRow = memo(function LeverRow({
   lever: l,
   value: stored,
   fired,
   client,
   pad,
   note,
+  initialInfo = false,
 }: {
   lever: LeverInfo;
   value: number;
   fired: number;
   client: EngineClient;
   pad?: StabiliserState;
-  /** The lever's locked-alone note (lockedAloneNotes), for its padlock's title. */
+  /** The lever's locked-alone note (lockedAloneNotes), for its info panel. */
   note?: string;
+  /** Whether the info panel starts open. */
+  initialInfo?: boolean;
 }) {
-  const [showInfo, setShowInfo] = useState(false);
+  const [showInfo, setShowInfo] = useState(initialInfo);
   const value = shownValue(stored, pad);
   const auto = !!pad && !pad.locked;
   // A lever with a rule can hold its rule's live value, unlocked or frozen by its padlock
@@ -195,7 +177,7 @@ const LeverRow = memo(function LeverRow({
           </span>
         )}
         {l.kind === 'setting' && <span className="lever-value mono">{leverValueLabel(l, shown)}</span>}
-        {pad && <Padlock lever={l} pad={pad} client={client} note={note} />}
+        {pad && <Padlock lever={l} pad={pad} client={client} />}
         {canResetToBaseline(l, value, pad) && (
           <button
             type="button"
@@ -214,17 +196,24 @@ const LeverRow = memo(function LeverRow({
       {l.kind === 'setting' && <SettingControl lever={l} value={value} shown={shown} client={client} />}
       {l.kind === 'choice' && <ChoiceControl lever={l} value={value} client={client} />}
       {l.kind === 'oneoff' && <OneOffControl lever={l} fired={fired} client={client} />}
-      {showInfo && (
-        <div className="lever-info" id={infoId}>
-          <p>{l.description}</p>
-          <p>
-            <strong>Definition.</strong> {l.definition}
-          </p>
-        </div>
-      )}
+      {showInfo && <LeverAbout lever={l} id={infoId} note={note} />}
     </div>
   );
 });
+
+/** A lever's info panel (its info toggle): the description, the precise definition and, while
+ *  the lever is locked alone, its stabiliser's note (lockedAloneNotes). */
+function LeverAbout({ lever: l, id, note }: { lever: LeverInfo; id: string; note?: string }) {
+  return (
+    <div className="lever-info" id={id}>
+      <p>{l.description}</p>
+      <p>
+        <strong>Definition.</strong> {l.definition}
+      </p>
+      {note && <p>{note}</p>}
+    </div>
+  );
+}
 
 /** `shown` is the value as the row displays it (an unlocked lever's rounded to two decimals), for
  *  the bar's accessible name; the steppers step from `value`. */

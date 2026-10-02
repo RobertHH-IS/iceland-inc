@@ -290,7 +290,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
           )}
         </div>
       )}
-      <LeverPanel info={info} client={client} values={frame.levers} events={frame.events} stabilisers={frame.stabilisers} onSelect={onSelect} />
+      <LeverPanel info={info} client={client} values={frame.levers} events={frame.events} stabilisers={frame.stabilisers} />
       <main className="stage panel" aria-label="The economy">
         <div className="stage-bar">
           <div className="seg-group" role="group" aria-label="View">

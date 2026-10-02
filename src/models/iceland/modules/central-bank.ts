@@ -367,7 +367,7 @@ export const centralBank: ModuleDef = {
       suggestion: 'keyRateSuggestion',
       current: (c) => 100 * c.v('keyRate'),
       shadow: ['ruleRate', 'ruleTarget', 'ruleAnchor', 'neutralRate', 'outputGap', 'potentialOutputSeen'],
-      // Half the lever's quarter-point step: it calls exactly when "Apply" would move the lever.
+      // Half the lever's quarter-point step.
       threshold: 0.125,
       description:
         'A Taylor-type rule: the key rate the central bank is heading for, from expected inflation, inflation over the past year at constant VAT and the output gap, which it reads from how far unemployment is below normal. It moves there gradually from the rate in force, about a tenth of the way each month, and revises its estimate of the neutral rate slowly while inflation or unemployment stays off normal. While the key rate is unlocked it sets it. While you hold the key rate locked it stands aside: your rate holds and everything else reacts to it. Unlocking starts the rule from the rate you held.',

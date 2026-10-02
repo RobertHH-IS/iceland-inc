@@ -79,6 +79,10 @@ describe('concept library', () => {
     expect(bad).toEqual([]);
   });
 
+  test('Nominal anchor, which only a lever is tagged with, is linked from the Taylor rule’s and anchored expectations’ cards, so the inspector reaches it', () => {
+    for (const id of ['taylor-rule', 'anchored-expectations']) expect(concepts.find((c) => c.id === id)!.related).toContain('nominal-anchor');
+  });
+
   test('every title is non-empty', () => {
     expect(failures((c) => (c.title.trim() ? null : c.id))).toEqual([]);
   });
