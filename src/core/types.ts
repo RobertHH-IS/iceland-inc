@@ -140,9 +140,9 @@ export interface Ctx {
   stock(instrument: Id, player: Id): number;
   /** Current value of a lever setting. Declare in `levers`. */
   lever(id: Id): number;
-  /** Is a stabiliser's padlock closed? Closed (locked): the policy lever holds where it is and the
-   *  rule only suggests. Open (unlocked, the default): the rule sets the policy variable. Declare
-   *  the stabiliser's id in `locks`. */
+  /** Is a stabiliser's padlock closed? Closed (locked): the policy lever stays where the user set
+   *  it, and everything else reacts. Open (unlocked, the default): the rule sets the policy
+   *  variable. Declare the stabiliser's id in `locks`. */
   locked(stabiliser: Id): boolean;
   /** Baseline (steady-state) value of a variable. Allowed without declaration.
    *  While the baseline is being solved it returns the current guess, so a rule that
@@ -315,7 +315,7 @@ export interface LeverDef {
  * debt-tied tax rule, declared so that it never acts unseen. Each stabiliser's lever has a padlock
  * (a 'lock' lever the compiler adds, `<lever>Lock`, decision 0010):
  *   Unlocked (open, the default): the rule sets the policy variable, and the lever shows its value;
- *   Locked (closed): the policy variable holds the lever's value, and the rule only suggests.
+ *   Locked (closed): the policy variable holds the lever's value, and everything else reacts.
  * Closing the padlock freezes the lever at the value in force (`current`); setting the lever while
  * it is unlocked closes the padlock at the new value. The model must compute `suggestion` whether
  * the padlock is open or closed (while it is closed it is a shadow value).
@@ -357,7 +357,7 @@ export interface StabiliserState {
   lever: Id;
   /** Its padlock: the 'lock' lever to set to 1 (lock) or 0 (unlock). */
   lock: Id;
-  /** The padlock is closed: the lever holds, and the rule only suggests. */
+  /** The padlock is closed: the lever stays where the user set it, and everything else reacts. */
   locked: boolean;
   suggested: number;
   /** The policy value in force, in lever units: the lever's value while locked, the rule's
