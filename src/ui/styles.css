@@ -819,11 +819,6 @@ button.chip {
   color: var(--amber);
   border-color: rgba(255, 180, 84, 0.5);
 }
-.lock-note {
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-size: 12.5px;
-}
 .lever-info {
   margin-top: 8px;
   font-size: 12.5px;

@@ -12,13 +12,14 @@ import { models } from '../../src/models/index.ts';
 import type { Id, ModelDef } from '../../src/core/types.ts';
 import { createEngineClient } from '../../src/ui/engine-client.ts';
 import { effectiveExpanded, expandAll, viewTree } from '../../src/ui/model/hierarchy.ts';
+import { lockedAloneNotes } from '../../src/ui/model/levers.ts';
 import { encodeScenarioHash } from '../../src/ui/model/scenario-url.ts';
 import { EMPTY_NAV, navPush, type Selection } from '../../src/ui/model/navigation.ts';
 import { Inspector } from '../../src/ui/views/Inspector.tsx';
 import { IdeasAtPlay } from '../../src/ui/views/IdeasAtPlay.tsx';
 import { LedgerView } from '../../src/ui/views/LedgerView.tsx';
 import { FlowMap } from '../../src/ui/views/FlowMap.tsx';
-import { LeverPanel } from '../../src/ui/views/LeverPanel.tsx';
+import { LeverAbout, LeverPanel } from '../../src/ui/views/LeverPanel.tsx';
 import { Feed } from '../../src/ui/views/Feed.tsx';
 import { hierarchyModel } from '../fixtures/hierarchy.ts';
 
@@ -249,62 +250,62 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     client.dispose();
   });
 
-  test('every lever with a rule locked: one calm line that nothing pulls prices back, linked to the idea that says why (decision 0014); with one open, none', () => {
-    const client = createEngineClient(iceland);
-    const panel = (onSelect?: (s: Selection) => void) => {
-      const f = client.getFrame();
-      return renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} onSelect={onSelect} />);
-    };
-    const note = 'With the key interest rate and the income-tax rate both locked, nothing pulls prices back over the long run.';
-    expect(panel(noop)).not.toContain('class="lock-note"'); // unlocked, the default
-    client.setLever('keyRateLock', 1);
-    client.pause();
-    client.step(3);
-    expect(panel(noop)).not.toContain(note); // income tax still unlocked: the key rate's own note instead (below)
-    client.setLever('incomeTaxLock', 1);
-    client.step(3);
-    const html = panel(noop);
-    expect(count(html, /class="lock-note"/g)).toBe(1);
-    expect(html).toContain(note);
-    expect(html).toMatch(/<button type="button" class="navlink" aria-label="Why\? Open the idea: Nominal anchor">Why\?<\/button>/);
-    expect(client.info.conceptById.get('nominal-anchor')!.body).toMatch(/cumulative process/);
-    // without a way to open the idea, the line stands alone
-    expect(panel()).toContain(note);
-    expect(panel()).not.toContain('Why?');
-    // unlocking either hands it back to its rule, and the line goes
-    client.setLever('incomeTaxLock', 0);
-    client.step(1);
-    expect(panel(noop)).not.toContain(note);
-    client.dispose();
+  test('no notes about the locks in the panel, in any lock configuration; a padlock’s title stays short (owner’s decision, 2 October 2026)', () => {
+    for (const m of models) {
+      const client = createEngineClient(m);
+      const locks = client.info.stabilisers.map((s) => client.getFrame().stabilisers.find((x) => x.id === s.id)!.lock);
+      const notes = client.info.stabilisers.flatMap((s) => (s.lockedAloneNote ? [s.lockedAloneNote] : []));
+      if (m.id === 'iceland') expect(notes.length).toBe(2); // the model keeps its notes, for the info panels
+      // every combination of open and closed padlocks
+      for (let mask = 0; mask < 1 << locks.length; mask++) {
+        locks.forEach((lock, j) => client.setLever(lock, (mask >> j) & 1));
+        client.pause();
+        client.step(3);
+        const f = client.getFrame();
+        expect(f.stabilisers.map((s) => s.locked)).toEqual(locks.map((_, j) => ((mask >> j) & 1) === 1));
+        const html = renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />);
+        expect(html).not.toContain('class="lock-note"');
+        expect(html).not.toContain('nothing pulls prices back');
+        expect(html).not.toContain('Why?');
+        for (const note of notes) expect(html).not.toContain(note);
+        for (const title of html.match(/title="Locked: [^"]*"/g) ?? []) expect(title).toEndWith('which carries on from where it is."');
+        // nothing between the panel's head and its first section
+        expect(html).toContain('<div class="panel-body scroll"><section class="acc');
+      }
+      client.dispose();
+    }
   });
 
-  test('one lever with a rule locked while the other acts: its note, in the panel and in its padlock’s title (decision 0015)', () => {
+  test('a lever locked while the other rule acts: its stabiliser’s note only on demand, in the lever’s info panel (decision 0015)', () => {
     const client = createEngineClient(iceland);
-    const panel = () => {
-      const f = client.getFrame();
-      return renderToString(<LeverPanel info={client.info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />);
-    };
-    const note = (id: string) => client.info.stabilisers.find((s) => s.id === id)!.lockedAloneNote!;
+    const info = client.info;
+    const defNote = (id: string) => info.stabilisers.find((s) => s.id === id)!.lockedAloneNote!;
+    const notes = () => lockedAloneNotes(client.getFrame().stabilisers, new Map(info.stabilisers.map((s) => [s.id, s.lockedAloneNote])));
+    const about = (lever: string) => renderToString(<LeverAbout lever={info.leverById.get(lever)!} id="about" note={notes().get(lever)} />);
+    expect(notes().size).toBe(0); // unlocked, the default
+    expect(about('incomeTax')).toMatch(/^<div class="lever-info" id="about"><p>.*<\/p><p><strong>Definition\.<\/strong>.*<\/p><\/div>$/);
     // income tax held while the central bank's rule acts: a tax change can run away (ECON-5)
     client.setLever('incomeTax', -2.5); // moving it locks it
     client.pause();
     client.step(3);
-    let html = panel();
-    expect(note('debtRule')).toMatch(/^With income tax locked while the central bank’s rule sets the key rate/);
-    expect(count(html, /class="lock-note"/g)).toBe(1);
-    expect(html).toContain(`<p class="lock-note">${note('debtRule')}</p>`);
-    // the key rate held while the debt rule acts: the debt rule deepens a slump in private spending (ECON-3)
+    expect(defNote('debtRule')).toMatch(/^With income tax locked while the central bank’s rule sets the key rate/);
+    expect(about('incomeTax')).toEndWith(`<p>${defNote('debtRule')}</p></div>`);
+    expect(about('keyRate')).not.toContain(defNote('keyRateRule'));
+    // the key rate held while the debt rule acts: the debt rule steadies the economy in its place (ECON-3)
     client.setLever('incomeTaxLock', 0);
     client.setLever('keyRateLock', 1);
     client.step(1);
-    html = panel();
-    expect(html).toContain(`<p class="lock-note">${note('keyRateRule')}</p>`);
-    expect(html).not.toContain(note('debtRule'));
-    expect(html).toContain(`title="Locked: the key interest rate stays where you set it, and everything else reacts to it. Unlock to hand it back to Central bank’s inflation rule, which carries on from where it is. ${note('keyRateRule')}"`);
+    expect(about('keyRate')).toEndWith(`<p>${defNote('keyRateRule')}</p></div>`);
+    expect(about('incomeTax')).not.toContain(defNote('debtRule'));
+    // both held: neither is locked alone
+    client.setLever('incomeTaxLock', 1);
+    client.step(1);
+    expect(notes().size).toBe(0);
     // a held key rate off its baseline has a one-click way back that keeps it locked (review m6)
     client.setLever('keyRate', 4.25);
     client.step(1);
-    expect(panel()).toContain('aria-label="Set Key interest rate back to its baseline, keeping it locked"');
+    const f = client.getFrame();
+    expect(renderToString(<LeverPanel info={info} client={client} values={f.levers} events={f.events} stabilisers={f.stabilisers} />)).toContain('aria-label="Set Key interest rate back to its baseline, keeping it locked"');
     client.dispose();
   });
 });

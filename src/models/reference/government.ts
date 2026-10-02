@@ -457,7 +457,7 @@ export const government: ModuleDef = {
       concepts: ['debt-feedback', 'policy-lags'],
       feed: { raise: 'The debt rule would raise income tax by {change} pp', lower: 'The debt rule would cut income tax by {change} pp', indicator: 'govDebt' },
       // ECON-5 (lever-vetting open item 21, decision 0016): by the owner's decision this is the lesson;
-      // the panel says so.
+      // the lever's info panel says so.
       lockedAloneNote:
         'With income tax locked while the Taylor rule sets the key rate, nothing pays government debt back, and a lasting tax change can run away: the higher rates the rule sets add interest income as well as cooling spending. To lean on the debt rule instead, lock income tax, set it and unlock it again.',
     },

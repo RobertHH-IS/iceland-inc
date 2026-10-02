@@ -1,8 +1,8 @@
 /**
  * Levers for the lever panel: accordion sections (without the levers a model keeps off the panel
  * until a scenario sets them, decision 0017), stepping, the bar, "changed" state, the
- * padlocks on levers with a rule (decision 0010), the marks of locked stabilisers and the note
- * shown while every padlock is closed (decision 0014).
+ * padlocks on levers with a rule (decision 0010) and the note a lever's info panel adds while it
+ * is locked alone (decision 0015).
  * Pure functions over LeverInfo (a LeverDef without its `fire` function).
  */
 import type { Id, ScenarioEvent, StabiliserState } from '../../core/types.ts';
@@ -211,18 +211,18 @@ export function lockActionLabel(l: Pick<LeverInfo, 'label'>, locked: boolean): s
   return `${locked ? 'Unlock' : 'Lock'} ${inSentence(l.label)}`;
 }
 
-/** The padlock button's title: what the padlock means now, in plain words, and what a press does.
- *  `note` (lockedAloneNotes) follows while the lever is locked alone. */
-export function lockTitle(l: Pick<LeverInfo, 'label'>, pad: Pick<PadlockState, 'label' | 'locked'>, note?: string): string {
+/** The padlock button's title: what the padlock means now, in plain words, and what a press does. */
+export function lockTitle(l: Pick<LeverInfo, 'label'>, pad: Pick<PadlockState, 'label' | 'locked'>): string {
   const name = inSentence(l.label);
   return pad.locked
-    ? `Locked: ${name} stays where you set it, and everything else reacts to it. Unlock to hand it back to ${pad.label}, which carries on from where it is.${note ? ` ${note}` : ''}`
+    ? `Locked: ${name} stays where you set it, and everything else reacts to it. Unlock to hand it back to ${pad.label}, which carries on from where it is.`
     : `Unlocked: ${pad.label} sets ${name}, and the lever follows it. Lock to hold it where it is; moving the lever locks it too.`;
 }
 
 /** The notes of stabilisers locked alone (StabiliserDef.lockedAloneNote), by lever: each locked
- *  stabiliser with a note, while another is unlocked. Empty while every padlock is closed (the
- *  all-locked line speaks then) or every one is open. `notes` is by stabiliser id. */
+ *  stabiliser with a note, while another is unlocked. Empty while every padlock is closed or
+ *  every one is open. The lever's info panel shows its note; nothing else does. `notes` is by
+ *  stabiliser id. */
 export function lockedAloneNotes(states: readonly Pick<PadlockState, 'id' | 'lever' | 'locked'>[], notes: ReadonlyMap<Id, string | undefined>): Map<Id, string> {
   const out = new Map<Id, string>();
   if (!states.some((s) => !s.locked)) return out;
@@ -231,21 +231,6 @@ export function lockedAloneNotes(states: readonly Pick<PadlockState, 'id' | 'lev
     if (note) out.set(s.lever, note);
   }
   return out;
-}
-
-/** The idea the locked-economy note links to (src/concepts/library.ts). */
-export const NOMINAL_ANCHOR_CONCEPT: Id = 'nominal-anchor';
-
-/** The one calm line the lever panel shows while every lever with a rule is locked (decision
- *  0014): with the key rate and income tax both held, the price level has no nominal anchor, by
- *  construction. "With the key interest rate and the income-tax rate both locked, nothing pulls
- *  prices back over the long run." Null while any padlock is open, and in a model without them. */
-export function allLockedNote(states: readonly Pick<PadlockState, 'lever' | 'locked'>[], byId: ReadonlyMap<Id, Pick<LeverInfo, 'label'>>): string | null {
-  if (!states.length || states.some((s) => !s.locked)) return null;
-  const names = states.map((s) => inSentence(byId.get(s.lever)?.label ?? s.lever));
-  const held =
-    names.length === 1 ? `${names[0]} locked` : names.length === 2 ? `${names[0]} and ${names[1]} both locked` : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} all locked`;
-  return `With ${held}, nothing pulls prices back over the long run.`;
 }
 
 /** The nearest point of the lever's step grid (anchored at its default), clamped to its range and
