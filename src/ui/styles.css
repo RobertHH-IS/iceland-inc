@@ -108,7 +108,7 @@ button {
   padding: 12px;
   gap: 12px;
   grid-template-columns: 290px minmax(0, 1fr) 400px;
-  grid-template-rows: auto auto minmax(0, 1fr) minmax(210px, 32vh);
+  grid-template-rows: auto auto minmax(0, 1fr) minmax(240px, 36vh);
   grid-template-areas:
     'header header header'
     'banner banner banner'
@@ -2001,7 +2001,7 @@ button.via:hover {
 }
 .chart .chart-svg {
   width: 100%;
-  height: 54px;
+  height: 84px;
   display: block;
 }
 .chart-svg .zero {

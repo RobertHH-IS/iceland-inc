@@ -6,6 +6,7 @@
  * stabiliser modes.
  */
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { renderToString } from 'react-dom/server';
 import { App } from '../../src/ui/App.tsx';
 import { models } from '../../src/models/index.ts';
@@ -159,6 +160,15 @@ test('an unknown model in a link falls back to a registered one', () => {
   const html = renderToString(<App models={models} initialHash="#m=no-such-model" />);
   expect(html).toContain('ICELAND');
   expect(html).toContain('Levers');
+});
+
+test('each small chart’s plot is 84 px tall, in its viewBox and in the stylesheet alike, so its lines stay crisp', () => {
+  const html = renderToString(<App models={models} initialHash="#m=iceland" />);
+  const plots = html.match(/<svg class="chart-svg[^>]*>/g) ?? [];
+  expect(plots.length).toBeGreaterThan(0);
+  for (const svg of plots) expect(svg).toContain('viewBox="0 0 160 84"');
+  const css = readFileSync(new URL('../../src/ui/styles.css', import.meta.url), 'utf8');
+  expect(css).toMatch(/\.chart \.chart-svg \{[^}]*\bheight: 84px;/);
 });
 
 describe('the lever panel and the map with padlocks (decision 0010)', () => {
