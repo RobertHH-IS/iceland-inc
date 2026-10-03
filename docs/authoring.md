@@ -404,7 +404,42 @@ How to write them:
 
 **A clean lever report** is what a lever change must leave behind: every expectation ✓, no run with a Non-finite, Residual, Sign or Implausible flag, and every other flag the change adds explained (in the lever's definition, a decision record or the lever-vetting record). Regenerate the report with the change and commit it; a reviewer reads its diff like a golden scenario. How the levers were last vetted, and what is still open, is in [docs/audit/lever-vetting.md](audit/lever-vetting.md).
 
-## 13. How to …
+## 13. Openings
+
+A model starts from its solved steady state unless it declares a dated **opening**: the economy as the data have it on one day. Openings live in `src/core/opening.ts`. The small worked example is `tests/fixtures/opening.ts`, which opens the reference economy on made-up data for 30 September 2026. The plan for Iceland is [docs/design/today-opening.md](design/today-opening.md).
+
+```ts
+export const model: ModelDef = {
+  ...withStartGaps(base, {
+    wage: { targets: ['wageGrowth'], fade: 1, scale: 'absolute', bound: 0.05 },
+    spending: { targets: ['consumption', 'investmentPlan'], fade: 0.5, scale: 'relative' },
+  }),
+  calendar: { month0: { year: 2026, month: 9 } },
+  moneyUnit: { label: 'ISK bn', perUnit: 49.41211, basis: '…' },
+  opening: { id: 'iceland-2026-09-30', label: 'Iceland on 30 September 2026', asOf: '2026-09-30', description: '…', build },
+};
+```
+
+`build(anchors)` reads the anchor state (`anchors.param`, `.value`, `.stock`) and returns an `OpeningState`:
+
+| Field | What it holds |
+|---|---|
+| `stocks` | Every position, in the `Ctx.stock` sign convention and model units. Each has a source: `data` (with its records and period), `residual` (the identity it closes, in `note`) or `allocated` (the key, in `note`) |
+| `fills` | The one position per financial instrument that the kernel fills so the instrument balances (its basis is `mirror`). A position neither listed nor filled is an error, never a silent fill |
+| `vars` | The variables the opening holds, with `history` (months −1, −2, …) wherever the rules read further back than a month. The kernel evaluates every other variable at month 0, and a variable with a past that the opening does not hold starts at rest |
+| `params` | Every parameter the opening sets, with provenance and the records it comes from |
+| `anchors` | Variables whose structural anchor (`c.base`) is today's value (`'month0'`) or a number, not the anchor state's |
+| `derive` | Closed forms from the evaluated month 0, such as the neutral rate at which the policy rule's target is the rate in force. They may set only parameters and variables listed above |
+| `solve` | The start solve: unknowns (mostly `startGap.<group>`), as many targets read from months 0 and 1, and the committed `solution` |
+| `checks`, `continuity` | Month-0 values to reproduce (`gate`) or only report, and quantities whose month-1 and month-2 moves are bounded |
+
+**Start gaps.** `withStartGaps(model, groups)` adds one term to each target rule: "Today's gap from this rule, fading (half gone in 17 months)". The term is `startGap.<group>` × (for a relative group, `startGapBase.<target>`, the rule's value at month 0) × e^(−fade × years from month 0). Gaps go on BEHAVIOUR rules only. They never go on a stock, an identity, a contract or a policy rule. A group's targets share one solved size. Without an opening every gap is 0, and the model behaves as its source.
+
+**Solving and committing.** While you build an opening, run `openingBaseline(m, def, anchor, { mode: 'solve' })` and copy `report.solve.solution` into `solve.solution`. From then on the model loads in check mode: it applies the committed values and requires every residual below 1e-9. A test re-solves from scratch and compares. The solve refuses to start when an unknown moves no target, when a target depends on no unknown, or when two unknowns move the targets alike (a condition number above 1e10), and it names them.
+
+**What fails.** The build throws on a structural error: an unknown id, a missing or duplicated position, a position with the wrong sign, a history shorter than the rules read, closed forms that do not settle, a rank failure, or a residual above 1e-9. A gated check that fails, a rule that disagrees with a held value, or a regime at month 0 that the anchor does not have is reported instead (`openingFailures(report)`). The harness layer `opening` fails on these, and so should the model's tests.
+
+## 14. How to …
 
 **Add a player.** Add a `PlayerDef` with its `settlement`, `group` and `layout`; add it to the `holders` or `issuers` of the instruments it uses (a depositor must hold the deposit instrument); add the flows that touch it, each leg with its own amount rule; give its stocks starting guesses in `initialStocks`, and make sure some behaviour pins each of them.
 

@@ -131,7 +131,7 @@ A failed check is recorded in `checks().failures`, or thrown with `onCheckFailur
 
 **Position signs (a diagnostic, tolerance 1e-6).** The four checks prove that nothing leaks, but they pass just as well when a household's deposits go below zero, a pension fund sells bonds it does not have, or a firm's capital stock turns negative. So every step, the engine also checks each position's sign against its role: a holder's asset must be at least −1e-6, an issuer's liability at least −1e-6 (in the `Ctx.stock` convention, where both are positive), and a real asset, which has holders only, at least −1e-6. The first month each position breaks this is recorded in `checks().signViolations` (instrument, player, role, month, value). It is not an accounting failure: it never throws and never appears in `failures`, and it has its own tolerance (`EngineOptions.signTolerance`), because a position a millionth of a unit below zero is a rounding matter, not an accounting one. A model that deliberately lets a position take either sign (a net position, such as an overdraft facility) declares it with `InstrumentDef.mayGoNegative`, which needs a reason and a row in decision record [0005](decisions/0005-position-signs.md), which has the details. The engine only records violations; the harness fails on them (§6).
 
-### 4.5 Baseline
+### 4.5 Baseline and openings
 
 The steady-state spec gives:
 - initial stocks;
@@ -140,9 +140,23 @@ The steady-state spec gives:
 
 The kernel first uses the module's closed-form solver if there is one. It then polishes with damped Newton on the fixed-point condition *state(t+1) = state(t)* plus the targets. The solved baseline, including every flow, is written to a report.
 
-The engine starts every run from the solved baseline. `lag()` before month 0 reads a lag history that `Machine.initHistory` sets up: month 0's values, and optionally earlier months for some variables. From the steady state the history is flat, because a steady state has no past to speak of. A start from today's data will pass its own months before month 0 ([design](design/start-from-today.md) §2.5). The engine's `lagWindow` option reaches the baseline solver too, so a rule may look back further than two years.
+The engine starts every run from its baseline (`Baseline`, `src/core/steady.ts`). For the stationary models that is the solved steady state; for the growing variant, the steady state mapped into the growing model. Either is the model's **anchor state**. A baseline holds three things the engine reads:
+- **month 0:** positions, variables and parameters. A run with lever events and the no-change run start from the same month 0;
+- **a lag history** (`Baseline.history`): `lag()` before month 0 reads what `Machine.initHistory` sets up, which is month 0's values, plus earlier months for the variables that have a past. From the steady state the history is flat, because a steady state has no past to speak of;
+- **the structural anchor** (`Baseline.anchors`), which `Ctx.base` and `IndicatorCtx.base` read. It is month 0 itself unless an opening says otherwise.
 
-Variables already carry a `scale` of `nominal`, `real` or `none` for a future **balanced-growth baseline**. The current solver still finds a stationary fixed point; the metadata does not add growth, inflation, population changes or equity appreciation. A dated initial state, historical lags and an evolving no-change reference run are also still proposed in [start from today's data](design/start-from-today.md). The dated observations in the interface are comparisons with the outside world, rather than inputs to the engine.
+The engine's `lagWindow` option reaches the baseline solver too, so a rule may look back further than two years.
+
+**A dated opening** (`ModelDef.opening`, `src/core/opening.ts`; [design](design/today-opening.md)) starts a model from the economy as published instead of from its anchor. `createRegisteredEngine` builds the anchor, then `openingBaseline` builds month 0 on it:
+1. **Positions.** The opening lists every position from records, residuals or a declared allocation key. It names exactly one position per financial instrument, which the kernel fills so the instrument balances. A position with the wrong sign stops the build.
+2. **Variables.** The opening holds the variables it has data for, with their past where the rules read further back than a month. Every other variable is evaluated by its rule at month 0. A variable with a past that the opening does not hold starts at rest: its value a month ago is its value now, and a smoother sits at its target.
+3. **Consistency.** An identity, or any rule that does not adjust gradually, must give the value the opening holds to 1e-9. The opening's closed forms (`derive`) and its anchor overrides are repeated with the evaluation until nothing moves.
+4. **Start gaps.** The misfits that the data and the rules leave are declared as fading **start gaps** (`withStartGaps`): one visible term on a BEHAVIOUR rule, never on a stock or an identity. Their sizes are solved so that month 1 carries on from today's data. The solve checks first that every unknown moves a target, that every target depends on an unknown, and that the problem is well conditioned. The solution is committed with the model, and loading only checks it.
+5. **The report** (`KernelEngine.opening`) lists every position, variable and parameter with its source and data period, the checks, the gaps, the regimes at month 0, the continuity of months 1 and 2, and every record used.
+
+A model with an opening also declares a `calendar` (the month that month 0 is) and a `moneyUnit` (how model money is shown in a currency), which the engine passes on (`calendar(month)`, `moneyUnit`). The no-change comparison stays in the engine client: its reference engine starts from the same baseline, so with no events the two runs are equal bit for bit.
+
+Variables carry a `scale` of `nominal`, `real` or `none`. The stationary solver still finds a fixed point; the growing variant adds trends as rules (`src/models/iceland/modules/growth.ts`).
 
 ### 4.6 Scenarios, time travel and counterfactuals
 
@@ -178,6 +192,15 @@ Variables already carry a `scale` of `nominal`, `real` or `none` for a future **
    - **determinism:** the same scenario gives identical results;
    - **golden scenarios:** stored outputs, so any change in results is visible in review. A golden run must also meet the plausibility and sign requirements, so no stored path is one a real economy could not take;
    - **lever expectations:** the signs theory predicts for each lever (`src/models/<id>/expectations.ts`), or that an effect dies out, measured as the lever report measures them (`docs/authoring.md` §12). Every expectation must hold, every lever but the padlocks must have at least one, and no run may be broken. Only the runs an expectation needs are made, and those the lever extremes already made are reused.
+
+An application model with a dated opening (§4.5) also runs the layer **opening**. Its hard failures are:
+- T1: every instrument balances at month 0, with every position of the right sign and a declared basis;
+- T2: every gated check passes, and no rule disagrees with the values the opening holds;
+- T3: accounting and position signs hold for 240 months, with every padlock open and with every one closed;
+- T7: every value stays finite and plausible over the same 240 months;
+- T8: with no events the run is the no-change run, bit for bit.
+
+The layer writes `reports/opening-<model>.md`.
 
 `bun test` runs the kernel's own unit tests and every module's tests. GitHub Actions runs both on each push.
 
