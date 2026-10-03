@@ -15,11 +15,14 @@ export interface CalendarMonth {
   month: number;
 }
 
-/** How model money is shown in a currency: `perUnit` currency units per model unit. */
+/** How model money is shown in a currency: `perUnit` currency units per model unit. `priceYear`
+ *  (an addition to §6) is the year whose prices real amounts are at and indices are 100 in; without
+ *  it the interface reads the year of the GDP that `basis` names. */
 export interface MoneyUnit {
   label: string;
   perUnit: number;
   basis: string;
+  priceYear?: number;
 }
 
 /** What the interface shows of a dated opening: its name, date and the records it was built from. */

@@ -12,11 +12,13 @@ export const PREFERRED_MODELS: Id[] = ['iceland-today', 'iceland', 'reference'];
  *  shared before the application opened on Iceland today name 'iceland-growing'. */
 export const LINK_ONLY_MODELS: Id[] = ['iceland-growing'];
 
-/** The model to open: the one a link asks for if it exists, else the first preferred one present,
- *  else the first that is not link-only, else the first. */
+/** The model to open: the one a link asks for if it exists, else Iceland today, else (until Iceland
+ *  today is registered) the moving variant the link-only list names, which is nearer today than
+ *  the stationary controls; then the controls, the first that is not link-only, or the first. */
 export function pickModel(ids: Id[], requested?: Id | null): Id | undefined {
   if (requested && ids.includes(requested)) return requested;
-  for (const p of PREFERRED_MODELS) if (ids.includes(p)) return p;
+  const [today, ...controls] = PREFERRED_MODELS;
+  for (const p of [today, ...LINK_ONLY_MODELS, ...controls]) if (ids.includes(p)) return p;
   return ids.find((id) => !LINK_ONLY_MODELS.includes(id)) ?? ids[0];
 }
 

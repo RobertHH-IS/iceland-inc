@@ -111,3 +111,35 @@ export function resolveCardMetrics(info: ModelInfo, nodeId: Id, mapping: CardMap
     { key: 'in', kind: 'cashIn', label: 'Cash in' },
   ].slice(0, max) as ResolvedMetric[];
 }
+
+/* ------------------------------------------------------------- one row */
+
+/** A rough width of text in px: Outfit (the interface font) by letter shape, a little generous so a
+ *  row that is estimated to fit does; DM Mono exactly (0.6 em a character). */
+export function textWidth(s: string, px: number, mono = false): number {
+  if (mono) return s.length * 0.6 * px;
+  let em = 0;
+  for (const ch of s) em += /[ilIjtfr.,:;'|!() ]/.test(ch) ? 0.3 : /[mwMW%@]/.test(ch) ? 0.82 : /[A-Z]/.test(ch) ? 0.64 : 0.54;
+  return em * px;
+}
+
+/** What one card row shows: its label, its value and, once a lever has moved, the value's small
+ *  effect. The label comes first: where room is short the value drops its scale ("2,618" for
+ *  "2,618 bn"; the accessible name says it in full), then the effect is left to the value's colour
+ *  and the accessible name, and the label is cut only when it and the value alone do not fit.
+ *  Sizes: the card's 11 px, the effect's 9.5 px and the "auto" mark. */
+export function fitCardRow(width: number, row: { label: string; value: string; change?: string; rule: boolean }): { label: string; value: string; change: string } {
+  // the row starts 14 px in and ends 10 px from the edge; " auto" is about 19 px; 6 px between
+  const room = width - 14 - 10 - (row.rule ? 22 : 0) - 6;
+  const labelW = textWidth(row.label, 11);
+  const scaleless = row.value.replace(/ bn$/, '');
+  const fits = (value: string, change: string) => labelW + textWidth(value, 11, true) + (change ? 3 + textWidth(change, 9.5, true) : 0) <= room;
+  const tries: [string, string][] = row.change ? [[row.value, row.change], [scaleless, row.change], [row.value, ''], [scaleless, '']] : [[row.value, ''], [scaleless, '']];
+  for (const [value, change] of tries) if (fits(value, change)) return { label: row.label, value, change };
+  // the label and the value alone do not fit: cut the label
+  const value = row.value;
+  let label = row.label;
+  const left = room - textWidth(value, 11, true);
+  while (label.length > 4 && textWidth(`${label}…`, 11) > left) label = label.slice(0, -1);
+  return { label: label === row.label ? label : `${label.trimEnd()}…`, value, change: '' };
+}

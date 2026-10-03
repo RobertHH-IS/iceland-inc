@@ -12,6 +12,7 @@ import { applicationModels, createRegisteredEngine } from '../../src/models/inde
 import { App } from '../../src/ui/App.tsx';
 import { createEngineClient, TICK_MS, type EngineClient } from '../../src/ui/engine-client.ts';
 import { startingDataComparison } from '../../src/ui/model/current-data.ts';
+import { priceYear } from '../../src/ui/model/effects.ts';
 import { todayLine } from '../../src/ui/model/economic-context.ts';
 import { effectiveExpanded } from '../../src/ui/model/hierarchy.ts';
 import { EMPTY_NAV, navPush, type Selection } from '../../src/ui/model/navigation.ts';
@@ -146,11 +147,37 @@ describe('a dated opening: changes since today and effects', () => {
     expect(pipeTitles(html).some((t) => /since Sep 2026 · [+−][\d.]+% vs no change$/.test(t))).toBe(true);
     const bank = cardLabels(html).find((l) => l.startsWith('Central bank.'))!;
     expect(bank).toMatch(/^Central bank\. Key rate 6\.00%, \+[\d.]+ pp vs no change\. Inflation /);
-    expect(html).toMatch(/<tspan class="node-mval tone-up"[^>]*>6\.00% \+[\d.]+ pp<\/tspan>/);
+    // the effect is a small number of its own beside the level, so it never takes the label's room
+    expect(html).toMatch(/<tspan class="node-mval tone-up"[^>]*>6\.00%<\/tspan><tspan class="node-mchg tone-up" dx="3">\+[\d.]+pp<\/tspan>/);
     const quiet = run(12);
     expect(map(quiet)).not.toMatch(CHANGE_VS_NO_CHANGE);
     c.dispose();
     quiet.dispose();
+  });
+
+  test('after a lever moves the cards keep their labels in full', () => {
+    const labelsOf = (html: string) => [...html.matchAll(/<tspan class="node-mlabel">([^<]*)<\/tspan>/g)].map((m) => m[1]);
+    const quiet = labelsOf(map(run(12)));
+    const moved = map(run(12, true));
+    expect(labelsOf(moved)).toEqual(quiet);
+    for (const l of ['Key rate', 'Unemployment', 'Spending', 'Investment', 'Broad money', 'Inflation', 'Current acct']) expect(labelsOf(moved)).toContain(l);
+    expect(labelsOf(moved).some((l) => l.endsWith('…'))).toBe(false);
+    expect((moved.match(/class="node-mchg/g) ?? []).length).toBeGreaterThan(5);
+  });
+
+  test('a change is a difference where a percentage would mean nothing: an amount near zero, a quantity centred on zero, a revaluation', () => {
+    const c = run(12, true);
+    const head = (id: string) => text(inspect(c, { kind: 'var', id }).match(/<div class="inf-head">.*?<\/div>/)![0]);
+    // the deficit was about zero at the start: ISK, not "+1187%"
+    expect(head('deficit')).toMatch(/\+ISK [\d.]+ bn a year vs no change/);
+    expect(head('lenderConfidence')).toMatch(/[+−][\d.]+ ratio vs no change/);
+    expect(head('logRealHousePrice')).toMatch(/[+−][\d.]+ log points since Sep 2026 [+−][\d.]+ log points vs no change/);
+    // nowhere on the map or in these details is a change of a thousand per cent or more
+    const html = map(c) + ['deficit', 'bondIssue', 'bondIssuePF', 'cbProfit', 'lenderConfidence', 'logRealHousePrice', 'debtRatio'].map((id) => inspect(c, { kind: 'var', id })).join('');
+    expect(text(html)).not.toMatch(/[+−][\d,]{4,}%/);
+    // a revaluation pipe's label is in ISK
+    expect(map(c)).toMatch(/<tspan class="plabel-name">Revaluation[^<]*<\/tspan><tspan class="plabel-val" dx="5">[+−][\d.,]+ bn<\/tspan>/);
+    c.dispose();
   });
 
   test('today’s amounts are month 0’s, in every frame and after a lever, a seek and a reset', () => {
@@ -264,6 +291,8 @@ describe('a dated opening: starting data and links', () => {
     expect(html).toMatch(/data-observation="financial.policyRate"><div class="small">[^<]*<span class="context-use">for comparison<\/span>/);
     for (const row of startingDataComparison(c)) expect(row.observations.length).toBeLessThanOrEqual(10);
     expect(html).not.toContain('inherits the calibrated 3% opening rate');
+    // the snapshot's qualifications describe the stationary and growing variants: none on a dated opening
+    expect(html).not.toContain('context-audit-qualification');
     c.setLever('keyRate', 6);
     c.pause();
     c.step(12);
@@ -272,6 +301,8 @@ describe('a dated opening: starting data and links', () => {
     expect(dialog).toContain('>Starting data</h2>');
     expect(dialog).toContain('What the no-change path assumes');
     expect(dialog).not.toContain('Iceland: current reference');
+    // nothing about the old opening: no 3% rate, no zero inflation, no stationary or calibrated start, no baseline
+    expect(text(dialog)).not.toMatch(/(?<![\d.])3%|zero inflation|stationary|calibrated|neutral|baseline/i);
     c.dispose();
   });
 
@@ -325,6 +356,14 @@ describe.skipIf(!today)('Iceland today, once registered (T12)', () => {
     for (const gone of ['Apply', 'class="call-dot"', 'class="lock-note"', 'since Sep 2026']) expect(html).not.toContain(gone);
     expect(html).not.toMatch(CHANGE_VS_NO_CHANGE);
     expect(text(html)).not.toMatch(/baseline/i);
+  });
+
+  test('its money unit names 2025 prices, and its starting data say nothing of the old opening', () => {
+    const mu = (today as typeof today & { moneyUnit?: Parameters<typeof priceYear>[0] }).moneyUnit;
+    expect(mu && priceYear(mu)).toBe('2025');
+    const c = createEngineClient(createRegisteredEngine(today!), { comparison: 'no-change', model: today, tickMs: 1e9 });
+    expect(text(clean(renderToString(<BaselineContext client={c} onClose={noop} />)))).not.toMatch(/(?<![\d.])3%|zero inflation|stationary|calibrated|neutral|baseline/i);
+    c.dispose();
   });
 
   test('since today without a lever, the effect only after one', () => {

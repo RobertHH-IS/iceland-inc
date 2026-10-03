@@ -26,7 +26,7 @@ import type { FlowKind, Id, Influence } from '../../core/types.ts';
 import { describePosting, postingLabels } from '../../core/format.ts';
 import type { ClientBalanceSheet, EngineClient, Frame } from '../engine-client.ts';
 import { chartWindow, fmtReport, reportDescription, reportLabel, reportMinRange, reportRef, reportUnit, type ReportBasis } from '../model/charts.ts';
-import { changeNotes, displayOf, isDated, leverMoved, measureOf, oneChange, type ChangeNote, type Display, type Measure } from '../model/effects.ts';
+import { changeNotes, displayOf, flowMeasure, isDated, leverMoved, measureOf, oneChange, type ChangeNote, type Display, type Measure } from '../model/effects.ts';
 import { fmtChange, fmtCompact, fmtCompactChange, fmtNum, fmtSigned, fmtValue, unitCaption } from '../model/format.ts';
 import { directMembers, memberCount, nodePipes, pipeBetween, type ViewLeg } from '../model/hierarchy.ts';
 import { nodeColor, nodeLabel, nodeMembers, varLabel, type ModelInfo } from '../model/info.ts';
@@ -169,9 +169,9 @@ export function InfluenceView({ info, client, id, onSelect, compact = false }: {
   const r = info.ruleByTarget.get(inf.id);
   const display = displayOf(client);
   const dated = isDated(display);
-  const m = measureOf(display, unit, isFlow ? undefined : info.varById.get(inf.id)?.scale);
+  const m = isFlow ? flowMeasure(display, info.flowById.get(inf.id)?.kind) : measureOf(display, unit, info.varById.get(inf.id)?.scale);
   const at = momentOf(client);
-  const notes = dated ? changeNotes(display, at.t, at.moved, m.kind, m.level(inf.value), m.level(todayOf(info, client, id, inf)), m.level(inf.baseline)) : [];
+  const notes = dated ? changeNotes(display, at.t, at.moved, m, m.level(inf.value), m.level(todayOf(info, client, id, inf)), m.level(inf.baseline)) : [];
   const termValue = (x: number) => (dated && m.money ? m.short(x) : fmtCompact(x, unit));
   return (
     <div className="influence">
@@ -314,12 +314,12 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
   const dev = deviation(pipe.value, pipe.baseline);
   const display = displayOf(client);
   const dated = isDated(display);
-  const m = measureOf(display, '% of GDP/yr');
+  const m = flowMeasure(display, pipe.kind);
   const at = momentOf(client);
   // today's amounts, leg by leg in the same order
   const today = dated ? pipeBetween(info, frame.legToday, from, to, kind) : null;
   const todayLeg = new Map((today?.legs ?? []).map((l) => [l.index, l.value]));
-  const notes = (value: number, todayValue: number, noChange: number) => changeNotes(display, at.t, at.moved, m.kind, m.level(value), m.level(todayValue), m.level(noChange));
+  const notes = (value: number, todayValue: number, noChange: number) => changeNotes(display, at.t, at.moved, m, m.level(value), m.level(todayValue), m.level(noChange));
   const byFlow = new Map<Id, ViewLeg[]>();
   for (const l of pipe.legs) byFlow.set(l.flow, [...(byFlow.get(l.flow) ?? []), l]);
   let shown = 0;
@@ -384,7 +384,7 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
                   meta={
                     dated ? (
                       <>
-                        <span className="mono">{m.short(leg.value)}</span> <OneChange c={oneChange(at.t, at.moved, m.kind, m.level(leg.value), m.level(at.moved ? leg.baseline : (todayLeg.get(leg.index) ?? Number.NaN)))} />
+                        <span className="mono">{m.short(leg.value)}</span> <OneChange c={oneChange(at.t, at.moved, m, m.level(leg.value), m.level(at.moved ? leg.baseline : (todayLeg.get(leg.index) ?? Number.NaN)))} />
                       </>
                     ) : (
                       <>
@@ -543,7 +543,7 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
                 {dated ? (
                   <>
                     <span className="mono">{flow.short(p.value)}</span>
-                    <OneChange c={oneChange(at.t, at.moved, flow.kind, flow.level(p.value), flow.level(p.baseline))} />
+                    <OneChange c={oneChange(at.t, at.moved, flowMeasure(display, p.kind), flow.level(p.value), flow.level(p.baseline))} />
                   </>
                 ) : (
                   <>
@@ -585,7 +585,7 @@ function BsRow({ label, value, baseline, strong, warn, today }: { label: string;
   const dev = deviation(value, baseline);
   if (today) {
     const { m } = today;
-    const notes = changeNotes(today.display, today.t, today.moved, m.kind, m.level(value), m.level(today.value), m.level(baseline));
+    const notes = changeNotes(today.display, today.t, today.moved, m, m.level(value), m.level(today.value), m.level(baseline));
     const since = notes.find((n) => n.kind === 'since'), effect = notes.find((n) => n.kind === 'effect');
     return (
       <tr className={strong ? 'bs-total' : warn ? 'bs-warn' : undefined}>
@@ -762,7 +762,7 @@ function DriverMeta({ info, client, id }: { info: ModelInfo; client: EngineClien
   if (isDated(display)) {
     const m = measureOf(display, unit, info.varById.get(id)?.scale);
     const at = momentOf(client);
-    return <Changes notes={changeNotes(display, at.t, at.moved, m.kind, m.level(v), m.level(client.opening?.(id) ?? Number.NaN), m.level(b))} />;
+    return <Changes notes={changeNotes(display, at.t, at.moved, m, m.level(v), m.level(client.opening?.(id) ?? Number.NaN), m.level(b))} />;
   }
   const dev = deviation(v, b);
   return <Delta text={dev.tone === 'flat' ? 'at baseline' : fmtChange(v - b, unit, b)} tone={dev.tone} />;

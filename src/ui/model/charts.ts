@@ -28,7 +28,8 @@ export function reportLabel(ind: IndicatorInfo, basis: ReportBasis): string {
 export function reportUnit(ind: IndicatorInfo, basis: ReportBasis, comparison: 'opening' | 'no-change' = 'opening', money?: MoneyUnit | null): string {
   const raw = basis === 'deviation' || !ind.level ? ind.unit : basis === 'real' ? ind.level.realUnit ?? ind.level.unit : ind.level.unit;
   let unit = raw.replace(/\bbn ISK\b/, 'ISK bn');
-  const year = money ? priceYear(money) : null;
+  // without a declared price year the prices are the start's, never "baseline"
+  const year = money ? priceYear(money) ?? 'start' : null;
   if (year) unit = unit.replace('baseline prices', `${year} prices`).replace('baseline = 100', `${year} = 100`);
   return basis === 'deviation' && comparison === 'no-change' ? unit.replace('vs baseline', 'vs no change') : unit;
 }

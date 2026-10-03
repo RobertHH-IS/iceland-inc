@@ -1108,6 +1108,18 @@ button.chip {
 .node-mval.tone-down {
   fill: var(--bluegrey);
 }
+/* a card number's effect vs no change, smaller than the number (dated models, after a lever moves) */
+.node-mchg {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  fill: var(--muted);
+}
+.node-mchg.tone-up {
+  fill: var(--amber);
+}
+.node-mchg.tone-down {
+  fill: var(--bluegrey);
+}
 /* A closed group: a stack of cards with its member count, colour dots and a chevron. */
 .node-stack {
   fill: #0f1624;

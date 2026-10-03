@@ -13,10 +13,10 @@
  * today before that (in % of the amount; the net-worth columns in ISK bn).
  */
 import { memo } from 'react';
-import type { ScenarioEvent } from '../../core/types.ts';
+import type { FlowKind, ScenarioEvent } from '../../core/types.ts';
 import type { EngineClient } from '../engine-client.ts';
 import { labels } from '../labels.ts';
-import { displayOf, effect, fmtChangeOf, leverMoved } from '../model/effects.ts';
+import { displayOf, effect, fmtChangeOf, flowMeasure, leverMoved, type Display } from '../model/effects.ts';
 import { adaptiveDigits, fmtNum, fmtSigned, MINUS } from '../model/format.ts';
 import type { ModelInfo } from '../model/info.ts';
 import { buildLedger, cellShows, type LedgerCell, type LedgerColumns } from '../model/ledger.ts';
@@ -41,7 +41,8 @@ interface CellFormat {
   value(x: number, prefix: string): string;
   /** The size alone: "12.3". */
   magnitude(x: number): string;
-  change(value: number, ref: number): { text: string; tone: Tone } | null;
+  /** `kind`: the row's flow kind (a revaluation's change is a difference, never a %). */
+  change(value: number, ref: number, kind?: FlowKind): { text: string; tone: Tone } | null;
   /** The same for the net-worth columns. */
   nwChange(value: number, ref: number): { text: string; tone: Tone } | null;
 }
@@ -64,14 +65,16 @@ function iskNumber(x: number, signed: boolean): string {
   return x < 0 ? `${MINUS}${n}` : signed ? `+${n}` : n;
 }
 
-function iskFormat(perUnit: number): CellFormat {
+function iskFormat(display: Display, perUnit: number): CellFormat {
   return {
     value: (x, prefix) => (prefix ? `${prefix}${iskNumber(Math.abs(x) * perUnit, false)}` : iskNumber(x * perUnit, true)),
     magnitude: (x) => iskNumber(Math.abs(x) * perUnit, false),
-    change: (value, ref) => {
-      // a change in the size of the amount, so the payer's and the payee's cells read alike
-      const e = effect('amount', Math.abs(value), Math.abs(ref));
-      const text = fmtChangeOf(e);
+    change: (value, ref, kind) => {
+      // a change in the size of the amount, so the payer's and the payee's cells read alike: in %
+      // of it, or in ISK bn where a % means nothing (a revaluation, a small amount)
+      const m = flowMeasure(display, kind);
+      const e = effect(m, m.level(Math.abs(value)), m.level(Math.abs(ref)));
+      const text = fmtChangeOf(e, m, 'bare');
       return text && e ? { text, tone: e.value > 0 ? 'up' : 'down' } : null;
     },
     nwChange: (value, ref) => {
@@ -93,7 +96,7 @@ export const LedgerView = memo(function LedgerView({ info, client, legs, columns
   const dated = !!display.month0;
   const against = dated && !moved ? frame.legToday : frame.legBaselines;
   const table = buildLedger(info, legs, columns, 1e-9, against);
-  const fmt = dated && display.money ? iskFormat(display.money.perUnit) : MODEL_UNITS;
+  const fmt = dated && display.money ? iskFormat(display, display.money.perUnit) : MODEL_UNITS;
   const small = dated ? (moved ? 'effect vs no change at this month' : t >= 1 ? `change ${display.since}` : null) : client.comparison === 'no-change' ? 'effect vs no change at this month' : 'change from baseline';
   const unit = dated && display.money ? `${display.money.label} a year` : '% of baseline GDP a year';
   const nodeKind = (id: string) => (info.playerById.has(id) ? 'player' : 'group');
@@ -145,7 +148,7 @@ export const LedgerView = memo(function LedgerView({ info, client, legs, columns
                   </th>
                   {r.cells.map((c, i) => (
                     <td key={i} className="num">
-                      {c && <Cell c={c} fmt={fmt} />}
+                      {c && <Cell c={c} fmt={fmt} kind={r.flow.kind} />}
                     </td>
                   ))}
                   <td className={`num sum sum-col ${r.balanced ? 'ok' : 'bad'}`}>{r.oneSided ? <span className="muted small" title="A real asset has no counterparty">one-sided</span> : r.balanced ? '0 ✓' : fmtNum(r.sum, 12)}</td>
@@ -178,11 +181,11 @@ export const LedgerView = memo(function LedgerView({ info, client, legs, columns
   );
 });
 
-function Cell({ c, fmt }: { c: LedgerCell; fmt: CellFormat }) {
-  if (cellShows(c) === 'gross') return <Pair value={c.gross} baseline={c.grossBaseline} prefix="±" fmt={fmt} />;
+function Cell({ c, fmt, kind }: { c: LedgerCell; fmt: CellFormat; kind?: FlowKind }) {
+  if (cellShows(c) === 'gross') return <Pair value={c.gross} baseline={c.grossBaseline} prefix="±" fmt={fmt} kind={kind} />;
   return (
     <>
-      <Pair value={c.value} baseline={c.baseline} fmt={fmt} />
+      <Pair value={c.value} baseline={c.baseline} fmt={fmt} kind={kind} />
       {c.both && (
         <span className="muted small within" title="Paid and received within this column">
           ±{fmt.magnitude(c.gross)} within
@@ -193,8 +196,8 @@ function Cell({ c, fmt }: { c: LedgerCell; fmt: CellFormat }) {
 }
 
 /** `nw`: a net-worth column, whose change is written in the amount's own unit. */
-function Pair({ value, baseline, prefix = '', fmt, nw = false }: { value: number; baseline: number; prefix?: string; fmt: CellFormat; nw?: boolean }) {
-  const change = nw ? fmt.nwChange(value, baseline) : fmt.change(value, baseline);
+function Pair({ value, baseline, prefix = '', fmt, nw = false, kind }: { value: number; baseline: number; prefix?: string; fmt: CellFormat; nw?: boolean; kind?: FlowKind }) {
+  const change = nw ? fmt.nwChange(value, baseline) : fmt.change(value, baseline, kind);
   return (
     <span className="pair">
       <span className="mono">{fmt.value(value, prefix)}</span>

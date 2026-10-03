@@ -45,7 +45,8 @@ describe(`the model the application opens on ('${opened}')`, () => {
   test('it is the first preferred model, it renders, and 1× is a month every two seconds', () => {
     expect(PREFERRED_MODELS).toEqual(['iceland-today', 'iceland', 'reference']);
     expect(LINK_ONLY_MODELS).toEqual(['iceland-growing']);
-    expect(pickModel(ids)).toBe(PREFERRED_MODELS.find((id) => ids.includes(id)));
+    // Iceland today, or until it is registered the growing variant, never the stationary controls
+    expect(pickModel(ids)).toBe(opened);
     // a link to the growing variant still opens it, though the switcher does not list it
     expect(pickModel(ids, 'iceland-growing')).toBe('iceland-growing');
     expect(switcherModels(applicationModels, 'iceland').map((m) => m.id)).not.toContain('iceland-growing');

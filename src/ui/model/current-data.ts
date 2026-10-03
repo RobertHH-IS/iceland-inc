@@ -64,7 +64,10 @@ export function observationValue(record: EconomicObservation): string {
 export const MAX_RECORDS_PER_CHART = 10;
 
 /** Always read month zero of this variant. Moving a lever must not rewrite the audit. On a model
- *  that opens on a dated month 0, each record says whether the opening used it (`used`). */
+ *  that opens on a dated month 0, each record says whether the opening used it (`used`), and there
+ *  is no qualification: the snapshot's qualifications (data/iceland, never edited) describe how the
+ *  stationary and growing variants differ from the records, which is not how a dated opening
+ *  starts. The chart's value, its records and the comparability mark say what there is to say. */
 export function startingDataComparison(client: EngineClient) {
   if (client.info.id !== 'iceland' && !client.info.paramById.has('growthReal')) return [];
   const dated = !!client.calendar;
@@ -82,7 +85,7 @@ export function startingDataComparison(client: EngineClient) {
       used,
       comparability: mapping?.comparability ?? 'gap',
       qualification: dated
-        ? mapping?.qualification ?? 'No observation with the same definition was verified.'
+        ? null
         : client.info.paramById.has('growthReal') && indicator.id === 'inflation'
         ? 'Both measure the twelve-month consumer-price change. This evolving variant inherits zero inflation and its price history at the calibrated opening, then follows its explicit assumed price trend and endogenous price equations. It is not initialised from the current observed CPI history.'
         : client.info.paramById.has('growthReal') && indicator.id === 'keyRate'

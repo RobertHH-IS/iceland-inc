@@ -22,7 +22,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type Keybo
 import type { FlowKind, Id, ScenarioEvent } from '../../core/types.ts';
 import type { ClientPipe, EngineClient } from '../engine-client.ts';
 import { fmtReport } from '../model/charts.ts';
-import { changeNotes, displayOf, effect, fmtChangeOf, isDated, leverMoved, measureOf, money, type Display, type EffectKind } from '../model/effects.ts';
+import { changeNotes, displayOf, effect, fmtCardChange, fmtChangeOf, flowMeasure, isDated, leverMoved, measureOf, money, type ChangeScale, type Display } from '../model/effects.ts';
 import { labels } from '../labels.ts';
 import { fmtCompact, fmtCompactChange, fmtIndicator, fmtNum, fmtSigned } from '../model/format.ts';
 import { MAP_H, MAP_W, fitMap, frameBoxes, layoutView, nodeRect, pipeGeometry, pipeKey, pipeWidth, placeLabels, viewFitItems, viewLayoutHints, widthScale, type FrameBox, type NodeBox, type Pt, type PipeGeom } from '../model/geometry.ts';
@@ -30,7 +30,7 @@ import { directMembers, memberCount, viewKey, viewTree, visibleNode, type ViewTr
 import type { ModelInfo } from '../model/info.ts';
 import { nodeColor, nodeLabel } from '../model/info.ts';
 import type { Selection } from '../model/navigation.ts';
-import { cardFamily, GROUP_NOUNS, resolveCardMetrics, type ResolvedMetric } from '../model/player-cards.ts';
+import { cardFamily, fitCardRow, GROUP_NOUNS, resolveCardMetrics, type ResolvedMetric } from '../model/player-cards.ts';
 import { financialHealth } from '../model/financial-health.ts';
 import { deviation, pipeStyle, signTone, topChanged, type Tone } from '../model/styling.ts';
 import type { OnSelect } from './common.tsx';
@@ -372,8 +372,8 @@ function pipeTitle(info: ModelInfo, d: Display, pipe: ClientPipe, t: number, mov
   const ends = pipe.from === pipe.to ? `Within ${nodeLabel(info, pipe.from)}` : `${nodeLabel(info, pipe.from)} to ${nodeLabel(info, pipe.to)}`;
   const head = `${ends}, ${labels.flowKindPhrase[pipe.kind]}: ${flows.join(', ')}.`;
   if (!isDated(d)) return `${head} ${fmtNum(pipe.value)} now, ${fmtNum(pipe.baseline)} ${d.moving ? 'without your changes at this month (% of opening GDP a year)' : 'at baseline (% of GDP a year)'}.`;
-  const m = measureOf(d, '% of GDP/yr');
-  const notes = changeNotes(d, t, moved, m.kind, m.level(pipe.value), m.level(pipe.today), m.level(pipe.baseline));
+  const m = flowMeasure(d, pipe.kind);
+  const notes = changeNotes(d, t, moved, m, m.level(pipe.value), m.level(pipe.today), m.level(pipe.baseline));
   return `${head} ${[m.text(pipe.value), ...notes.map((n) => n.text)].join(' · ')}`;
 }
 
@@ -425,12 +425,14 @@ const PipeView = memo(
     a.onSelect === b.onSelect,
 );
 
-/** The label on one of the most changed pipes: its flow and its change from the comparison, in %
- *  of the no-change amount on a dated model. */
+/** The label on one of the most changed pipes: its flow and its change from the comparison; on a
+ *  dated model in % of the no-change amount, or in ISK where a % means nothing (a revaluation, an
+ *  amount that crosses zero or is small). */
 function pipeLabelText(info: ModelInfo, pipe: ClientPipe, d: Display): { name: string; change: string; text: string } {
   const flows = [...new Set(pipe.legs.map((l) => l.flow))];
   const name = flows.length === 1 ? (info.flowById.get(flows[0])?.label ?? flows[0]) : `${flows.length} flows`;
-  const change = (isDated(d) ? fmtChangeOf(effect('amount', pipe.value, pipe.baseline)) : null) ?? fmtSigned(pipe.value - pipe.baseline);
+  const m = isDated(d) ? flowMeasure(d, pipe.kind) : null;
+  const change = (m ? fmtChangeOf(effect(m, m.level(pipe.value), m.level(pipe.baseline)), m, 'card') : null) ?? fmtSigned(pipe.value - pipe.baseline);
   return { name, change, text: `${name} ${change}` };
 }
 
@@ -458,37 +460,41 @@ interface MetricText {
   label: string;
   text: string;
   tone: Tone;
+  /** On a dated model, once a lever has moved: the small effect beside the number ("−1.7%"). */
+  change?: string;
   /** What the card's accessible name says, when it says more than the card ("+0.4% vs no change"). */
   said?: string;
 }
 
 /** A card number on a dated model: its level in today's units, with a small effect against the
  *  no-change path once a lever has moved, and nothing else. The card shows an amount as "2,550 bn";
- *  its accessible name says it in full ("ISK 2,550 bn a year"). */
+ *  its accessible name says it in full ("ISK 2,550 bn a year"). Values passed to `show` are levels. */
 function datedMetric(m: ResolvedMetric, info: ModelInfo, client: EngineClient, d: Display, node: NodeBox, legs: Float64Array, moved: boolean): MetricText | null {
-  const show = (text: string, full: string, kind: EffectKind, now: number, noChange: number): MetricText => {
-    const e = moved ? effect(kind, now, noChange) : null;
-    const change = fmtChangeOf(e);
-    return { key: m.key, label: m.label, text: change ? `${text} ${change}` : text, tone: change && e ? (e.value > 0 ? 'up' : 'down') : 'flat', said: change ? `${full}, ${change} vs no change` : full };
+  const show = (text: string, full: string, scale: ChangeScale, now: number, noChange: number): MetricText => {
+    const e = moved ? effect(scale, now, noChange) : null;
+    const change = fmtCardChange(e, scale);
+    const said = fmtChangeOf(e, scale, 'text');
+    return { key: m.key, label: m.label, text, change: change ?? undefined, tone: change && e ? (e.value > 0 ? 'up' : 'down') : 'flat', said: said ? `${full}, ${said} vs no change` : full };
   };
+  const stockM = measureOf(d, '% of GDP'), flowM = measureOf(d, '% of GDP/yr');
   switch (m.kind) {
     case 'indicator': {
       const ind = info.indicatorById.get(m.id)!;
       if (!ind.level) return null;
       const s = client.reportSeries(m.id, 'nominal'), r = client.referenceReportSeries?.(m.id, 'nominal') ?? [];
       const v = s[s.length - 1] ?? 0;
-      return show(fmtReport(v, ind, 'nominal', 'card'), fmtReport(v, ind, 'nominal'), ind.level.kind === 'rate' || ind.level.kind === 'ratio' ? 'rate' : 'amount', v, r[s.length - 1] ?? v);
+      return show(fmtReport(v, ind, 'nominal', 'card'), fmtReport(v, ind, 'nominal'), { kind: ind.level.kind === 'rate' || ind.level.kind === 'ratio' ? 'rate' : 'amount' }, v, r[s.length - 1] ?? v);
     }
     case 'variable': {
       const vd = info.varById.get(m.id)!;
       const ms = measureOf(d, vd.unit, vd.scale);
       const v = client.value(m.id);
-      return show(ms.money && d.money ? money(d.money, v, false).card : ms.short(v), ms.text(v), ms.kind, ms.level(v), ms.level(client.baseline(m.id)));
+      return show(ms.money && d.money ? money(d.money, v, false).card : ms.short(v), ms.text(v), ms, ms.level(v), ms.level(client.baseline(m.id)));
     }
     case 'netWorth': {
       const bs = client.balanceSheet(node.id);
       const mu = d.money;
-      return show(mu ? money(mu, bs.netWorth, false).card : fmtNum(bs.netWorth), mu ? money(mu, bs.netWorth, false).text : fmtNum(bs.netWorth), 'amount', bs.netWorth, bs.netWorthBaseline);
+      return show(mu ? money(mu, bs.netWorth, false).card : fmtNum(bs.netWorth), mu ? money(mu, bs.netWorth, false).text : fmtNum(bs.netWorth), stockM, stockM.level(bs.netWorth), stockM.level(bs.netWorthBaseline));
     }
     case 'cashIn': {
       const set = new Set(node.members);
@@ -499,7 +505,7 @@ function datedMetric(m: ResolvedMetric, info: ModelInfo, client: EngineClient, d
           b += client.getFrame().legBaselines?.[l.index] ?? l.baseline;
         }
       const mu = d.money;
-      return show(mu ? money(mu, v, true).card : fmtNum(v), mu ? money(mu, v, true).text : fmtNum(v), 'amount', v, b);
+      return show(mu ? money(mu, v, true).card : fmtNum(v), mu ? money(mu, v, true).text : fmtNum(v), flowM, flowM.level(v), flowM.level(b));
     }
   }
 }
@@ -593,10 +599,12 @@ function NodeCardLive({ info, client, node, px, py, lines, legs, display, moved,
       dots={dots}
       m1={values[0]?.label ?? ''}
       v1={values[0]?.text ?? ''}
+      c1={values[0]?.change ?? ''}
       s1={values[0]?.said}
       t1={values[0]?.tone ?? 'flat'}
       m2={values[1]?.label ?? ''}
       v2={values[1]?.text ?? ''}
+      c2={values[1]?.change ?? ''}
       s2={values[1]?.said}
       t2={values[1]?.tone ?? 'flat'}
       r1={byRule(metrics[0])}
@@ -626,6 +634,9 @@ interface NodeCardProps {
   m2: string;
   v2: string;
   t2: Tone;
+  /** The small effect beside each number, once a lever has moved on a dated model ("−1.7%"). */
+  c1: string;
+  c2: string;
   /** The numbers as the accessible name says them, when that differs from v1 and v2. */
   s1?: string;
   s2?: string;
@@ -642,7 +653,7 @@ interface NodeCardProps {
   onOpenGroup: (id: Id) => void;
 }
 
-const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, t1, m2, v2, t2, s1 = v1, s2 = v2, r1, r2, regime, regimeCount, severity, selected, dim, entering, onSelect, onOpenGroup }: NodeCardProps) {
+const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, t1, m2, v2, t2, c1, c2, s1 = v1, s2 = v2, r1, r2, regime, regimeCount, severity, selected, dim, entering, onSelect, onOpenGroup }: NodeCardProps) {
   const group = n.kind === 'group';
   const x = px - n.w / 2,
     y = py - n.h / 2;
@@ -656,20 +667,24 @@ const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, 
   const title = name.length > maxChars ? name.slice(0, maxChars - 1) + '…' : name;
   const compact = n.h - (group ? 16 : 0) < 56;
   const shift = group ? 16 : 0;
-  // the label gives way to the number: at most what fits beside it (DM Mono and Outfit at 11 px)
-  const fit = (m: string, v: string, rule: boolean) => {
-    const max = Math.max(4, Math.min(14, Math.floor((n.w - 30 - v.length * 6.7 - (rule ? 28 : 0)) / 5.9)));
-    return m.length > max ? m.slice(0, max - 1) + '…' : m;
+  // the label keeps its words; the number, then its effect, give way (fitCardRow)
+  const row = (y0: number, m: string, v: string, c: string, t: Tone, rule: boolean) => {
+    const f = fitCardRow(n.w, { label: m, value: v, change: c, rule });
+    return (
+      <text className="node-metric" x={14} y={y0}>
+        <tspan className="node-mlabel">{f.label}</tspan>
+        {rule && <tspan className="node-rule"> auto</tspan>}
+        <tspan className={`node-mval tone-${t}`} x={n.w - 10} textAnchor="end">
+          {f.value}
+        </tspan>
+        {f.change && (
+          <tspan className={`node-mchg tone-${t}`} dx={3}>
+            {f.change}
+          </tspan>
+        )}
+      </text>
+    );
   };
-  const row = (y0: number, m: string, v: string, t: Tone, rule: boolean) => (
-    <text className="node-metric" x={14} y={y0}>
-      <tspan className="node-mlabel">{fit(m, v, rule)}</tspan>
-      {rule && <tspan className="node-rule"> auto</tspan>}
-      <tspan className={`node-mval tone-${t}`} x={n.w - 10} textAnchor="end">
-        {v}
-      </tspan>
-    </text>
-  );
   const badgeW = regime ? Math.min(150, 14 + regime.length * 5.6) : 0;
   const colours = dots ? dots.split(' ').slice(0, 7) : [];
   const titleY = compact ? 18 : 20;
@@ -709,8 +724,8 @@ const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, 
           </g>
         </>
       )}
-      {m1 && row((compact ? 35 : 39) + shift, m1, v1, t1, r1)}
-      {m2 && !compact && row(55 + shift, m2, v2, t2, r2)}
+      {m1 && row((compact ? 35 : 39) + shift, m1, v1, c1, t1, r1)}
+      {m2 && !compact && row(55 + shift, m2, v2, c2, t2, r2)}
       {regime && (
         <g className="regime-badge" transform={`translate(${n.w - 8},-8)`}>
           <title>{regime}</title>

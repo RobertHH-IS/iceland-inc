@@ -30,7 +30,7 @@ export function CurrentDataAudit({ client }: { client: EngineClient }) {
                   <td className="context-audit-reference">
                     {row.observations.map((record) => <Observation key={record.id} record={record} use={month0 ? (row.used.has(record.id) ? 'used for the start' : 'for comparison') : undefined} />)}
                     {row.comparability !== 'reference' && <span className="context-status context-status-forecast">{row.comparability === 'gap' ? 'No matching observation' : 'Different scope / proxy'}</span>}
-                    <p className="small muted context-audit-qualification">{row.qualification}</p>
+                    {row.qualification && <p className="small muted context-audit-qualification">{row.qualification}</p>}
                   </td>
                 </tr>
               ))}</tbody>

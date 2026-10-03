@@ -199,13 +199,16 @@ describe('deviation styling', () => {
 });
 
 describe('model choice', () => {
-  test("opens 'iceland' when registered, else 'reference'; a link's model wins when it exists", () => {
+  test("opens Iceland today, else the growing variant, else 'iceland', else 'reference'; a link's model wins when it exists", () => {
     expect(pickModel(['reference', 'iceland'])).toBe('iceland');
     expect(pickModel(['reference'])).toBe('reference');
     expect(pickModel(['other'])).toBe('other');
     expect(pickModel(['reference', 'iceland'], 'reference')).toBe('reference');
     expect(pickModel(['reference'], 'missing')).toBe('reference');
     expect(pickModel([])).toBeUndefined();
+    // the fallback order: Iceland today, then the link-only moving variant, then the controls
+    expect(pickModel(['reference', 'iceland', 'iceland-growing', 'iceland-today'])).toBe('iceland-today');
+    expect(pickModel(['reference', 'iceland', 'iceland-growing'])).toBe('iceland-growing');
   });
 
   test('a pasted link for a model that is not available changes nothing; a link without a model is for the one open', () => {

@@ -3,7 +3,8 @@
  * effect against the no-change path, money in the currency and calendar months.
  */
 import { describe, expect, test } from 'bun:test';
-import { calendarLabel, calendarMonth, changeNotes, displayOf, effect, fmtChangeOf, januaries, leverMoved, measureOf, money, monthLabel, oneChange, priceYear, sinceToday } from '../../src/ui/model/effects.ts';
+import { calendarLabel, calendarMonth, changeNotes, displayOf, effect, fmtCardChange, fmtChangeOf, flowMeasure, januaries, leverMoved, measureOf, money, monthLabel, oneChange, priceYear, sinceToday } from '../../src/ui/model/effects.ts';
+import { fitCardRow, textWidth } from '../../src/ui/model/player-cards.ts';
 import { eventMarkTitle, eventMarks, chartWindow } from '../../src/ui/model/charts.ts';
 import { MINUS } from '../../src/ui/model/format.ts';
 import { TODAY_MONEY } from './today-fixture.ts';
@@ -26,8 +27,8 @@ describe('the change since today and the effect', () => {
     expect(fmtChangeOf(effect('amount', 2740, 2740))).toBeNull();
   });
 
-  test('a ~0 denominator has no percentage change; a rate still has its pp', () => {
-    expect(sinceToday('amount', 3, 0)).toBeNull();
+  test('a ~0 denominator has no percentage change: an amount is a difference, a rate still has its pp', () => {
+    expect(sinceToday('amount', 3, 0)).toEqual({ value: 3, unit: 'level' });
     expect(effect('index', 1, 1e-12)).toBeNull();
     expect(sinceToday('rate', 0.5, 0)).toEqual({ value: 0.5, unit: 'pp' });
     expect(sinceToday('amount', Number.NaN, 1)).toBeNull();
@@ -49,6 +50,73 @@ describe('the change since today and the effect', () => {
   });
 });
 
+describe('where a percentage means nothing, a difference', () => {
+  const flow = measureOf(dated, '% of GDP/yr');
+  const isk = (bn: number) => bn / TODAY_MONEY.perUnit; // ISK bn as model units
+
+  test('the deficit: ISK 41.7 bn a year against 3.2 bn without the change is a difference, not +1187%', () => {
+    const e = effect(flow, flow.level(isk(41.7)), flow.level(isk(3.24)));
+    expect(e!.unit).toBe('level');
+    expect(e!.value).toBeCloseTo(38.46, 9);
+    expect(fmtChangeOf(e, flow)).toBe('+ISK 38.5 bn a year');
+    expect(changeNotes(dated, 12, true, flow, flow.level(isk(41.7)), flow.level(0), flow.level(isk(3.24))).map((n) => n.text)).toEqual(['+ISK 41.7 bn a year since Sep 2026', '+ISK 38.5 bn a year vs no change']);
+    // in a table whose header names the unit, and on a card
+    expect(changeNotes(dated, 12, true, flow, flow.level(isk(41.7)), flow.level(isk(41.7)), flow.level(isk(3.24)))[0].change).toBe('+38.5');
+    expect(fmtCardChange(e, flow)).toBe('+38.5 bn');
+  });
+
+  test('an amount that crosses zero, or whose reference is below ISK 12 bn or a tenth of the amount now, is a difference', () => {
+    expect(sinceToday(flow, flow.level(isk(-17.2)), flow.level(isk(5.9)))!.unit).toBe('level'); // central-bank profit turning to a loss
+    expect(effect(flow, flow.level(isk(20)), flow.level(isk(10)))!.unit).toBe('level'); // below the floor
+    expect(effect(flow, flow.level(isk(500)), flow.level(isk(40)))!.unit).toBe('level'); // under a tenth of now
+    expect(effect(flow, flow.level(isk(2618)), flow.level(isk(2664)))).toMatchObject({ unit: '%' });
+    expect(fmtChangeOf(effect(flow, flow.level(isk(2618)), flow.level(isk(2664))), flow)).toBe(`${MINUS}1.7%`);
+    // a difference too small to read is not written
+    expect(fmtChangeOf(effect(flow, flow.level(isk(3.02)), flow.level(isk(3))), flow)).toBeNull();
+    // a negative amount of the same sign and size keeps its %
+    expect(sinceToday(flow, flow.level(isk(-110)), flow.level(isk(-100)))!.value).toBeCloseTo(-10, 9);
+  });
+
+  test('log points, a ratio and a share of the population are centred on zero: always a difference in their unit', () => {
+    const confidence = measureOf(dated, 'ratio');
+    expect(confidence.kind).toBe('difference');
+    expect(fmtChangeOf(effect(confidence, -0.028, 0.0009), confidence)).toBe(`${MINUS}0.029 ratio`); // not −3145%
+    const house = measureOf(dated, 'log points');
+    expect(fmtChangeOf(effect(house, -0.016, 0.024), house)).toBe(`${MINUS}0.040 log points`); // not −167%
+    const migrants = measureOf(dated, '% of adult population');
+    expect(changeNotes(dated, 12, true, migrants, 0.096, 0, 0.19).map((n) => n.text)).toEqual(['+0.10 pp since Sep 2026', `${MINUS}0.09 pp vs no change`]);
+    expect(fmtChangeOf(effect(house, 0.0242, 0.0240), house)).toBeNull();
+  });
+
+  test('a revaluation or a write-off swings around zero: its changes are differences in ISK', () => {
+    const reval = flowMeasure(dated, 'revaluation');
+    expect(reval.kind).toBe('difference');
+    expect(fmtChangeOf(effect(reval, reval.level(isk(105)), reval.level(isk(46))), reval, 'card')).toBe('+59.0 bn'); // not +128%
+    expect(flowMeasure(dated, 'writeoff').kind).toBe('difference');
+    expect(flowMeasure(dated, 'cash').kind).toBe('amount');
+    expect(flowMeasure(dated, 'accrual').kind).toBe('amount');
+  });
+
+  test('a card writes a change briefly: −1.7%, +1.9pp', () => {
+    expect(fmtCardChange({ value: -1.66, unit: '%' })).toBe(`${MINUS}1.7%`);
+    expect(fmtCardChange({ value: 1.92, unit: 'pp' })).toBe('+1.9pp');
+    expect(fmtCardChange({ value: 0.04, unit: 'pp' })).toBeNull();
+  });
+});
+
+describe('a card row keeps its label', () => {
+  test('the label in full; the number drops its scale, then the effect gives way, before the label is cut', () => {
+    expect(fitCardRow(164, { label: 'Spending', value: '2,618 bn', change: `${MINUS}1.7%`, rule: false })).toEqual({ label: 'Spending', value: '2,618 bn', change: `${MINUS}1.7%` });
+    expect(fitCardRow(164, { label: 'Broad money', value: '3,414 bn', change: `${MINUS}1.1%`, rule: false })).toEqual({ label: 'Broad money', value: '3,414', change: `${MINUS}1.1%` });
+    expect(fitCardRow(164, { label: 'Key rate', value: '6.00%', change: '+1.9pp', rule: true })).toEqual({ label: 'Key rate', value: '6.00%', change: '+1.9pp' });
+    // no room for the effect beside "Unemployment": the value's colour and the accessible name carry it
+    expect(fitCardRow(164, { label: 'Unemployment', value: '3.94%', change: '+0.3pp', rule: false })).toEqual({ label: 'Unemployment', value: '3.94%', change: '' });
+    // only a label that does not fit beside its number alone is cut
+    expect(fitCardRow(150, { label: 'Net lending to the rest of the world', value: '−1,234.5', rule: false }).label).toMatch(/^Net lending.*…$/);
+    expect(textWidth('3.94%', 11, true)).toBeCloseTo(33, 9);
+  });
+});
+
 describe('money and months', () => {
   test('model money in ISK billions, flows a year', () => {
     expect(money(TODAY_MONEY, 42.762, false).text).toBe('ISK 2,113 bn');
@@ -61,6 +129,10 @@ describe('money and months', () => {
     expect(money(TODAY_MONEY, 0.3, false).text).toBe('ISK 14.8 bn');
     expect(money(TODAY_MONEY, 0, false).text).toBe('ISK 0.00 bn');
     expect(priceYear(TODAY_MONEY)).toBe('2025');
+    // the year of the GDP the basis names, not a vintage that comes first; a declared year wins
+    expect(priceYear({ ...TODAY_MONEY, basis: 'September 2026 vintage: Hagstofa THJ01102, 2025 GDP at current prices' })).toBe('2025');
+    expect(priceYear({ ...TODAY_MONEY, basis: 'September 2026 vintage', priceYear: 2025 })).toBe('2025');
+    expect(priceYear({ ...TODAY_MONEY, basis: 'September 2026 vintage' })).toBeNull();
   });
 
   test('calendar months from month 0', () => {
