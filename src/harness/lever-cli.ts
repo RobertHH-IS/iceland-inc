@@ -1,7 +1,8 @@
 /**
  * `bun run levers [--model <id>] [--months <n>] [--paths <dir>]`
  *
- * Moves every lever of every model (or one) hard, one at a time, and writes
+ * Moves every lever of every model (the stationary models, and every application model with a
+ * dated opening, whose runs start from that opening), or of one, hard, one at a time, and writes
  * reports/levers/<model>.md and reports/levers/<model>.json (lever-report.ts). Another horizon
  * writes reports/levers/<model>-<n>m.md and .json instead, which are git-ignored, so the committed
  * 240-month reports stay as they are. With --paths it also writes <dir>/<model>.json, the full
@@ -11,7 +12,7 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
-import { models } from '../models/index.ts';
+import { applicationModels, models } from '../models/index.ts';
 import { BROKEN_FLAGS, DEFAULT_MONTHS, leverReport } from './lever-report.ts';
 import { renderLeverJson, renderLeverMarkdown, renderLeverPaths, reportName } from './lever-render.ts';
 
@@ -36,9 +37,12 @@ if (!(Number.isInteger(months) && months >= 1)) {
 }
 const pathsOpt = option('--paths');
 const pathsDir = pathsOpt === undefined ? undefined : isAbsolute(pathsOpt) ? pathsOpt : resolve(process.cwd(), pathsOpt);
-const selected = only ? models.filter((m) => m.id === only) : models;
+// the stationary models, and every application model with a dated opening (its runs start from
+// the opening, lever-report.ts leverBaseEngine)
+const reported = [...models, ...applicationModels.filter((d) => d.opening && !models.some((x) => x.id === d.id))];
+const selected = only ? reported.filter((m) => m.id === only) : reported;
 if (only && !selected.length) {
-  console.error(`no model '${only}' in src/models/index.ts (have: ${models.map((m) => m.id).join(', ')})`);
+  console.error(`no model '${only}' in src/models/index.ts with a lever report (have: ${reported.map((m) => m.id).join(', ')})`);
   process.exit(1);
 }
 

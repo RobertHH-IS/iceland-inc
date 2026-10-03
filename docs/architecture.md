@@ -149,8 +149,8 @@ The engine's `lagWindow` option reaches the baseline solver too, so a rule may l
 
 **A dated opening** (`ModelDef.opening`, `src/core/opening.ts`; [design](design/today-opening.md)) starts a model from the economy as published instead of from its anchor. `createRegisteredEngine` builds the anchor, then `openingBaseline` builds month 0 on it:
 1. **Positions.** The opening lists every position from records, residuals or a declared allocation key. It names exactly one position per financial instrument, which the kernel fills so the instrument balances. A position with the wrong sign stops the build.
-2. **Variables.** The opening holds the variables it has data for, with their past where the rules read further back than a month. Every other variable is evaluated by its rule at month 0. A variable with a past that the opening does not hold starts at rest: its value a month ago is its value now, and a smoother sits at its target.
-3. **Consistency.** An identity, or any rule that does not adjust gradually, must give the value the opening holds to 1e-9. The opening's closed forms (`derive`) and its anchor overrides are repeated with the evaluation until nothing moves.
+2. **Variables.** The opening holds the variables it has data for, with their past where the rules read further back than a month. Every other variable is evaluated by its rule at month 0. A variable with a past that the opening does not hold starts at rest on its trend (`ModelDef.restTrend`, log growth a year, 0 by default): its past is its month-0 value × e^(−trend × time back), which the engine's lag history reads too (`Baseline.trend`). On a flat past a smoother sits at its desired value. On the growing variant the trend is the one its smoothers carry, so a smoother with a trend-carry term sits at its target, not above it. Rest is a property of the rules, not of the anchor: on the growing variant, whose mapped anchor is not a rest point (expectations anchored to a 2.5% target, investment for a growing capital stock), a variable left at rest moves away from its anchor value.
+3. **Consistency.** An identity, or any rule that does not adjust gradually, must give the value the opening holds to 1e-9. The opening's closed forms (`derive`) and its anchor overrides are repeated with the evaluation until nothing moves. Every parameter the opening sets, derives or solves must lie in its `ParamDef` range, and a parameter from data needs a source and a vintage.
 4. **Start gaps.** The misfits that the data and the rules leave are declared as fading **start gaps** (`withStartGaps`): one visible term on a BEHAVIOUR rule, never on a stock or an identity. Their sizes are solved so that month 1 carries on from today's data. The solve checks first that every unknown moves a target, that every target depends on an unknown, and that the problem is well conditioned. The solution is committed with the model, and loading only checks it.
 5. **The report** (`KernelEngine.opening`) lists every position, variable and parameter with its source and data period, the checks, the gaps, the regimes at month 0, the continuity of months 1 and 2, and every record used.
 
@@ -200,7 +200,7 @@ An application model with a dated opening (§4.5) also runs the layer **opening*
 - T7: every value stays finite and plausible over the same 240 months;
 - T8: with no events the run is the no-change run, bit for bit.
 
-The layer writes `reports/opening-<model>.md`.
+The layer writes `reports/opening-<model>.md`. `bun run levers` also reports every application model with an opening, and its runs start from that opening (`leverBaseEngine`).
 
 `bun test` runs the kernel's own unit tests and every module's tests. GitHub Actions runs both on each push.
 

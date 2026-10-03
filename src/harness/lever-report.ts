@@ -34,6 +34,7 @@ import { join, resolve } from 'node:path';
 import { compile, lockIdFor, type KModel } from '../core/compile.ts';
 import { createEngine, type KernelEngine } from '../core/engine.ts';
 import { runScenario } from '../core/scenario.ts';
+import { createRegisteredEngine } from '../models/index.ts';
 import type { Id, IndicatorDef, LeverDef, ModelDef, ScenarioEvent } from '../core/types.ts';
 import { leverReportSpecs, type Companion, type ImpliedNeutralSpec, type LeverReportSpec, type PolicyInstrument } from './lever-headlines.ts';
 import { firstNonFinite, plausibilityBounds, plausibilityBreaches } from './plausibility.ts';
@@ -732,12 +733,22 @@ interface Setup {
   run(events: ScenarioEvent[], months: number): KernelEngine;
 }
 
+/** The engine every run of a model's report starts from: a model with a dated opening
+ *  (ModelDef.opening) starts from that opening, as the application does (createRegisteredEngine);
+ *  any other from its solved steady state. */
+export function leverBaseEngine(def: ModelDef | KModel): KernelEngine {
+  if ('crules' in def) return def.def.opening ? createRegisteredEngine(def.def) : createEngine(def);
+  return def.opening ? createRegisteredEngine(def) : createEngine(compile(def));
+}
+
 function setup(def: ModelDef | KModel, months: number, specOverride?: LeverReportSpec, given?: Pick<LeverReportOptions, 'engine' | 'run'>): Setup {
-  const m = 'crules' in def ? def : compile(def);
+  // a model with an opening compiles once, inside its engine
+  const opened = !given?.engine && !('crules' in def) && def.opening ? leverBaseEngine(def) : null;
+  const m = opened ? opened.model : 'crules' in def ? def : compile(def);
   const spec = specOverride ?? leverReportSpecs[m.def.id];
   if (!spec) throw new Error(`lever report: no headline list for model '${m.def.id}' in src/harness/lever-headlines.ts`);
   for (const p of spec.policy) if (!m.varIndex.has(p.variable)) throw new Error(`lever report: policy instrument '${p.variable}' is not a variable of model '${m.def.id}'`);
-  const base = given?.engine ?? createEngine(m);
+  const base = given?.engine ?? opened ?? leverBaseEngine(m);
   const { headlines, indicators } = trackedSeries(m, base, spec);
   return {
     m,

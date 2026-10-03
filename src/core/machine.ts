@@ -172,12 +172,20 @@ export class Machine {
    *
    * `offset` (sub-steps, default 0) shifts the ring back: with 1, the head holds sub-step −1, so an
    * evaluation reads the lags month 0 itself was computed from (the opening's month-0 evaluation,
-   * opening.ts). Variables without a history are flat at `now` either way.
+   * opening.ts). Variables without a history are flat at `now` either way, unless `trend` gives
+   * them a growth rate: then their past lies on that trend, now × e^(−trend × s × dt) at sub-step
+   * −s (trend: log growth a year, by variable index; ModelDef.restTrend).
    */
-  initHistory(now: Float64Array, history?: ReadonlyMap<number, ArrayLike<number>>, offset = 0): void {
+  initHistory(now: Float64Array, history?: ReadonlyMap<number, ArrayLike<number>>, offset = 0, trend?: ArrayLike<number>): void {
     const { K, NV, N, ring } = this;
     this.head = 0;
     for (let s = 0; s < K; s++) ring.set(now, s * NV);
+    if (trend)
+      for (let v = 0; v < NV; v++) {
+        const g = trend[v];
+        if (!g || history?.has(v)) continue;
+        for (let j = offset === 0 ? 1 : 0; j < K; j++) ring[((K - j) % K) * NV + v] = now[v] * Math.exp(-g * (j + offset) * this.dt);
+      }
     if (!history) return;
     for (const [v, past] of history) {
       const id = this.m.vars[v]?.id;

@@ -423,7 +423,7 @@ class KEngine implements KernelEngine {
     M.ledger.begin();
     M.cur.set(b.vars);
     M.initLevers();
-    M.initHistory(M.cur, b.history);
+    M.initHistory(M.cur, b.history, 0, b.trend);
     M.termVal.set(b.terms);
     M.desired.set(b.desired);
     M.evalLocks = M.lockMask();

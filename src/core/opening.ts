@@ -11,9 +11,11 @@
  *      the kernel fills so the instrument balances. No position may have the wrong sign;
  *   3. month 0 is evaluated: every variable the opening holds keeps its value while its rule is
  *      evaluated beside it (an identity, or a rule that does not adjust gradually, must give the
- *      same value); every other variable is evaluated, and one with a past starts at rest (flat:
- *      its value a month ago is its value now, a smoother sits at its target). `derive` and the
- *      anchor overrides are repeated with it until nothing moves;
+ *      same value); every other variable is evaluated, and one with a past starts at rest on its
+ *      trend (ModelDef.restTrend; flat without one, where a smoother sits at its desired value; on
+ *      a growing model's trend a trend-carrying smoother sits at its target). `derive` and the
+ *      anchor overrides are repeated with it until nothing moves, and every parameter the opening
+ *      sets, derives or solves must lie in its range;
  *   4. the start solve: the unknowns (the start gaps' sizes, mostly) are solved so that the
  *      targets, read from months 0 and 1, hold. A committed solution is only checked (the default
  *      when one is given), so page load costs one month-0 evaluation and one month;
@@ -25,6 +27,7 @@
  */
 import type {
   CalendarMonth,
+  Ctx,
   Id,
   IndicatorCtx,
   ModelDef,
@@ -164,7 +167,7 @@ export function lagReach(m: KModel, base: Baseline, opts: { lagWindow?: number }
     M.applyLevers();
     M.cur.set(base.vars);
     M.ledger.pos.set(base.positions);
-    M.initHistory(base.vars, base.history, 1);
+    M.initHistory(base.vars, base.history, 1, base.trend);
     M.baseVars = base.anchors ?? base.vars;
     M.t = -1;
     M.evaluate(new Uint8Array(m.NV).fill(1), new Float64Array(m.NV));
@@ -198,7 +201,10 @@ export const START_GAP_TERM = 'startGap';
  * creates `startGapBase.<target>` per target, that rule's month-0 value, which the opening sets.
  * The term on each target is startGap × (relative ? startGapBase : 1) × exp(−fade × t), with t in
  * years from month 0; on a rule with `combine` it is added after combining, and on a rule that
- * adjusts gradually it is part of the desired value. Without an opening every gap is 0.
+ * adjusts gradually it is part of the desired value. The rule's own regimes see its value without
+ * the gap and its own terms. The term's label states the half-life of the group's fade here, so an
+ * opening may not re-set `startGapFade.<group>` (openingBaseline rejects it). Without an opening
+ * every gap is 0.
  */
 export function withStartGaps(model: ModelDef, groups: Record<Id, StartGapGroup>): ModelDef {
   const errors: string[] = [];
@@ -267,15 +273,25 @@ export function withStartGaps(model: ModelDef, groups: Record<Id, StartGapGroup>
       };
       const combine = r.combine;
       const regime = r.regime;
+      // The share of the desired value a step moves the rule's value by: 1, or k for a rule that
+      // adjusts gradually (value = previous + k × (desired − previous)).
+      const speed = r.adjust?.speed;
+      const exponential = r.adjust?.form === 'exponential';
+      const moved = (c: Ctx) => {
+        if (speed === undefined) return 1;
+        const v = typeof speed === 'string' ? c.p(speed) : speed;
+        return exponential ? 1 - Math.exp(-v * c.dt) : v * c.dt;
+      };
       replacements.push({
         ...r,
         id: `startGap.${r.id}`,
         replaces: r.id,
-        params: [...new Set([...(r.params ?? []), gap, fadeId, ...(relative ? [baseId] : [])])],
+        params: [...new Set([...(r.params ?? []), gap, fadeId, ...(relative ? [baseId] : []), ...(typeof speed === 'string' ? [speed] : [])])],
         terms: [...own, term],
         compute: undefined,
         combine: combine ? (t, c) => combine(strip(t), c) + t[START_GAP_TERM] : undefined,
-        regime: regime ? (c, value, t) => regime(c, value, strip(t)) : undefined,
+        // the rule's own regimes see the value it would have without the gap, beside its own terms
+        regime: regime ? (c, value, t) => regime(c, value - moved(c) * t[START_GAP_TERM], strip(t)) : undefined,
         concepts: [...new Set([...(r.concepts ?? []), 'start-gap'])],
         explain: {
           what: r.explain.what,
@@ -322,9 +338,9 @@ export function withStartGaps(model: ModelDef, groups: Record<Id, StartGapGroup>
  * then check the committed solution (mode 'check', the default when one is given) or solve (mode
  * 'solve'). Throws with the numbers on a hard failure: an unknown id, a missing, duplicated or
  * wrong-signed position, a history shorter than the rules read, closed forms or rests that do not
- * settle, a rank or conditioning failure, a residual above 1e-9. Values a rule does not reproduce
- * and gated checks that fail are reported (openingFailures) rather than thrown, so a harness can
- * list them all.
+ * settle, a parameter outside its range or without its provenance, a rank or conditioning failure,
+ * a residual above 1e-9. Values a rule does not reproduce and gated checks that fail are reported
+ * (openingFailures) rather than thrown, so a harness can list them all.
  */
 export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, opts: OpeningOptions = {}): Opening {
   const { NP, NV } = m;
@@ -381,12 +397,22 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
   }
   const pBase = new Float64Array(anchor.pBase);
   const paramRecords = new Map<Id, Id[]>();
+  /** A parameter's value outside its ParamDef range, described; null inside it. */
+  const outOfRange = (id: Id, x: number): string | null => {
+    const def = m.params[pIdx(id)];
+    if (Number.isFinite(x) && !(def.min !== undefined && x < def.min) && !(def.max !== undefined && x > def.max)) return null;
+    return `'${id}' = ${fmt(x)}, outside its range [${def.min ?? '−∞'}, ${def.max ?? '∞'}]`;
+  };
   for (const [id, x] of Object.entries(state.params)) {
     const k = m.paramIndex.get(id);
     if (k === undefined) {
       errors.push(`parameter '${id}' is not in the model`);
       continue;
     }
+    if (id.startsWith('startGapFade.')) errors.push(`parameter '${id}' is how fast a start gap fades, which its term's label states; set the fade in withStartGaps, not in an opening`);
+    errors.push(...provenanceErrors(id, x.provenance));
+    const range = outOfRange(id, x.value);
+    if (range) errors.push(`parameter ${range}`);
     pBase[k] = x.value;
     if (x.records) paramRecords.set(id, x.records);
   }
@@ -410,6 +436,7 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
       const k = m.varIndex.get(u.var);
       if (k === undefined || !held[k]) errors.push(`unknown { var: '${u.var}' } is not a variable the opening holds (list it in vars)`);
     } else if (!m.paramIndex.has(u.param)) errors.push(`unknown { param: '${u.param}' } is not a parameter of the model`);
+    else if (u.param.startsWith('startGapFade.')) errors.push(`unknown { param: '${u.param}' }: a start gap's fade is set in withStartGaps, not solved`);
   });
   if (new Set(unknownIds).size !== unknownIds.length) errors.push('an unknown is listed twice');
   if (unknowns.length !== targets.length) errors.push(`the start solve has ${unknowns.length} unknowns and ${targets.length} targets; each target pairs with an unknown that moves it`);
@@ -425,8 +452,26 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
         if (!(id in state.params) && m.paramIndex.has(id)) autoBases.push({ k: pIdx(id), v: vIdx(t) });
       }
 
+  /** The trend each lagged variable without a history is at rest on (ModelDef.restTrend), or null
+   *  when the model declares none (then every such past is flat). */
+  const restTrend = m.def.restTrend;
+  const trendOf = (pb: Float64Array): Float64Array | null => {
+    if (!restTrend) return null;
+    const out = new Float64Array(NV);
+    const p = (id: Id) => pb[pIdx(id)];
+    let any = false;
+    for (let k = 0; k < NV; k++) {
+      if (!m.lagged[k] || history.has(k)) continue;
+      const g = restTrend(m.vars[k].id, p);
+      if (!Number.isFinite(g)) throw new Error(`${where}: restTrend gives '${m.vars[k].id}' a trend of ${g}`);
+      out[k] = g;
+      any ||= g !== 0;
+    }
+    return any ? out : null;
+  };
+
   /* history against how far back the rules read */
-  const reach = lagReach(m, { ...anchor, pBase, exoBase, positions, vars: V, history, anchors }, { lagWindow: opts.lagWindow });
+  const reach = lagReach(m, { ...anchor, pBase, exoBase, positions, vars: V, history, anchors, trend: trendOf(pBase) ?? undefined }, { lagWindow: opts.lagWindow });
   for (const [id, x] of Object.entries(state.vars)) {
     const r = reach.get(id) ?? 0;
     const have = x.history?.length ?? 0;
@@ -439,7 +484,7 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
   const NS = m.cstabilisers.length;
   const heldOut = new Float64Array(NV);
   const allHeld = new Uint8Array(NV).fill(1);
-  // variables with a past that the opening does not hold: flat, at rest
+  // variables with a past that the opening does not hold: at rest on their trend
   const rest: number[] = [];
   for (let k = 0; k < NV; k++) if (m.lagged[k] && !held[k] && !m.exogenous[k]) rest.push(k);
   const zeroTerms = new Float64Array(m.cterms.length);
@@ -458,7 +503,7 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
    *  computed from (the past at rest for `rest`), held variables kept. */
   const evaluateAt = (s: Month0, mask: number, h: Uint8Array) => {
     setUp(s.pBase, s.exo, s.vals, mask);
-    M.initHistory(s.past, history, 1);
+    M.initHistory(s.past, history, 1, s.trend ?? undefined);
     M.baseVars = s.anchors;
     M.baseTerms = zeroTerms;
     M.baseTermsByMask = null;
@@ -470,20 +515,35 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
     pBase: Float64Array;
     exo: Float64Array;
     vals: Float64Array;
+    /** Month 0 of the past each lagged variable without a history extends back from: on its
+     *  trend (`trend`), or flat. */
     past: Float64Array;
     anchors: Float64Array;
+    trend: Float64Array | null;
   }
   /** Month 0 with the given parameters and held values: the rests, the anchor overrides, the
    *  start gaps' bases and `derive`, repeated until nothing moves. */
   const settle = (pb0: Float64Array, vals0: Float64Array): Month0 => {
-    const st: Month0 = { pBase: new Float64Array(pb0), exo: new Float64Array(exoBase), vals: new Float64Array(vals0), past: new Float64Array(vals0), anchors: new Float64Array(anchors) };
+    const st: Month0 = { pBase: new Float64Array(pb0), exo: new Float64Array(exoBase), vals: new Float64Array(vals0), past: new Float64Array(vals0), anchors: new Float64Array(anchors), trend: trendOf(pb0) };
     const { pBase: pb, exo, vals, past, anchors: anc } = st;
-    // The rests and the month-0 anchors are a fixed point: x = G(x), with x the flat past of
-    // every variable at rest and the anchors read as month 0, and G(x) what month 0 evaluated
-    // from them gives (a smoother's target, any other variable's value). Anderson acceleration
-    // closes the slow modes plain iteration would take hundreds of rounds over; if it has not
-    // settled halfway through the rounds (a regime switching back and forth), plain iteration
-    // takes over.
+    /** Where month 0 of a variable at rest goes next: a smoother's resting value (its desired
+     *  value on a flat past; on a trend g, the x with x = (1 − k)·x·e^(−g·dt) + k·desired, which
+     *  for a growing model's trend-carrying smoother is its target), any other variable's value. */
+    const restNext = (k: number): number => {
+      const rule = m.ruleOfVar[k];
+      if (rule < 0 || !m.crules[rule].hasAdjust) return M.cur[k];
+      const g = st.trend?.[k] ?? 0;
+      if (g === 0) return M.desired[rule];
+      const cr = m.crules[rule];
+      const speed = cr.adjustParam >= 0 ? M.pEff[cr.adjustParam] : cr.adjustNum;
+      const a = cr.adjustExp ? 1 - Math.exp(-speed * M.dt) : speed * M.dt;
+      return (a * M.desired[rule]) / (1 - (1 - a) * Math.exp(-g * M.dt));
+    };
+    // The rests and the month-0 anchors are a fixed point: x = G(x), with x month 0 of the past
+    // of every variable at rest (flat, or on its trend) and the anchors read as month 0, and G(x)
+    // what month 0 evaluated from them gives (restNext). Anderson acceleration closes the slow
+    // modes plain iteration would take hundreds of rounds over; if it has not settled halfway
+    // through the rounds (a regime switching back and forth), plain iteration takes over.
     const nx = rest.length + month0Anchors.length;
     const x = new Float64Array(nx),
       g = new Float64Array(nx);
@@ -499,10 +559,7 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
       for (; r < REST_ROUNDS && moved > REST_TOL; r++) {
         evaluateAt(st, 0, held);
         moved = 0;
-        rest.forEach((k, i) => {
-          const rule = m.ruleOfVar[k];
-          g[i] = rule >= 0 && m.crules[rule].hasAdjust ? M.desired[rule] : M.cur[k];
-        });
+        rest.forEach((k, i) => (g[i] = restNext(k)));
         month0Anchors.forEach((k, i) => (g[rest.length + i] = M.cur[k]));
         for (let i = 0; i < nx; i++) moved = Math.max(moved, rel(g[i], x[i]));
         if (!Number.isFinite(moved)) break;
@@ -515,8 +572,7 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
       if (!(moved <= REST_TOL)) {
         const worst = rest
           .map((k) => {
-            const rule = m.ruleOfVar[k];
-            const x = rule >= 0 && m.crules[rule].hasAdjust ? M.desired[rule] : M.cur[k];
+            const x = restNext(k);
             return { id: m.vars[k].id, d: Number.isFinite(x) ? rel(x, past[k]) : Infinity };
           })
           .sort((a, b) => b.d - a.d)
@@ -550,6 +606,7 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
         }
       }
       if (changed <= DERIVE_TOL) return st;
+      st.trend = trendOf(pb);
       if (round >= DERIVE_ROUNDS) throw new Error(`${where}: the closed forms (derive) and start-gap bases still move by ${fmt(changed)} after ${DERIVE_ROUNDS} rounds`);
     }
   };
@@ -567,7 +624,7 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
   /** Months 1 … n from month 0, as the engine runs them (every padlock open, no events). */
   const run = (s: Month0, months: number): IndicatorCtx[] => {
     setUp(s.pBase, s.exo, s.vals, 0);
-    M.initHistory(M.cur, history);
+    M.initHistory(M.cur, history, 0, s.trend ?? undefined);
     M.baseVars = s.anchors;
     M.baseTerms = zeroTerms;
     M.baseTermsByMask = null;
@@ -709,6 +766,14 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
   const s: Month0 = last!;
   const solved: Record<Id, number> = {};
   unknownIds.forEach((id, i) => (solved[id] = z[i]));
+
+  /* every parameter the opening sets, derives or solves, inside its range */
+  const moved: string[] = [];
+  for (const id of new Set([...Object.keys(state.params), ...unknowns.flatMap((u) => ('param' in u ? [u.param] : []))])) {
+    const range = outOfRange(id, s.pBase[pIdx(id)]);
+    if (range) moved.push(`${range} (${state.params[id] ? `the opening gave ${fmt(state.params[id].value)}; ` : ''}derive or the start solve moved it)`);
+  }
+  if (moved.length) throw new Error(`${where}: parameters out of range:\n  - ${moved.join('\n  - ')}`);
 
   /* month 0 under every padlock configuration */
   const warnings: string[] = [];
@@ -852,6 +917,7 @@ export function openingBaseline(m: KModel, def: OpeningDef, anchor: Baseline, op
     byMask: NS ? byMask : undefined,
     regimes,
     history,
+    ...(s.trend ? { trend: s.trend } : {}),
     anchors: s.anchors,
     solved,
     method: 'opening',
@@ -871,6 +937,14 @@ export function openingFailures(r: OpeningReport): string[] {
     ...r.checks.filter((c) => c.gate && !c.pass).map((c) => (c.id.startsWith('rule:') ? `rule '${c.id.slice(5)}' gives ${fmt(c.value)} at month 0, against ${fmt(c.expected)}` : `check '${c.id}': ${fmt(c.value)} against ${fmt(c.expected)} ± ${fmt(c.tolerance)}`)),
     ...r.regimes.filter((x) => !x.onAnchor).map((x) => `'${x.rule}' is in regime “${x.regime}” at month 0${x.mask ? ` (padlocks ${x.mask})` : ''}, and not on the anchor`),
   ];
+}
+
+/** Model rule 5 for an opening's parameter: a provenance with a basis, and a source and a vintage
+ *  for data. */
+function provenanceErrors(id: Id, p: Provenance | undefined): string[] {
+  if (!p || !p.basis) return [`parameter '${id}' has no provenance`];
+  if (p.basis === 'data' && !(p.source?.trim() && p.vintage?.trim())) return [`parameter '${id}' is data, so its provenance needs a source and a vintage`];
+  return [];
 }
 
 /* --------------------------------------------------------------- positions */

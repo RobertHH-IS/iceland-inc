@@ -588,6 +588,11 @@ export interface ModelDef {
    *  and how they fade. Declared metadata for the opening report; the rules themselves carry the
    *  terms. */
   startGaps?: Record<Id, StartGapGroup>;
+  /** The trend a variable is at rest on, as log growth a year (default 0: at rest means flat).
+   *  An opening (opening.ts) puts the past of a variable it does not give a history on this
+   *  trend, so a rule that carries a known trend (a growing model's smoothers) starts with no gap
+   *  from it. `p` reads the opening's parameters. */
+  restTrend?: (variable: Id, p: (id: Id) => number) => number;
 }
 
 /* ------------------------------------------------------------------ openings */

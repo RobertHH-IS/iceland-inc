@@ -46,6 +46,10 @@ export interface Baseline {
   /** Months −1, −2, … by variable index, for a start with a past (a dated opening, opening.ts):
    *  reset() hands them to Machine.initHistory. Without it every lag before month 0 reads month 0. */
   history?: Map<number, Float64Array>;
+  /** The trend a variable's past lies on when `history` does not give it: log growth a year, by
+   *  variable index (ModelDef.restTrend). reset() hands it to Machine.initHistory. Without it the
+   *  past is flat. */
+  trend?: Float64Array;
   /** What Ctx.base and IndicatorCtx.base read: the structural anchor, by variable index.
    *  Defaults to `vars`, which is the anchor whenever the start is the anchor itself. */
   anchors?: Float64Array;

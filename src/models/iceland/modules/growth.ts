@@ -59,16 +59,34 @@ function normalFactor(id: string, target: string): string | undefined {
   return undefined;
 }
 
-/** Known-trend carry removes the spurious wedge of smoothing a growing level. */
-function carryRate(target: string, c: Ctx): number {
-  if (['domesticPrice', 'importPrice', 'labourCostSeen', 'importCostSeen', 'housingCost'].includes(target)) return Math.log1p(c.p('growthInflation'));
-  if (/^employment(?:FC|FR|XF|XA|XT|XO)$/.test(target)) return Math.log1p(c.p('growthPopulation'));
-  if (/^(investment(?:Plan)?(?:FC|FR|XF|XA|XT|XO)|profits(?:FC|FR|XF|XA|XT|XO)Smoothed)$/.test(target)) return Math.log1p(c.p('growthReal'));
-  if (/^consumption[YWO]$/.test(target)) return Math.log1p(c.p('growthReal')) + Math.log1p(c.p('growthInflation'));
+/** Known-trend carry removes the spurious wedge of smoothing a growing level: the trend a carried
+ *  smoother grows on, as log growth a year (0 for every other variable). It is also the model's
+ *  restTrend, so an opening puts a carried smoother's past on the same trend. */
+export function carryRate(target: string, p: (id: string) => number): number {
+  if (['domesticPrice', 'importPrice', 'labourCostSeen', 'importCostSeen', 'housingCost'].includes(target)) return Math.log1p(p('growthInflation'));
+  if (/^employment(?:FC|FR|XF|XA|XT|XO)$/.test(target)) return Math.log1p(p('growthPopulation'));
+  if (/^(investment(?:Plan)?(?:FC|FR|XF|XA|XT|XO)|profits(?:FC|FR|XF|XA|XT|XO)Smoothed)$/.test(target)) return Math.log1p(p('growthReal'));
+  if (/^consumption[YWO]$/.test(target)) return Math.log1p(p('growthReal')) + Math.log1p(p('growthInflation'));
   return 0;
 }
 const carried = (target: string) => ['domesticPrice', 'importPrice', 'labourCostSeen', 'importCostSeen', 'housingCost'].includes(target)
   || /^(employment(?:FC|FR|XF|XA|XT|XO)|investment(?:Plan)?(?:FC|FR|XF|XA|XT|XO)|profits(?:FC|FR|XF|XA|XT|XO)Smoothed|consumption[YWO])$/.test(target);
+
+/** The variables on a carried trend, each with the variable whose trend rate applies: every
+ *  variable the carry names (domestic prices, employment, investment, smoothed profits,
+ *  consumption), and every smoother with a trendCarry term, which a transform may have moved onto
+ *  a new variable (desired investment and jobs under the financing constraint carry the trend of
+ *  investment and jobs). */
+export function carriedTargets(model: ModelDef): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const v of model.modules.flatMap((m) => m.vars ?? [])) if (carried(v.id)) out.set(v.id, v.id);
+  for (const r of effectiveRules(model)) {
+    if (!r.adjust || out.has(r.target) || !r.terms?.some((t) => t.id === 'trendCarry')) continue;
+    const origin = r.target.replace('Desired', '');
+    if (carried(origin)) out.set(r.target, origin);
+  }
+  return out;
+}
 
 export function createGrowthModule(source: ModelDef, assumptions: GrowthAssumptions): ModuleDef {
   const originalParams = new Map(source.modules.flatMap((m) => m.params ?? []).map((p) => [p.id, p]));
@@ -119,7 +137,7 @@ export function createGrowthModule(source: ModelDef, assumptions: GrowthAssumpti
     if (carry) extra.push({ id: 'trendCarry', label: 'Carry the known trend while adjusting deviations', concept: 'gradual-adjustment', compute: (c) => {
       const speed = typeof r.adjust!.speed === 'string' ? c.p(r.adjust!.speed) : r.adjust!.speed;
       const k = r.adjust!.form === 'exponential' ? 1 - Math.exp(-speed * c.dt) : speed * c.dt;
-      return k > 0 ? (1 - k) / k * c.lag(r.target) * Math.expm1(carryRate(r.target, c) * c.dt) : 0;
+      return k > 0 ? (1 - k) / k * c.lag(r.target) * Math.expm1(carryRate(r.target, (id) => c.p(id)) * c.dt) : 0;
     } });
     if (exportSector) {
       const x0 = (r.params ?? []).find((id) => ['xFish', 'xAlu', 'xTour', 'xOther'].includes(id))!;

@@ -6,7 +6,7 @@ import type { Ctx, ModelDef } from '../../core/types.ts';
 import { concepts } from '../../concepts/library.ts';
 import { icelandModel } from './index.ts';
 import { FIRMS } from './util.ts';
-import { createGrowthModule, effectiveRules, GROWTH_DEFAULTS, GROWTH_PROFILE, growthAnchor, type GrowthAssumptions } from './modules/growth.ts';
+import { carriedTargets, carryRate, createGrowthModule, effectiveRules, GROWTH_DEFAULTS, GROWTH_PROFILE, growthAnchor, type GrowthAssumptions } from './modules/growth.ts';
 
 export { GROWTH_DEFAULTS, GROWTH_PROFILE } from './modules/growth.ts';
 export interface GrowingIcelandOptions extends Partial<GrowthAssumptions> {
@@ -48,7 +48,12 @@ export function createGrowingIcelandModel(options: GrowingIcelandOptions = {}): 
     // The stationary mechanism calibration remains attached only to the stationary control.
     calibration: [],
   };
-  return addConcepts(options.modelTransform ? options.modelTransform(model) : model);
+  const transformed = options.modelTransform ? options.modelTransform(model) : model;
+  // A smoother that carries a known trend is at rest on that trend, not flat (an opening's past,
+  // opening.ts); so is the variable whose trend it carries (a transform may move the smoother
+  // onto a new variable, as the financing constraint does with desired investment).
+  const trended = carriedTargets(transformed);
+  return addConcepts({ ...transformed, restTrend: (id, p) => (trended.has(id) ? carryRate(trended.get(id)!, p) : 0) });
 }
 
 /**

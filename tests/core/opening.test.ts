@@ -1,7 +1,9 @@
 /**
  * Dated openings (src/core/opening.ts; docs/design/today-opening.md §6, §8): the kernel side of
- * T1–T4, T8 and T9 on the fixture (tests/fixtures/opening.ts), the start solve's rank checks, the
- * start-gap helper and the engine's calendar and money unit.
+ * T1–T4, T8 and T9 on the fixture (tests/fixtures/opening.ts), the start solve's rank checks,
+ * parameter ranges and provenance, a past on a trend (ModelDef.restTrend) on a small model and on
+ * the growing Iceland variant, the start-gap helper, the lever report's start and the engine's
+ * calendar and money unit.
  */
 import { describe, expect, test } from 'bun:test';
 import { compile, type KModel } from '../../src/core/compile.ts';
@@ -10,7 +12,10 @@ import { halfLifeText, lagReach, openingBaseline, openingFailures, withStartGaps
 import { solveBaseline, type Baseline } from '../../src/core/steady.ts';
 import { lockAll, makeScenario, parseScenario, runScenario, stringifyScenario } from '../../src/core/scenario.ts';
 import { Anderson, symmetricEigenvalues } from '../../src/core/numerics.ts';
-import type { ModelDef, OpeningDef, OpeningState } from '../../src/core/types.ts';
+import type { Machine } from '../../src/core/machine.ts';
+import type { ModelDef, ModuleDef, OpeningDef, OpeningState } from '../../src/core/types.ts';
+import { param, rule, tinyModel, variable } from './fixtures.ts';
+import { leverBaseEngine } from '../../src/harness/lever-report.ts';
 import { createRegisteredEngine } from '../../src/models/index.ts';
 import { referenceModel } from '../../src/models/reference/index.ts';
 import { growingFinancialModel } from '../../src/models/iceland/growing-financial.ts';
@@ -158,7 +163,8 @@ describe('T2: month 0 holds together', () => {
 
   test('variables with a past that the opening does not hold start at rest', () => {
     const e = engine();
-    // a smoother sits at its target; a flow read a month back reads its own month-0 value
+    // the fixture declares no trend (ModelDef.restTrend), so the past is flat: a smoother sits at
+    // its target, and a flow read a month back reads its own month-0 value
     const r = m.ruleOfVar[m.varIndex.get('employment')!];
     expect(Math.abs(e.value('employment') - opening.desired[r])).toBeLessThan(1e-11);
     expect(e.value('normalProfit')).toBeCloseTo(e.value('firmProfit'), 10);
@@ -168,6 +174,208 @@ describe('T2: month 0 holds together', () => {
     const r = opening.report.recordsUsed;
     expect(r).toEqual([...r].sort());
     for (const id of ['fix.depositsHH', 'fix.cpiYoY', 'fix.inflationTarget', 'fix.wageYoY', 'fix.gdp', 'fix.cbEquity']) expect(r).toContain(id);
+  });
+});
+
+describe('parameters the opening sets: range and provenance', () => {
+  /** Fixtureland with ranges on two parameters (the reference economy declares none). */
+  const ranged = (max: number): KModel =>
+    compile({
+      ...fixtureModel,
+      modules: fixtureModel.modules.map((mod) => ({
+        ...mod,
+        params: mod.params?.map((p) => (p.id === 'inflationTarget' ? { ...p, min: 0, max: 0.1 } : p.id === 'neutralRate' ? { ...p, min: -0.05, max } : p)),
+      })),
+    });
+  const neutral = opening.report.params.find((x) => x.id === 'neutralRate')!.value;
+  test('inside its range the opening loads; a parameter set outside it stops the build, named with its range', () => {
+    const km = ranged(0.15);
+    expect(openingFailures(openingBaseline(km, fixtureOpening(), solveBaseline(km)).report)).toEqual([]);
+    expect(() => openingBaseline(km, edited((s) => (s.params.inflationTarget.value = 0.5)), solveBaseline(km))).toThrow(/parameter 'inflationTarget' = 0\.500000, outside its range \[0, 0\.1\]/);
+  });
+  test('a value derive gives is checked too, and the message says derive moved it', () => {
+    const km = ranged(neutral - 0.001);
+    expect(() => openingBaseline(km, fixtureOpening(), solveBaseline(km))).toThrow(/'neutralRate' = .*outside its range \[-0\.05, .*derive or the start solve moved it/);
+  });
+  test('a parameter from data needs a source and a vintage; every parameter needs a basis', () => {
+    const p = (prov: object) => edited((s) => (s.params.inflationTarget.provenance = prov as never));
+    expect(() => build(p({ basis: 'data' }))).toThrow(/parameter 'inflationTarget' is data, so its provenance needs a source and a vintage/);
+    expect(() => build(p({ basis: 'data', source: 'fix.inflationTarget' }))).toThrow(/needs a source and a vintage/);
+    expect(() => build(p({}))).toThrow(/parameter 'inflationTarget' has no provenance/);
+    expect(() => build(p({ basis: 'assumed', note: 'a bridge' }))).not.toThrow();
+  });
+  test('a start gap’s fade is fixed with its label: an opening may not set or solve it', () => {
+    expect(() => build(edited((s) => (s.params['startGapFade.wage'] = { value: 2, provenance: { basis: 'assumed' } })))).toThrow(/'startGapFade.wage' is how fast a start gap fades/);
+    expect(() => build(edited((s) => s.solve!.unknowns.splice(0, 1, { param: 'startGapFade.wage' })))).toThrow(/a start gap's fade is set in withStartGaps, not solved/);
+  });
+});
+
+/** A small model with one smoother that carries a known trend, as the growing Iceland variant's do:
+ *  it closes part of its gap to a target growing at g a year each step, plus (1 − k)/k × its last
+ *  value × (e^(g·dt) − 1), which keeps it on the target's path once it is there. */
+function trendModel(opts: { substeps?: number; restTrend?: boolean; exponential?: boolean } = {}): ModelDef {
+  const g = 0.03;
+  const trend: ModuleDef = {
+    id: 'trend',
+    label: 'Trend',
+    description: 'A smoother carrying a known trend.',
+    vars: [variable('trendIndex', 1, 'index'), variable('seen', 10, 'state')],
+    params: [param('trendRate', g), { ...param('seenSpeed', 3), unit: 'per year' }],
+    rules: [
+      rule({ id: 'trendIndex', target: 'trendIndex', params: ['trendRate'], compute: (c) => Math.exp(c.p('trendRate') * (c.t + c.dt)) }),
+      rule({
+        id: 'seen',
+        target: 'seen',
+        inputs: ['trendIndex'],
+        lagInputs: ['seen'],
+        params: ['level', 'trendRate', 'seenSpeed'],
+        adjust: { speed: 'seenSpeed', form: opts.exponential ? 'exponential' : 'linear' },
+        terms: [
+          { id: 'target', label: 'The growing target', compute: (c) => c.p('level') * c.v('trendIndex') },
+          {
+            id: 'trendCarry',
+            label: 'Carry the known trend',
+            compute: (c) => {
+              const k = opts.exponential ? 1 - Math.exp(-c.p('seenSpeed') * c.dt) : c.p('seenSpeed') * c.dt;
+              return ((1 - k) / k) * c.lag('seen') * Math.expm1(c.p('trendRate') * c.dt);
+            },
+          },
+        ],
+      }),
+    ],
+  };
+  const base = tinyModel([trend]);
+  return { ...base, substeps: opts.substeps, ...(opts.restTrend === false ? {} : { restTrend: (id, p) => (id === 'seen' ? p('trendRate') : 0) }) };
+}
+const trendOpening: OpeningDef = {
+  id: 'trend-today',
+  label: 'Trend',
+  asOf: '2026-09-30',
+  description: 'test',
+  build: () => ({
+    stocks: [
+      { at: ['deposits', 'HH'], value: 50, source: { basis: 'data' } },
+      { at: ['reserves', 'B'], value: 5, source: { basis: 'data' } },
+      { at: ['tsy', 'G'], value: 5, source: { basis: 'data' } },
+    ],
+    fills: { deposits: 'B', reserves: 'CB', tsy: 'CB' },
+    vars: {},
+    params: {},
+    checks: [],
+  }),
+};
+
+describe('a past on a trend (ModelDef.restTrend)', () => {
+  const level = 10,
+    g = 0.03;
+  for (const substeps of [1, 2])
+    for (const exponential of [false, true])
+      test(`a smoother at rest sits at its target and stays on the target's path (${substeps} step${substeps > 1 ? 's' : ''} a month, ${exponential ? 'exponential' : 'linear'})`, () => {
+        const km = compile(trendModel({ substeps, exponential }));
+        const o = openingBaseline(km, trendOpening, solveBaseline(km));
+        const k = km.varIndex.get('seen')!;
+        expect(o.trend![k]).toBe(g);
+        expect(Math.abs(o.vars[k] / level - 1)).toBeLessThan(1e-12);
+        expect(openingFailures(o.report)).toEqual([]);
+        const e = createEngine(km, { baseline: o });
+        e.step(24);
+        for (let t = 0; t <= 24; t++) expect(Math.abs(e.valueAt('seen', t) / (level * Math.exp((g * t) / 12)) - 1)).toBeLessThan(1e-12);
+      });
+
+  test('without the trend the past is flat, and the carry leaves the smoother above its target', () => {
+    const km = compile(trendModel({ restTrend: false }));
+    const o = openingBaseline(km, trendOpening, solveBaseline(km));
+    expect(o.trend).toBeUndefined();
+    const k = 3 / 12;
+    // at rest on a flat past: x = target + (1 − k)/k × x × (e^(g·dt) − 1)
+    const flat = level / (1 - ((1 - k) / k) * Math.expm1(g / 12));
+    expect(o.vars[km.varIndex.get('seen')!]).toBeCloseTo(flat, 12);
+    expect(flat / level - 1).toBeGreaterThan(0.007);
+  });
+
+  test('the engine reads the same past: a lag of a month at month 0 reads the trend, not month 0', () => {
+    const km = compile(trendModel({ substeps: 2 }));
+    const e = createEngine(km, { baseline: openingBaseline(km, trendOpening, solveBaseline(km)) });
+    const M = (e as unknown as { M: Machine }).M;
+    const seen = km.varIndex.get('seen')!;
+    // the head holds month 0; one and two sub-steps back lie on the trend, and so does every slot
+    expect(M.lagValue(seen, 1)).toBe(e.value('seen'));
+    expect(M.lagValue(seen, 2)).toBeCloseTo(e.value('seen') * Math.exp(-g / 24), 14);
+    expect(M.lagValue(seen, 3)).toBeCloseTo(e.value('seen') * Math.exp(-g / 12), 14);
+    expect(M.lagValue(seen, M.K)).toBeCloseTo(e.value('seen') * Math.exp((-g * (M.K - 1)) / 24), 14);
+    // a variable without a trend keeps a flat past
+    expect(M.lagValue(km.varIndex.get('trendIndex')!, 3)).toBe(e.value('trendIndex'));
+  });
+});
+
+describe('the growing Iceland variant opened on its own anchor', () => {
+  // As B builds iceland-today: the anchor's positions, the accumulators held (rules that read
+  // their own past and do not adjust) and the variables read more than a month back held with a
+  // flat history; every other lagged variable starts at rest.
+  const def = growingFinancialModel;
+  const growing = initialBaselineForGrowingModel(def);
+  const copyOf = (km: KModel, hold: (k: number) => boolean): { def: OpeningDef; vars: OpeningState['vars'] } => {
+    const reach = lagReach(km, growing);
+    const signed = (j: number) => (km.role[j] === 2 ? -growing.positions[j] : growing.positions[j]);
+    const fills: Record<string, string> = {};
+    const stocks: OpeningState['stocks'] = [];
+    km.instruments.forEach((ins, i) => {
+      const fill = ins.kind === 'financial' ? km.playerIndex.get(ins.issuers.length === 1 ? ins.issuers[0] : ins.holders.length === 1 ? ins.holders[0] : ins.issuers[0])! : -1;
+      if (fill >= 0) fills[ins.id] = km.players[fill].id;
+      km.players.forEach((p, q) => {
+        const j = i * km.NP + q;
+        if (km.role[j] && q !== fill) stocks.push({ at: [ins.id, p.id], value: signed(j), source: { basis: 'data' } });
+      });
+    });
+    const vars: OpeningState['vars'] = {};
+    km.vars.forEach((v, k) => {
+      if (km.ruleOfVar[k] < 0 || !hold(k)) return;
+      const deep = reach.get(v.id) ?? 0;
+      vars[v.id] = { value: growing.vars[k], history: deep > 1 ? Array(deep).fill(growing.vars[k]) : undefined, source: { basis: 'data' } };
+    });
+    return { def: { id: 'growing-copy', label: 'copy', asOf: '2026-09-30', description: 'test', build: () => ({ stocks, fills, vars, params: {}, checks: [] }) }, vars };
+  };
+  const accumulators = (km: KModel) => (k: number) => {
+    const cr = km.crules[km.ruleOfVar[k]];
+    return (cr.lagInputs.includes(k) && !cr.hasAdjust) || (lagReach(km, growing).get(km.vars[k].id) ?? 0) > 1;
+  };
+  /** Every smoother with a trendCarry term that the opening leaves at rest: its value at month 0
+   *  against its target (its desired value less the carry). */
+  const carried = (km: KModel, o: Opening, held: OpeningState['vars']) =>
+    km.crules.flatMap((cr) => {
+      const j = km.termKeyIndex.get(`${cr.def.target}.trendCarry`);
+      if (j === undefined || held[cr.def.target]) return [];
+      return [{ id: cr.def.target, gap: o.vars[km.varIndex.get(cr.def.target)!] / (o.desired[cr.idx] - o.terms[j]) - 1 }];
+    });
+
+  test('every trend-carrying smoother at rest sits at its target; with a flat past it would not', () => {
+    const km = compile(def);
+    const od = copyOf(km, accumulators(km));
+    const o = openingBaseline(km, od.def, growing);
+    const rows = carried(km, o, od.vars);
+    expect(rows.length).toBe(31);
+    for (const r of rows) expect({ id: r.id, gap: Math.abs(r.gap) < 1e-9 }).toEqual({ id: r.id, gap: true });
+    // the same opening on a flat past: consumption 6.8% and housing costs 5.1% above their targets
+    const flat = compile({ ...def, restTrend: undefined });
+    const fd = copyOf(flat, accumulators(flat));
+    const worst = Math.max(...carried(flat, openingBaseline(flat, fd.def, growing), fd.vars).map((r) => Math.abs(r.gap)));
+    expect(worst).toBeGreaterThan(0.05);
+  });
+
+  test('holding every value, the opening runs as the growing engine: bit for bit on a flat past', () => {
+    const flat = compile({ ...def, restTrend: undefined });
+    const o = openingBaseline(flat, copyOf(flat, () => true).def, growing);
+    for (const locked of [false, true]) {
+      const a = createEngine(flat, { baseline: o }),
+        b = createEngine(flat, { baseline: growing });
+      if (locked) {
+        lockAll(a);
+        lockAll(b);
+      }
+      a.step(24);
+      b.step(24);
+      for (let t = 0; t <= 24; t++) for (const v of flat.vars) if (!Object.is(a.valueAt(v.id, t), b.valueAt(v.id, t))) throw new Error(`${v.id} at month ${t}${locked ? ' (locked)' : ''}`);
+    }
   });
 });
 
@@ -318,6 +526,20 @@ describe('T9: models without an opening are unchanged', () => {
   });
 });
 
+describe('the lever report starts from the opening', () => {
+  test('a model with an opening: its runs start from the opening, not the steady state', () => {
+    const e = leverBaseEngine(fixtureModel);
+    expect(e.opening?.id).toBe(FIXTURE_OPENING_ID);
+    expect(e.value('keyRate')).toBe(d.keyRate);
+    expect(e.value('price')).toBe(d.price);
+    expect(e.baselineData.vars).toEqual(opening.vars);
+    // a model without one starts from its steady state, as before
+    const plain = leverBaseEngine(referenceModel);
+    expect(plain.opening).toBeNull();
+    expect(plain.baselineData.vars).toEqual(createEngine(referenceModel).baselineData.vars);
+  });
+});
+
 describe('withStartGaps', () => {
   const gapped = withStartGaps(referenceModel, { wage: { targets: ['wageGrowth'], fade: 1, scale: 'absolute' }, spending: { targets: ['consumption', 'investmentPlan'], fade: 0.5, scale: 'relative' } });
   const km = compile(gapped);
@@ -346,6 +568,40 @@ describe('withStartGaps', () => {
     expect(w.influences('wageGrowth').terms.find((x) => x.id === 'startGap')!.baseline).toBe(0);
     w.step(1);
     expect(w.value('wageGrowth')).toBeCloseTo(0.01 * Math.exp(-1 / 12), 12);
+  });
+
+  test('the rule’s own regimes see its value without the gap', () => {
+    // a rule that names a regime whenever its value leaves its own terms' sum, and a smoother
+    // that names one whenever its value is not the step its own target alone would give
+    const probe = (adjust: boolean): ModuleDef => ({
+      id: 'probe',
+      label: 'Probe',
+      description: 'test',
+      vars: [variable('probe', 1, 'state')],
+      params: [param('probeLevel', 1), { ...param('probeSpeed', 2), unit: 'per year' }],
+      rules: [
+        rule({
+          id: 'probe',
+          target: 'probe',
+          params: ['probeLevel', 'probeSpeed'],
+          lagInputs: ['probe'],
+          ...(adjust ? { adjust: { speed: 'probeSpeed' } } : {}),
+          terms: [{ id: 'own', label: 'Own', compute: (c) => c.p('probeLevel') }],
+          regime: (c, value, t) => {
+            const want = adjust ? c.lag('probe') + c.p('probeSpeed') * c.dt * (t.own - c.lag('probe')) : t.own;
+            return Math.abs(value - want) > 1e-12 ? 'Off its own rule' : null;
+          },
+        }),
+      ],
+    });
+    for (const adjust of [false, true]) {
+      const e = createEngine(withStartGaps(tinyModel([probe(adjust)]), { p: { targets: ['probe'], fade: 1, scale: 'absolute' } }), { forkParams: { 'startGap.p': 0.5 } });
+      e.step(3);
+      expect(e.influences('probe').terms.find((x) => x.id === 'startGap')!.value).not.toBe(0);
+      expect(e.value('probe')).not.toBeCloseTo(1, 3);
+      const r = e.model.crules.findIndex((cr) => cr.def.target === 'probe');
+      for (let t = 1; t <= 3; t++) expect(e.regimesAt(t)[r]).toBeNull();
+    }
   });
 
   test('a start gap goes on BEHAVIOUR rules only, never on a stock, and once per rule', () => {
