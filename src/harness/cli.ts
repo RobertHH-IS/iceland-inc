@@ -9,12 +9,15 @@
  * Implausible values and wrong-signed positions in the property runs, the lever-extremes sweep
  * and the golden scenarios are failures (decision 0005); only a model's declared exemptions
  * (InstrumentDef.mayGoNegative) are left out.
+ * Every application model with a dated opening also runs the layer `opening` (T1–T3, T7, T8 of
+ * docs/design/today-opening.md) and writes reports/opening-<modelId>.md.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { models } from '../models/index.ts';
+import { applicationModels, models } from '../models/index.ts';
 import { runHarness, type HarnessOptions } from './layers.ts';
 import { renderReport } from './report.ts';
+import { renderOpeningReport, runOpeningLayer } from './opening.ts';
 
 const root = resolve(import.meta.dir, '..', '..');
 const args = process.argv.slice(2);
@@ -35,7 +38,8 @@ const opts: HarnessOptions = {
 };
 const only = option('--model');
 const selected = only ? models.filter((m) => m.id === only) : models;
-if (only && !selected.length) {
+const openings = applicationModels.filter((m) => m.opening && (!only || m.id === only));
+if (only && !selected.length && !openings.length) {
   console.error(`no model '${only}' in src/models/index.ts (have: ${models.map((m) => m.id).join(', ')})`);
   process.exit(1);
 }
@@ -59,6 +63,16 @@ for (const def of selected) {
   console.log(`\n${def.id}  ${def.label}`);
   for (const l of result.layers) console.log(`  ${l.n} ${l.title.padEnd(14)} ${l.pass ? 'PASS' : 'FAIL'}  ${l.summary}`);
   console.log(`  step time ${result.microsPerStep.toFixed(1)} µs a month (${def.substeps ?? 1} kernel step(s)); harness ${((performance.now() - t0) / 1000).toFixed(1)} s; report ${path.slice(root.length + 1)}`);
+}
+for (const def of openings) {
+  const t0 = performance.now();
+  const result = runOpeningLayer(def);
+  const path = join(root, 'reports', `opening-${def.id}.md`);
+  writeFileSync(path, renderOpeningReport(result));
+  allPass &&= result.pass;
+  console.log(`\n${def.id}  ${def.label}: opening`);
+  for (const r of result.rows) console.log(`  ${r.id.padEnd(3)} ${r.title.padEnd(34)} ${r.pass ? 'PASS' : 'FAIL'}  ${r.detail.slice(0, 160)}`);
+  console.log(`  opening layer ${((performance.now() - t0) / 1000).toFixed(1)} s; report ${path.slice(root.length + 1)}`);
 }
 console.log(`\n${allPass ? 'ALL PASS' : 'FAILURES: see the reports'}`);
 process.exit(allPass ? 0 : 1);

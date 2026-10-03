@@ -15,7 +15,7 @@ Step time: printed by `bun run harness`, not stored here since it depends on the
 
 ## 1. Compilation: PASS
 
-Compiled: 14 players, 16 instruments, 418 variables, 396 parameters, 418 rules, 58 flows (211 legs), 27 levers, 55 indicators, 68 concepts.
+Compiled: 14 players, 16 instruments, 418 variables, 396 parameters, 418 rules, 58 flows (211 legs), 27 levers, 55 indicators, 69 concepts.
 
 Schedule: 369 blocks, 1 simultaneous: [grossIncomeY, netLabourIncomeY, propertyIncomeY, consumptionY, grossIncomeW, netLabourIncomeW, propertyIncomeW, consumptionW, grossIncomeO, netLabourIncomeO, propertyIncomeO, consumptionO, consumption, realConsumption, importsConsumer, importsInputsFR, importsInputsFC, importsInputs, importVolume, output, salesFC, constructionInputs, profitsFC, valueAddedFC, dividendsFC, profitsFR, valueAddedFR, dividendsFR, dividendsFC_HY, dividendsFC_HW, dividendsFC_HO, dividendsFR_HY, dividendsFR_HW, dividendsFR_HO, employmentFC, employmentFR, employmentTotal, employmentY, unemployedY, employmentW, unemployedW, employmentO, unemployedO, unemploymentBenefitsY, unemploymentBenefitsW, unemploymentBenefitsO, vat, incomeTaxY, incomeTaxW, incomeTaxO].
 

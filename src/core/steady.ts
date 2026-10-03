@@ -43,8 +43,14 @@ export interface Baseline {
    *  padlock differ; the state does not. */
   byMask?: { terms: Float64Array; desired: Float64Array }[];
   regimes: (string | null)[];
+  /** Months −1, −2, … by variable index, for a start with a past (a dated opening, opening.ts):
+   *  reset() hands them to Machine.initHistory. Without it every lag before month 0 reads month 0. */
+  history?: Map<number, Float64Array>;
+  /** What Ctx.base and IndicatorCtx.base read: the structural anchor, by variable index.
+   *  Defaults to `vars`, which is the anchor whenever the start is the anchor itself. */
+  anchors?: Float64Array;
   solved: Record<Id, number>;
-  method: 'newton' | 'closed-form + newton' | 'none';
+  method: 'newton' | 'closed-form + newton' | 'none' | 'opening';
   iterations: number;
   /** Largest residual of the fixed-point and target equations at the solution. */
   residual: number;

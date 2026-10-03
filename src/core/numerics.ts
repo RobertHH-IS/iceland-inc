@@ -88,3 +88,110 @@ export const sumSq = (a: ArrayLike<number>): number => {
   for (let i = 0; i < a.length; i++) s += a[i] * a[i];
   return Number.isNaN(s) ? Infinity : s;
 };
+
+/** Eigenvalues of a symmetric n×n matrix (row-major), by cyclic Jacobi rotations, in ascending
+ *  order. For the small matrices of the opening solve's conditioning check. A is not modified. */
+export function symmetricEigenvalues(A: Float64Array, n: number): number[] {
+  const a = new Float64Array(A);
+  for (let sweep = 0; sweep < 100; sweep++) {
+    let off = 0,
+      diag = 0;
+    for (let i = 0; i < n; i++)
+      for (let j = 0; j < n; j++) {
+        if (i === j) diag += a[i * n + i] * a[i * n + i];
+        else off += a[i * n + j] * a[i * n + j];
+      }
+    if (!(off > 1e-30 * diag) || !Number.isFinite(off)) break;
+    for (let p = 0; p < n - 1; p++)
+      for (let q = p + 1; q < n; q++) {
+        const apq = a[p * n + q];
+        if (apq === 0) continue;
+        const theta = (a[q * n + q] - a[p * n + p]) / (2 * apq);
+        const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+        const c = 1 / Math.sqrt(t * t + 1),
+          s = t * c;
+        for (let k = 0; k < n; k++) {
+          const akp = a[k * n + p],
+            akq = a[k * n + q];
+          a[k * n + p] = c * akp - s * akq;
+          a[k * n + q] = s * akp + c * akq;
+        }
+        for (let k = 0; k < n; k++) {
+          const apk = a[p * n + k],
+            aqk = a[q * n + k];
+          a[p * n + k] = c * apk - s * aqk;
+          a[q * n + k] = s * apk + c * aqk;
+        }
+      }
+  }
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) out.push(a[i * n + i]);
+  return out.sort((x, y) => x - y);
+}
+
+/**
+ * Anderson acceleration of a fixed-point iteration x = G(x) (Walker & Ni 2011): each step mixes
+ * the last few iterates so that a slow linear mode, which plain iteration closes a few percent a
+ * step, is closed in a handful of steps. `weights` scale the residuals (1 ÷ a typical size).
+ */
+export class Anderson {
+  private X: Float64Array[] = [];
+  private G: Float64Array[] = [];
+  constructor(
+    readonly n: number,
+    readonly depth = 5,
+    readonly weights?: Float64Array,
+  ) {}
+
+  reset(): void {
+    this.X = [];
+    this.G = [];
+  }
+
+  /** The next iterate, given the current one and its image G(x). */
+  next(x: ArrayLike<number>, g: ArrayLike<number>): Float64Array {
+    const { n, weights: w } = this;
+    this.X.push(Float64Array.from(x));
+    this.G.push(Float64Array.from(g));
+    if (this.X.length > this.depth + 1) {
+      this.X.shift();
+      this.G.shift();
+    }
+    const k = this.X.length;
+    const plain = Float64Array.from(g);
+    if (k < 2) return plain;
+    const mm = k - 1;
+    const F = (j: number, i: number) => this.G[j][i] - this.X[j][i];
+    // least squares: min ‖W (F_last − ΔF γ)‖, by the normal equations with a little ridge
+    const A = new Float64Array(mm * mm);
+    const b = new Float64Array(mm);
+    for (let i = 0; i < n; i++) {
+      const wi = w ? w[i] * w[i] : 1;
+      const fl = F(k - 1, i);
+      for (let a = 0; a < mm; a++) {
+        const da = F(a + 1, i) - F(a, i);
+        b[a] += wi * da * fl;
+        for (let c = a; c < mm; c++) A[a * mm + c] += wi * da * (F(c + 1, i) - F(c, i));
+      }
+    }
+    let trace = 0;
+    for (let a = 0; a < mm; a++) {
+      for (let c = 0; c < a; c++) A[a * mm + c] = A[c * mm + a];
+      trace += A[a * mm + a];
+    }
+    for (let a = 0; a < mm; a++) A[a * mm + a] += 1e-12 * (trace / mm) + 1e-300;
+    const gamma = solveLinear(A, b, mm);
+    if (!gamma) {
+      this.reset();
+      return plain;
+    }
+    const out = Float64Array.from(this.G[k - 1]);
+    for (let a = 0; a < mm; a++) for (let i = 0; i < n; i++) out[i] -= gamma[a] * (this.G[a + 1][i] - this.G[a][i]);
+    for (let i = 0; i < n; i++)
+      if (!Number.isFinite(out[i])) {
+        this.reset();
+        return plain;
+      }
+    return out;
+  }
+}

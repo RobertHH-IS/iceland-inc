@@ -23,8 +23,9 @@ export function lockAll(e: Pick<Engine, 'model' | 'setLever'>, locked = true): v
   for (const x of lockAllEvents(e.model, 0, locked)) e.setLever(x.lever, x.value);
 }
 
-export function makeScenario(modelId: Id, events: ScenarioEvent[], months: number): Scenario {
-  return { modelId, events: events.map((e) => ({ ...e })), months };
+/** A scenario; `opening` records the dated opening it was made from (ModelDef.opening's id). */
+export function makeScenario(modelId: Id, events: ScenarioEvent[], months: number, opening?: Id): Scenario {
+  return { modelId, events: events.map((e) => ({ ...e })), months, ...(opening ? { opening } : {}) };
 }
 
 /** Serialise with a format tag (the scenario's own version, the current one unless it says
@@ -32,7 +33,7 @@ export function makeScenario(modelId: Id, events: ScenarioEvent[], months: numbe
 export function stringifyScenario(s: Scenario): string {
   const events = [...s.events].sort((a, b) => a.t - b.t).map((e) => (e.fire ? { t: e.t, lever: e.lever, value: e.value, fire: true } : { t: e.t, lever: e.lever, value: e.value }));
   const format = `iceland-inc/scenario@${s.version ?? SCENARIO_VERSION}`;
-  return JSON.stringify({ format, modelId: s.modelId, months: s.months, events }, null, 2);
+  return JSON.stringify({ format, modelId: s.modelId, ...(s.opening ? { opening: s.opening } : {}), months: s.months, events }, null, 2);
 }
 
 /** Parse and validate the shape of a scenario file (lever ids are checked by the engine). The
@@ -54,7 +55,8 @@ export function parseScenario(text: string): Scenario {
     if (typeof e.t !== 'number' || typeof e.lever !== 'string' || typeof e.value !== 'number') throw new Error(`scenario event ${j + 1} needs t, lever and value`);
     return e.fire ? { t: e.t, lever: e.lever, value: e.value, fire: true } : { t: e.t, lever: e.lever, value: e.value };
   });
-  return { modelId: x.modelId, months: x.months, events, version };
+  if (x.opening !== undefined && typeof x.opening !== 'string') throw new Error('scenario opening must be an opening id');
+  return { modelId: x.modelId, months: x.months, events, version, ...(typeof x.opening === 'string' ? { opening: x.opening } : {}) };
 }
 
 /**

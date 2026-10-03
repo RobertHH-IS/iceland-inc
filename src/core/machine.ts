@@ -169,8 +169,12 @@ export class Machine {
    * month fills N slots. Slots older than the history given keep its oldest value. Without a
    * history every slot holds `now`, which is exactly right for a steady state (it has no past to
    * speak of) and what a start from data extends (docs/design/start-from-today.md §2.5).
+   *
+   * `offset` (sub-steps, default 0) shifts the ring back: with 1, the head holds sub-step −1, so an
+   * evaluation reads the lags month 0 itself was computed from (the opening's month-0 evaluation,
+   * opening.ts). Variables without a history are flat at `now` either way.
    */
-  initHistory(now: Float64Array, history?: ReadonlyMap<number, ArrayLike<number>>): void {
+  initHistory(now: Float64Array, history?: ReadonlyMap<number, ArrayLike<number>>, offset = 0): void {
     const { K, NV, N, ring } = this;
     this.head = 0;
     for (let s = 0; s < K; s++) ring.set(now, s * NV);
@@ -183,10 +187,12 @@ export class Machine {
       if (!past.length) continue;
       // month −q's value (q = 0 is `now`), held at the oldest month given
       const month = (q: number) => (q === 0 ? now[v] : past[Math.min(q, past.length) - 1]);
-      // slot of sub-step −j is head − j (mod K); the head (month 0) holds `now`
-      for (let j = 1; j < K; j++) {
-        const q = Math.floor(j / N),
-          w = (j % N) / N;
+      // slot head − j (mod K) holds sub-step −(j + offset); without an offset the head (month 0)
+      // holds `now` already
+      for (let j = offset === 0 ? 1 : 0; j < K; j++) {
+        const s = j + offset;
+        const q = Math.floor(s / N),
+          w = (s % N) / N;
         ring[((K - j) % K) * NV + v] = w === 0 ? month(q) : (1 - w) * month(q) + w * month(q + 1);
       }
     }
@@ -314,8 +320,13 @@ export class Machine {
     return mask;
   }
 
-  /** Evaluate the whole schedule for this step. */
-  evaluate(): void {
+  /**
+   * Evaluate the whole schedule for this step. With `held` (by variable index, 1 = held), a held
+   * variable keeps its current value: its rule is still evaluated, so its terms, desired value and
+   * regime are recorded, and the value the rule gives is written to `heldOut` instead (the opening's
+   * month-0 evaluation, opening.ts). Without it every rule sets its variable.
+   */
+  evaluate(held?: Uint8Array, heldOut?: Float64Array): void {
     const { m, cur } = this;
     this.evalLocks = this.lockMask();
     if (this.baseTermsByMask) this.baseTerms = this.baseTermsByMask[this.evalLocks];
@@ -323,8 +334,21 @@ export class Machine {
     for (const b of m.blocks) {
       if (!b.simultaneous) {
         const cr = m.crules[b.rules[0]];
-        cur[cr.target] = this.evalRule(cr);
-      } else iters = Math.max(iters, this.solveBlock(b.rules));
+        const v = this.evalRule(cr);
+        if (held && held[cr.target]) {
+          if (heldOut) heldOut[cr.target] = v;
+        } else cur[cr.target] = v;
+      } else if (!held) iters = Math.max(iters, this.solveBlock(b.rules));
+      else {
+        const free = b.rules.filter((r) => !held[m.crules[r].target]);
+        if (free.length) iters = Math.max(iters, this.solveBlock(free));
+        for (const r of b.rules) {
+          const cr = m.crules[r];
+          if (!held[cr.target]) continue;
+          const v = this.evalRule(cr);
+          if (heldOut) heldOut[cr.target] = v;
+        }
+      }
     }
     this.lastIterations = iters;
     for (const cr of m.crules) if (cr.def.regime) this.regimes[cr.idx] = this.regimeOf(cr);

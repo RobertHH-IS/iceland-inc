@@ -576,6 +576,178 @@ export interface ModelDef {
   /** How to migrate scenarios written for the model's old global stabiliser setting (scenario
    *  format 1). Without it, old scenarios load unchanged. */
   legacyStabiliserMode?: LegacyStabiliserMode;
+  /** The calendar month that model month 0 is (a dated opening). Without it months are counted
+   *  from the start only. */
+  calendar?: { month0: CalendarMonth };
+  /** How model money is shown in a currency. Model money stays in its unit. */
+  moneyUnit?: MoneyUnit;
+  /** A dated opening: the economy at month 0, from data, instead of the solved steady state.
+   *  createRegisteredEngine (src/models/index.ts) builds it on top of the model's anchor state. */
+  opening?: OpeningDef;
+  /** Fading start gaps that withStartGaps (opening.ts) added, by group: which rules carry them
+   *  and how they fade. Declared metadata for the opening report; the rules themselves carry the
+   *  terms. */
+  startGaps?: Record<Id, StartGapGroup>;
+}
+
+/* ------------------------------------------------------------------ openings */
+
+/** A calendar month; month runs 1–12. */
+export interface CalendarMonth {
+  year: number;
+  month: number;
+}
+
+/** How model money is shown in a currency. Model money stays in its unit (% of baseline annual
+ *  GDP): a flow becomes currency a year, a stock currency, by `perUnit`. */
+export interface MoneyUnit {
+  /** 'ISK bn' */
+  label: string;
+  /** Currency units per model unit, e.g. 49.41211 (ISK bn per 1% of 2025 GDP). */
+  perUnit: number;
+  /** Where the conversion comes from, in plain English. */
+  basis: string;
+}
+
+/** Where a month-0 value comes from. Positions accept data, residual, mirror or allocated only:
+ *  a position is read from a record, closes an identity, is the kernel's fill of its instrument,
+ *  or is split by a declared key (named in `note`). */
+export interface OpeningSource {
+  basis: 'data' | 'residual' | 'mirror' | 'allocated' | 'solved' | 'closed' | 'evaluated' | 'assumed' | 'placeholder';
+  /** Observation ids, e.g. 'financial.depositsHH'. */
+  records?: Id[];
+  /** The data period, e.g. '2026-08-31'. */
+  period?: string;
+  /** The conversion, the identity a residual closes, or the allocation key. */
+  note?: string;
+}
+
+/** A position at month 0, in the Ctx.stock sign convention (assets and liabilities both
+ *  positive), in model units. */
+export interface OpeningStock {
+  at: [instrument: Id, player: Id];
+  value: number;
+  source: OpeningSource;
+}
+
+/** A variable the opening holds at month 0. `history` gives earlier months: [month −1, month −2,
+ *  …]. A variable read further back than one month needs a history that reaches as far. */
+export interface OpeningVar {
+  value: number;
+  history?: number[];
+  source: OpeningSource;
+}
+
+/** A parameter the opening sets. `records` lists the observations it comes from, for the
+ *  report's list of records used. */
+export interface OpeningParam {
+  value: number;
+  provenance: Provenance;
+  records?: Id[];
+}
+
+/** A month-0 value the opening must reproduce (gate) or only report (gate false). */
+export interface OpeningCheck {
+  id: Id;
+  label: string;
+  records: Id[];
+  /** In the unit of `value`. */
+  measure: (c: IndicatorCtx) => number;
+  value: number;
+  tolerance: number;
+  gate: boolean;
+}
+
+/** A condition the opening solve meets, read from months 0 and 1. */
+export interface OpeningTarget {
+  id: Id;
+  describe: string;
+  records: Id[];
+  /** The residual's typical size, for the rank and conditioning checks. */
+  scale: number;
+  residual: (month0: IndicatorCtx, month1: IndicatorCtx) => number;
+}
+
+/** A quantity that should move smoothly from month 0 into months 1 and 2: the report's
+ *  continuity table. It passes when |measure(1) − measure(0) − trend| and |measure(2) −
+ *  measure(1) − trend| are both at most `bound`. */
+export interface OpeningContinuity {
+  id: Id;
+  label: string;
+  measure: (c: IndicatorCtx) => number;
+  bound: number;
+  /** The change a month that is expected anyway (a trend), in the measure's unit. Default 0. */
+  trend?: number;
+}
+
+/** Month 0 as `derive` sees it: the evaluated values, and the parameters as they stand. */
+export interface OpeningCtx extends IndicatorCtx {
+  p(id: Id): number;
+}
+
+/** What the opening solve may move: a variable the opening holds, or a parameter. A tied
+ *  start-gap group is one parameter, 'startGap.<group>'. */
+export type OpeningUnknown = { var: Id } | { param: Id };
+
+/** What a model's opening builder returns. */
+export interface OpeningState {
+  stocks: OpeningStock[];
+  /** Exactly one position per financial instrument, which the kernel fills so the instrument
+   *  balances (basis 'mirror'). Every other position is listed in `stocks`. */
+  fills: Record<Id /* instrument */, Id /* player */>;
+  vars: Record<Id, OpeningVar>;
+  /** Every parameter the opening sets, with provenance; `derive` may replace the values. */
+  params: Record<Id, OpeningParam>;
+  /** Overrides of the structural anchor that Ctx.base and IndicatorCtx.base read, by variable.
+   *  'month0' is the variable's evaluated month-0 value. Listed in the report. */
+  anchors?: Record<Id, number | 'month0'>;
+  /** Closed-form values from the evaluated month 0: parameters listed in `params` and variables
+   *  listed in `vars`. The kernel repeats evaluate → derive until nothing moves by more than
+   *  1e-12 (at most 20 rounds), inside every solve evaluation. */
+  derive?: (month0: OpeningCtx) => { params?: Record<Id, number>; vars?: Record<Id, number> };
+  solve?: {
+    unknowns: OpeningUnknown[];
+    targets: OpeningTarget[];
+    /** Committed values of the unknowns, keyed by var or param id. Check mode applies them. */
+    solution?: Record<Id, number>;
+  };
+  checks: OpeningCheck[];
+  /** Quantities whose month-1 and month-2 changes the report bounds (its `month1` table). */
+  continuity?: OpeningContinuity[];
+}
+
+/** Read-only view of the anchor state (the solved steady state, or a growing model's mapped
+ *  state) that an opening builds on. */
+export interface OpeningAnchors {
+  param(id: Id): number;
+  value(id: Id): number;
+  stock(instrument: Id, player: Id): number;
+}
+
+/** A dated opening: the economy at month 0, from data. */
+export interface OpeningDef {
+  /** 'iceland-2026-09-30' */
+  id: Id;
+  /** 'Iceland on 30 September 2026' */
+  label: string;
+  /** '2026-09-30' */
+  asOf: string;
+  /** Plain English, one short paragraph. */
+  description: string;
+  build(anchors: OpeningAnchors): OpeningState;
+}
+
+/** A group of fading start gaps (withStartGaps): one solved size, `startGap.<group>`, shared by
+ *  every target rule, fading at `fade` a year. A relative group scales the term by each rule's
+ *  month-0 value (`startGapBase.<target>`); an absolute one is in the rule's own unit. */
+export interface StartGapGroup {
+  targets: Id[];
+  fade: number;
+  scale: 'relative' | 'absolute';
+  label?: string;
+  /** The size above which the opening report warns: a share of the rule's value for a relative
+   *  group (default 0.25), the rule's unit for an absolute one (default: no guard). */
+  bound?: number;
 }
 
 /* ------------------------------------------------------------------ runtime */
@@ -595,6 +767,9 @@ export interface Scenario {
    *  global setting switched the stabilisers. Absent means the current version, except in a file
    *  or link without a format tag (parseScenario, the share link's `v`), which is version 1. */
   version?: number;
+  /** The opening (OpeningDef.id) the scenario was made from. Additive: older readers ignore it,
+   *  and the format stays at version 2. */
+  opening?: Id;
 }
 
 export interface RunResult {

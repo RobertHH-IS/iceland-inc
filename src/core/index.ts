@@ -4,7 +4,8 @@
  */
 export type * from './types.ts';
 export { compile, CompileError, tarjan, type CompileOptions, type KModel } from './compile.ts';
-export { createEngine, type EngineOptions, type KernelEngine } from './engine.ts';
+export { createEngine, calendarMonth, type EngineOptions, type KernelEngine } from './engine.ts';
+export { openingBaseline, openingFailures, withStartGaps, halfLifeText, lagReach, type Opening, type OpeningReport, type OpeningOptions } from './opening.ts';
 export { solveBaseline, baselineReport, buildPositions, type Baseline, type BaselineReport, type BaselineOptions } from './steady.ts';
 export { CHECKS, DEFAULT_TOLERANCE, measureChecks } from './checks.ts';
 export { Ledger, postLeg, CASH, ACCRUAL, REVALUATION, WRITEOFF } from './ledger.ts';

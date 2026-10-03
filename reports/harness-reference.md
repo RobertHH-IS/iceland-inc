@@ -15,7 +15,7 @@ Step time: printed by `bun run harness`, not stored here since it depends on the
 
 ## 1. Compilation: PASS
 
-Compiled: 5 players, 6 instruments, 55 variables, 56 parameters, 55 rules, 16 flows (19 legs), 7 levers, 8 indicators, 68 concepts.
+Compiled: 5 players, 6 instruments, 55 variables, 56 parameters, 55 rules, 16 flows (19 legs), 7 levers, 8 indicators, 69 concepts.
 
 Schedule: 49 blocks, 1 simultaneous: [employment, wages, disposableIncome, consumption, gdp, output, taxes].
 

@@ -27,6 +27,7 @@
  */
 import type {
   BalanceSheet,
+  CalendarMonth,
   CheckReport,
   ConceptDef,
   Engine,
@@ -37,6 +38,7 @@ import type {
   IndicatorBasis,
   LegSnapshot,
   ModelDef,
+  MoneyUnit,
   Pipe,
   PipeView,
   RunResult,
@@ -55,6 +57,7 @@ import { ideasAtPlay, influenceOf, type InfluenceSource } from './influence.ts';
 import { toDisplay } from './format.ts';
 import { nodeFor } from './hierarchy.ts';
 import { migrateScenario, scenarioVersion, SCENARIO_VERSION } from './migrate.ts';
+import type { OpeningReport } from './opening.ts';
 
 export interface EngineOptions {
   /** Throw when a rule reads something it did not declare (default true). */
@@ -134,6 +137,18 @@ export interface KernelEngine extends Engine {
   /** Timing and solver statistics since creation: `steps` and `microsPerStep` count months,
    *  each of `substeps` kernel steps. */
   stats(): { steps: number; microsPerStep: number; substeps: number; newtonFallbacks: number; maxIterations: number };
+  /** The opening report when the engine starts from a dated opening (opening.ts), else null. */
+  readonly opening: OpeningReport | null;
+  /** How model money is shown in a currency (ModelDef.moneyUnit), or null. */
+  readonly moneyUnit: MoneyUnit | null;
+  /** The calendar month of a model month, or null for a model without a calendar. */
+  calendar(month: number): CalendarMonth | null;
+}
+
+/** The calendar month `month` months after `month0`. */
+export function calendarMonth(month0: CalendarMonth, month: number): CalendarMonth {
+  const k = month0.year * 12 + (month0.month - 1) + Math.round(month);
+  return { year: Math.floor(k / 12), month: (((k % 12) + 12) % 12) + 1 };
 }
 
 /** What the stabiliser narration remembers from one month to the next (per stabiliser). */
@@ -256,7 +271,9 @@ class KEngine implements KernelEngine {
       M.pBase[k] = v;
     }
     M.exoBase.set(base.exoBase);
-    M.baseVars = base.vars;
+    // base() reads the structural anchor; it is the start itself unless an opening says otherwise
+    const anchors = base.anchors ?? base.vars;
+    M.baseVars = anchors;
     M.baseTerms = base.terms;
     if (base.byMask) M.baseTermsByMask = base.byMask.map((x) => x.terms);
     const shown = (terms: Float64Array) => {
@@ -300,13 +317,13 @@ class KEngine implements KernelEngine {
     };
     this.ictx = {
       v: (id) => M.cur[vIdx(id)],
-      base: (id) => base.vars[vIdx(id)],
+      base: (id) => anchors[vIdx(id)],
       stock: (ins, pl) => signed(M.ledger.pos, ins, pl),
       baseStock: (ins, pl) => signed(base.positions, ins, pl),
     };
     this.baseCtx = {
       v: (id) => base.vars[vIdx(id)],
-      base: (id) => base.vars[vIdx(id)],
+      base: (id) => anchors[vIdx(id)],
       stock: (ins, pl) => signed(base.positions, ins, pl),
       baseStock: (ins, pl) => signed(base.positions, ins, pl),
     };
@@ -406,7 +423,7 @@ class KEngine implements KernelEngine {
     M.ledger.begin();
     M.cur.set(b.vars);
     M.initLevers();
-    M.initHistory(M.cur);
+    M.initHistory(M.cur, b.history);
     M.termVal.set(b.terms);
     M.desired.set(b.desired);
     M.evalLocks = M.lockMask();
@@ -1062,6 +1079,20 @@ class KEngine implements KernelEngine {
 
   baselineReport(): BaselineReport {
     return baselineReport(this.model, this.baselineData);
+  }
+
+  get opening(): OpeningReport | null {
+    const b = this.baselineData as Baseline & { report?: OpeningReport };
+    return b.report ?? null;
+  }
+
+  get moneyUnit(): MoneyUnit | null {
+    return this.model.def.moneyUnit ?? null;
+  }
+
+  calendar(month: number): CalendarMonth | null {
+    const c = this.model.def.calendar;
+    return c ? calendarMonth(c.month0, month) : null;
   }
 
   stats() {

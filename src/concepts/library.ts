@@ -328,6 +328,9 @@ const ref = {
     title: 'Godley & Lavoie (2007), "Fiscal policy in a stock-flow consistent (SFC) model", Levy Economics Institute Working Paper 494',
     url: 'https://www.levyinstitute.org/pubs/wp_494.pdf',
   },
+  clementsHendry1996: {
+    title: 'Clements & Hendry (1996), "Intercept corrections and structural change", Journal of Applied Econometrics 11(5)',
+  },
 } satisfies Record<string, Ref>;
 
 /* ----------------------------------------------------------------- concepts */
@@ -1355,6 +1358,19 @@ export const concepts: ConceptDef[] = [
     references: [ref.keen2011aea, ref.iseeDelays],
     related: ['policy-lags', 'habit-persistence', 'steady-state-baseline', 'model-limits'],
   },
+  {
+    id: 'start-gap',
+    title: 'Start gap',
+    oneLiner: "The part of today's data that a rule does not explain, kept as a visible term that fades away.",
+    body: p(
+      `Iceland Inc. can start from the economy as published today rather than from a calm steady state. Today's numbers were not produced by the model's rules: prices may sit above the markup the pricing rule would set, or wages may be rising faster than the wage rule explains. If the rules took over at once, month 1 would jump to where they want to be, and the jump would come from the start, not from anything happening in the economy.`,
+      `So the opening adds a *start gap* to each such behaviour rule: the difference between today's level and what the rule gives, sized so that month 1 carries on from today's trend. The gap fades at a stated speed (half gone in 17 months, say), and then the rule speaks for itself.`,
+      `Start gaps never touch stocks or accounting identities, and the inspector shows them as ordinary terms. Forecasters call the same device an add-factor or an intercept correction. The run with your change and the run without it share the gaps, so they cancel out of every effect you see.`,
+    ),
+    school: 'empirical',
+    references: [ref.clementsHendry1996, ref.godleyLavoie],
+    related: ['steady-state-baseline', 'gradual-adjustment', 'counterfactual', 'model-limits'],
+  },
 ];
 
 /**
@@ -1415,7 +1431,7 @@ export const conceptThemes: { theme: string; ids: Id[] }[] = [
   { theme: 'Housing', ids: ['credit-and-house-prices', 'housing-wealth-effect'] },
   { theme: 'Pensions', ids: ['funded-pensions', 'pension-entitlements'] },
   { theme: 'Distribution', ids: ['borrowers-and-savers', 'intergenerational-flows'] },
-  { theme: 'Modelling', ids: ['steady-state-baseline', 'counterfactual', 'model-limits', 'gradual-adjustment'] },
+  { theme: 'Modelling', ids: ['steady-state-baseline', 'counterfactual', 'model-limits', 'gradual-adjustment', 'start-gap'] },
 ];
 
 /** Look up a concept by id. */
