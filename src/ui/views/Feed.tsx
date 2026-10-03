@@ -6,10 +6,13 @@
  */
 import { memo } from 'react';
 import type { FeedItem } from '../engine-client.ts';
+import type { CalendarMonth } from '../model/contract.ts';
+import { calendarLabel } from '../model/effects.ts';
 import type { ModelInfo } from '../model/info.ts';
 import { ConceptChip, type OnSelect } from './common.tsx';
 
-export const Feed = memo(function Feed({ info, feed: all, onSelect }: { info: ModelInfo; feed: readonly FeedItem[]; onSelect: OnSelect }) {
+/** `month0`: on a model that opens on a dated month 0, each line names its calendar month. */
+export const Feed = memo(function Feed({ info, feed: all, onSelect, month0 = null }: { info: ModelInfo; feed: readonly FeedItem[]; onSelect: OnSelect; month0?: CalendarMonth | null }) {
   const feed = all.filter((f) => !f.stabiliser);
   return (
     <section className="feed panel" aria-labelledby="feed-title">
@@ -21,8 +24,8 @@ export const Feed = memo(function Feed({ info, feed: all, onSelect }: { info: Mo
           <ol className="feed-list" aria-live="polite">
             {feed.map((f, i) => (
               <li key={`${f.t}-${f.indicator}-${i}`} className="feed-item">
-                <span className="mono feed-t">M{f.t}</span>
-                <button type="button" className="feed-msg" onClick={() => onSelect({ kind: 'indicator', id: f.indicator })} aria-label={`Month ${f.t}: ${f.message}. Open the chart`}>
+                <span className="mono feed-t">{month0 ? calendarLabel(month0, f.t, 'short') : `M${f.t}`}</span>
+                <button type="button" className="feed-msg" onClick={() => onSelect({ kind: 'indicator', id: f.indicator })} aria-label={`${month0 ? calendarLabel(month0, f.t, 'long') : `Month ${f.t}`}: ${f.message}. Open the chart`}>
                   {f.message}
                 </button>
                 {f.concept && <ConceptChip info={info} id={f.concept} onSelect={onSelect} />}

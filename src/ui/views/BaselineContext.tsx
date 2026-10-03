@@ -1,13 +1,22 @@
 import { memo, useEffect, useId, useRef } from 'react';
 import type { EngineClient } from '../engine-client.ts';
-import { CONTEXT_GAPS, CONTEXT_SOURCES, CONTEXT_VERIFIED_ON, ICELAND_CONTEXT, WORLD_CONTEXT, contextDate, modelContext, type ContextRow } from '../model/economic-context.ts';
+import { CONTEXT_GAPS, CONTEXT_SOURCES, CONTEXT_VERIFIED_ON, ICELAND_CONTEXT, WORLD_CONTEXT, contextDate, modelContext, todayLine, trendContext, type ContextRow } from '../model/economic-context.ts';
+import { calendarLabel } from '../model/effects.ts';
 import { Icon } from './common.tsx';
 import { CurrentDataAudit } from './CurrentDataAudit.tsx';
 
 const statusLabel = { observed: 'Observed', derived: 'Calculated from observations', forecast: 'Forecast', estimate: 'Estimate', 'model-assumption': 'Model assumption' } as const;
 
-/** Small dated reference strip; displayed even while the detailed context panel is closed. */
+/** Small dated reference strip; displayed even while the detailed context panel is closed. On a
+ *  model that opens on a dated month 0 it is one calm line and nothing else (todayLine). */
 export const EconomicContextSummary = memo(function EconomicContextSummary({ client }: { client: EngineClient }) {
+  const line = todayLine(client);
+  if (line)
+    return (
+      <aside className="economic-context-summary" aria-label="What the simulation starts from">
+        <span className="context-today">{line}</span>
+      </aside>
+    );
   const modelId = client.info.id;
   const growing = client.info.paramById.has('growthReal');
   const growth = client.info.paramById.get('growthReal')?.value ?? 0;
@@ -27,6 +36,7 @@ export const EconomicContextSummary = memo(function EconomicContextSummary({ cli
 });
 
 export function BaselineContext({ client, onClose }: { client: EngineClient; onClose: () => void }) {
+  const month0 = client.calendar;
   const titleId = useId();
   const descriptionId = useId();
   const panel = useRef<HTMLElement>(null);
@@ -70,9 +80,16 @@ export function BaselineContext({ client, onClose }: { client: EngineClient; onC
     <div className="baseline-context-backdrop" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section id="baseline-context" ref={panel} className="baseline-context panel" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1}>
         <div className="panel-head">
-          <h2 id={titleId}>Baseline &amp; current context</h2>
-          <button ref={closeButton} type="button" className="icon-btn" aria-label="Close economic context" onClick={onClose}><Icon name="close" /></button>
+          <h2 id={titleId}>{month0 ? 'Starting data' : <>Baseline &amp; current context</>}</h2>
+          <button ref={closeButton} type="button" className="icon-btn" aria-label={month0 ? 'Close the starting data' : 'Close economic context'} onClick={onClose}><Icon name="close" /></button>
         </div>
+        {month0 ? (
+          <div className="baseline-context-body panel-body scroll">
+            <p id={descriptionId}>The simulation starts from {client.openingInfo?.label ?? calendarLabel(month0, 0, 'long')}. Each chart’s value at the start sits beside the published records mapped to it: a record marked “used for the start” set the opening; the others are there for comparison.</p>
+            <CurrentDataAudit client={client} />
+            {trendContext(client).length > 0 && <ContextGroup title="What the no-change path assumes" rows={trendContext(client)} />}
+          </div>
+        ) : (
         <div className="baseline-context-body panel-body scroll">
           <p id={descriptionId}>{client.comparison === 'no-change'
             ? 'The simulation starts from the calibrated teaching economy and evolves under the explicit growth assumptions below. Your experiment is compared with an event-free run of the same model at the same month. The starting portfolios and rates are not today’s observed Icelandic state.'
@@ -88,6 +105,7 @@ export function BaselineContext({ client, onClose }: { client: EngineClient; onC
             <p>{client.comparison === 'no-change' ? 'Net worth can change before you move a lever, through saving, interest, exchange-rate revaluation and write-offs. Foreign equity-price appreciation is still outside this extension.' : 'Net worth can change through saving, revaluations and write-offs. At the unchanged solved start those effects balance.'} Nominal and real level charts show the simulated economy; the observations above describe the outside world.</p>
           </section>
         </div>
+        )}
       </section>
     </div>
   );

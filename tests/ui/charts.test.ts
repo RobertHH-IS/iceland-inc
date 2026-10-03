@@ -95,7 +95,7 @@ describe('paths and marks', () => {
     );
     expect(eventMarkTitle(m, info)).toBe('Month 12: Padlock on Key interest rate → Unlocked · Key interest rate → 4%');
     expect(m).toMatchObject({ lever: 'keyRateLock', value: 0 });
-    expect(eventMarkTitle(eventMarks([{ t: 3, lever: 'shock', value: 10, fire: true }], w, 100)[0], info)).toBe('Month 3: shock applied 10');
+    expect(eventMarkTitle(eventMarks([{ t: 3, lever: 'shock', value: 10, fire: true }], w, 100)[0], info)).toBe('Month 3: shock triggered 10');
   });
 
   test('axis ticks: the reference line and the extremes', () => {

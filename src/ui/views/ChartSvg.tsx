@@ -4,6 +4,8 @@
 import { memo } from 'react';
 import type { ScenarioEvent } from '../../core/types.ts';
 import { areaPath, eventMarkTitle, eventMarks, linePath, yAt, yTicks, type ChartWindow } from '../model/charts.ts';
+import type { CalendarMonth } from '../model/contract.ts';
+import { calendarLabel } from '../model/effects.ts';
 import { fmtNum } from '../model/format.ts';
 import type { ModelInfo } from '../model/info.ts';
 
@@ -15,10 +17,13 @@ interface SparkProps {
   height?: number;
   axes?: boolean;
   unit?: string;
+  /** Month 0's calendar month: the x-axis and the event marks then name calendar months. */
+  month0?: CalendarMonth | null;
 }
 
 /** The line, the reference (zero) line and amber marks at lever events. */
-export const ChartSvg = memo(function ChartSvg({ win, events, info, width = 160, height = 84, axes = false, unit = '' }: SparkProps) {
+export const ChartSvg = memo(function ChartSvg({ win, events, info, width = 160, height = 84, axes = false, unit = '', month0 = null }: SparkProps) {
+  const month = (t: number) => (month0 ? calendarLabel(month0, t, 'short') : `Month ${t}`);
   const padL = axes ? 44 : 0,
     padB = axes ? 16 : 0,
     padT = axes ? 18 : 2;
@@ -43,7 +48,7 @@ export const ChartSvg = memo(function ChartSvg({ win, events, info, width = 160,
         {!axes && !win.referenceValues && <line className="zero" x1={0} x2={W} y1={y0} y2={y0} vectorEffect="non-scaling-stroke" />}
         {marks.map((m) => (
           <line key={m.t} className="evmark" x1={m.x} x2={m.x} y1={0} y2={H} vectorEffect="non-scaling-stroke">
-            <title>{eventMarkTitle(m, info)}</title>
+            <title>{eventMarkTitle(m, info, month)}</title>
           </line>
         ))}
         <path className="area" d={areaPath(win, W, H)} />
@@ -52,10 +57,10 @@ export const ChartSvg = memo(function ChartSvg({ win, events, info, width = 160,
         {axes && (
           <>
             <text className="axis" x={0} y={H + 13}>
-              M{win.from}
+              {month0 ? month(win.from) : `M${win.from}`}
             </text>
             <text className="axis" x={W} y={H + 13} textAnchor="end">
-              M{win.to}
+              {month0 ? month(win.to) : `M${win.to}`}
             </text>
           </>
         )}

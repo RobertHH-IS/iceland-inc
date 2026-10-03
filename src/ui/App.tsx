@@ -13,7 +13,7 @@ import { createEngineClient, type EngineClient } from './engine-client.ts';
 import type { ReportBasis } from './model/charts.ts';
 import { cleanExpanded, collapseGroup, effectiveExpanded, expandAll, expandGroup, expandableGroups, pipeBetween, reveal, viewKey } from './model/hierarchy.ts';
 import { EMPTY_NAV, navBack, navClear, navCurrent, navForward, navPush, selectionKey, type NavState, type Selection } from './model/navigation.ts';
-import { linkTarget, pickModel } from './model/registry.ts';
+import { comparisonFor, linkTarget, pickModel, switcherModels } from './model/registry.ts';
 import { decodeScenarioHash, encodeScenarioHash, hasScenario, type HashState } from './model/scenario-url.ts';
 import { Charts } from './views/Charts.tsx';
 import { BaselineContext, EconomicContextSummary } from './views/BaselineContext.tsx';
@@ -41,7 +41,7 @@ class ClientPool {
       const def = this.defs.find((d) => d.id === id);
       try {
         if (!def) throw new Error(`no model '${id}' in the registry`);
-        e = { client: createEngineClient(createRegisteredEngine(def), { comparison: def.modules.some((m) => m.id === 'growth') ? 'no-change' : 'opening' }) };
+        e = { client: createEngineClient(createRegisteredEngine(def), { comparison: comparisonFor(def), model: def }) };
       } catch (err) {
         e = { error: err instanceof Error ? err.message : String(err) };
       }
@@ -159,7 +159,7 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
     <Workspace
       key={shownId}
       client={entry.client}
-      models={choices}
+      models={switcherModels(choices, shownId)}
       modelId={shownId}
       link={shownId === modelId ? linkView : { n: 0 }}
       onModelChange={(id) => switchModel(id)}
@@ -201,7 +201,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
   const vkey = viewKey(eff);
   // Pipes at the level that is open on the map, recomputed each tick.
   const viewPipes = useMemo(() => client.pipes({ expanded: [...eff] }), [client, frame.seq, vkey]);
-  // Stabilisers acting now (unlocked): the numbers they set get a "rule" marker on the map.
+  // Stabilisers acting now (unlocked): the numbers they set get an "auto" marker on the map.
   const rulesActing = useMemo(() => frame.stabilisers.filter((st) => !st.locked).map((st) => st.id).join(' '), [frame.stabilisers]);
   const expandable = useMemo(() => expandableGroups(info), [info]);
 
@@ -330,15 +330,15 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
           )}
         </div>
         {stage === 'map' ? (
-          <FlowMap info={info} client={client} expanded={eff} pipes={viewPipes} legs={frame.legs} regimes={frame.regimes} rulesActing={rulesActing} seq={frame.seq} selection={selection} onSelect={onSelect} onOpenGroup={onOpenGroup} onCloseGroup={onCloseGroup} />
+          <FlowMap info={info} client={client} expanded={eff} pipes={viewPipes} legs={frame.legs} t={frame.t} events={frame.events} regimes={frame.regimes} rulesActing={rulesActing} seq={frame.seq} selection={selection} onSelect={onSelect} onOpenGroup={onOpenGroup} onCloseGroup={onCloseGroup} />
         ) : (
-          <LedgerView info={info} client={client} legs={frame.legs} columns={ledgerCols === 'map' ? { expanded: eff } : 'player'} onSelect={onSelect} />
+          <LedgerView info={info} client={client} legs={frame.legs} t={frame.t} events={frame.events} columns={ledgerCols === 'map' ? { expanded: eff } : 'player'} onSelect={onSelect} />
         )}
       </main>
       <div className="side">
         <Inspector info={info} client={client} frame={frame} nav={nav} expanded={eff} basis={reportBasis} onSelect={onSelect} onBack={onBack} onForward={onForward} onClose={onClose} />
         <IdeasAtPlay info={info} client={client} seq={frame.seq} selection={selection} pipe={selectedPipe} onSelect={onSelect} />
-        <Feed info={info} feed={frame.feed} onSelect={onSelect} />
+        <Feed info={info} feed={frame.feed} onSelect={onSelect} month0={client.calendar} />
       </div>
       <Charts info={info} client={client} t={frame.t} events={frame.events} tab={chartTab} onTab={setChartTab} basis={reportBasis} onBasis={setReportBasis} selected={selection?.kind === 'indicator' ? selection.id : null} onSelect={onSelect} />
     </div>

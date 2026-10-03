@@ -14,12 +14,19 @@
  * Back and forward step through what was clicked. The header shows no trail of past clicks: it
  * grew by a line with every click (the owner's decision, 2 October 2026); the buttons' titles
  * name where they lead.
+ *
+ * On a model that opens on a dated month 0 (docs/design/today-opening.md §7) every amount is in
+ * the currency (ISK bn a year for flows, ISK bn for stocks) and every rate in %, with beside it the
+ * change since today from month 1 and, once a lever has moved, the effect against the no-change
+ * path. A rule's terms keep the rule's unit, converted the same way; money parameters are at the
+ * money unit's prices.
  */
 import { memo, useEffect, useRef, type ReactNode } from 'react';
-import type { BalanceSheet, FlowKind, Id, Influence } from '../../core/types.ts';
+import type { FlowKind, Id, Influence } from '../../core/types.ts';
 import { describePosting, postingLabels } from '../../core/format.ts';
-import type { EngineClient, Frame } from '../engine-client.ts';
+import type { ClientBalanceSheet, EngineClient, Frame } from '../engine-client.ts';
 import { chartWindow, fmtReport, reportDescription, reportLabel, reportMinRange, reportRef, reportUnit, type ReportBasis } from '../model/charts.ts';
+import { changeNotes, displayOf, isDated, leverMoved, measureOf, oneChange, type ChangeNote, type Display, type Measure } from '../model/effects.ts';
 import { fmtChange, fmtCompact, fmtCompactChange, fmtNum, fmtSigned, fmtValue, unitCaption } from '../model/format.ts';
 import { directMembers, memberCount, nodePipes, pipeBetween, type ViewLeg } from '../model/hierarchy.ts';
 import { nodeColor, nodeLabel, nodeMembers, varLabel, type ModelInfo } from '../model/info.ts';
@@ -100,6 +107,46 @@ function Intro({ info }: { info: ModelInfo }) {
 
 /* ------------------------------------------------------------- influence */
 
+/** The month shown and whether a lever has moved before it: what the changes beside an amount compare with. */
+function momentOf(client: EngineClient): { t: number; moved: boolean } {
+  const f = client.getFrame();
+  return { t: f.t, moved: leverMoved(f.events, f.t) };
+}
+
+/** The one change of a compact row (oneChange), or nothing. */
+function OneChange({ c }: { c: { change: string; tone: ChangeNote['tone'] } | null }) {
+  return c ? <Delta text={c.change} tone={c.tone} /> : null;
+}
+
+/** The changes beside an amount (changeNotes), as quiet chips. */
+function Changes({ notes }: { notes: ChangeNote[] }) {
+  return (
+    <>
+      {notes.map((n) => (
+        <Delta key={n.kind} text={n.text} tone={n.tone} />
+      ))}
+    </>
+  );
+}
+
+/** A change in a rule's unit on a dated model: money in the currency ("+12.3"), else as before. */
+function termChange(m: Measure, d: number, unit: string): string {
+  return m.money ? fmtSigned(m.level(d)) : fmtCompactChange(d, unit);
+}
+
+/** A variable's (or a flow's) value today, at month 0; NaN when it has none. */
+function todayOf(info: ModelInfo, client: EngineClient, id: Id, inf: Influence): number {
+  try {
+    if (id.startsWith('flow:')) {
+      const legToday = client.getFrame().legToday;
+      return info.legs.filter((l) => l.flow === inf.id).reduce((s, l) => s + legToday[l.index], 0);
+    }
+    return client.opening?.(inf.id) ?? Number.NaN;
+  } catch {
+    return Number.NaN;
+  }
+}
+
 function unitOf(info: ModelInfo, inf: Influence, id: Id): string {
   if (id.startsWith('flow:') || (!id.startsWith('var:') && !id.startsWith('indicator:') && info.flowById.has(id) && !info.varById.has(id))) return '% of GDP/yr';
   if (id.startsWith('indicator:')) return '';
@@ -120,6 +167,12 @@ export function InfluenceView({ info, client, id, onSelect, compact = false }: {
   const sumChange = inf.terms.reduce((s, t) => s + t.change, 0);
   const isFlow = id.startsWith('flow:');
   const r = info.ruleByTarget.get(inf.id);
+  const display = displayOf(client);
+  const dated = isDated(display);
+  const m = measureOf(display, unit, isFlow ? undefined : info.varById.get(inf.id)?.scale);
+  const at = momentOf(client);
+  const notes = dated ? changeNotes(display, at.t, at.moved, m.kind, m.level(inf.value), m.level(todayOf(info, client, id, inf)), m.level(inf.baseline)) : [];
+  const termValue = (x: number) => (dated && m.money ? m.short(x) : fmtCompact(x, unit));
   return (
     <div className="influence">
       <div className="inf-head">
@@ -131,17 +184,17 @@ export function InfluenceView({ info, client, id, onSelect, compact = false }: {
             {inf.regimeSwitched && ' (part of the month)'}
           </span>
         )}
-        <span className="inf-now mono">{fmtValue(inf.value, unit)}</span>
-        <Delta text={dev.tone === 'flat' ? client.comparison === 'no-change' ? 'on the no-change path' : 'at baseline' : fmtChange(inf.value - inf.baseline, unit, inf.baseline)} tone={dev.tone} />
+        <span className="inf-now mono">{dated ? m.text(inf.value) : fmtValue(inf.value, unit)}</span>
+        {dated ? <Changes notes={notes} /> : <Delta text={dev.tone === 'flat' ? client.comparison === 'no-change' ? 'on the no-change path' : 'at baseline' : fmtChange(inf.value - inf.baseline, unit, inf.baseline)} tone={dev.tone} />}
       </div>
       {inf.rule && !compact && <p className="inf-what">{inf.rule.what}</p>}
       {inf.rule && <p className="inf-rule">{inf.rule.rule}</p>}
-      {inf.desired !== undefined && inf.desiredBaseline !== undefined && <DesiredRow value={inf.value} baseline={inf.baseline} desired={inf.desired} desiredBaseline={inf.desiredBaseline} unit={unit} />}
+      {inf.desired !== undefined && inf.desiredBaseline !== undefined && <DesiredRow value={inf.value} baseline={inf.baseline} desired={inf.desired} desiredBaseline={inf.desiredBaseline} unit={unit} text={dated && m.money ? m.text : undefined} moving={client.comparison === 'no-change'} />}
       {inf.terms.length > 0 && (
         <div className="terms">
           <div className="terms-head">
             <span>{isFlow ? 'Legs' : 'Terms'}</span>
-            <span className="muted small">now · {client.comparison === 'no-change' ? 'no change at this month' : 'baseline'} · change{unit ? ` (${unitCaption(unit)})` : ''}</span>
+            <span className="muted small">now · {client.comparison === 'no-change' ? 'no change at this month' : 'baseline'} · change{dated && m.money ? ` (${display.money!.label}${/\/yr$/.test(unit) ? ' a year' : ''})` : unit ? ` (${unitCaption(unit)})` : ''}</span>
           </div>
           <ul>
             {inf.terms.map((t) => (
@@ -151,10 +204,10 @@ export function InfluenceView({ info, client, id, onSelect, compact = false }: {
                   {t.concept && <ConceptChip info={info} id={t.concept} onSelect={onSelect} />}
                 </div>
                 <div className="term-nums">
-                  <span className="mono">{fmtCompact(t.value, unit)}</span>
-                  <span className="mono muted">{fmtCompact(t.baseline, unit)}</span>
+                  <span className="mono">{termValue(t.value)}</span>
+                  <span className="mono muted">{termValue(t.baseline)}</span>
                   <ChangeBar rel={changeBar(t.change, maxAbs)} />
-                  <Delta text={fmtCompactChange(t.change, unit)} tone={signTone(t.change, 1e-9)} />
+                  <Delta text={dated ? termChange(m, t.change, unit) : fmtCompactChange(t.change, unit)} tone={signTone(t.change, 1e-9)} />
                 </div>
                 {t.inputs.length > 0 && (
                   <div className="term-inputs">
@@ -175,7 +228,7 @@ export function InfluenceView({ info, client, id, onSelect, compact = false }: {
             </p>
           ) : (
             <p className="note sum">
-              Changes sum to <span className="mono">{fmtCompactChange(sumChange, unit)}</span>, exactly the change in {inf.desired !== undefined ? 'the desired value' : 'the value'}.
+              Changes sum to <span className="mono">{dated ? termChange(m, sumChange, unit) : fmtCompactChange(sumChange, unit)}</span>, exactly the change in {inf.desired !== undefined ? 'the desired value' : 'the value'}.
             </p>
           )}
         </div>
@@ -194,7 +247,7 @@ export function InfluenceView({ info, client, id, onSelect, compact = false }: {
                     <span className="param-desc" title={p.id}>
                       {def?.description ?? p.id}
                     </span>
-                    <span className="mono param-val">{fmtValue(p.value, p.unit)}</span>
+                    <span className="mono param-val">{dated ? measureOf(display, p.unit, 'real').text(p.value) : fmtValue(p.value, p.unit)}</span>
                   </div>
                   <ProvenanceNote p={p.provenance} />
                 </li>
@@ -218,7 +271,9 @@ export function InfluenceView({ info, client, id, onSelect, compact = false }: {
   );
 }
 
-function DesiredRow({ value, baseline, desired, desiredBaseline, unit }: { value: number; baseline: number; desired: number; desiredBaseline: number; unit: string }) {
+/** `text` writes a money value in the currency on a dated model; `moving`: the comparison is the no-change path. */
+function DesiredRow({ value, baseline, desired, desiredBaseline, unit, text, moving = false }: { value: number; baseline: number; desired: number; desiredBaseline: number; unit: string; text?: (x: number) => string; moving?: boolean }) {
+  const fmt = text ?? ((x: number) => fmtValue(x, unit));
   const gap = desired - value;
   const moved = desired - desiredBaseline;
   const progress = Math.abs(moved) > 1e-12 ? Math.max(0, Math.min(1, (value - baseline) / moved)) : 1;
@@ -226,13 +281,13 @@ function DesiredRow({ value, baseline, desired, desiredBaseline, unit }: { value
     <div className="desired">
       <div className="desired-top">
         <span>Adjusts gradually toward</span>
-        <span className="mono">{fmtValue(desired, unit)}</span>
+        <span className="mono">{fmt(desired)}</span>
       </div>
-      <div className="desired-bar" role="img" aria-label={`Actual ${fmtValue(value, unit)}, desired ${fmtValue(desired, unit)}`}>
+      <div className="desired-bar" role="img" aria-label={`Actual ${fmt(value)}, desired ${fmt(desired)}`}>
         <span className="desired-fill" style={{ width: `${progress * 100}%` }} />
       </div>
       <div className="muted small">
-        actual {fmtValue(value, unit)} · gap {fmtChange(gap, unit)} · desired at baseline {fmtValue(desiredBaseline, unit)}
+        actual {fmt(value)} · gap {text ? fmt(gap) : fmtChange(gap, unit)} · desired {moving ? 'with no change' : 'at baseline'} {fmt(desiredBaseline)}
       </div>
     </div>
   );
@@ -257,6 +312,14 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
   const pipe = pipeBetween(info, frame.legs, from, to, kind, frame.legBaselines);
   if (!pipe) return <p className="muted">No flow of this kind runs between these two.</p>;
   const dev = deviation(pipe.value, pipe.baseline);
+  const display = displayOf(client);
+  const dated = isDated(display);
+  const m = measureOf(display, '% of GDP/yr');
+  const at = momentOf(client);
+  // today's amounts, leg by leg in the same order
+  const today = dated ? pipeBetween(info, frame.legToday, from, to, kind) : null;
+  const todayLeg = new Map((today?.legs ?? []).map((l) => [l.index, l.value]));
+  const notes = (value: number, todayValue: number, noChange: number) => changeNotes(display, at.t, at.moved, m.kind, m.level(value), m.level(todayValue), m.level(noChange));
   const byFlow = new Map<Id, ViewLeg[]>();
   for (const l of pipe.legs) byFlow.set(l.flow, [...(byFlow.get(l.flow) ?? []), l]);
   let shown = 0;
@@ -276,12 +339,20 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
         )}
       </h3>
       {from === to && info.groupById.has(from) && <p className="muted small">Flows between the members of {nodeLabel(info, from)}, drawn as a loop on its card while it is closed.</p>}
-      <div className="bignum">
-        <span className="mono big">{fmtNum(pipe.value)}</span>
-        <span className="muted small">% of opening GDP a year · {client.comparison === 'no-change' ? 'no change at this month' : 'baseline'} {fmtNum(pipe.baseline)}</span>
-        <Delta text={dev.tone === 'flat' ? client.comparison === 'no-change' ? 'on the no-change path' : 'at baseline' : fmtSigned(pipe.value - pipe.baseline)} tone={dev.tone} />
-        <span className={`chip kind kind-${pipe.kind}`}>{labels.flowKind[pipe.kind]}</span>
-      </div>
+      {dated ? (
+        <div className="bignum">
+          <span className="mono big">{m.text(pipe.value)}</span>
+          <Changes notes={notes(pipe.value, today?.value ?? Number.NaN, pipe.baseline)} />
+          <span className={`chip kind kind-${pipe.kind}`}>{labels.flowKind[pipe.kind]}</span>
+        </div>
+      ) : (
+        <div className="bignum">
+          <span className="mono big">{fmtNum(pipe.value)}</span>
+          <span className="muted small">% of opening GDP a year · {client.comparison === 'no-change' ? 'no change at this month' : 'baseline'} {fmtNum(pipe.baseline)}</span>
+          <Delta text={dev.tone === 'flat' ? client.comparison === 'no-change' ? 'on the no-change path' : 'at baseline' : fmtSigned(pipe.value - pipe.baseline)} tone={dev.tone} />
+          <span className={`chip kind kind-${pipe.kind}`}>{labels.flowKind[pipe.kind]}</span>
+        </div>
+      )}
       {[...byFlow].map(([flowId, legs]) => {
         const flow = info.flowById.get(flowId);
         return (
@@ -311,9 +382,15 @@ function PipeDetail({ info, client, frame, from, to, kind, onSelect }: { info: M
                     </span>
                   }
                   meta={
-                    <>
-                      <span className="mono">{fmtNum(leg.value)}</span> <Delta text={ldev.tone === 'flat' ? '' : fmtSigned(leg.value - leg.baseline)} tone={ldev.tone} />
-                    </>
+                    dated ? (
+                      <>
+                        <span className="mono">{m.short(leg.value)}</span> <OneChange c={oneChange(at.t, at.moved, m.kind, m.level(leg.value), m.level(at.moved ? leg.baseline : (todayLeg.get(leg.index) ?? Number.NaN)))} />
+                      </>
+                    ) : (
+                      <>
+                        <span className="mono">{fmtNum(leg.value)}</span> <Delta text={ldev.tone === 'flat' ? '' : fmtSigned(leg.value - leg.baseline)} tone={ldev.tone} />
+                      </>
+                    )
                   }
                 >
                   {amount ? <InfluenceView info={info} client={client} id={`var:${amount}`} onSelect={onSelect} /> : <p className="muted">No amount variable found for this leg.</p>}
@@ -337,13 +414,18 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
   const members = nodeMembers(info, id);
   const player = info.playerById.get(id);
   const group = kind === 'group' ? info.groupById.get(id) : undefined;
-  let bs: BalanceSheet;
+  let bs: ClientBalanceSheet;
   try {
     bs = client.balanceSheet(id);
   } catch (err) {
     return <p className="error">{err instanceof Error ? err.message : String(err)}</p>;
   }
-  const pipes = nodePipes(info, frame.legs, expanded, id, frame.legBaselines)
+  const display = displayOf(client);
+  const dated = isDated(display);
+  const at = momentOf(client);
+  const stock = measureOf(display, '% of GDP'), flow = measureOf(display, '% of GDP/yr');
+  // On a dated model a pipe's one change is its effect once a lever has moved, else its change since today.
+  const pipes = nodePipes(info, frame.legs, expanded, id, dated && !at.moved ? frame.legToday : frame.legBaselines)
     .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
     .slice(0, 8);
   const memberSet = new Set(members);
@@ -396,7 +478,11 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
       )}
       <FinancialDetail client={client} members={members} onSelect={onSelect} />
       <h4 className="sub">Balance sheet{group ? ' of all its players' : ''}</h4>
-      <p className="muted small">% of opening GDP · now · {client.comparison === 'no-change' ? 'no change at this month' : 'baseline'} · change{group ? ' · not netted between members' : ''}</p>
+      <p className="muted small">
+        {dated
+          ? `${display.money?.label ?? '% of opening GDP'} · now${at.t >= 1 ? ` · ${display.since}` : ''}${at.moved ? ' · vs no change' : ''}${group ? ' · not netted between members' : ''}`
+          : `% of opening GDP · now · ${client.comparison === 'no-change' ? 'no change at this month' : 'baseline'} · change${group ? ' · not netted between members' : ''}`}
+      </p>
       {warnings.length > 0 && (
         <div className="bs-warning" role="status">
           <ul>
@@ -420,7 +506,7 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
             </tr>
           )}
           {bs.assets.map((r) => (
-            <BsRow key={r.instrument} label={r.label} value={r.value} baseline={r.baseline} warn={warned(r.instrument, 'holder') ? 'went below zero' : undefined} />
+            <BsRow key={r.instrument} label={r.label} value={r.value} baseline={r.baseline} today={dated ? { m: stock, display, t: at.t, moved: at.moved, value: r.today } : undefined} warn={warned(r.instrument, 'holder') ? 'went below zero' : undefined} />
           ))}
           <tr className="bs-head">
             <th colSpan={4}>Liabilities</th>
@@ -433,9 +519,9 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
             </tr>
           )}
           {bs.liabilities.map((r) => (
-            <BsRow key={r.instrument} label={r.label} value={r.value} baseline={r.baseline} warn={warned(r.instrument, 'issuer') ? 'turned into a claim' : undefined} />
+            <BsRow key={r.instrument} label={r.label} value={r.value} baseline={r.baseline} today={dated ? { m: stock, display, t: at.t, moved: at.moved, value: r.today } : undefined} warn={warned(r.instrument, 'issuer') ? 'turned into a claim' : undefined} />
           ))}
-          <BsRow label="Net worth" value={bs.netWorth} baseline={bs.netWorthBaseline} strong />
+          <BsRow label="Net worth" value={bs.netWorth} baseline={bs.netWorthBaseline} today={dated ? { m: stock, display, t: at.t, moved: at.moved, value: bs.netWorthToday } : undefined} strong />
         </tbody>
       </table>
       <h4 className="sub">Biggest pipes{group ? ' as the map shows them' : ''}</h4>
@@ -454,8 +540,17 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
                   {within ? (p.from === p.to ? nodeLabel(info, p.from) : `${nodeLabel(info, p.from)} → ${nodeLabel(info, p.to)}`) : nodeLabel(info, other)}
                   <span className="muted small"> · {flows.join(', ')}</span>
                 </span>
-                <span className="mono">{fmtNum(p.value)}</span>
-                <Delta text={dev.tone === 'flat' ? '' : fmtSigned(p.value - p.baseline)} tone={dev.tone} />
+                {dated ? (
+                  <>
+                    <span className="mono">{flow.short(p.value)}</span>
+                    <OneChange c={oneChange(at.t, at.moved, flow.kind, flow.level(p.value), flow.level(p.baseline))} />
+                  </>
+                ) : (
+                  <>
+                    <span className="mono">{fmtNum(p.value)}</span>
+                    <Delta text={dev.tone === 'flat' ? '' : fmtSigned(p.value - p.baseline)} tone={dev.tone} />
+                  </>
+                )}
               </button>
             </li>
           );
@@ -483,9 +578,32 @@ function NodeDetail({ info, client, frame, expanded, id, kind, onSelect }: { inf
   );
 }
 
-/** `warn`: what went wrong with the position (decision 0005), shown after its label. */
-function BsRow({ label, value, baseline, strong, warn }: { label: string; value: number; baseline: number; strong?: boolean; warn?: string }) {
+/** `warn`: what went wrong with the position (decision 0005), shown after its label. `today`, on a
+ *  dated model: the position at month 0, and the row shows the change since today and, once a
+ *  lever has moved, the effect against the no-change path, in place of the comparison's value. */
+function BsRow({ label, value, baseline, strong, warn, today }: { label: string; value: number; baseline: number; strong?: boolean; warn?: string; today?: { m: Measure; display: Display; t: number; moved: boolean; value: number } }) {
   const dev = deviation(value, baseline);
+  if (today) {
+    const { m } = today;
+    const notes = changeNotes(today.display, today.t, today.moved, m.kind, m.level(value), m.level(today.value), m.level(baseline));
+    const since = notes.find((n) => n.kind === 'since'), effect = notes.find((n) => n.kind === 'effect');
+    return (
+      <tr className={strong ? 'bs-total' : warn ? 'bs-warn' : undefined}>
+        <td>
+          {label}
+          {warn && (
+            <span className="bs-warn-mark" title="A position no real sector could hold: see the warning above">
+              {' '}
+              ({warn})
+            </span>
+          )}
+        </td>
+        <td className="num mono">{m.bare(value)}</td>
+        <td className="num">{since ? <Delta text={since.change} tone={since.tone} /> : null}</td>
+        <td className="num">{effect ? <Delta text={effect.change} tone={effect.tone} /> : null}</td>
+      </tr>
+    );
+  }
   return (
     <tr className={strong ? 'bs-total' : warn ? 'bs-warn' : undefined}>
       <td>
@@ -515,8 +633,13 @@ function VarDetail({ info, client, frame, id, onSelect }: { info: ModelInfo; cli
   const raw = client.varSeries(id, from, frame.t);
   const reference = client.referenceVarSeries?.(id, from, frame.t);
   const base = client.baseline(id);
-  const scaled = raw.map((x, i) => x - (reference?.length === raw.length ? reference[i] : base));
-  const win = chartWindow(padSeries(scaled, from), frame.t, 72, 0, 1e-6 * Math.max(1, Math.abs(base)));
+  const display = displayOf(client);
+  const m = measureOf(display, v.unit, v.scale);
+  const dated = isDated(display) && reference?.length === raw.length;
+  // On a dated model: the level, with the no-change path dashed; else the change from the comparison.
+  const win = dated
+    ? chartWindow(padSeries(raw.map(m.level), from), frame.t, 72, m.level(raw[0] ?? base), 1e-6 * Math.max(1, Math.abs(m.level(base))), padSeries(reference!.map(m.level), from))
+    : chartWindow(padSeries(raw.map((x, i) => x - (reference?.length === raw.length ? reference[i] : base)), from), frame.t, 72, 0, 1e-6 * Math.max(1, Math.abs(base)));
   const legs = info.legs.filter((l) => l.amount === id);
   const readers = info.rules.filter((r) => r.inputs.includes(id) || r.lagInputs.includes(id)).slice(0, 12);
   return (
@@ -524,8 +647,12 @@ function VarDetail({ info, client, frame, id, onSelect }: { info: ModelInfo; cli
       <h3 className="detail-title">{v.label}</h3>
       {v.description && <p className="inf-what">{v.description}</p>}
       <div className="var-chart">
-        <ChartSvg win={win} events={frame.events} info={info} width={360} height={70} />
-        <span className="muted small">{client.comparison === 'no-change' ? 'effect vs no change at each month' : 'change from baseline'}, last {Math.min(72, frame.t)} months · unit {v.unit}</span>
+        <ChartSvg win={win} events={frame.events} info={info} width={360} height={70} month0={client.calendar} />
+        <span className="muted small">
+          {dated
+            ? `${m.money ? `${display.money!.label}${/\/yr$/.test(v.unit) ? ' a year' : ''}` : m.kind === 'rate' ? '%' : v.unit}, last ${Math.min(72, frame.t)} months · dashed: no change`
+            : `${client.comparison === 'no-change' ? 'effect vs no change at each month' : 'change from baseline'}, last ${Math.min(72, frame.t)} months · unit ${v.unit}`}
+        </span>
       </div>
       <InfluenceView info={info} client={client} id={`var:${id}`} onSelect={onSelect} />
       {legs.length > 0 && (
@@ -583,7 +710,7 @@ function IndicatorDetail({ info, client, frame, id, onSelect, basis }: { info: M
   if (!ind.level) basis = 'deviation';
   const series = client.reportSeries(id, basis);
   const win = chartWindow(series, frame.t, 120, reportRef(ind, series, basis), reportMinRange(ind, series, basis), client.referenceReportSeries?.(id, basis));
-  const unit = reportUnit(ind, basis, client.comparison);
+  const unit = reportUnit(ind, basis, client.comparison, client.moneyUnit);
   const now = series.length ? series[series.length - 1] : 0;
   const drivers = (ind.drivers ?? []).filter((d) => info.varById.has(d));
   return (
@@ -602,7 +729,7 @@ function IndicatorDetail({ info, client, frame, id, onSelect, basis }: { info: M
         </p>
       )}
       <div className="bigchart">
-        <ChartSvg win={win} events={frame.events} info={info} width={380} height={170} axes unit={unit} />
+        <ChartSvg win={win} events={frame.events} info={info} width={380} height={170} axes unit={unit} month0={client.calendar} />
       </div>
       <ConceptChips info={info} ids={ind.concepts ?? []} onSelect={onSelect} />
       {drivers.length > 0 && (
@@ -631,6 +758,12 @@ function DriverMeta({ info, client, id }: { info: ModelInfo; client: EngineClien
   const v = client.value(id),
     b = client.baseline(id);
   const unit = info.varById.get(id)?.unit ?? '';
+  const display = displayOf(client);
+  if (isDated(display)) {
+    const m = measureOf(display, unit, info.varById.get(id)?.scale);
+    const at = momentOf(client);
+    return <Changes notes={changeNotes(display, at.t, at.moved, m.kind, m.level(v), m.level(client.opening?.(id) ?? Number.NaN), m.level(b))} />;
+  }
   const dev = deviation(v, b);
   return <Delta text={dev.tone === 'flat' ? 'at baseline' : fmtChange(v - b, unit, b)} tone={dev.tone} />;
 }

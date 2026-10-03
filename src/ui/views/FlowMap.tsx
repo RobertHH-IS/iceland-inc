@@ -12,10 +12,17 @@
  * baseline, blue-grey below; dashed pipes without particles are accruals, revaluations and
  * write-offs. Flows inside a closed group are a loop on its card. The seven most changed pipes
  * are labelled. Click a pipe, a player or a group to inspect it.
+ *
+ * On a model that opens on a dated month 0 (docs/design/today-opening.md §7), amounts are in the
+ * currency ("ISK 2,740 bn a year"); a pipe's title adds its change since today from month 1 and
+ * its effect against the no-change path once a lever has moved, and a card's numbers are levels,
+ * with a small effect only once a lever has moved. Nothing pulses.
  */
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import type { FlowKind, Id, Pipe } from '../../core/types.ts';
-import type { EngineClient } from '../engine-client.ts';
+import type { FlowKind, Id, ScenarioEvent } from '../../core/types.ts';
+import type { ClientPipe, EngineClient } from '../engine-client.ts';
+import { fmtReport } from '../model/charts.ts';
+import { changeNotes, displayOf, effect, fmtChangeOf, isDated, leverMoved, measureOf, money, type Display, type EffectKind } from '../model/effects.ts';
 import { labels } from '../labels.ts';
 import { fmtCompact, fmtCompactChange, fmtIndicator, fmtNum, fmtSigned } from '../model/format.ts';
 import { MAP_H, MAP_W, fitMap, frameBoxes, layoutView, nodeRect, pipeGeometry, pipeKey, pipeWidth, placeLabels, viewFitItems, viewLayoutHints, widthScale, type FrameBox, type NodeBox, type Pt, type PipeGeom } from '../model/geometry.ts';
@@ -35,10 +42,14 @@ interface FlowMapProps {
   /** Groups open on the map, one-player groups included (see effectiveExpanded). */
   expanded: ReadonlySet<Id>;
   /** The pipes for that view: client.pipes({ expanded }). */
-  pipes: Pipe[];
+  pipes: ClientPipe[];
   legs: Float64Array;
+  /** The month shown and the lever events so far: changes since today show from month 1, effects
+   *  once a lever has moved. */
+  t?: number;
+  events?: readonly ScenarioEvent[];
   regimes: Readonly<Record<Id, string | null>>;
-  /** Stabilisers acting now (unlocked), space-separated ids: their numbers get a "rule" marker. */
+  /** Stabilisers acting now (unlocked), space-separated ids: their numbers get an "auto" marker. */
   rulesActing?: string;
   seq: number;
   selection: Selection | null;
@@ -84,7 +95,11 @@ interface Anim {
 
 let animSeq = 0;
 
-export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, legs, regimes, rulesActing = '', seq, selection, onSelect, onOpenGroup, onCloseGroup }: FlowMapProps) {
+const NO_EVENTS: readonly ScenarioEvent[] = [];
+
+export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, legs, t = 0, events = NO_EVENTS, regimes, rulesActing = '', seq, selection, onSelect, onOpenGroup, onCloseGroup }: FlowMapProps) {
+  const display = useMemo(() => displayOf(client), [client]);
+  const moved = leverMoved(events, t);
   // Lay the map out in the container's own pixels, so text stays readable at any size, and
   // scale it down only as far as the cards need to stay clear of each other.
   const wrap = useRef<HTMLDivElement>(null);
@@ -119,7 +134,7 @@ export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, le
   const geom = useMemo(() => pipeGeometry(pipes, nodeMap), [nodeMap, signature]);
   const scale = useMemo(() => widthScale(client.pipes('group')), [client]);
   const top = topChanged(pipes, 7);
-  const labelText = top.map((p) => ({ p, ...pipeLabelText(info, p) }));
+  const labelText = top.map((p) => ({ p, ...pipeLabelText(info, p, display) }));
   // Labels keep clear of the cards and of the frames' name tabs.
   const cards = useMemo(() => [...nodes.map(nodeRect), ...frames.map((f) => ({ x: f.x + 14, y: f.y - 10, w: tabWidth(f.label), h: 20 }))], [nodes, frames]);
   const labelPos = placeLabels(
@@ -233,7 +248,7 @@ export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, le
               const g = geom.get(k);
               if (!g) return null;
               const related = focus.pipe ? k === focus.pipe : focus.nodes.has(p.from) || focus.nodes.has(p.to);
-              return <PipeView key={k} info={info} geom={g} pipe={p} width={pipeWidth(p.value, scale)} selected={k === focus.pipe} related={related} entering={!!anim?.newPipes.has(k)} moving={client.comparison === 'no-change'} onSelect={onSelect} />;
+              return <PipeView key={k} geom={g} pipe={p} label={pipeTitle(info, display, p, t, moved)} width={pipeWidth(p.value, scale)} selected={k === focus.pipe} related={related} entering={!!anim?.newPipes.has(k)} onSelect={onSelect} />;
             })}
           </g>
           <g className="frame-tabs">
@@ -268,6 +283,9 @@ export const FlowMap = memo(function FlowMap({ info, client, expanded, pipes, le
                   py={p.y}
                   lines={box.card.lines}
                   legs={legs}
+                  display={display}
+                  t={t}
+                  moved={moved}
                   regimes={regimes}
                   rulesActing={rulesActing}
                   seq={seq}
@@ -347,20 +365,32 @@ const FrameTab = memo(function FrameTab({ frame: f, selected, onClose }: { frame
 
 /* ------------------------------------------------------------------ pipes */
 
+/** A pipe's title and accessible name: its ends and flows, then the amount. On a dated model:
+ *  "ISK 2,740 bn a year · +0.5% since Sep 2026 · −0.4% vs no change". */
+function pipeTitle(info: ModelInfo, d: Display, pipe: ClientPipe, t: number, moved: boolean): string {
+  const flows = [...new Set(pipe.legs.map((l) => l.flow))].map((f) => info.flowById.get(f)?.label ?? f);
+  const ends = pipe.from === pipe.to ? `Within ${nodeLabel(info, pipe.from)}` : `${nodeLabel(info, pipe.from)} to ${nodeLabel(info, pipe.to)}`;
+  const head = `${ends}, ${labels.flowKindPhrase[pipe.kind]}: ${flows.join(', ')}.`;
+  if (!isDated(d)) return `${head} ${fmtNum(pipe.value)} now, ${fmtNum(pipe.baseline)} ${d.moving ? 'without your changes at this month (% of opening GDP a year)' : 'at baseline (% of GDP a year)'}.`;
+  const m = measureOf(d, '% of GDP/yr');
+  const notes = changeNotes(d, t, moved, m.kind, m.level(pipe.value), m.level(pipe.today), m.level(pipe.baseline));
+  return `${head} ${[m.text(pipe.value), ...notes.map((n) => n.text)].join(' · ')}`;
+}
+
 interface PipeViewProps {
-  info: ModelInfo;
   geom: PipeGeom;
-  pipe: Pipe;
+  pipe: ClientPipe;
+  /** Its title and accessible name (pipeTitle). */
+  label: string;
   width: number;
   selected: boolean;
   related: boolean;
   entering: boolean;
-  moving?: boolean;
   onSelect: OnSelect;
 }
 
 const PipeView = memo(
-  function PipeView({ info, geom, pipe, width, selected, related, entering, moving, onSelect }: PipeViewProps) {
+  function PipeView({ geom, pipe, label, width, selected, related, entering, onSelect }: PipeViewProps) {
     const st = pipeStyle(pipe.kind, pipe.value, pipe.baseline, width);
     const particles = useRef<SVGPathElement>(null);
     const rate = Math.round(st.rate * 100) / 100;
@@ -372,9 +402,6 @@ const PipeView = memo(
         else a.playbackRate = rate;
       }
     }, [rate, st.reverse, st.particles]);
-    const flows = [...new Set(pipe.legs.map((l) => l.flow))].map((f) => info.flowById.get(f)?.label ?? f);
-    const ends = pipe.from === pipe.to ? `Within ${nodeLabel(info, pipe.from)}` : `${nodeLabel(info, pipe.from)} to ${nodeLabel(info, pipe.to)}`;
-    const label = `${ends}, ${labels.flowKindPhrase[pipe.kind]}: ${flows.join(', ')}. ${fmtNum(pipe.value)} now, ${fmtNum(pipe.baseline)} ${moving ? 'without your changes at this month (% of opening GDP a year)' : 'at baseline (% of GDP a year)'}.`;
     const open = () => onSelect({ kind: 'pipe', from: pipe.from, to: pipe.to, flowKind: pipe.kind });
     return (
       <g className={`pipe kind-${pipe.kind} tone-${st.tone}${selected ? ' selected' : ''}${related ? ' related' : ''}${entering ? ' enter' : ''}`} role="button" tabIndex={0} aria-label={label} onClick={open} onKeyDown={(e) => activate(e, open)}>
@@ -392,17 +419,18 @@ const PipeView = memo(
     a.selected === b.selected &&
     a.related === b.related &&
     a.entering === b.entering &&
-    a.moving === b.moving &&
+    a.label === b.label &&
     a.pipe.value === b.pipe.value &&
     a.pipe.baseline === b.pipe.baseline &&
-    a.info === b.info &&
     a.onSelect === b.onSelect,
 );
 
-function pipeLabelText(info: ModelInfo, pipe: Pipe): { name: string; change: string; text: string } {
+/** The label on one of the most changed pipes: its flow and its change from the comparison, in %
+ *  of the no-change amount on a dated model. */
+function pipeLabelText(info: ModelInfo, pipe: ClientPipe, d: Display): { name: string; change: string; text: string } {
   const flows = [...new Set(pipe.legs.map((l) => l.flow))];
   const name = flows.length === 1 ? (info.flowById.get(flows[0])?.label ?? flows[0]) : `${flows.length} flows`;
-  const change = fmtSigned(pipe.value - pipe.baseline);
+  const change = (isDated(d) ? fmtChangeOf(effect('amount', pipe.value, pipe.baseline)) : null) ?? fmtSigned(pipe.value - pipe.baseline);
   return { name, change, text: `${name} ${change}` };
 }
 
@@ -430,10 +458,56 @@ interface MetricText {
   label: string;
   text: string;
   tone: Tone;
+  /** What the card's accessible name says, when it says more than the card ("+0.4% vs no change"). */
+  said?: string;
 }
 
-function evalMetric(m: ResolvedMetric, info: ModelInfo, client: EngineClient, node: NodeBox, legs: Float64Array): MetricText {
+/** A card number on a dated model: its level in today's units, with a small effect against the
+ *  no-change path once a lever has moved, and nothing else. The card shows an amount as "2,550 bn";
+ *  its accessible name says it in full ("ISK 2,550 bn a year"). */
+function datedMetric(m: ResolvedMetric, info: ModelInfo, client: EngineClient, d: Display, node: NodeBox, legs: Float64Array, moved: boolean): MetricText | null {
+  const show = (text: string, full: string, kind: EffectKind, now: number, noChange: number): MetricText => {
+    const e = moved ? effect(kind, now, noChange) : null;
+    const change = fmtChangeOf(e);
+    return { key: m.key, label: m.label, text: change ? `${text} ${change}` : text, tone: change && e ? (e.value > 0 ? 'up' : 'down') : 'flat', said: change ? `${full}, ${change} vs no change` : full };
+  };
+  switch (m.kind) {
+    case 'indicator': {
+      const ind = info.indicatorById.get(m.id)!;
+      if (!ind.level) return null;
+      const s = client.reportSeries(m.id, 'nominal'), r = client.referenceReportSeries?.(m.id, 'nominal') ?? [];
+      const v = s[s.length - 1] ?? 0;
+      return show(fmtReport(v, ind, 'nominal', 'card'), fmtReport(v, ind, 'nominal'), ind.level.kind === 'rate' || ind.level.kind === 'ratio' ? 'rate' : 'amount', v, r[s.length - 1] ?? v);
+    }
+    case 'variable': {
+      const vd = info.varById.get(m.id)!;
+      const ms = measureOf(d, vd.unit, vd.scale);
+      const v = client.value(m.id);
+      return show(ms.money && d.money ? money(d.money, v, false).card : ms.short(v), ms.text(v), ms.kind, ms.level(v), ms.level(client.baseline(m.id)));
+    }
+    case 'netWorth': {
+      const bs = client.balanceSheet(node.id);
+      const mu = d.money;
+      return show(mu ? money(mu, bs.netWorth, false).card : fmtNum(bs.netWorth), mu ? money(mu, bs.netWorth, false).text : fmtNum(bs.netWorth), 'amount', bs.netWorth, bs.netWorthBaseline);
+    }
+    case 'cashIn': {
+      const set = new Set(node.members);
+      let v = 0, b = 0;
+      for (const l of info.legs)
+        if (l.kind === 'cash' && set.has(l.to) && !set.has(l.from)) {
+          v += legs[l.index];
+          b += client.getFrame().legBaselines?.[l.index] ?? l.baseline;
+        }
+      const mu = d.money;
+      return show(mu ? money(mu, v, true).card : fmtNum(v), mu ? money(mu, v, true).text : fmtNum(v), 'amount', v, b);
+    }
+  }
+}
+
+function evalMetric(m: ResolvedMetric, info: ModelInfo, client: EngineClient, node: NodeBox, legs: Float64Array, d: Display, moved: boolean): MetricText {
   try {
+    const dated = isDated(d) ? datedMetric(m, info, client, d, node, legs, moved) : null;
+    if (dated) return dated;
     switch (m.kind) {
       case 'indicator': {
         const ind = info.indicatorById.get(m.id)!;
@@ -482,6 +556,9 @@ interface NodeLiveProps {
   py: number;
   lines: 1 | 2;
   legs: Float64Array;
+  display: Display;
+  t: number;
+  moved: boolean;
   regimes: Readonly<Record<Id, string | null>>;
   rulesActing: string;
   seq: number;
@@ -493,7 +570,7 @@ interface NodeLiveProps {
 }
 
 /** Computes the card's live numbers each tick, then hands strings to the memoised card. */
-function NodeCardLive({ info, client, node, px, py, lines, legs, regimes, rulesActing, selected, dim, entering, onSelect, onOpenGroup }: NodeLiveProps) {
+function NodeCardLive({ info, client, node, px, py, lines, legs, display, moved, regimes, rulesActing, selected, dim, entering, onSelect, onOpenGroup }: NodeLiveProps) {
   const metrics = useMemo(() => resolveCardMetrics(info, node.id, undefined, lines), [info, node.id, lines]);
   const owned = useMemo(() => {
     const members = new Set(node.members);
@@ -502,7 +579,7 @@ function NodeCardLive({ info, client, node, px, py, lines, legs, regimes, rulesA
   const group = node.kind === 'group';
   const count = useMemo(() => (group ? memberCount(info, node.id, GROUP_NOUNS[cardFamily(info)]) : ''), [info, node.id, group]);
   const dots = useMemo(() => (group ? directMembers(info, node.id).map((m) => nodeColor(info, m.id)).join(' ') : ''), [info, node.id, group]);
-  const values = metrics.map((m) => evalMetric(m, info, client, node, legs));
+  const values = metrics.map((m) => evalMetric(m, info, client, node, legs, display, moved));
   const binding = owned.map((r) => regimes[r]).filter((x): x is string => !!x);
   const health = financialHealth(client, node.members);
   const acting = rulesActing ? rulesActing.split(' ') : [];
@@ -516,9 +593,11 @@ function NodeCardLive({ info, client, node, px, py, lines, legs, regimes, rulesA
       dots={dots}
       m1={values[0]?.label ?? ''}
       v1={values[0]?.text ?? ''}
+      s1={values[0]?.said}
       t1={values[0]?.tone ?? 'flat'}
       m2={values[1]?.label ?? ''}
       v2={values[1]?.text ?? ''}
+      s2={values[1]?.said}
       t2={values[1]?.tone ?? 'flat'}
       r1={byRule(metrics[0])}
       r2={byRule(metrics[1])}
@@ -547,7 +626,10 @@ interface NodeCardProps {
   m2: string;
   v2: string;
   t2: Tone;
-  /** The number is set by a stabiliser that is acting (unlocked): mark it "rule". */
+  /** The numbers as the accessible name says them, when that differs from v1 and v2. */
+  s1?: string;
+  s2?: string;
+  /** The number is set by a stabiliser that is acting (unlocked): mark it "auto", as its lever is. */
   r1: boolean;
   r2: boolean;
   regime: string | null;
@@ -560,24 +642,29 @@ interface NodeCardProps {
   onOpenGroup: (id: Id) => void;
 }
 
-const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, t1, m2, v2, t2, r1, r2, regime, regimeCount, severity, selected, dim, entering, onSelect, onOpenGroup }: NodeCardProps) {
+const NodeCard = memo(function NodeCard({ node: n, px, py, count, dots, m1, v1, t1, m2, v2, t2, s1 = v1, s2 = v2, r1, r2, regime, regimeCount, severity, selected, dim, entering, onSelect, onOpenGroup }: NodeCardProps) {
   const group = n.kind === 'group';
   const x = px - n.w / 2,
     y = py - n.h / 2;
   const open = () => (group ? onOpenGroup(n.id) : onSelect({ kind: 'player', id: n.id }));
   const label = group
-    ? `${n.label}, a group of ${count}. ${m1} ${v1}${r1 ? ', set by the rule' : ''}. ${m2 ? `${m2} ${v2}${r2 ? ', set by the rule' : ''}.` : ''}${regime ? ` ${regime}.` : ''} Open it to see its members.`
-    : `${n.label}. ${m1} ${v1}${r1 ? ', set by the rule' : ''}. ${m2 ? `${m2} ${v2}${r2 ? ', set by the rule' : ''}.` : ''}${regime ? ` ${regime}.` : ''} Open its balance sheet.`;
+    ? `${n.label}, a group of ${count}. ${m1} ${s1}${r1 ? ', auto: set by its rule' : ''}. ${m2 ? `${m2} ${s2}${r2 ? ', auto: set by its rule' : ''}.` : ''}${regime ? ` ${regime}.` : ''} Open it to see its members.`
+    : `${n.label}. ${m1} ${s1}${r1 ? ', auto: set by its rule' : ''}. ${m2 ? `${m2} ${s2}${r2 ? ', auto: set by its rule' : ''}.` : ''}${regime ? ` ${regime}.` : ''} Open its balance sheet.`;
   const maxChars = Math.floor((n.w - (group ? 40 : 22)) / 7.2);
   // The full name when it fits, else the player's short name; never a cut-off label if avoidable.
   const name = n.label.length <= maxChars ? n.label : n.short && n.short.length < n.label.length ? n.short : n.label;
   const title = name.length > maxChars ? name.slice(0, maxChars - 1) + '…' : name;
   const compact = n.h - (group ? 16 : 0) < 56;
   const shift = group ? 16 : 0;
+  // the label gives way to the number: at most what fits beside it (DM Mono and Outfit at 11 px)
+  const fit = (m: string, v: string, rule: boolean) => {
+    const max = Math.max(4, Math.min(14, Math.floor((n.w - 30 - v.length * 6.7 - (rule ? 28 : 0)) / 5.9)));
+    return m.length > max ? m.slice(0, max - 1) + '…' : m;
+  };
   const row = (y0: number, m: string, v: string, t: Tone, rule: boolean) => (
     <text className="node-metric" x={14} y={y0}>
-      <tspan className="node-mlabel">{m.length > 14 ? m.slice(0, 13) + '…' : m}</tspan>
-      {rule && <tspan className="node-rule"> rule</tspan>}
+      <tspan className="node-mlabel">{fit(m, v, rule)}</tspan>
+      {rule && <tspan className="node-rule"> auto</tspan>}
       <tspan className={`node-mval tone-${t}`} x={n.w - 10} textAnchor="end">
         {v}
       </tspan>

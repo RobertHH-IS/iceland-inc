@@ -22,11 +22,18 @@
  * month after the change.
  * A scenario written before padlocks (format 1) is migrated as it loads, and load() returns the
  * notices of anything the migration could not carry over.
+ *
+ * Today: a model that opens on a dated month 0 (docs/design/today-opening.md) is compared with its
+ * no-change run, and every amount also has today's value, read from an engine kept at month 0:
+ * pipes and legs carry `today`, balance sheets `today` per row and `netWorthToday`, the frame
+ * `legToday`, and opening(id) is a variable's month-0 value. `calendar`, `moneyUnit` and
+ * `openingInfo` say how the interface writes months and money (null for a model without them).
  */
 import { isLocked } from '../core/compile.ts';
 import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
 import type { BalanceSheet, FeedEntry, Id, Influence, ModelDef, Pipe, PipeView, Scenario, ScenarioEvent, SignViolation, StabiliserState } from '../core/types.ts';
 import { migrateScenario, scenarioVersion, SCENARIO_VERSION } from '../core/migrate.ts';
+import { datedMeta, type CalendarMonth, type DatedEngine, type DatedModelDef, type MoneyUnit, type OpeningInfo } from './model/contract.ts';
 import { describeModel, type ModelInfo } from './model/info.ts';
 
 export type Speed = 1 | 3 | 6;
@@ -45,6 +52,13 @@ export interface IdeaWeight {
   weight: number;
   via: Id[];
 }
+
+/** A pipe with today's (month-0) amount beside the live one and the comparison's. */
+export type ClientPipe = Omit<Pipe, 'legs'> & { today: number; legs: (Pipe['legs'][number] & { today: number })[] };
+
+type SheetRow = BalanceSheet['assets'][number] & { today: number };
+/** A balance sheet with today's (month-0) positions beside the live ones and the comparison's. */
+export type ClientBalanceSheet = Omit<BalanceSheet, 'assets' | 'liabilities'> & { assets: SheetRow[]; liabilities: SheetRow[]; netWorthToday: number };
 
 export interface ChecksSummary {
   ok: boolean;
@@ -74,6 +88,8 @@ export interface Frame {
   legs: Float64Array;
   /** Opening amounts, or the no-change run's exact same-month legs. */
   legBaselines?: Float64Array;
+  /** Today's (month-0) leg amounts; the same array in every frame. */
+  legToday: Float64Array;
   pipes: { player: Pipe[]; group: Pipe[] };
   checks: ChecksSummary;
   /** Positions that took the wrong sign since the last reset, oldest first (checks().signViolations):
@@ -93,6 +109,12 @@ export interface Frame {
 export interface EngineClient {
   readonly info: ModelInfo;
   readonly comparison?: 'opening' | 'no-change';
+  /** The calendar month of month 0, for a model that opens on a dated month; else null. */
+  readonly calendar: CalendarMonth | null;
+  /** How model money is written in a currency; null keeps model units. */
+  readonly moneyUnit: MoneyUnit | null;
+  /** The dated opening the model starts from, and the records it was built from; else null. */
+  readonly openingInfo: OpeningInfo | null;
   subscribe(listener: () => void): () => void;
   getFrame(): Frame;
   /* the clock */
@@ -114,10 +136,10 @@ export interface EngineClient {
   /* details, on demand */
   influences(id: Id): Influence;
   ideasAtPlay(scope?: Id): IdeaWeight[];
-  /** A player's balance sheet, or a group's (the sum of its players'). */
-  balanceSheet(playerOrGroup: Id): BalanceSheet;
-  /** Pipes now, at a level of the player hierarchy or for the groups open on the map. */
-  pipes(view: 'player' | 'group' | PipeView): Pipe[];
+  /** A player's balance sheet, or a group's (the sum of its players'), with today's positions. */
+  balanceSheet(playerOrGroup: Id): ClientBalanceSheet;
+  /** Pipes now, at a level of the player hierarchy or for the groups open on the map, with today's amounts. */
+  pipes(view: 'player' | 'group' | PipeView): ClientPipe[];
   /** An indicator in display units, months 0..t. */
   series(indicatorId: Id): readonly number[];
   /** Actual nominal/real levels, or the unchanged legacy deviation history. */
@@ -129,14 +151,17 @@ export interface EngineClient {
   referenceVarSeries?(varId: Id, from: number, to: number): number[];
   value(varId: Id): number;
   baseline(varId: Id): number;
-  /** The immutable calibrated opening state, even when baseline() compares with a moving run. */
+  /** A variable's value at month 0 (today), even when baseline() compares with a moving run. */
   opening?(varId: Id): number;
   dispose(): void;
 }
 
 export interface ClientOptions {
   engine?: EngineOptions;
+  /** Default: 'no-change' for a model with a dated opening, else 'opening'. */
   comparison?: 'opening' | 'no-change';
+  /** The model definition a wrapped engine was built from, for its calendar, money unit and opening. */
+  model?: ModelDef;
   maxMonths?: number;
   tickMs?: number;
 }
@@ -155,8 +180,15 @@ const sameStabilisers = (a: readonly StabiliserState[], b: readonly StabiliserSt
 class MainThreadClient implements EngineClient {
   readonly info: ModelInfo;
   readonly comparison: 'opening' | 'no-change';
+  readonly calendar: CalendarMonth | null;
+  readonly moneyUnit: MoneyUnit | null;
+  readonly openingInfo: OpeningInfo | null;
   private readonly engine: KernelEngine;
   private readonly reference?: KernelEngine;
+  /** The same model at month 0, never stepped: today's pipes, legs and balance sheets. */
+  private readonly today: KernelEngine;
+  private readonly legToday: Float64Array;
+  private readonly todayPipes = new Map<string, Pipe[]>();
   private comparisonFeed: FeedItem[] = [];
   private feedOn = new Set<Id>();
   private readonly listeners = new Set<() => void>();
@@ -179,7 +211,11 @@ class MainThreadClient implements EngineClient {
   constructor(source: ModelDef | KernelEngine, opts: ClientOptions = {}) {
     this.engine = 'baselineData' in source ? source : createEngine(source, opts.engine);
     const e = this.engine;
-    this.comparison = opts.comparison ?? 'opening';
+    const meta = datedMeta(e as DatedEngine, (opts.model ?? ('baselineData' in source ? undefined : source)) as DatedModelDef | undefined);
+    this.calendar = meta.calendar;
+    this.moneyUnit = meta.moneyUnit;
+    this.openingInfo = meta.opening;
+    this.comparison = opts.comparison ?? (meta.opening ? 'no-change' : 'opening');
     if (this.comparison === 'no-change') {
       this.reference = createEngine(e.model, { ...e.options, baseline: e.baselineData, testHooks: undefined });
       this.reference.step(e.t);
@@ -190,14 +226,13 @@ class MainThreadClient implements EngineClient {
     this.maxMonths = opts.maxMonths ?? MAX_MONTHS;
     this.tickMs = opts.tickMs ?? TICK_MS;
     this.regimeRules = this.info.rules.filter((r) => r.hasRegime).map((r) => ({ id: r.id, target: r.target }));
-    if (this.regimeRules.length) {
-      const base = createEngine(e.model, { ...e.options, baseline: e.baselineData, dev: false, testHooks: undefined });
-      for (const r of this.regimeRules) {
-        try {
-          this.baseRegimes[r.id] = base.influences(`var:${r.target}`).regime ?? null;
-        } catch {
-          this.baseRegimes[r.id] = null;
-        }
+    this.today = createEngine(e.model, { ...e.options, baseline: e.baselineData, dev: false, testHooks: undefined });
+    this.legToday = new Float64Array(this.today.legs().map((l) => l.value));
+    for (const r of this.regimeRules) {
+      try {
+        this.baseRegimes[r.id] = this.today.influences(`var:${r.target}`).regime ?? null;
+      } catch {
+        this.baseRegimes[r.id] = null;
       }
     }
     this.horizon = e.t;
@@ -257,6 +292,7 @@ class MainThreadClient implements EngineClient {
       levers: prev && sameNumbers(prev.levers, levers) ? prev.levers : levers,
       legs,
       legBaselines,
+      legToday: this.legToday,
       pipes: { player: this.pipes('player'), group: this.pipes('group') },
       checks,
       signViolations: prev && sameViolations(prev.signViolations, violations) ? prev.signViolations : violations,
@@ -434,7 +470,8 @@ class MainThreadClient implements EngineClient {
   /* ------------------------------------------------------------ scenarios */
 
   scenario(): Scenario {
-    return { modelId: this.info.id, events: this.engine.events, months: this.engine.t };
+    const s: Scenario & { opening?: Id } = { modelId: this.info.id, events: this.engine.events, months: this.engine.t, ...(this.openingInfo ? { opening: this.openingInfo.id } : {}) };
+    return s;
   }
 
   load(s: Scenario): string[] {
@@ -475,22 +512,36 @@ class MainThreadClient implements EngineClient {
     }
   }
 
-  balanceSheet(playerOrGroup: Id): BalanceSheet {
+  balanceSheet(playerOrGroup: Id): ClientBalanceSheet {
     const now = this.engine.balanceSheet(playerOrGroup);
-    if (!this.reference) return now;
-    const ref = this.reference.balanceSheet(playerOrGroup);
-    return { ...now,
-      assets: now.assets.map((a) => ({ ...a, baseline: ref.assets.find((r) => r.instrument === a.instrument)?.value ?? 0 })),
-      liabilities: now.liabilities.map((a) => ({ ...a, baseline: ref.liabilities.find((r) => r.instrument === a.instrument)?.value ?? 0 })),
-      netWorthBaseline: ref.netWorth,
-    };
+    const ref = this.reference?.balanceSheet(playerOrGroup);
+    const today = this.today.balanceSheet(playerOrGroup);
+    const row = (side: 'assets' | 'liabilities') => (a: BalanceSheet['assets'][number]): SheetRow => ({
+      ...a,
+      baseline: ref ? (ref[side].find((r) => r.instrument === a.instrument)?.value ?? 0) : a.baseline,
+      today: today[side].find((r) => r.instrument === a.instrument)?.value ?? 0,
+    });
+    return { ...now, assets: now.assets.map(row('assets')), liabilities: now.liabilities.map(row('liabilities')), netWorthBaseline: ref ? ref.netWorth : now.netWorthBaseline, netWorthToday: today.netWorth };
   }
 
-  pipes(view: 'player' | 'group' | PipeView): Pipe[] {
+  /** Today's pipes for a view; they never change, so each view is asked once. */
+  private pipesToday(view: 'player' | 'group' | PipeView): Pipe[] {
+    const key = typeof view === 'string' ? view : `x:${[...view.expanded].sort().join('\u0000')}`;
+    let p = this.todayPipes.get(key);
+    if (!p) this.todayPipes.set(key, (p = this.today.pipes(view)));
+    return p;
+  }
+
+  pipes(view: 'player' | 'group' | PipeView): ClientPipe[] {
     const now = this.engine.pipes(view);
-    if (!this.reference) return now;
-    const ref = this.reference.pipes(view);
-    return now.map((p, i) => ({ ...p, baseline: ref[i].value, legs: p.legs.map((l, j) => ({ ...l, baseline: ref[i].legs[j].value })) }));
+    const ref = this.reference?.pipes(view);
+    const today = this.pipesToday(view);
+    return now.map((p, i) => ({
+      ...p,
+      ...(ref ? { baseline: ref[i].value } : {}),
+      today: today[i].value,
+      legs: p.legs.map((l, j) => ({ ...l, ...(ref ? { baseline: ref[i].legs[j].value } : {}), today: today[i].legs[j].value })),
+    }));
   }
 
   series(indicatorId: Id): readonly number[] {
@@ -545,7 +596,7 @@ class MainThreadClient implements EngineClient {
   }
 
   opening(varId: Id): number {
-    return this.engine.baseline(varId);
+    return this.engine.valueAt(varId, 0);
   }
 
   dispose(): void {

@@ -6,6 +6,8 @@
  *   m  model id
  *   v  scenario format version (src/core/migrate.ts). A link without it was written before
  *      padlocks (version 1): the client migrates it as it loads (decision 0010).
+ *   o  the dated opening the scenario was made from (Scenario.opening), for a model that opens
+ *      on a dated month 0. It is written and read silently: there is one opening per model.
  *   t  month to replay to (the scenario's `months`)
  *   e  events, comma-separated: month:lever:value, with '!' before the lever for a one-off
  *      that is fired. Lever ids are URI-encoded; values use JavaScript's shortest exact
@@ -24,6 +26,8 @@ export interface HashState {
   events: ScenarioEvent[];
   /** Scenario format version: 1 when the link does not say (it was written before padlocks). */
   version: number;
+  /** The dated opening the scenario was made from; undefined when the link does not say. */
+  opening?: Id;
   /** Groups open on the flow map; undefined when the link does not say. */
   expanded?: Id[];
 }
@@ -36,8 +40,10 @@ function encodeEvent(e: ScenarioEvent): string {
 
 /** Encode a scenario (and, optionally, the groups open on the map) as a URL hash, without the '#'.
  *  The version is the scenario's own, the current one unless it says otherwise. */
-export function encodeScenarioHash(s: Pick<Scenario, 'modelId' | 'events' | 'months' | 'version'> & { expanded?: readonly Id[] }): string {
-  const parts = [`m=${encodeURIComponent(s.modelId)}`, `v=${s.version ?? SCENARIO_VERSION}`, `t=${Math.max(0, Math.round(s.months))}`];
+export function encodeScenarioHash(s: Pick<Scenario, 'modelId' | 'events' | 'months' | 'version'> & { opening?: Id; expanded?: readonly Id[] }): string {
+  const parts = [`m=${encodeURIComponent(s.modelId)}`, `v=${s.version ?? SCENARIO_VERSION}`];
+  if (s.opening) parts.push(`o=${encodeURIComponent(s.opening)}`);
+  parts.push(`t=${Math.max(0, Math.round(s.months))}`);
   const events = [...s.events].sort((a, b) => a.t - b.t);
   if (events.length) parts.push(`e=${events.map(encodeEvent).join(',')}`);
   if (s.expanded?.length) parts.push(`x=${s.expanded.map(encodeURIComponent).join(',')}`);
@@ -59,6 +65,12 @@ export function decodeScenarioHash(hash: string): DecodeResult {
         state.modelId = decodeURIComponent(val);
       } catch {
         return { ok: false, error: `bad model id '${val}'` };
+      }
+    } else if (key === 'o') {
+      try {
+        state.opening = decodeURIComponent(val) || undefined;
+      } catch {
+        return { ok: false, error: `bad opening id '${val}'` };
       }
     } else if (key === 'v') {
       const v = Number(val);

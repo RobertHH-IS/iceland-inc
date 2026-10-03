@@ -8,6 +8,7 @@ import { memo, useMemo } from 'react';
 import type { Id, ScenarioEvent } from '../../core/types.ts';
 import type { EngineClient } from '../engine-client.ts';
 import { CHART_SPAN, REPORT_BASES, chartTabs, chartWindow, fmtReport, reportDescription, reportLabel, reportMinRange, reportRef, reportUnit, type ReportBasis } from '../model/charts.ts';
+import type { CalendarMonth, MoneyUnit } from '../model/contract.ts';
 import type { IndicatorInfo, ModelInfo } from '../model/info.ts';
 import { signTone } from '../model/styling.ts';
 import { ChartSvg } from './ChartSvg.tsx';
@@ -51,7 +52,7 @@ export function Charts({ info, client, t, events, tab, onTab, selected, onSelect
         {active ? (
           <div className="chart-grid" id="charts-grid" role="tabpanel" aria-labelledby={`tab-${active.id}`}>
             {active.indicators.map((ind) => (
-              <SmallChart key={ind.id} info={info} ind={ind} basis={measurement} comparison={client.comparison} series={client.reportSeries(ind.id, measurement)} reference={client.referenceReportSeries?.(ind.id, measurement)} t={t} events={events} selected={selected === ind.id} onSelect={onSelect} />
+              <SmallChart key={ind.id} info={info} ind={ind} basis={measurement} comparison={client.comparison} series={client.reportSeries(ind.id, measurement)} reference={client.referenceReportSeries?.(ind.id, measurement)} t={t} events={events} selected={selected === ind.id} onSelect={onSelect} month0={client.calendar} money={client.moneyUnit} />
             ))}
           </div>
         ) : (
@@ -73,12 +74,14 @@ interface SmallChartProps {
   onSelect: OnSelect;
   basis: ReportBasis;
   comparison?: 'opening' | 'no-change';
+  month0?: CalendarMonth | null;
+  money?: MoneyUnit | null;
 }
 
-const SmallChart = memo(function SmallChart({ info, ind, series, reference, basis, comparison, t, events, selected, onSelect }: SmallChartProps) {
+const SmallChart = memo(function SmallChart({ info, ind, series, reference, basis, comparison, t, events, selected, onSelect, month0 = null, money = null }: SmallChartProps) {
   const win = chartWindow(series, t, CHART_SPAN, reportRef(ind, series, basis), reportMinRange(ind, series, basis), reference);
-  const text = fmtReport(win.last, ind, basis);
-  const label = reportLabel(ind, basis), unit = reportUnit(ind, basis, comparison);
+  const text = fmtReport(win.last, ind, basis, 'bare');
+  const label = reportLabel(ind, basis), unit = reportUnit(ind, basis, comparison, money);
   const tone = signTone(win.last - win.ref);
   return (
     <button type="button" className={`chart${selected ? ' selected' : ''}`} data-indicator={ind.id} onClick={() => onSelect({ kind: 'indicator', id: ind.id })} aria-label={`${label}: ${text}, ${unit}. Open this chart`} title={`${reportDescription(ind, basis)} ${comparison === 'no-change' ? 'No change at this month' : 'Baseline'}: ${fmtReport(win.ref, ind, basis)}.`}>
@@ -87,7 +90,7 @@ const SmallChart = memo(function SmallChart({ info, ind, series, reference, basi
         <span className={`chart-val mono tone-${tone}`}>{text}</span>
       </span>
       <span className="chart-unit muted small">{unit}</span>
-      <ChartSvg win={win} events={events} info={info} />
+      <ChartSvg win={win} events={events} info={info} month0={month0} />
     </button>
   );
 });

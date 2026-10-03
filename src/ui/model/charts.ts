@@ -7,8 +7,10 @@
  */
 import type { Id, ScenarioEvent } from '../../core/types.ts';
 import type { IndicatorInfo, ModelInfo } from './info.ts';
+import type { MoneyUnit } from './contract.ts';
+import { priceYear } from './effects.ts';
 import { leverValueLabel } from './levers.ts';
-import { adaptiveDigits, fmtIndicator, fmtNum } from './format.ts';
+import { adaptiveDigits, fmtIndicator, fmtNum, MINUS } from './format.ts';
 
 export type ReportBasis = 'nominal' | 'real' | 'deviation';
 export const REPORT_BASES: { id: ReportBasis; label: string }[] = [
@@ -21,8 +23,13 @@ export function reportLabel(ind: IndicatorInfo, basis: ReportBasis): string {
   return basis === 'deviation' ? ind.label : (basis === 'real' ? ind.level?.realLabel ?? ind.level?.nominalLabel : ind.level?.nominalLabel) ?? ind.label;
 }
 
-export function reportUnit(ind: IndicatorInfo, basis: ReportBasis, comparison: 'opening' | 'no-change' = 'opening'): string {
-  const unit = basis === 'deviation' || !ind.level ? ind.unit : basis === 'real' ? ind.level.realUnit ?? ind.level.unit : ind.level.unit;
+/** A chart's unit, named once: "ISK bn a year", "%", "% vs no change". Where the model has a money
+ *  unit, prices and indices are named by its year ("at 2025 prices", "index, 2025 = 100"). */
+export function reportUnit(ind: IndicatorInfo, basis: ReportBasis, comparison: 'opening' | 'no-change' = 'opening', money?: MoneyUnit | null): string {
+  const raw = basis === 'deviation' || !ind.level ? ind.unit : basis === 'real' ? ind.level.realUnit ?? ind.level.unit : ind.level.unit;
+  let unit = raw.replace(/\bbn ISK\b/, 'ISK bn');
+  const year = money ? priceYear(money) : null;
+  if (year) unit = unit.replace('baseline prices', `${year} prices`).replace('baseline = 100', `${year} = 100`);
   return basis === 'deviation' && comparison === 'no-change' ? unit.replace('vs baseline', 'vs no change') : unit;
 }
 
@@ -30,15 +37,21 @@ export function reportDescription(ind: IndicatorInfo, basis: ReportBasis): strin
   return basis === 'deviation' ? ind.description : (basis === 'real' ? ind.level?.realDescription ?? ind.level?.description : ind.level?.description) ?? ind.description;
 }
 
-export function fmtReport(value: number, ind: IndicatorInfo, basis: ReportBasis): string {
+/** A level as it is written: "8.00%", "104.9", "ISK 2,740 bn a year". For an amount, 'bare' leaves
+ *  the unit out ("2,740"), where a chart names it once below, and 'card' is the number and its
+ *  scale ("2,740 bn"), for a map card whose accessible name says the rest. */
+export function fmtReport(value: number, ind: IndicatorInfo, basis: ReportBasis, style: 'full' | 'bare' | 'card' = 'full'): string {
   if (basis === 'deviation' || !ind.level) return fmtIndicator(value, ind.unit, ind.display);
   const level = ind.level;
   if (level.kind === 'rate' || level.kind === 'ratio') return `${fmtNum(value, level.kind === 'rate' ? 2 : 1)}%`;
   if (level.kind === 'index') return fmtNum(value, 1);
   if (!Number.isFinite(value)) return fmtNum(value);
   const digits = adaptiveDigits(value);
-  const n = new Intl.NumberFormat('en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Math.abs(value) < 1e-9 ? 0 : value).replace('-', '−');
-  return `${n} ${level.unit.includes('a year') ? 'bn ISK/yr' : 'bn ISK'}`;
+  const x = Math.abs(value) < 1e-9 ? 0 : value;
+  const n = new Intl.NumberFormat('en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Math.abs(x));
+  if (style === 'bare') return `${x < 0 ? MINUS : ''}${n}`;
+  if (style === 'card') return `${x < 0 ? MINUS : ''}${n} bn`;
+  return `${x < 0 ? MINUS : ''}ISK ${n} bn${level.unit.includes('a year') ? ' a year' : ''}`;
 }
 
 export function reportRef(ind: IndicatorInfo, series: ArrayLike<number>, basis: ReportBasis): number {
@@ -168,13 +181,14 @@ export function eventMarks(events: readonly ScenarioEvent[], w: ChartWindow, wid
   return [...byMonth.values()];
 }
 
-/** A mark's tooltip: "Month 12: Key interest rate → 4% · Padlock on Key interest rate → Unlocked", the last event first. */
-export function eventMarkTitle(m: EventMark, info: Pick<ModelInfo, 'leverById'>): string {
+/** A mark's tooltip: "Month 12: Key interest rate → 4% · Padlock on Key interest rate → Unlocked", the last event first.
+ *  `month` names the month ("Sep 2027" on a dated model). */
+export function eventMarkTitle(m: EventMark, info: Pick<ModelInfo, 'leverById'>, month: (t: number) => string = (t) => `Month ${t}`): string {
   const one = (e: EventMark['events'][number]) => {
     const l = info.leverById.get(e.lever);
-    return `${l?.label ?? e.lever} ${e.fire ? 'applied' : '→'} ${l ? leverValueLabel(l, e.value) : e.value}`;
+    return `${l?.label ?? e.lever} ${e.fire ? 'triggered' : '→'} ${l ? leverValueLabel(l, e.value) : e.value}`;
   };
-  return `Month ${m.t}: ${[...m.events].reverse().map(one).join(' · ')}`;
+  return `${month(m.t)}: ${[...m.events].reverse().map(one).join(' · ')}`;
 }
 
 export interface ChartTab {

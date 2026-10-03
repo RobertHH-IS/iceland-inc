@@ -1,6 +1,7 @@
 /**
- * The owner's interface rules, in the model the application opens on (the growing variant with
- * financial stress, compared with its own no-change run) and in the views that variant adds:
+ * The owner's interface rules, in the moving model the application opens on (Iceland today once it
+ * is registered; until then the growing variant with financial stress it is built on, which links
+ * shared before still open), compared with its own no-change run, and in the views it adds:
  * a locked lever has nothing to approve, the lever panel and the charts carry no notes, unlocking
  * hands a lever back at once with the no-change run still in step, the inspector keeps no trail
  * and lists only what is in force, and no list in the interface grows without limit.
@@ -15,7 +16,7 @@ import { CURRENT_DATA } from '../../src/ui/model/current-data.ts';
 import { financialSection, MAX_BORROWER_ROWS } from '../../src/ui/model/financial-health.ts';
 import { effectiveExpanded } from '../../src/ui/model/hierarchy.ts';
 import { EMPTY_NAV, navPush, type Selection } from '../../src/ui/model/navigation.ts';
-import { pickModel } from '../../src/ui/model/registry.ts';
+import { LINK_ONLY_MODELS, PREFERRED_MODELS, pickModel, switcherModels } from '../../src/ui/model/registry.ts';
 import { Charts } from '../../src/ui/views/Charts.tsx';
 import { CurrentDataAudit } from '../../src/ui/views/CurrentDataAudit.tsx';
 import { Feed } from '../../src/ui/views/Feed.tsx';
@@ -26,7 +27,9 @@ import { LeverPanel, LeverRow } from '../../src/ui/views/LeverPanel.tsx';
 
 const noop = () => {};
 const count = (html: string, re: RegExp) => (html.match(re) ?? []).length;
-const opened = pickModel(applicationModels.map((m) => m.id))!;
+const ids = applicationModels.map((m) => m.id);
+/** The moving model the application opens on: Iceland today, or (before it is registered) the growing variant. */
+const opened = ids.includes('iceland-today') ? 'iceland-today' : 'iceland-growing';
 const def = applicationModels.find((m) => m.id === opened)!;
 /** A client as the application makes it: the registered engine, compared with its no-change run. */
 const fresh = (): EngineClient => createEngineClient(createRegisteredEngine(def), { comparison: 'no-change', tickMs: 1e9 });
@@ -39,10 +42,16 @@ const inspect = (c: EngineClient, ...s: Selection[]) =>
 const css = readFileSync(new URL('../../src/ui/styles.css', import.meta.url), 'utf8');
 
 describe(`the model the application opens on ('${opened}')`, () => {
-  test('it is the growing variant, it renders, and 1× is a month every two seconds', () => {
-    expect(opened).toBe('iceland-growing');
+  test('it is the first preferred model, it renders, and 1× is a month every two seconds', () => {
+    expect(PREFERRED_MODELS).toEqual(['iceland-today', 'iceland', 'reference']);
+    expect(LINK_ONLY_MODELS).toEqual(['iceland-growing']);
+    expect(pickModel(ids)).toBe(PREFERRED_MODELS.find((id) => ids.includes(id)));
+    // a link to the growing variant still opens it, though the switcher does not list it
+    expect(pickModel(ids, 'iceland-growing')).toBe('iceland-growing');
+    expect(switcherModels(applicationModels, 'iceland').map((m) => m.id)).not.toContain('iceland-growing');
+    expect(switcherModels(applicationModels, 'iceland-growing').map((m) => m.id)).toContain('iceland-growing');
     expect(TICK_MS).toBe(2000);
-    const html = renderToString(<App />);
+    const html = renderToString(<App initialModelId={opened} />);
     expect(html).toContain(def.label);
     // every lever with a rule starts unlocked (the key rate's section is the open one), and
     // nothing asks for anything

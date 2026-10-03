@@ -153,6 +153,7 @@ button {
   background: rgba(18, 24, 39, .75);
 }
 .economic-context-summary strong { color: var(--text); font-weight: 500; }
+.economic-context-summary .context-today { color: var(--text); }
 .economic-context-summary a { text-decoration-color: rgba(127, 227, 255, .3); }
 .baseline-context-backdrop {
   position: fixed;
@@ -188,6 +189,8 @@ dl.context-list { margin: 0; }
 .context-status { display: inline-block; color: var(--muted); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
 .context-status-observed { color: var(--accent); }
 .context-status-forecast, .context-status-estimate { color: var(--amber); }
+.context-use { margin-left: 8px; color: var(--muted); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+.context-use.used { color: var(--accent); }
 .context-value { font-size: 16px; }
 .context-period { color: var(--muted); margin-top: 3px; }
 .context-audit-group { border: 1px solid var(--line); border-radius: 10px; margin: 10px 0; overflow: hidden; }
@@ -631,6 +634,15 @@ button.chip {
 }
 .tmark.future {
   opacity: 0.45;
+}
+/* each January on a dated timeline: a quiet tick below the track */
+.tyear {
+  position: absolute;
+  bottom: 3px;
+  width: 1px;
+  height: 5px;
+  background: var(--muted);
+  opacity: 0.55;
 }
 .timeline-label {
   color: var(--muted);
