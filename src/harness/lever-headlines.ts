@@ -203,3 +203,6 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
     },
   },
 };
+// Iceland today (src/models/iceland/today) is the Iceland model opened on the dated snapshot: the
+// same headlines, measured against its own no-change path from that opening.
+leverReportSpecs['iceland-today'] = leverReportSpecs.iceland;

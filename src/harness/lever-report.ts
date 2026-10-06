@@ -155,6 +155,11 @@ export const UNIT_MEANINGS: Record<string, string> = {
   pp: 'the difference in percentage points of a rate or a share (a rate of 4% against 3% is +1 pp)',
   'pp of GDP': 'the difference, in percentage points, of a ratio to nominal GDP: this month’s GDP at an annual rate, or GDP over the past 12 months, as the variable’s definition says. A ratio does not grow with the price level',
   'pp of baseline GDP': 'the difference in a nominal amount, in % of baseline annual GDP (baseline GDP = 100). It is not divided by current GDP, so it grows with the price level',
+  // the growing variant's own indicators (growth and capacity, financial stability), shown as levels
+  'index (opening = 100)': 'the difference in a quantity index whose opening level is 100 (the growing variant’s reference paths and capacity)',
+  'bn ISK a year': 'the difference in an annual flow, in ISK billions a year (one model unit is 1% of 2025 GDP, ISK 49.4 bn)',
+  'bn ISK': 'the difference in an outstanding amount, in ISK billions',
+  'index (−1 to +1)': 'the difference in lender confidence, an index from −1 (cautious) to +1 (confident)',
 };
 
 /** A series the report follows: a headline or an indicator, as a level with a display transform. */

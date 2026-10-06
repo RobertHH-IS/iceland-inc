@@ -740,6 +740,32 @@ export interface OpeningDef {
   /** Plain English, one short paragraph. */
   description: string;
   build(anchors: OpeningAnchors): OpeningState;
+  /** Quantities the opening report shows along the run with no lever moved, beside what published
+   *  forecasts or surveys say. Reported for comparison only, never a pass condition: the path is
+   *  the model's own rules' outcome, not a forecast. */
+  path?: OpeningPath;
+}
+
+/** One row of the opening report's path table. */
+export interface OpeningPathRow {
+  id: Id;
+  /** With its unit, e.g. 'Key rate, %'. */
+  label: string;
+  /** The value at a month of the run, in the unit the label names. Here `c.base(id)` is the
+   *  variable's value at month 0 of the run (today), and `c.baseStock` the position at month 0. */
+  measure: (c: IndicatorCtx) => number;
+  /** What a published forecast or survey says, in plain English, with its source. */
+  reference?: string;
+  /** Decimals shown (default 2). */
+  digits?: number;
+}
+
+/** The path table: the months shown and its rows. */
+export interface OpeningPath {
+  months: number[];
+  rows: OpeningPathRow[];
+  /** One plain-English sentence above the table. */
+  note?: string;
 }
 
 /** A group of fading start gaps (withStartGaps): one solved size, `startGap.<group>`, shared by

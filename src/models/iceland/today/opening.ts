@@ -257,8 +257,30 @@ export function createIcelandOpening(options: IcelandOpeningOptions): OpeningDef
     asOf: AS_OF,
     description: 'The economy as the published data have it on 30 September 2026: a key rate of 8%, inflation of 5.9%, unemployment of 5.8%, wage growth of 5.7%, and the balance sheets of households, firms, banks, pension funds, the government and the rest of the world. From here it follows its own rules: a teaching model, not a forecast.',
     build: (a) => build(a, { paramIds, conditional, foreignDebtHolder, committed }),
+    path: PATH,
   };
 }
+
+/** The path with no lever moved, beside published figures (the owner's decision of 6 October 2026:
+ *  shown for comparison in the opening report, never a pass condition and never a tuning target). */
+const PATH: NonNullable<OpeningDef['path']> = {
+  months: [6, 12, 18, 24, 60, 120, 240],
+  note: 'What the model does from 30 September 2026 when no lever is moved. It is the outcome of the model’s own rules, not a forecast, and nothing in the model was chosen to bring it close to the published figures in the last column. They are shown so the two can be compared.',
+  rows: [
+    { id: 'keyRate', label: 'Key rate, %', measure: (c) => 100 * c.v('keyRate'), reference: `${value('financial.policyRate').toFixed(2)}% today. Market participants (Central Bank survey, 10–12 August 2026) expect 8% in 2026Q3 and 6.25% in two years` },
+    { id: 'inflation12', label: 'CPI inflation over 12 months, %', measure: (c) => 100 * c.v('inflation12'), reference: `${value('macro.cpiInflationYoY')}% today. The Central Bank forecasts ${value('macro.cpiInflationForecastAnnualAverage2027')}% on average in 2027 (Monetary Bulletin 2026/3)` },
+    { id: 'unemployment', label: 'Unemployment, % of the labour force', measure: (c) => 100 * c.v('unemployment'), reference: `${value('macro.unemploymentLFSTrend')}% today (trend). The Central Bank forecasts ${value('macro.unemploymentForecast2026')}% on average in 2026 and ${value('macro.unemploymentForecast2027')}% in 2027` },
+    { id: 'output', label: 'Real GDP, % above today', measure: (c) => 100 * (c.v('output') / c.base('output') - 1), reference: `The Central Bank forecasts growth of ${value('macro.gdpRealGrowthForecast2026')}% in 2026 and ${value('macro.gdpRealGrowthForecast2027')}% in 2027` },
+    { id: 'exchangeRate', label: 'Króna: price of foreign currency (2025 average = 1; up is a weaker króna)', measure: (c) => c.v('exchangeRate'), digits: 4, reference: `${exchangeRate0.toFixed(4)} today, ${(-100 * pct('financial.tradeWeightedIndexNarrowYoY')).toFixed(1)}% stronger than a year earlier. No forecast in the snapshot` },
+    { id: 'wageGrowth', label: 'Wage growth, % a year', measure: (c) => 100 * c.v('wageGrowth'), reference: `${value('macro.wageGrowthYoY')}% over the 12 months to August 2026` },
+    { id: 'lenderConfidence', label: 'Lender confidence (−1 cautious, 0 neutral, +1 confident)', measure: (c) => c.v('lenderConfidence'), digits: 3, reference: 'Neutral at the start, by construction' },
+    { id: 'creditRefused', label: 'Business credit refused, ISK bn a year', measure: (c) => c.v('businessCreditDenied') * U, digits: 1, reference: 'None refused means banks ration no credit' },
+    { id: 'pfAssets', label: 'Pension-fund assets, % of the past 12 months’ GDP', measure: (c) => (100 * pfAssets(c)) / c.v('gdpTrailing12'), digits: 1, reference: `ISK ${Math.round(value('financial.pensionAssets')).toLocaleString('en-US')} bn at end-July 2026` },
+    { id: 'pfNetWorth', label: 'Pension funds’ net worth, % of their assets', measure: (c) => (100 * (pfAssets(c) - c.stock('pensionRights', 'PF'))) / pfAssets(c), digits: 1, reference: `${(100 * PF.netWorthShare).toFixed(1)}% in the 2024 financial accounts` },
+    { id: 'foreignPurchases', label: 'Pension funds’ net foreign purchases, % of GDP a year', measure: (c) => (100 * c.v('foreignAssetPurchases')) / c.v('nominalGDP'), reference: 'About 2.1% of GDP a year in January–August 2026 (ISK 72 bn in eight months)' },
+    { id: 'debtRatio', label: 'Government debt, % of the past 12 months’ GDP', measure: (c) => 100 * c.v('debtRatio'), digits: 1, reference: `${value('financial.governmentBorrowingDebtRatioExact').toFixed(1)}% of 2025 GDP at end-2025` },
+  ],
+};
 
 function build(a: OpeningAnchors, o: { paramIds: ReadonlySet<Id>; conditional: readonly Id[]; foreignDebtHolder: 'W' | 'B'; committed: Record<Id, number> }): OpeningState {
   const { paramIds } = o;

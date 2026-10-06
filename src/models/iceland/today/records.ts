@@ -161,7 +161,7 @@ export const RECORD_IDS: readonly string[] = [
   'gap.fiscal.vat0',
   'macro.gapCpiImportDomesticWeights',
   'macro.gapPotentialOutput',
-  // the two-year bands (§8, T5)
+  // published forecasts shown beside the path with no lever moved (reported, never a test)
   'macro.cpiInflationForecastAnnualAverage2027',
   'macro.unemploymentForecast2026',
   'macro.unemploymentForecast2027',

@@ -1,5 +1,7 @@
 # Growing teaching reference
 
+The application now opens on `iceland-today`, this variant with financial stress opened on the dated snapshot of 30 September 2026 through a dated opening (`src/models/iceland/today`, [decision 0018](../decisions/0018-iceland-today-opening.md)); `iceland-growing` stays registered so that older links replay, and it is the control the opening is compared with.
+
 Implemented in `src/models/iceland/growth.ts` and `modules/growth.ts`. The stationary `icelandModel` remains the control for fixed-point, calibration and golden tests. This variant starts from its solved opening portfolio and then evolves. It is not an observed Iceland-today start, an official forecast, or an exactly solved balanced-growth equilibrium.
 
 ## Assumptions and source boundary

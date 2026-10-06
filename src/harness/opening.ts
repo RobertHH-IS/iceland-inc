@@ -13,7 +13,7 @@
  *
  * The report is reports/opening-<model>.md.
  */
-import type { ModelDef } from '../core/types.ts';
+import type { IndicatorCtx, ModelDef } from '../core/types.ts';
 import type { KernelEngine } from '../core/engine.ts';
 import { createRegisteredEngine } from '../models/index.ts';
 import { lockAll } from '../core/scenario.ts';
@@ -27,6 +27,33 @@ export interface OpeningLayerResult {
   pass: boolean;
   rows: { id: string; title: string; pass: boolean; detail: string }[];
   report: OpeningReport | null;
+  /** The opening's path table (OpeningDef.path), by padlock configuration: reported, never gated. */
+  path?: { note?: string; months: number[]; configs: { name: string; rows: { id: string; label: string; reference?: string; digits: number; values: number[] }[] }[] };
+}
+
+/** The opening's path rows read from a finished run, at the months it names. */
+function pathTable(def: ModelDef, runs: { name: string; e: KernelEngine }[], months: number): OpeningLayerResult['path'] {
+  const path = def.opening?.path;
+  if (!path) return undefined;
+  const shown = path.months.filter((t) => t >= 0 && t <= months);
+  const configs = runs.map(({ name, e }) => {
+    const m = e.model;
+    const ctx = (t: number): IndicatorCtx => {
+      const pos = e.positionsAt(t);
+      const stock = (ins: string, pl: string) => {
+        const j = m.instrumentIndex.get(ins)! * m.NP + m.playerIndex.get(pl)!;
+        return m.role[j] === 2 ? -pos[j] : pos[j];
+      };
+      const at0 = e.positionsAt(0);
+      // base and baseStock read month 0 of the run (today), as OpeningPathRow says
+      return { v: (id) => e.valueAt(id, t), base: (id) => e.valueAt(id, 0), stock, baseStock: (ins, pl) => {
+        const j = m.instrumentIndex.get(ins)! * m.NP + m.playerIndex.get(pl)!;
+        return m.role[j] === 2 ? -at0[j] : at0[j];
+      } };
+    };
+    return { name, rows: path.rows.map((r) => ({ id: r.id, label: r.label, reference: r.reference, digits: r.digits ?? 2, values: shown.map((t) => r.measure(ctx(t))) })) };
+  });
+  return { note: path.note, months: shown, configs };
 }
 
 const e2 = (x: number) => (Number.isFinite(x) ? x.toExponential(2) : String(x));
@@ -116,7 +143,7 @@ export function runOpeningLayer(def: ModelDef, opts: { months?: number } = {}): 
     firstDiff < 0 && seekDiff < 0 && forkSame,
     firstDiff >= 0 ? `a run with no events differs from the no-change run at month ${firstDiff}` : seekDiff >= 0 ? `seek differs at month ${seekDiff}` : !forkSame ? 'a fork with no change differs' : `a run with no events, seek and a fork all equal the no-change run bit for bit for ${span} months`,
   );
-  return { modelId: def.id, label: def.label, pass: rows.every((r) => r.pass), rows, report };
+  return { modelId: def.id, label: def.label, pass: rows.every((r) => r.pass), rows, report, path: pathTable(def, runs, months) };
 }
 
 function countBy(xs: string[]): string {
@@ -161,6 +188,19 @@ export function renderOpeningReport(r: OpeningLayerResult): string {
     L.push('### Months 1 and 2', '', '| Quantity | Month 0 | Month 1 | Month 2 | Bound | Result |', '|---|---:|---:|---:|---:|---|');
     for (const x of o.month1) L.push(`| ${x.id} | ${num(x.month0, 5)} | ${num(x.month1, 5)} | ${num(x.month2, 5)} | ${num(x.bound, 4)} | ${x.pass ? 'pass' : '**fail**'} |`);
     L.push('');
+  }
+  if (r.path) {
+    const month = (t: number) => {
+      if (!o.month0) return `Month ${t}`;
+      const k = o.month0.month - 1 + t;
+      return `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][k % 12]} ${o.month0.year + Math.floor(k / 12)} (month ${t})`;
+    };
+    L.push('### The path with no lever moved', '', r.path.note ?? 'The model’s own path from the opening, beside published figures. Shown for comparison; it is not a test.', '');
+    for (const c of r.path.configs) {
+      L.push(`With ${c.name}:`, '', `| Quantity | ${r.path.months.map(month).join(' | ')} | Published, for comparison |`, `|---|${r.path.months.map(() => '---:').join('|')}|---|`);
+      for (const x of c.rows) L.push(`| ${cell(x.label)} | ${x.values.map((v) => (Number.isFinite(v) ? v.toFixed(x.digits) : String(v))).join(' | ')} | ${cell(x.reference ?? '')} |`);
+      L.push('');
+    }
   }
   L.push('### Positions at month 0', '', `| Instrument | Player | Model units | ${o.positions.some((p) => p.money !== null) ? 'Money' : ''} | Basis | Records | Period | Note |`, '|---|---|---:|---:|---|---|---|---|');
   for (const p of o.positions) L.push(`| ${p.instrument} | ${p.player} | ${num(p.value)} | ${p.money === null ? '' : num(p.money, 1)} | ${p.source.basis} | ${(p.source.records ?? []).join(', ')} | ${p.source.period ?? ''} | ${cell(p.source.note ?? '')} |`);

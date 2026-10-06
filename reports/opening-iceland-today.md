@@ -124,6 +124,44 @@ Start solve: check, 7 unknowns, 0 iterations, largest residual 6.86e-14.
 | foreignAssetPurchases | 1.30369 | 1.33642 | 1.28572 | 0.3000 | pass |
 | fxReserveSales | 0.38406 | 0.38577 | 0.40191 | 0.3000 | pass |
 
+### The path with no lever moved
+
+What the model does from 30 September 2026 when no lever is moved. It is the outcome of the model’s own rules, not a forecast, and nothing in the model was chosen to bring it close to the published figures in the last column. They are shown so the two can be compared.
+
+With every padlock open:
+
+| Quantity | Mar 2027 (month 6) | Sep 2027 (month 12) | Mar 2028 (month 18) | Sep 2028 (month 24) | Sep 2031 (month 60) | Sep 2036 (month 120) | Sep 2046 (month 240) | Published, for comparison |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Key rate, % | 8.07 | 7.94 | 7.70 | 7.76 | 10.18 | 11.23 | 11.20 | 8.00% today. Market participants (Central Bank survey, 10–12 August 2026) expect 8% in 2026Q3 and 6.25% in two years |
+| CPI inflation over 12 months, % | 5.42 | 4.43 | 4.05 | 4.41 | 4.54 | 3.79 | 3.85 | 5.9% today. The Central Bank forecasts 3.6% on average in 2027 (Monetary Bulletin 2026/3) |
+| Unemployment, % of the labour force | 5.05 | 4.59 | 4.26 | 3.98 | 3.03 | 2.60 | 2.75 | 5.8% today (trend). The Central Bank forecasts 5.9% on average in 2026 and 5.2% in 2027 |
+| Real GDP, % above today | 0.92 | 2.82 | 4.81 | 6.63 | 13.12 | 21.88 | 39.66 | The Central Bank forecasts growth of 1.4% in 2026 and 1.9% in 2027 |
+| Króna: price of foreign currency (2025 average = 1; up is a weaker króna) | 0.9724 | 0.9947 | 1.0160 | 1.0345 | 1.1039 | 1.1477 | 1.2739 | 0.9532 today, 2.1% stronger than a year earlier. No forecast in the snapshot |
+| Wage growth, % a year | 7.29 | 8.01 | 7.88 | 7.35 | 4.92 | 4.99 | 4.76 | 5.7% over the 12 months to August 2026 |
+| Lender confidence (−1 cautious, 0 neutral, +1 confident) | 0.001 | 0.000 | -0.006 | -0.018 | -0.136 | -0.203 | -0.213 | Neutral at the start, by construction |
+| Business credit refused, ISK bn a year | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | None refused means banks ration no credit |
+| Pension-fund assets, % of the past 12 months’ GDP | 177.3 | 175.2 | 172.9 | 170.4 | 158.7 | 154.4 | 165.6 | ISK 9,326 bn at end-July 2026 |
+| Pension funds’ net worth, % of their assets | 0.3 | 1.2 | 1.9 | 2.5 | 3.7 | 3.0 | 3.3 | -0.6% in the 2024 financial accounts |
+| Pension funds’ net foreign purchases, % of GDP a year | 0.89 | 0.62 | 0.46 | 0.43 | 1.34 | 2.56 | 3.13 | About 2.1% of GDP a year in January–August 2026 (ISK 72 bn in eight months) |
+| Government debt, % of the past 12 months’ GDP | 54.2 | 54.4 | 54.4 | 54.4 | 55.4 | 63.2 | 75.0 | 56.7% of 2025 GDP at end-2025 |
+
+With every padlock closed:
+
+| Quantity | Mar 2027 (month 6) | Sep 2027 (month 12) | Mar 2028 (month 18) | Sep 2028 (month 24) | Sep 2031 (month 60) | Sep 2036 (month 120) | Sep 2046 (month 240) | Published, for comparison |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Key rate, % | 8.00 | 8.00 | 8.00 | 8.00 | 8.00 | 8.00 | 8.00 | 8.00% today. Market participants (Central Bank survey, 10–12 August 2026) expect 8% in 2026Q3 and 6.25% in two years |
+| CPI inflation over 12 months, % | 5.42 | 4.44 | 4.04 | 4.38 | 4.98 | 4.46 | 4.39 | 5.9% today. The Central Bank forecasts 3.6% on average in 2027 (Monetary Bulletin 2026/3) |
+| Unemployment, % of the labour force | 5.05 | 4.59 | 4.26 | 4.00 | 2.72 | 2.09 | 2.12 | 5.8% today (trend). The Central Bank forecasts 5.9% on average in 2026 and 5.2% in 2027 |
+| Real GDP, % above today | 0.93 | 2.83 | 4.78 | 6.54 | 14.47 | 24.57 | 43.00 | The Central Bank forecasts growth of 1.4% in 2026 and 1.9% in 2027 |
+| Króna: price of foreign currency (2025 average = 1; up is a weaker króna) | 0.9728 | 0.9945 | 1.0143 | 1.0331 | 1.1218 | 1.2169 | 1.4368 | 0.9532 today, 2.1% stronger than a year earlier. No forecast in the snapshot |
+| Wage growth, % a year | 7.29 | 8.02 | 7.87 | 7.33 | 5.27 | 5.36 | 5.25 | 5.7% over the 12 months to August 2026 |
+| Lender confidence (−1 cautious, 0 neutral, +1 confident) | 0.002 | 0.001 | -0.007 | -0.020 | -0.111 | -0.152 | -0.164 | Neutral at the start, by construction |
+| Business credit refused, ISK bn a year | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | None refused means banks ration no credit |
+| Pension-fund assets, % of the past 12 months’ GDP | 177.3 | 175.1 | 172.8 | 170.4 | 157.6 | 147.8 | 146.8 | ISK 9,326 bn at end-July 2026 |
+| Pension funds’ net worth, % of their assets | 0.3 | 1.2 | 1.9 | 2.5 | 4.0 | 3.7 | 3.6 | -0.6% in the 2024 financial accounts |
+| Pension funds’ net foreign purchases, % of GDP a year | 0.88 | 0.62 | 0.49 | 0.46 | 1.06 | 1.91 | 2.38 | About 2.1% of GDP a year in January–August 2026 (ISK 72 bn in eight months) |
+| Government debt, % of the past 12 months’ GDP | 54.2 | 54.4 | 54.5 | 54.5 | 54.4 | 54.5 | 58.2 | 56.7% of 2025 GDP at end-2025 |
+
 ### Positions at month 0
 
 | Instrument | Player | Model units | Money | Basis | Records | Period | Note |
