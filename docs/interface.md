@@ -6,7 +6,7 @@ It is generic. Everything on screen comes from the compiled model and the engine
 
 ```bash
 bun run dev     # serve src/ui/index.html with hot reload (http://localhost:3000)
-bun run build   # bundle a static site into dist/ (works from any sub-path, e.g. GitHub Pages)
+bun run build   # bundle a static site into dist/ (works from any sub-path, e.g. GitHub Pages), with public/ copied to its root
 ```
 
 ## 1. Layers
@@ -14,6 +14,7 @@ bun run build   # bundle a static site into dist/ (works from any sub-path, e.g.
 ```
 src/ui/
   index.html, main.tsx, styles.css   entry point and the visual language
+  icons/                             the favicon and the home-screen icon, linked from index.html
   engine-client.ts                   the only code that talks to the engine
   model/                             view-models: pure functions, unit-tested in tests/ui/
   views/                             React components, one per panel
@@ -139,4 +140,19 @@ An `indicator` shows in its display units; a `variable` shows its value and its 
 
 ## 7. Tests
 
-`bun test tests/ui` covers the view-models (pipe geometry and map fitting, formatting, the scenario URL round trip with open groups, lever sections and steppers, chart windows, the ledger against the engine's balance sheets, navigation, markdown and ideas), the hierarchy (expansion state, visible nodes against the kernel's `nodeOf`, node placement and its fallback, frames, pipes at mixed levels against the engine's), the levers each model shows (Iceland's 18 main levers in order, and a hidden lever appearing once a scenario sets it), the engine client (clock, seek, replay, frames and stabilisers) and a smoke test that renders `<App/>` with `react-dom/server` for every registered model and for a test model with a two-level hierarchy (`tests/fixtures/hierarchy.ts`), with every group closed and fully expanded, plus the lever panel and map with the padlocks open and closed (no notes about the locks in any combination, a locked-alone note only in the lever's info panel, which `initialInfo` opens for the test, and a lever that is "auto" again in the frame after it is unlocked, after a year's hold or with the padlock pressed before the clock ticks), and a shared link that sets a lever Iceland keeps off the panel. The engine-client and scenario-URL tests cover locking, unlocking, a lever set and unlocked within one month (the month runs first, for all four levers with a rule), locking by stepping an unlocked lever, locks in replays and time travel, and old share links migrated as they load.
+`bun test tests/ui` covers the view-models (pipe geometry and map fitting, formatting, the scenario URL round trip with open groups, lever sections and steppers, chart windows, the ledger against the engine's balance sheets, navigation, markdown and ideas), the hierarchy (expansion state, visible nodes against the kernel's `nodeOf`, node placement and its fallback, frames, pipes at mixed levels against the engine's), the levers each model shows (Iceland's 18 main levers in order, and a hidden lever appearing once a scenario sets it), the engine client (clock, seek, replay, frames and stabilisers) and a smoke test that renders `<App/>` with `react-dom/server` for every registered model and for a test model with a two-level hierarchy (`tests/fixtures/hierarchy.ts`), with every group closed and fully expanded, plus the lever panel and map with the padlocks open and closed (no notes about the locks in any combination, a locked-alone note only in the lever's info panel, which `initialInfo` opens for the test, and a lever that is "auto" again in the frame after it is unlocked, after a year's hold or with the padlock pressed before the clock ticks), and a shared link that sets a lever Iceland keeps off the panel. The engine-client and scenario-URL tests cover locking, unlocking, a lever set and unlocked within one month (the month runs first, for all four levers with a rule), locking by stepping an unlocked lever, locks in replays and time travel, and old share links migrated as they load. `tests/ui/link-preview.test.ts` covers §8.
+
+## 8. Link previews and search
+
+A site that shows a link (LinkedIn, Facebook, Slack, X) or a search engine reads the page without running it, so everything it needs is written out in the `<head>` of `src/ui/index.html`:
+
+- **The card.** The Open Graph tags (`og:title`, `og:description`, `og:image`, `og:url`) are what LinkedIn reads; the `twitter:` tags repeat them for X. The title and description say the same as the page's own `<title>` and description.
+- **The image.** `public/og.png`, 1200 × 627 pixels, which is LinkedIn's size (1.91 wide for 1 high, under 5 MB). It shows the flow map fifteen months after the key rate is raised by one percentage point and held (year 2, month 4).
+- **Search.** A canonical address, `public/robots.txt`, `public/sitemap.xml`, a short description of the site as structured data (JSON-LD), and a `<noscript>` line for readers that do not run scripts.
+- **Icons.** `src/ui/icons/` holds the favicon and the home-screen icon; `public/favicon.ico` answers browsers and crawlers that ask for that name.
+
+`bun run build` copies everything in `public/` to the root of `dist/` under its own name. The bundler gives a file linked from `index.html` a name that changes with its contents, which a card cannot point to, so a file that needs a fixed address goes in `public/`.
+
+The card needs full addresses, so `https://iceland-inc.vercel.app/` is written in `index.html`, `robots.txt` and `sitemap.xml`. If the site moves, change all three; the test fails if they disagree.
+
+LinkedIn keeps the card it first made for a link. After changing the image or the words, open the address in LinkedIn's [Post Inspector](https://www.linkedin.com/post-inspector/) to make it read the page again.

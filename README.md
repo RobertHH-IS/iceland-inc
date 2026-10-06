@@ -59,7 +59,7 @@ bun run dev
 
 ```bash
 bun run dev     # http://localhost:3000, with hot reload
-bun run build   # a static site in dist/ that works from any sub-path (GitHub Pages)
+bun run build   # a static site in dist/ that works from any sub-path (GitHub Pages); public/ is copied to its root
 ```
 
 The interface opens the Iceland model when it is registered in `src/models/index.ts`, otherwise the reference economy; the model switcher in the header lists every registered model. Pull a lever on the left and the clock starts: watch the pipes glow and the charts move, click any pipe, player, chart or idea to see what drives it, and use "Share scenario" for a link that replays exactly. See [docs/interface.md](docs/interface.md) for how it is built and how to extend it.
@@ -74,6 +74,7 @@ src/models/reference/ a small teaching model
 src/models/iceland/   Iceland Inc., as modules
 src/concepts/         the library of economic ideas
 src/ui/               the interface
+public/               files served from the site root: the link-preview image, robots.txt, the sitemap
 data/iceland/         calibration statistics with sources
 legacy/v1-engine/     the previous engine, kept for reference and comparison
 ```

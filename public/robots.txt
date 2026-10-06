@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://iceland-inc.vercel.app/sitemap.xml
