@@ -16,6 +16,7 @@ src/ui/
   index.html, main.tsx, styles.css   entry point and the visual language
   icons/                             the favicon and the home-screen icon, linked from index.html
   engine-client.ts                   the only code that talks to the engine
+  analytics.ts                       visitor counts on the public site (§9)
   model/                             view-models: pure functions, unit-tested in tests/ui/
   views/                             React components, one per panel
   App.tsx                            model choice, shared links, and the workspace layout
@@ -175,3 +176,7 @@ A site that shows a link (LinkedIn, Facebook, Slack, X) or a search engine reads
 The card needs full addresses, so `https://iceland-inc.vercel.app/` is written in `index.html`, `robots.txt` and `sitemap.xml`. If the site moves, change all three; the test fails if they disagree.
 
 LinkedIn keeps the card it first made for a link. After changing the image or the words, open the address in LinkedIn's [Post Inspector](https://www.linkedin.com/post-inspector/) to make it read the page again.
+
+## 9. Visitor counts
+
+The public site counts page views with Vercel Web Analytics, which uses no cookies and keeps no profile of a visitor. `src/ui/analytics.ts` adds Vercel's counting script when the page loads, on every host except a local development one, so `bun run dev` and a page opened from disk load nothing. The script is served by Vercel at `/_vercel/insights/script.js` once Web Analytics is switched on for the project; on any other host the request finds nothing and the page works as before. No package is installed for it. `tests/ui/analytics.test.ts` covers which hosts count.
