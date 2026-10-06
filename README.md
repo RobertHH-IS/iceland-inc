@@ -4,7 +4,9 @@
 
 Pull a lever, such as a 10% wage settlement, a higher key rate, a cut in health spending or a weaker króna, and watch the change filter through the economy month by month until it settles. Click any flow to see what is driving it right now, the rule behind it, where the numbers come from and which economic ideas are at play.
 
-Iceland Inc. is for learning, not forecasting. It starts from a quiet, steady baseline so that the effect of one change can be seen on its own.
+Iceland Inc. is for learning, not forecasting. The application opens on Iceland as the published data have it on 30 September 2026: a key rate of 8.00%, inflation of 5.9%, unemployment of 5.8%, and balance sheets in ISK. From there the model follows its own rules, and every change you make is shown against the path it takes when no lever is moved. That path is the model's, not a forecast.
+
+Two stationary models stay beside it as controls: Iceland and a small reference economy, each starting from a quiet, steady baseline so that the effect of one change can be tested on its own.
 
 ## The idea
 
@@ -31,11 +33,19 @@ The foundation is in place and tested:
 | Concept library: 59 economic ideas | `src/concepts/` | Done |
 | Interface: flow map, inspector, ideas at play, levers, charts, ledger | `src/ui/` | Done (React) |
 | Calibration data with sources | `data/iceland/` | Done |
+| Growth and financial stress: productivity, population, world demand, a 2.5% inflation target; refinancing, collateral, arrears and write-offs | `src/models/iceland/growth.ts`, `growing-financial.ts` | Done, as a variant of the Iceland model |
+| Iceland today: a dated opening from published data, with fading start gaps | `src/core/opening.ts`, `src/models/iceland/today/` | Done: what the application opens on ([decision 0018](docs/decisions/0018-iceland-today-opening.md), `reports/opening-iceland-today.md`) |
 
 Current results are in `reports/harness-*.md`: accounting residuals around 1e-12, no drift over 240 months, and the Iceland model within 4.3% of the legacy engine on 50 compared outcomes.
 
+Known weaknesses of Iceland today, from decision 0018:
+- Pension payouts are 2.1 times the 2025 data, because the stationary calibration's payout ratio is kept.
+- Retail and service firms' borrowing steps up in the first month (ISK 13 bn a year beyond the test's bound).
+- With no lever moved the model runs hotter than the Central Bank's forecast, and the key rate drifts up over the years (10.2% after five). Twenty years are tested; a run of about ninety years stops converging.
+- The current account opens in surplus where the data show a deficit: the model has no income payments on foreign direct investment.
+
 Next steps:
-1. A balanced-growth baseline with 2.5% inflation, which fixes the overstated pension payouts.
+1. A pension-payout calibration that matches benefits paid.
 2. Replacing the remaining placeholder parameters.
 3. A "real terms" view that removes the effect of inflation from flows.
 4. Showing a pipe's own drivers before upstream ones in "ideas at play".
