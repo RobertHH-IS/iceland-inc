@@ -204,5 +204,8 @@ export const leverReportSpecs: Record<Id, LeverReportSpec> = {
   },
 };
 // Iceland today (src/models/iceland/today) is the Iceland model opened on the dated snapshot: the
-// same headlines, measured against its own no-change path from that opening.
-leverReportSpecs['iceland-today'] = leverReportSpecs.iceland;
+// same headlines, measured against its own no-change path from that opening. The implied-neutral
+// diagnostic is left out: on that path the central bank's neutral-rate estimate is at the top of
+// its band from month 96 with no lever moved, so the diagnostic (a search of some 38 runs for each
+// run that ends there) would fire for nearly every run and say nothing about the lever.
+leverReportSpecs['iceland-today'] = { ...leverReportSpecs.iceland, impliedNeutral: undefined };
