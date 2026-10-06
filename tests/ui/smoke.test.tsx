@@ -153,7 +153,7 @@ test('a lever Iceland keeps off the panel is not drawn until a shared link sets 
   const html = renderToString(<App models={models} initialHash={hash} />);
   expect(html).toContain('>Loan-to-value cap<');
   expect(html.indexOf('>Loan-to-value cap<')).toBeGreaterThan(html.indexOf('>Debt-service cap<'));
-  expect(html).toContain('aria-label="Loan-to-value cap: 70%, baseline 80%');
+  expect(html).toContain('aria-label="Loan-to-value cap: 70%, start value 80%');
 });
 
 test('an unknown model in a link falls back to a registered one', () => {
@@ -174,7 +174,7 @@ test('each small chart’s plot is 84 px tall, in its viewBox and in the stylesh
 describe('the lever panel and the map with padlocks (decision 0010)', () => {
   const iceland = models.find((m) => m.id === 'iceland')!;
 
-  test('unlocked, the default: an open padlock beside each lever with a rule, the knob following the rule, no Manual/Automatic control; the map marks the key rate "rule"', () => {
+  test('unlocked, the default: an open padlock beside each lever with a rule, the knob following the rule, no Manual/Automatic control; the map marks the key rate "auto", as the lever is', () => {
     const client = createEngineClient(iceland);
     client.setLever('otherServices', 2);
     client.pause();
@@ -194,7 +194,7 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
     expect(live).not.toBe(3);
     expect(html).toContain(`>${Number(live.toFixed(2))}%</span>`); // to two decimals while it moves
     // and read out the same, not to six decimals that change every month (review m7)
-    expect(html).toContain(`aria-label="Key interest rate: ${Number(live.toFixed(2))}%, baseline 3%`);
+    expect(html).toContain(`aria-label="Key interest rate: ${Number(live.toFixed(2))}%, start value 3%`);
     expect(html).not.toContain('class="call-dot"');
     expect(html).not.toContain('>Apply</button>');
     const info = client.info;
@@ -329,10 +329,10 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
       expect(html).toMatch(PLAIN);
       for (const id of ['debtRule', 'keyRateRule']) expect(html).not.toContain(defNote(id));
     }
-    // a held key rate off its baseline has a one-click way back that keeps it locked (review m6)
+    // a held key rate off its start value has a one-click way back that keeps it locked (review m6)
     client.setLever('keyRate', 4.25);
     client.step(1);
-    expect(panel([])).toContain('aria-label="Set Key interest rate back to its baseline, keeping it locked"');
+    expect(panel([])).toContain('aria-label="Set Key interest rate back to its start value, keeping it locked"');
     client.dispose();
   });
 
@@ -375,7 +375,7 @@ describe('the lever panel and the map with padlocks (decision 0010)', () => {
       expect(html).toMatch(/aria-pressed="false" aria-label="Lock the [^"]+" title="Unlocked: /);
       // the padlock, the info toggle and the two steppers: no way back to click, nothing to approve
       expect(count(html, /<button /g)).toBe(4);
-      expect(html).not.toContain('back to its baseline');
+      expect(html).not.toContain('back to its start value');
       // the next month the lever shows the rule's first step from the value held
       client.step(1);
       const after = row();

@@ -30,11 +30,19 @@ describe('actual chart levels', () => {
     expect(reportLabel(gdp, 'nominal')).toBe('GDP (nominal)');
     expect(reportLabel(gdp, 'real')).toBe('GDP (real)');
     expect(reportLabel(gdp, 'deviation')).toBe('Output (real GDP)');
-    expect(reportUnit(gdp, 'nominal')).toBe('bn ISK a year');
+    expect(reportUnit(gdp, 'nominal')).toBe('ISK bn a year');
     expect(reportUnit(gdp, 'real')).toContain('baseline prices');
     expect(reportDescription(gdp, 'nominal')).toContain('not a GDP deflator');
     expect(fmtReport(3, client.info.indicatorById.get('keyRate')!, 'nominal')).toBe('3.00%');
-    expect(fmtReport(4941.211, gdp, 'nominal')).toBe('4,941 bn ISK/yr');
+    expect(fmtReport(4941.211, gdp, 'nominal')).toBe('ISK 4,941 bn a year');
+    expect(fmtReport(4941.211, gdp, 'nominal', 'bare')).toBe('4,941');
+    expect(fmtReport(4941.211, gdp, 'nominal', 'card')).toBe('4,941 bn');
+    expect(fmtReport(-147.5, gdp, 'nominal')).toBe('−ISK 148 bn a year');
+    expect(fmtReport(14.8, gdp, 'nominal')).toBe('ISK 14.8 bn a year');
+    // with a money unit, prices and indices are named by its year
+    const unit = { label: 'ISK bn', perUnit: 49.41211, basis: 'Hagstofa THJ01102: 2025 GDP at current prices' };
+    expect(reportUnit(gdp, 'real', 'opening', unit)).toBe('ISK bn a year at 2025 prices');
+    expect(reportUnit(client.info.indicatorById.get('priceLevel')!, 'nominal', 'opening', unit)).toBe('index, 2025 = 100');
     expect(() => structuredClone(client.info)).not.toThrow();
     client.dispose();
   });

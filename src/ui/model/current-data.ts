@@ -60,21 +60,33 @@ export function observationValue(record: EconomicObservation): string {
   return `${value} ${record.unit}`;
 }
 
-/** Always read month zero of this variant. Moving a lever must not rewrite the audit. */
+/** At most this many records beside one chart: the dialog is no catalogue. */
+export const MAX_RECORDS_PER_CHART = 10;
+
+/** Always read month zero of this variant. Moving a lever must not rewrite the audit. On a model
+ *  that opens on a dated month 0, each record says whether the opening used it (`used`), and there
+ *  is no qualification: the snapshot's qualifications (data/iceland, never edited) describe how the
+ *  stationary and growing variants differ from the records, which is not how a dated opening
+ *  starts. The chart's value, its records and the comparability mark say what there is to say. */
 export function startingDataComparison(client: EngineClient) {
   if (client.info.id !== 'iceland' && !client.info.paramById.has('growthReal')) return [];
+  const dated = !!client.calendar;
+  const used = new Set(client.openingInfo?.recordsUsed ?? []);
   return client.info.indicators.map((indicator) => {
     const mapping = MAPPING_BY_ID.get(indicator.id);
-    const unit = reportUnit(indicator, 'nominal');
+    const unit = reportUnit(indicator, 'nominal', 'opening', client.moneyUnit);
     return {
       id: indicator.id,
       label: reportLabel(indicator, 'nominal'),
       group: indicator.group || 'Charts',
-      modelValue: fmtReport(client.reportSeries(indicator.id, 'nominal')[0], indicator, 'nominal'),
+      modelValue: fmtReport(client.reportSeries(indicator.id, 'nominal')[0], indicator, 'nominal', 'bare'),
       modelUnit: unit,
-      observations: (mapping?.observationIds ?? []).map((id) => OBSERVATION_BY_ID.get(id)).filter((record): record is EconomicObservation => !!record),
+      observations: (mapping?.observationIds ?? []).map((id) => OBSERVATION_BY_ID.get(id)).filter((record): record is EconomicObservation => !!record).slice(0, MAX_RECORDS_PER_CHART),
+      used,
       comparability: mapping?.comparability ?? 'gap',
-      qualification: client.info.paramById.has('growthReal') && indicator.id === 'inflation'
+      qualification: dated
+        ? null
+        : client.info.paramById.has('growthReal') && indicator.id === 'inflation'
         ? 'Both measure the twelve-month consumer-price change. This evolving variant inherits zero inflation and its price history at the calibrated opening, then follows its explicit assumed price trend and endogenous price equations. It is not initialised from the current observed CPI history.'
         : client.info.paramById.has('growthReal') && indicator.id === 'keyRate'
           ? 'Same seven-day policy-rate concept. This variant inherits the calibrated 3% opening rate, then reacts to evolving inflation and activity. The observed 8% decision is a separate dated reference; the growing profile is not initialised from today’s observed monetary state.'

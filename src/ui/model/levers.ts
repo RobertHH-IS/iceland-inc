@@ -195,9 +195,9 @@ export function changedCountWithLocks(section: LeverSection, values: readonly nu
   return n;
 }
 
-/** Does a lever get the "back to baseline" button? A setting or choice off its default, and for a
- *  lever with a padlock only while it is locked: the button sets the default and the lever stays
- *  locked (unlocking hands it to its rule, which is not the baseline). A one-off never does. */
+/** Does a lever get the "back to the start value" button? A setting or choice off its default, and
+ *  for a lever with a padlock only while it is locked: the button sets the default and the lever
+ *  stays locked (unlocking hands it to its rule, which is not the start value). A one-off never does. */
 export function canResetToBaseline(l: Pick<LeverInfo, 'kind' | 'default' | 'id'>, value: number, pad?: Pick<PadlockState, 'locked'>): boolean {
   if (l.kind === 'oneoff' || Math.abs(value - l.default) <= 1e-12) return false;
   return pad ? pad.locked : true;

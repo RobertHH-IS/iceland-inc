@@ -1,8 +1,9 @@
 /**
  * LeverPanel: accordion sections from LeverDef.section (fallback: group). Settings get −/+
- * steppers and a bar with the baseline marker; choices become buttons; one-offs get a size
- * stepper and "Apply now". Each lever has an info toggle with its description and precise
- * definition. Changed levers are highlighted, with a count per section.
+ * steppers and a bar with a mark at the start value (the lever's default: on a model that opens
+ * on a dated month 0, today's setting, such as a key rate of 8.00); choices become buttons;
+ * one-offs get a size stepper and "Trigger now". Each lever has an info toggle with its
+ * description and precise definition. Changed levers are highlighted, with a count per section.
  *
  * Padlocks (decision 0010): a lever with a rule behind it (a stabiliser) has a small padlock
  * beside it. Unlocked, the default, the rule moves the lever: its knob and value follow the live
@@ -14,7 +15,8 @@
  * about the locks (the owner's decision, 2 October 2026). While one lever with a rule is locked
  * and another unlocked, the locked one's info panel adds its stabiliser's note, if it has one, on
  * what holding it alone does (StabiliserDef.lockedAloneNote, decision 0015). A lever held off its
- * baseline has a "back to baseline" button; for a lever with a padlock it keeps the lever locked.
+ * start value has a "back to the start value" button; for a lever with a padlock it keeps the
+ * lever locked.
  *
  * Fewer levers (decision 0017): a model may keep its less central levers off the panel
  * (`LeverDef.shown: false`). Such a lever appears in its own place in its section while it is off
@@ -183,8 +185,8 @@ export const LeverRow = memo(function LeverRow({
             type="button"
             className="icon-btn tiny"
             onClick={() => client.setLever(l.id, l.default)}
-            aria-label={`Set ${l.label} back to its baseline${pad ? ', keeping it locked' : ''}`}
-            title={pad ? 'Back to baseline (stays locked)' : 'Back to baseline'}
+            aria-label={`Set ${l.label} back to its start value${pad ? ', keeping it locked' : ''}`}
+            title={pad ? 'Back to the start value (stays locked)' : 'Back to the start value'}
           >
             <Icon name="undo" size={14} />
           </button>
@@ -226,10 +228,10 @@ function SettingControl({ lever: l, value, shown = value, client }: { lever: Lev
       <button type="button" className="icon-btn step-btn" onClick={() => client.setLever(l.id, down)} disabled={!canStep(l, value, -1)} aria-label={`Lower ${l.label} to ${leverValueLabel(l, down)}`}>
         <Icon name="minus" size={14} />
       </button>
-      <div className="lbar" role="img" aria-label={`${l.label}: ${leverValueLabel(l, shown)}, baseline ${leverValueLabel(l, l.default)}, range ${leverValueLabel(l, bar.min)} to ${leverValueLabel(l, bar.max)}`}>
+      <div className="lbar" role="img" aria-label={`${l.label}: ${leverValueLabel(l, shown)}, start value ${leverValueLabel(l, l.default)}, range ${leverValueLabel(l, bar.min)} to ${leverValueLabel(l, bar.max)}`}>
         <span className="lbar-track" />
         <span className="lbar-fill" style={{ left: `${bar.fillFrom * 100}%`, width: `${(bar.fillTo - bar.fillFrom) * 100}%` }} />
-        <span className="lbar-base" style={{ left: `${bar.base * 100}%` }} title="Baseline" />
+        <span className="lbar-base" style={{ left: `${bar.base * 100}%` }} title="Start value" />
         <span className="lbar-knob" style={{ left: `${bar.value * 100}%` }} />
       </div>
       <button type="button" className="icon-btn step-btn" onClick={() => client.setLever(l.id, up)} disabled={!canStep(l, value, 1)} aria-label={`Raise ${l.label} to ${leverValueLabel(l, up)}`}>
@@ -245,7 +247,7 @@ function ChoiceControl({ lever: l, value, client }: { lever: LeverInfo; value: n
       {(l.options ?? []).map((o) => {
         const on = Math.abs(o.value - value) < 1e-12;
         return (
-          <button key={o.value} type="button" className={`seg ${on ? 'on' : ''} ${o.value === l.default ? 'base' : ''}`} aria-pressed={on} onClick={() => client.setLever(l.id, o.value)} title={o.value === l.default ? 'Baseline' : undefined}>
+          <button key={o.value} type="button" className={`seg ${on ? 'on' : ''} ${o.value === l.default ? 'base' : ''}`} aria-pressed={on} onClick={() => client.setLever(l.id, o.value)} title={o.value === l.default ? 'Start value' : undefined}>
             {o.label}
           </button>
         );
@@ -271,10 +273,10 @@ function OneOffControl({ lever: l, fired, client }: { lever: LeverInfo; fired: n
           <Icon name="plus" size={14} />
         </button>
       </div>
-      <button type="button" className="btn apply" onClick={() => client.fire(l.id, size)} aria-label={`Apply ${l.label} of ${leverValueLabel(l, size)} now`}>
-        Apply now
+      <button type="button" className="btn apply" onClick={() => client.fire(l.id, size)} aria-label={`Trigger ${l.label} of ${leverValueLabel(l, size)} now`}>
+        Trigger now
       </button>
-      {fired > 0 && <span className="muted small">applied ×{fired}</span>}
+      {fired > 0 && <span className="muted small">triggered ×{fired}</span>}
     </div>
   );
 }

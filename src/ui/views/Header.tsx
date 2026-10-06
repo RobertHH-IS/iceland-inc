@@ -2,6 +2,8 @@
  * Header: title, model name and switcher, the clock and its transport controls, the timeline
  * slider (seek), the accounting badge from engine.checks(), a calmer badge for positions with
  * the wrong sign (decision 0005: a warning, not an accounting failure), and scenario sharing.
+ * On a model that opens on a dated month 0 the clock and the timeline are in calendar months
+ * ("September 2026"), with a small tick at each January.
  */
 import { memo, useCallback, useEffect, useRef, type ChangeEvent } from 'react';
 import type { Id, ScenarioEvent, SignViolation } from '../../core/types.ts';
@@ -12,6 +14,7 @@ const SPEED_LABELS: Record<Speed, string> = {
   3: 'Three months every 2 seconds',
   6: 'Six months every 2 seconds',
 };
+import { calendarLabel, displayOf, januaries, monthLabel } from '../model/effects.ts';
 import { fmtClock, fmtResidual } from '../model/format.ts';
 import type { ModelInfo } from '../model/info.ts';
 import { leverValueLabel } from '../model/levers.ts';
@@ -50,6 +53,8 @@ interface HeaderProps {
 export const Header = memo(function Header(p: HeaderProps) {
   const { client, info } = p;
   const clock = fmtClock(p.t);
+  const month0 = client.calendar;
+  const clockLabel = month0 ? calendarLabel(month0, p.t, 'long') : clock.label;
   return (
     <header className="header panel">
       <div className="brand">
@@ -59,7 +64,7 @@ export const Header = memo(function Header(p: HeaderProps) {
       </div>
 
       <div className="transport" role="group" aria-label="Simulation clock">
-        <button type="button" className="icon-btn" onClick={() => client.reset()} aria-label="Reset to the baseline (clears all lever changes)" title="Reset to the baseline">
+        <button type="button" className="icon-btn" onClick={() => client.reset()} aria-label={month0 ? 'Back to the start (clears all lever changes)' : 'Reset to the baseline (clears all lever changes)'} title={month0 ? 'Back to the start' : 'Reset to the baseline'}>
           <Icon name="reset" />
         </button>
         <button type="button" className={`icon-btn play ${p.playing ? 'on' : ''}`} onClick={() => client.toggle()} aria-label={p.playing ? 'Pause' : 'Play'} aria-pressed={p.playing} disabled={p.ended && !p.playing} title={p.playing ? 'Pause (space)' : 'Play (space)'}>
@@ -77,8 +82,8 @@ export const Header = memo(function Header(p: HeaderProps) {
         </div>
       </div>
 
-      <div className="clock mono" aria-live="off" aria-label={`Month ${clock.month}`}>
-        {clock.label}
+      <div className="clock mono" aria-live="off" aria-label={month0 ? `${clockLabel}, month ${clock.month}` : `Month ${clock.month}`}>
+        {clockLabel}
       </div>
 
       <Timeline client={client} info={info} t={p.t} horizon={p.horizon} events={p.events} />
@@ -102,7 +107,7 @@ export const Header = memo(function Header(p: HeaderProps) {
         </label>
         {p.onBaseline && (
           <button type="button" className="btn baseline-button" onClick={p.onBaseline} aria-expanded={p.baselineOpen ?? false} aria-controls={p.baselineOpen ? 'baseline-context' : undefined}>
-            Baseline &amp; current data
+            {month0 ? 'Starting data' : <>Baseline &amp; current data</>}
           </button>
         )}
         <ShareButton share={p.share} onShare={p.onShare} onDone={p.onShareDone} />
@@ -125,6 +130,8 @@ function PositionBadge({ info, violations }: { info: ModelInfo; violations: read
 function Timeline({ client, info, t, horizon, events }: { client: EngineClient; info: ModelInfo; t: number; horizon: number; events: readonly ScenarioEvent[] }) {
   const max = Math.max(1, horizon);
   const onChange = useCallback((e: ChangeEvent<HTMLInputElement>) => client.seek(Number(e.target.value)), [client]);
+  const display = displayOf(client);
+  const at = (m: number) => `calc(7px + (100% - 14px) * ${Math.min(m, max) / max})`;
   return (
     <div className="timeline">
       <div className="timeline-track">
@@ -137,13 +144,14 @@ function Timeline({ client, info, t, horizon, events }: { client: EngineClient; 
           onChange={onChange}
           disabled={horizon === 0}
           aria-label="Timeline"
-          aria-valuetext={`Month ${t} of ${horizon} simulated`}
+          aria-valuetext={display.month0 ? `${calendarLabel(display.month0, t, 'long')}, month ${t} of ${horizon} simulated` : `Month ${t} of ${horizon} simulated`}
           title="Drag to travel back and forth over the months simulated so far"
         />
         <div className="timeline-marks" aria-hidden="true">
+          {display.month0 && horizon > 0 && januaries(display.month0, horizon).map((j) => <span key={j.t} className="tyear" style={{ left: at(j.t) }} />)}
           {events.map((e, i) => {
             const l = info.leverById.get(e.lever);
-            return <span key={i} className={`tmark ${e.t > t ? 'future' : ''}`} style={{ left: `calc(7px + (100% - 14px) * ${Math.min(e.t, max) / max})` }} title={`Month ${e.t}: ${l?.label ?? e.lever} ${e.fire ? 'applied' : '→'} ${l ? leverValueLabel(l, e.value) : e.value}`} />;
+            return <span key={i} className={`tmark ${e.t > t ? 'future' : ''}`} style={{ left: at(e.t) }} title={`${monthLabel(display, e.t)}: ${l?.label ?? e.lever} ${e.fire ? 'triggered' : '→'} ${l ? leverValueLabel(l, e.value) : e.value}`} />;
           })}
         </div>
       </div>

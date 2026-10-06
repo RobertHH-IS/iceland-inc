@@ -3,6 +3,7 @@
  * Refresh deliberately from the linked primary sources; these are not live feeds.
  */
 import type { EngineClient } from '../engine-client.ts';
+import { calendarLabel } from './effects.ts';
 
 export const CONTEXT_VERIFIED_ON = '2026-09-30';
 
@@ -91,6 +92,20 @@ export function modelContext(client: EngineClient): ContextRow[] {
     rows.push({ id: 'model-money', label: 'Calibration money scale', value: 'GDP = 100 = ISK 4,941.211 bn', status: 'model-assumption', period: '2025 nominal GDP scale', detail: 'One money unit is ISK 49.41211 bn. Stocks use baseline annual GDP; money flows use the same scale per year. This scale is not an estimate of today’s GDP.' });
   }
   return rows;
+}
+
+/** The one line under the header on a model that opens on a dated month 0: what month 0 is and
+ *  what the dashed no-change path is. Nothing else sits in the strip. null for other models. */
+export function todayLine(client: Pick<EngineClient, 'calendar' | 'openingInfo' | 'info'>): string | null {
+  if (!client.calendar) return null;
+  const start = client.openingInfo ? `${client.openingInfo.label}, from published data` : `${client.info.label} in ${calendarLabel(client.calendar, 0, 'long')}`;
+  return `${start}. Without your changes it follows its own rules (dashed lines): a teaching model, not a forecast.`;
+}
+
+/** The assumed trends the no-change path follows on a growing model, read from the start. */
+export function trendContext(client: EngineClient): ContextRow[] {
+  const keep = new Set(['model-growth', 'model-price-trend', 'model-world-growth', 'model-population-growth', 'model-productivity-growth']);
+  return modelContext(client).filter((row) => keep.has(row.id));
 }
 
 export const CONTEXT_GAPS = 'There is no automatic background path for world demand, population growth, productivity or foreign equity prices. Modelled migration and other responses can still change the economy after a lever moves. A growing start and a run from today’s state require a separate, specified reference path; these figures do not create one.';
