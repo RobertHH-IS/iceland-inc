@@ -8,8 +8,8 @@
  * queries the views have asked for (see docs/interface.md).
  *
  * The clock: while playing, the client advances one month per tick, recording every indicator
- * month by month for the charts. A tick comes every TICK_MS ÷ speed: at 1× a month every two
- * seconds, at 3× every two-thirds of a second, at 6× every third of a second.
+ * month by month for the charts. A tick comes every TICK_MS ÷ speed: at 1× a month every
+ * second, at 3× every third of a second, at 6× every sixth of a second.
  * setLever and fire start the clock when it is paused. seek moves anywhere between month 0 and
  * the furthest month simulated so far (the horizon); going back replays from the engine's
  * snapshots, so the numbers are identical to a straight run.
@@ -39,7 +39,7 @@ import { describeModel, type ModelInfo } from './model/info.ts';
 export type Speed = 1 | 3 | 6;
 export const SPEEDS: readonly Speed[] = [1, 3, 6];
 /** Milliseconds per month at 1×; a speed of 3 or 6 divides it. */
-export const TICK_MS = 2000;
+export const TICK_MS = 1000;
 /** The clock stops here (100 years): the history of every variable is kept for seek(). */
 export const MAX_MONTHS = 1200;
 

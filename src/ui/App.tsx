@@ -192,7 +192,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
   const [ledgerCols, setLedgerCols] = useState<'players' | 'map'>('players');
   const [nav, setNav] = useState<NavState>(EMPTY_NAV);
   const [chartTab, setChartTab] = useState<string | null>(null);
-  const [reportBasis, setReportBasis] = useState<ReportBasis>('nominal');
+  const [reportBasis, setReportBasis] = useState<ReportBasis>('deviation');
   const [contextOpen, setContextOpen] = useState(false);
   const [share, setShare] = useState<ShareState>({ status: 'idle' });
   const selection = navCurrent(nav);

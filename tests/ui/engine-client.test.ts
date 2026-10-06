@@ -309,7 +309,7 @@ describe('engine client: stabilisers and padlocks (decisions 0004 and 0010)', ()
   });
 
   test('a lever set and unlocked before the clock ticks is handed back from the value set: the month runs first, for all four levers with a rule', () => {
-    // A month is two seconds at 1×, so a stepper click and then the padlock land in one month. The
+    // A month is one second at 1×, so a stepper click and then the padlock land in one month. The
     // rule steps from the value in force, and a lever set this month has not been in force yet:
     // without the month in between the key rate went from 5% locked straight back to "auto 3%".
     const CASES: [client: () => EngineClient, lever: string, share: [number, number]][] = [

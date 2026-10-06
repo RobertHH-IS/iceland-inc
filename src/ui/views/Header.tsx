@@ -10,9 +10,9 @@ import type { Id, ScenarioEvent, SignViolation } from '../../core/types.ts';
 import { SPEEDS, type ChecksSummary, type EngineClient, type Speed } from '../engine-client.ts';
 
 const SPEED_LABELS: Record<Speed, string> = {
-  1: 'A month every 2 seconds',
-  3: 'Three months every 2 seconds',
-  6: 'Six months every 2 seconds',
+  1: 'A month every second',
+  3: 'Three months every second',
+  6: 'Six months every second',
 };
 import { calendarLabel, displayOf, januaries, monthLabel } from '../model/effects.ts';
 import { fmtClock, fmtResidual } from '../model/format.ts';

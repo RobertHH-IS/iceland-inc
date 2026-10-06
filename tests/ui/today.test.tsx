@@ -109,7 +109,7 @@ describe('a dated opening: the start', () => {
     c.dispose();
   });
 
-  test('1× is one month every two seconds', () => {
+  test('1× is one month every second', () => {
     const delays: number[] = [];
     const real = globalThis.setInterval;
     globalThis.setInterval = ((fn: () => void, ms?: number) => {
@@ -124,8 +124,8 @@ describe('a dated opening: the start', () => {
     } finally {
       globalThis.setInterval = real;
     }
-    expect(TICK_MS).toBe(2000);
-    expect(delays).toEqual([2000]);
+    expect(TICK_MS).toBe(1000);
+    expect(delays).toEqual([1000]);
   });
 });
 

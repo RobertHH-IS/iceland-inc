@@ -42,7 +42,7 @@ const inspect = (c: EngineClient, ...s: Selection[]) =>
 const css = readFileSync(new URL('../../src/ui/styles.css', import.meta.url), 'utf8');
 
 describe(`the model the application opens on ('${opened}')`, () => {
-  test('it is the first preferred model, it renders, and 1× is a month every two seconds', () => {
+  test('it is the first preferred model, it renders, and 1× is a month every second', () => {
     expect(PREFERRED_MODELS).toEqual(['iceland-today', 'iceland', 'reference']);
     expect(LINK_ONLY_MODELS).toEqual(['iceland-growing']);
     // Iceland today, or until it is registered the growing variant, never the stationary controls
@@ -51,7 +51,7 @@ describe(`the model the application opens on ('${opened}')`, () => {
     expect(pickModel(ids, 'iceland-growing')).toBe('iceland-growing');
     expect(switcherModels(applicationModels, 'iceland').map((m) => m.id)).not.toContain('iceland-growing');
     expect(switcherModels(applicationModels, 'iceland-growing').map((m) => m.id)).toContain('iceland-growing');
-    expect(TICK_MS).toBe(2000);
+    expect(TICK_MS).toBe(1000);
     const html = renderToString(<App initialModelId={opened} />);
     expect(html).toContain(def.label);
     // every lever with a rule starts unlocked (the key rate's section is the open one), and
