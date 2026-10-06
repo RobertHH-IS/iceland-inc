@@ -106,7 +106,8 @@ describe(`the model the application opens on ('${opened}')`, () => {
     const c = fresh();
     const lever = c.info.leverById.get('keyRate')!;
     c.step(6);
-    c.setLever('keyRate', 6); // a stepper click, which locks it …
+    const raised = lever.default + 3; // three points above the start value (3% on the growing variant, 8% today)
+    c.setLever('keyRate', raised); // a stepper click, which locks it …
     c.setLever('keyRateLock', 0); // … and the padlock, within the same month
     c.pause();
     const f = c.getFrame();
@@ -114,7 +115,7 @@ describe(`the model the application opens on ('${opened}')`, () => {
     expect(f.t).toBe(7); // the month the lever was set in ran first
     const pad = f.stabilisers.find((s) => s.lever === 'keyRate')!;
     expect(pad.locked).toBe(false);
-    expect(pad.current).toBeCloseTo(6, 12);
+    expect(pad.current).toBeCloseTo(raised, 12);
     const html = renderToString(<LeverRow lever={lever} value={f.levers[lever.index]} fired={0} client={c} pad={pad} />);
     expect(html).toContain('class="lever auto"');
     expect(html).toContain('>auto</span>');
@@ -130,7 +131,7 @@ describe(`the model the application opens on ('${opened}')`, () => {
     c.step(1);
     const next = c.getFrame().stabilisers.find((s) => s.lever === 'keyRate')!;
     expect(next.locked).toBe(false);
-    expect(next.current).toBeLessThan(6);
+    expect(next.current).toBeLessThan(raised);
     expect(c.referenceVarSeries!('keyRate', 0, 8)).toHaveLength(9);
     c.dispose();
   });
@@ -190,12 +191,21 @@ describe(`the model the application opens on ('${opened}')`, () => {
       if (r.change) expect(Math.abs(c.value(r.id) - c.baseline(r.id))).toBeGreaterThan(1e-7);
       else expect(c.value(r.id)).toBeGreaterThan(1e-7);
     }
-    expect(rows.map((r) => r.label)).toEqual(['Operating cash / debt service', 'Principal refinancing refused', 'Gross credit refused', 'Owner cash support', 'Funded investment', 'Funded jobs', 'Owner payout']);
+    const labels = rows.map((r) => r.label);
+    // which amounts are in force is the model's outcome: on the growing variant tourism firms stay
+    // current on their loans at 3% rates; opened on today's 8% they fall into arrears, so their
+    // list names the overdue principal and the write-offs instead of owner support
+    if (opened === 'iceland-growing') expect(labels).toEqual(['Operating cash / debt service', 'Principal refinancing refused', 'Gross credit refused', 'Owner cash support', 'Funded investment', 'Funded jobs', 'Owner payout']);
+    else {
+      expect(labels[0]).toBe('Operating cash / debt service');
+      expect(labels).toContain('Funded jobs');
+      expect(new Set(labels).size).toBe(labels.length);
+    }
     const html = inspect(c, { kind: 'group', id: 'firms' });
     expect(count(html, /class="financial-driver"/g)).toBe(rows.length);
     expect(html).toContain(`<h5>${c.info.playerById.get('XT')!.label}</h5>`);
     // the sectors that pay as usual are not listed, and nothing explains itself at length
-    for (const quiet of ['Unpaid interest', 'Claims written off', 'Gross credit approved', 'Click an amount', 'not additive']) expect(html).not.toContain(quiet);
+    for (const quiet of ['Unpaid interest', 'Gross credit approved', 'Click an amount', 'not additive', ...(labels.includes('Claims written off') ? [] : ['Claims written off'])]) expect(html).not.toContain(quiet);
     expect(count(html, /<p class="muted small">Sector averages/g)).toBe(1);
     c.dispose();
   });

@@ -8,6 +8,7 @@ import type { ConceptDef, ModelDef } from '../core/types.ts';
 import { referenceModel } from './reference/index.ts';
 import { icelandModel } from './iceland/index.ts';
 import { growingFinancialModel } from './iceland/growing-financial.ts';
+import { icelandTodayModel } from './iceland/today/index.ts';
 import { initialBaselineForGrowingModel } from './iceland/growth.ts';
 import { createEngine, type EngineOptions, type KernelEngine } from '../core/engine.ts';
 import { compile } from '../core/compile.ts';
@@ -41,8 +42,10 @@ export function withConcepts(model: ModelDef, library: ConceptDef[] = conceptLib
 
 export const models: ModelDef[] = [withConcepts(referenceModel), withConcepts(icelandModel)];
 
-/** Fixed-point controls stay in `models`; the evolving variant has its own growth/stress checks. */
-export const applicationModels: ModelDef[] = [withConcepts(growingFinancialModel), ...models];
+/** The application opens on Iceland today (the growing variant with financial stress, opened on the
+ *  dated snapshot); the fixed-point controls stay in `models`, and the growing variant stays
+ *  registered so that older links still replay. */
+export const applicationModels: ModelDef[] = [withConcepts(icelandTodayModel), withConcepts(growingFinancialModel), ...models];
 
 /**
  * The engine an application model runs on. Its anchor state is the solved steady state, or the

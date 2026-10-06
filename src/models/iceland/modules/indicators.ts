@@ -32,8 +32,10 @@ const ppGDP = 'pp of GDP';
 
 const I = (x: Omit<IndicatorDef, 'unit'> & { unit?: string }): IndicatorDef => ({ unit: x.display === 'deviation-pct' ? pct : x.display === 'deviation-pp' ? pp : ppGDP, ...x });
 
-/** Reporting conversions only. Model money is scaled by the solved variant's baseline GDP. */
-const isk = (c: IndicatorCtx, amount: number) => amount * GDP_BN / c.base('nominalGDP');
+/** Reporting conversions only: one model unit is 1% of 2025 nominal GDP, ISK 49.41211 bn, on every
+ *  model (docs/design/today-opening.md §2). A fixed unit, never an anchor value: anchors can be
+ *  overridden by a dated opening, and an amount in krónur must not depend on them. */
+const isk = (_c: IndicatorCtx, amount: number) => (amount * GDP_BN) / 100;
 const profit = (c: IndicatorCtx, firms: readonly Firm[]) => firms.reduce((s, j) => s + c.v(`profits${j}`) - c.v(`corporateTax${j}`), 0);
 const importBill = (c: IndicatorCtx) => ['Consumer', 'Inputs', 'Equipment', 'Public', 'Exporters'].reduce((s, k) => s + c.v(`imports${k}`), 0);
 const govDebtAmount = (c: IndicatorCtx) => c.stock('govBonds', 'G') + c.stock('indexedBonds', 'G');
