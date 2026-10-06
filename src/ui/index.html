@@ -4,10 +4,54 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
-    <meta name="description" content="An explorable economy of Iceland: money flowing between balance sheets, with every rule explained." />
+    <meta name="theme-color" content="#0b0f1a" />
+    <title>Iceland Inc. · An explorable model of Iceland’s economy</title>
+    <meta name="description" content="Pull a lever, such as a higher key rate or a 10% wage settlement, and watch the money move through Iceland’s economy month by month. Every rule explained." />
     <meta name="author" content="Robert Helgason" />
-    <title>Iceland Inc.</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B0F1A'/%3E%3Cpath d='M6 20c5-9 15-9 20 0' fill='none' stroke='%237FE3FF' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='14' r='2.5' fill='%23FFB454'/%3E%3C/svg%3E" />
+    <link rel="canonical" href="https://iceland-inc.vercel.app/" />
+
+    <!-- Link previews (LinkedIn, Facebook, Slack, X). These need the public site's full address;
+         the image is public/og.png, which `bun run build` copies to the site root (docs/interface.md §8). -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Iceland Inc." />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:url" content="https://iceland-inc.vercel.app/" />
+    <meta property="og:title" content="Iceland Inc. · An explorable model of Iceland’s economy" />
+    <meta property="og:description" content="Pull a lever, such as a higher key rate or a 10% wage settlement, and watch the money move through Iceland’s economy month by month. Every rule explained." />
+    <meta property="og:image" content="https://iceland-inc.vercel.app/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="627" />
+    <meta property="og:image:alt" content="The Iceland Inc. flow map: money moving between the central bank, the government, households, firms, banks, pension funds and the rest of the world after a rise in the key interest rate." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Iceland Inc. · An explorable model of Iceland’s economy" />
+    <meta name="twitter:description" content="Pull a lever, such as a higher key rate or a 10% wage settlement, and watch the money move through Iceland’s economy month by month. Every rule explained." />
+    <meta name="twitter:image" content="https://iceland-inc.vercel.app/og.png" />
+    <meta name="twitter:image:alt" content="The Iceland Inc. flow map: money moving between the central bank, the government, households, firms, banks, pension funds and the rest of the world after a rise in the key interest rate." />
+
+    <link rel="icon" href="./icons/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Iceland Inc.",
+        "url": "https://iceland-inc.vercel.app/",
+        "description": "Pull a lever, such as a higher key rate or a 10% wage settlement, and watch the money move through Iceland’s economy month by month. Every rule explained.",
+        "image": "https://iceland-inc.vercel.app/og.png",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript",
+        "inLanguage": "en",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "Robert Helgason" },
+        "license": "https://opensource.org/license/mit",
+        "sameAs": "https://github.com/RobertHH-IS/iceland-inc"
+      }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -15,6 +59,9 @@
   </head>
   <body>
     <div id="root"><p class="boot">Solving the baseline…</p></div>
+    <noscript>
+      <p class="boot">Iceland Inc. is an interactive model of Iceland’s economy and needs JavaScript to run. The code and its documentation are at <a href="https://github.com/RobertHH-IS/iceland-inc">github.com/RobertHH-IS/iceland-inc</a>.</p>
+    </noscript>
     <script type="module" src="./main.tsx"></script>
   </body>
 </html>

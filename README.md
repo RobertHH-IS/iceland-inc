@@ -59,7 +59,7 @@ bun run dev
 
 ```bash
 bun run dev     # http://localhost:3000, with hot reload
-bun run build   # a static site in dist/ that works from any sub-path (GitHub Pages)
+bun run build   # a static site in dist/ that works from any sub-path (GitHub Pages); public/ is copied to its root
 ```
 
 The interface opens the Iceland model when it is registered in `src/models/index.ts`, otherwise the reference economy; the model switcher in the header lists every registered model. Pull a lever on the left and the clock starts: watch the pipes glow and the charts move, click any pipe, player, chart or idea to see what drives it, and use "Share scenario" for a link that replays exactly. See [docs/interface.md](docs/interface.md) for how it is built and how to extend it.
@@ -74,6 +74,7 @@ src/models/reference/ a small teaching model
 src/models/iceland/   Iceland Inc., as modules
 src/concepts/         the library of economic ideas
 src/ui/               the interface
+public/               files served from the site root: the link-preview image, robots.txt, the sitemap
 data/iceland/         calibration statistics with sources
 legacy/v1-engine/     the previous engine, kept for reference and comparison
 ```
@@ -86,8 +87,8 @@ Read [docs/architecture.md](docs/architecture.md) first. The rules that keep the
 
 Created by Robert Helgason.
 
-- **Code** (everything under `src/`, `tests/`, `scripts/` and `legacy/`, including the model definitions and the texts written in them): [Apache License 2.0](LICENSE).
+- **Code** (everything under `src/`, `tests/`, `scripts/` and `legacy/`, including the model definitions and the texts written in them): [MIT License](LICENSE).
 - **Documentation and reports** (`docs/`, `reports/`, this README and AGENTS.md): [Creative Commons Attribution 4.0](LICENSE-docs) (CC BY 4.0).
 - **Data** in `data/`: its publishers' own terms (Statistics Iceland, the Central Bank of Iceland, HMS and the other sources named in `data/iceland/*-notes.md`). Credit them when you reuse it.
 
-When you redistribute or build on this work, keep the [NOTICE](NOTICE) file and credit Robert Helgason, with a link to https://github.com/RobertHH-IS/iceland-inc.
+When you redistribute or build on this work, keep the copyright and permission notice in [LICENSE](LICENSE) and credit Robert Helgason, with a link to https://github.com/RobertHH-IS/iceland-inc.

@@ -8,7 +8,7 @@
     "typescript": "^7.0.2"
   },
   "description": "An explorable, stock-flow-consistent economy of Iceland: money flowing between balance sheets, with every rule explained.",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "author": "Robert Helgason",
   "private": true,
   "scripts": {
@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "harness": "bun run src/harness/cli.ts",
     "dev": "bun scripts/dev.ts",
-    "build": "bun build src/ui/index.html --outdir dist --production",
+    "build": "bun build src/ui/index.html --outdir dist --production && cp -R public/. dist/",
     "levers": "bun run src/harness/lever-cli.ts"
   },
   "type": "module",
