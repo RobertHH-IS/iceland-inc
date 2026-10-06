@@ -322,6 +322,81 @@ dl.context-list { margin: 0; }
   font-size: 12px;
 }
 
+/* ---------------------------------------------------------------- introduction */
+
+.welcome {
+  width: min(780px, calc(100% - 40px));
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  color: var(--text);
+  background: var(--card);
+  overflow: hidden;
+  box-shadow: 0 24px 100px rgba(0, 0, 0, .6);
+}
+.welcome[open] { display: flex; flex-direction: column; }
+.welcome::backdrop { background: rgba(3, 7, 14, .8); backdrop-filter: blur(5px); }
+.welcome-head {
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  padding: 24px 28px 20px;
+  background: radial-gradient(ellipse at top left, rgba(127, 227, 255, .1), transparent 75%);
+}
+.welcome-eyebrow { color: var(--accent); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+.welcome-head .welcome-eyebrow { margin: 0 0 8px; }
+.welcome-head h2 { font-size: 27px; letter-spacing: -.03em; }
+.welcome-head p:last-child { margin: 8px 0 0; font-size: 13px; max-width: 560px; }
+.welcome-head .icon-btn { margin-top: 4px; }
+.welcome-tabs { display: flex; gap: 6px; padding: 0 28px; border-bottom: 1px solid var(--line); }
+.welcome-tab {
+  padding: 12px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.welcome-tab:hover { color: var(--text); }
+.welcome-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+.welcome-body { padding: 24px 28px; overscroll-behavior: contain; }
+.welcome-tabpanel[hidden] { display: none; }
+.welcome-tabpanel h3 { font-size: 20px; letter-spacing: -.02em; }
+.welcome-tabpanel > p { margin: 10px 0 20px; color: var(--muted); line-height: 1.65; }
+.welcome-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.welcome-cards > div { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, .025); }
+.welcome-number { display: block; color: var(--accent); font-size: 11px; margin-bottom: 14px; }
+.welcome h4 { font-size: 14px; }
+.welcome-cards p, .welcome-note p, .welcome-steps p { color: var(--muted); font-size: 13px; line-height: 1.65; margin: 8px 0 0; }
+.welcome strong { color: var(--text); font-weight: 500; }
+.welcome-note { margin: 20px 0; padding: 16px 18px; border-left: 2px solid var(--amber); background: rgba(255, 180, 84, .04); border-radius: 0 10px 10px 0; }
+.welcome-steps { margin: 0; padding-left: 26px; }
+.welcome-steps li { padding: 0 0 18px 8px; }
+.welcome-steps li:last-child { padding-bottom: 0; }
+.welcome-steps li::marker { color: var(--accent); font-family: var(--mono); font-size: 12px; }
+.welcome kbd { padding: 1px 5px; font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px; color: var(--text); background: var(--card-2); }
+.welcome-changelog article + article { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 20px; }
+.welcome-changelog h4 { margin-top: 6px; }
+.welcome-changelog ul { padding-left: 18px; margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.welcome-changelog li + li { margin-top: 5px; }
+.welcome-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 28px; border-top: 1px solid var(--line); }
+.welcome .welcome-start { color: var(--accent); background: rgba(127, 227, 255, .12); border-color: rgba(127, 227, 255, .35); padding: 9px 14px; }
+
+@media (max-width: 600px) {
+  .welcome { width: calc(100% - 16px); max-height: calc(100dvh - 16px); }
+  .welcome-head { padding: 20px 18px 16px; gap: 12px; }
+  .welcome-head h2 { font-size: 24px; }
+  .welcome-tabs { padding: 0 10px; gap: 0; }
+  .welcome-tab { padding: 12px 8px; font-size: 12px; }
+  .welcome-body { padding: 20px 18px; }
+  .welcome-tabpanel h3 { font-size: 18px; }
+  .welcome-cards { grid-template-columns: 1fr; }
+  .welcome-cards > div { padding: 14px; }
+  .welcome-number { margin-bottom: 6px; }
+  .welcome-footer { align-items: stretch; flex-direction: column; gap: 10px; padding: 14px 18px; }
+  .welcome-start { justify-content: center; }
+}
+
 /* ---------------------------------------------------------------- buttons */
 
 .btn {

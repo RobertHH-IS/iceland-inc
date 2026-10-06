@@ -25,6 +25,9 @@ import { IdeasAtPlay } from './views/IdeasAtPlay.tsx';
 import { Inspector } from './views/Inspector.tsx';
 import { LedgerView } from './views/LedgerView.tsx';
 import { LeverPanel } from './views/LeverPanel.tsx';
+import { WhatIsThis } from './views/WhatIsThis.tsx';
+
+const INTRO_SEEN_KEY = 'iceland-inc:introduction-seen';
 
 /** One engine client per model, created the first time the model is opened. */
 class ClientPool {
@@ -74,6 +77,20 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
   const [pool] = useState(() => new ClientPool(models));
   const choices = useMemo(() => models.map((m) => ({ id: m.id, label: m.label })), [models]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [introOpen, setIntroOpen] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(INTRO_SEEN_KEY) === '1') return;
+    } catch { /* The guide still works when browser storage is unavailable. */ }
+    setIntroOpen(true);
+  }, []);
+  useEffect(() => { if (introOpen) pool.pauseAll(); }, [introOpen, pool]);
+  const openIntro = useCallback(() => setIntroOpen(true), []);
+  const closeIntro = useCallback(() => {
+    setIntroOpen(false);
+    try { window.localStorage.setItem(INTRO_SEEN_KEY, '1'); }
+    catch { /* Keep dismissal usable in restricted browsing modes. */ }
+  }, []);
   /** Notices from migrating a link written before padlocks (decision 0010), shown once it has loaded. */
   const bootNotices = useRef<string[]>([]);
   const [linkView, setLinkView] = useState<LinkView>(() => {
@@ -156,16 +173,21 @@ export function App({ models = registryModels, initialHash = '', initialModelId 
     );
 
   return (
-    <Workspace
-      key={shownId}
-      client={entry.client}
-      models={switcherModels(choices, shownId)}
-      modelId={shownId}
-      link={shownId === modelId ? linkView : { n: 0 }}
-      onModelChange={(id) => switchModel(id)}
-      notice={failed && shownId !== modelId ? `Model '${modelId}' could not be started, showing '${shownId}' instead: ${failed}` : notice}
-      onDismissNotice={() => setNotice(null)}
-    />
+    <>
+      <Workspace
+        key={shownId}
+        client={entry.client}
+        models={switcherModels(choices, shownId)}
+        modelId={shownId}
+        link={shownId === modelId ? linkView : { n: 0 }}
+        onModelChange={(id) => switchModel(id)}
+        notice={failed && shownId !== modelId ? `Model '${modelId}' could not be started, showing '${shownId}' instead: ${failed}` : notice}
+        onDismissNotice={() => setNotice(null)}
+        introOpen={introOpen}
+        onOpenIntro={openIntro}
+      />
+      {introOpen && <WhatIsThis onClose={closeIntro} />}
+    </>
   );
 }
 
@@ -178,9 +200,11 @@ interface WorkspaceProps {
   onModelChange: (id: Id) => void;
   notice: string | null;
   onDismissNotice: () => void;
+  introOpen: boolean;
+  onOpenIntro: () => void;
 }
 
-function Workspace({ client, models, modelId, link, onModelChange, notice, onDismissNotice }: WorkspaceProps) {
+function Workspace({ client, models, modelId, link, onModelChange, notice, onDismissNotice, introOpen, onOpenIntro }: WorkspaceProps) {
   const frame = useFrame(client);
   const info = client.info;
   // The map opens with every group closed, unless a shared link says otherwise.
@@ -249,7 +273,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
   // Space plays and pauses, unless focus is in a control that uses it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== ' ' || e.defaultPrevented || contextOpen) return;
+      if (e.key !== ' ' || e.defaultPrevented || contextOpen || introOpen) return;
       const el = e.target as HTMLElement | null;
       if (el && el !== document.body && el.closest('button, input, select, textarea, a, [role="button"], [contenteditable="true"]')) return;
       e.preventDefault();
@@ -257,7 +281,7 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [client, contextOpen]);
+  }, [client, contextOpen, introOpen]);
 
   const selectedPipe = selection?.kind === 'pipe' ? (pipeBetween(info, frame.legs, selection.from, selection.to, selection.flowKind, frame.legBaselines) ?? undefined) : undefined;
   const allOpen = expandable.every((id) => expanded.has(id));
@@ -282,6 +306,8 @@ function Workspace({ client, models, modelId, link, onModelChange, notice, onDis
         onShare={onShare}
         share={share}
         onShareDone={onShareDone}
+        onIntroduction={onOpenIntro}
+        introductionOpen={introOpen}
         onBaseline={() => setContextOpen(true)}
         baselineOpen={contextOpen}
       />

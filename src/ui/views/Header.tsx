@@ -45,6 +45,8 @@ interface HeaderProps {
   onShare: () => void;
   share: ShareState;
   onShareDone: () => void;
+  onIntroduction?: () => void;
+  introductionOpen?: boolean;
   /** Dated economic context and the assumptions of the model's start. */
   onBaseline?: () => void;
   baselineOpen?: boolean;
@@ -105,6 +107,11 @@ export const Header = memo(function Header(p: HeaderProps) {
             ))}
           </select>
         </label>
+        {p.onIntroduction && (
+          <button id="what-is-this-button" type="button" className="icon-btn" onClick={p.onIntroduction} aria-label="What is this?" title="What is this?" aria-haspopup="dialog" aria-controls={p.introductionOpen ? 'what-is-this' : undefined}>
+            <Icon name="help" />
+          </button>
+        )}
         {p.onBaseline && (
           <button type="button" className="btn baseline-button" onClick={p.onBaseline} aria-expanded={p.baselineOpen ?? false} aria-controls={p.baselineOpen ? 'baseline-context' : undefined}>
             {month0 ? 'Starting data' : <>Baseline &amp; current data</>}

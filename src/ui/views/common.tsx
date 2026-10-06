@@ -44,6 +44,12 @@ const paths: Record<string, ReactNode> = {
       <path d="M12 11v6M12 7.5v.01" />
     </g>
   ),
+  help: (
+    <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9a2.5 2.5 0 1 1 4.1 1.9c-1 .7-1.6 1.1-1.6 2.6M12 17v.01" />
+    </g>
+  ),
   minus: <path d="M6 12h12" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />,
   plus: <path d="M6 12h12M12 6v12" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />,
   undo: <path d="M9 7L5 11l4 4M5 11h9a5 5 0 0 1 0 10h-2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,

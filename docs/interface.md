@@ -11,6 +11,8 @@ bun run build   # bundle a static site into dist/ (works from any sub-path, e.g.
 
 ## 1. Layers
 
+On a first visit, **What is this?** opens an introduction with three tabs: an overview, interaction instructions and a changelog. Dismissing it records a single flag in this browser’s local storage; later visits open straight into the workspace. The header’s question-mark icon (labelled **What is this?**) reopens it anytime. If storage is unavailable, dismissal still works for the current visit. The simulation pauses while the guide opens and stays paused after dismissal. Shared scenarios load before the guide without resetting their events or clock. The native modal contains keyboard focus, supports Escape and backdrop dismissal, blocks workspace interactions, and restores focus when closed. The tabs support Left/Right, Home and End.
+
 ```
 src/ui/
   index.html, main.tsx, styles.css   entry point and the visual language
