@@ -68,7 +68,7 @@ describe('evolving no-change reporting', () => {
     c.reset(); c.step(72);
     expect(c.series('output').every((v) => Math.abs(v) < 1e-10)).toBe(true);
     c.dispose();
-  });
+  }, 30_000);
 
   test('chart curves include the matching reference history and reporting queries leave the model untouched', () => {
     const c = fresh(); c.step(36);

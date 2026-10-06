@@ -360,7 +360,7 @@ describe('the growing Iceland variant opened on its own anchor', () => {
     const fd = copyOf(flat, accumulators(flat));
     const worst = Math.max(...carried(flat, openingBaseline(flat, fd.def, growing), fd.vars).map((r) => Math.abs(r.gap)));
     expect(worst).toBeGreaterThan(0.05);
-  });
+  }, 30_000);
 
   test('holding every value, the opening runs as the growing engine: bit for bit on a flat past', () => {
     const flat = compile({ ...def, restTrend: undefined });

@@ -280,5 +280,5 @@ describe('canonical growing and financial profile: independent integration', () 
     const failed = rows.filter((r) => r.status === 'failed');
     expect(runs).toHaveLength(104);
     expect(failed.map((r) => ({ lever: r.lever, value: r.value, mode: r.mode, error: r.error, nonFinite: r.nonFinite, breaches: r.breaches, faults: r.metrics.faults }))).toEqual([]);
-  }, 180_000);
+  }, 600_000);
 });

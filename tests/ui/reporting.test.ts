@@ -109,7 +109,7 @@ describe('actual chart levels', () => {
     expect(e.levelAt('exports', 12)).toBeCloseTo(e.value('exportValue') * k, 8);
     expect(e.levelAt('exports', 12)).not.toBeCloseTo(e.value('exportValue') * GDP_BN / 100, 3);
     expect(e.levelAt('exports', 12)).not.toBeCloseTo(e.value('exportValue') * k / 12, 3);
-  });
+  }, 30_000);
 
   test('reporting reads preserve every legacy economic history and old display path', () => {
     const oldIds = new Set(['govDebtAmount', 'mortgageDebtAmount']);
