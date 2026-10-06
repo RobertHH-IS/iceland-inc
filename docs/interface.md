@@ -166,7 +166,7 @@ An `indicator` shows in its display units; a `variable` shows its value and its 
 A site that shows a link (LinkedIn, Facebook, Slack, X) or a search engine reads the page without running it, so everything it needs is written out in the `<head>` of `src/ui/index.html`:
 
 - **The card.** The Open Graph tags (`og:title`, `og:description`, `og:image`, `og:url`) are what LinkedIn reads; the `twitter:` tags repeat them for X. The title and description say the same as the page's own `<title>` and description.
-- **The image.** `public/og.png`, 1200 × 627 pixels, which is LinkedIn's size (1.91 wide for 1 high, under 5 MB). It shows the flow map fifteen months after the key rate is raised by one percentage point and held (year 2, month 4).
+- **The image.** `public/og.png`, 1200 × 627 pixels, which is LinkedIn's size (1.91 wide for 1 high, under 5 MB). It shows the flow map of Iceland today in December 2027, fifteen months after the key rate is cut from 8.00% to 6.00% and held, with flows coloured against the no-change path.
 - **Search.** A canonical address, `public/robots.txt`, `public/sitemap.xml`, a short description of the site as structured data (JSON-LD), and a `<noscript>` line for readers that do not run scripts.
 - **Icons.** `src/ui/icons/` holds the favicon and the home-screen icon; `public/favicon.ico` answers browsers and crawlers that ask for that name.
 
